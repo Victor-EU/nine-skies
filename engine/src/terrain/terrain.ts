@@ -12,7 +12,12 @@ import { HeightTileArray, TILE_SAMPLES } from "./tileArray.js";
 import { TILE_KM } from "./syntheticTiles.js";
 import { SyntheticTileSource, type TileSource } from "./tileSource.js";
 import { createTerrainMaterial } from "./terrainMaterial.js";
-import type { WorldScale } from "../sim/scale.js";
+import {
+  hazeDensityPerWorldUnit,
+  hazeFalloffPerWorldUnit,
+  type WorldScale,
+} from "../sim/scale.js";
+import { DEFAULT_HAZE_DENSITY_PER_M, HAZE_SCALE_HEIGHT_M } from "./palette.js";
 
 /**
  * Terrain renderer: four instanced draws, whatever the view holds.
@@ -57,6 +62,13 @@ export class Terrain {
   readonly material: ShaderMaterial;
   readonly meshes: Mesh[] = [];
   private readonly buckets: LodBucket[] = [];
+  /**
+   * Extinction per **real** metre. Held in real units so a scale change
+   * re-derives the uniform rather than inheriting whatever the last scale
+   * left in it. The app overwrites it every frame with the blended region
+   * value; this is what the first frame and the tests fly through.
+   */
+  private readonly hazeDensityPerM = DEFAULT_HAZE_DENSITY_PER_M;
   private readonly maxInstances: number;
   /** Rebase point in real metres; world units are measured from here. */
   private originEastM = 0;
@@ -84,8 +96,9 @@ export class Terrain {
       sunDirection: new Vector3(0.45, 0.72, 0.53).normalize(),
       sunColor: new Color(1.0, 0.97, 0.92),
       hazeColor: new Color(0.72, 0.79, 0.86),
-      hazeDensity: 2.2e-5,
-      hazeHeightFalloff: 1 / 9000,
+      // Authored per real metre; the shader integrates in world units.
+      hazeDensity: hazeDensityPerWorldUnit(this.hazeDensityPerM, options.scale),
+      hazeHeightFalloff: hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, options.scale),
     });
 
     for (const segments of LOD_SEGMENTS) {
@@ -201,6 +214,15 @@ export class Terrain {
     this.material.uniforms.uTileWorldSize!.value = this.tileWorldSize;
     this.material.uniforms.uVerticalExaggeration!.value = scale.verticalExaggeration;
     this.material.uniforms.uSkirtDepth!.value = 900 * scale.verticalExaggeration;
+    // The air is a real quantity; only its expression in world units moves.
+    this.material.uniforms.uHazeHeightFalloff!.value = hazeFalloffPerWorldUnit(
+      HAZE_SCALE_HEIGHT_M,
+      scale,
+    );
+    this.material.uniforms.uHazeDensity!.value = hazeDensityPerWorldUnit(
+      this.hazeDensityPerM,
+      scale,
+    );
   }
 
   private push(lod: LodLevel, tx: number, ty: number, layer: number): void {

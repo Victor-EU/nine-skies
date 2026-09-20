@@ -74,6 +74,22 @@ vec3 elevationColor(float m) {
  * marching. Distance then reads on its own, which is the whole job of the
  * horizon band.
  */
+/**
+ * Scale height of the haze layer, in **real** metres: the height over which
+ * the air thins by 1/e. Art-directed rather than physical (real aerosol sits
+ * far lower), and tuned on screen at the exaggeration the prototype flew with
+ * before F14 moved it. Convert with `hazeFalloffPerWorldUnit` - holding it in
+ * world units is what let it drift in the first place.
+ */
+export const HAZE_SCALE_HEIGHT_M = 6_000;
+
+/**
+ * Extinction per real metre before any region weighting - the neutral air the
+ * terrain and the horizon ring are built with, replaced every frame by the
+ * blended region value once one is known.
+ */
+export const DEFAULT_HAZE_DENSITY_PER_M = 2.75e-6;
+
 export const AERIAL_HAZE_GLSL = /* glsl */ `
 float airMass(float yA, float yB, float falloff) {
   float y0 = max(min(yA, yB), 0.0);

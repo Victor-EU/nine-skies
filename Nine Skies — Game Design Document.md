@@ -137,7 +137,7 @@ At the starting 1:8 compression, cruise covers about 130 real kilometres a minut
 | Full east–west crossing (coast to Pamirs) | \~5,200 km | \~40 min | \~20 min |
 | Full north–south (Mohe → Sanya) | \~5,500 km | \~42 min | \~21 min |
 
-The compression test moves these: at 1:5 Sea to Sky is about 40 minutes, at 1:12 about 17. Working bounds: 25 minutes is the ceiling for a narrated trip, 15 the floor below which the plateau stops feeling vast.
+These times are set by cruise speed, not by the compression — 130 real kilometres a minute over a 3,220 km route is 25 minutes however hard the world is compressed, and a compression change moves nothing a player can see (prototype finding F15). The spread this paragraph used to attribute to compression is a speed test: at 80 km/min Sea to Sky is 40 minutes, at 190 about 17. Working bounds: 25 minutes is the ceiling for a narrated trip, 15 the floor below which the plateau stops feeling vast.
 
 Whole game: nine expeditions total roughly 4.5 hours, the twelve challenges about one hour, and filling the atlas in free flight another 6 to 10 hours, so 12 to 15 hours to see everything, with the core thesis delivered inside the first 30 minutes.
 
@@ -306,7 +306,7 @@ Build in three stages, each one playable and each one testing the thesis before 
 
 **Milestones**
 
-- [ ] Prototype: single-corridor terrain flying in the browser, testing 1:5, 1:8 and 1:12 horizontal compression
+- [ ] Prototype: single-corridor terrain flying in the browser, testing apparent relief at 4x, 6x and 9x
 - [ ] Prototype review: does the plateau climb land emotionally? Go/no-go on 3D
 - [ ] Vertical slice: Expedition 1 playable end to end
 - [ ] External playtest with 10 players who know little about China; measure the sketch-the-elevation test
@@ -356,7 +356,7 @@ Walking the game end to end as a first-time player turned up the gaps below. Sma
 
 **Decisions, 20 September 2026**
 
-- Horizontal compression: test 1:5, 1:8 and 1:12 in the prototype before choosing
+- Horizontal compression: fixed at 1:8 as an engineering parameter. It was to be playtested at 1:5 / 1:8 / 1:12; with the relief held constant those are the same picture, so what gets tested in the prototype is apparent relief at 4x, 6x and 9x instead, and trip length is tested as cruise speed (F15)
 - Vehicle: plane is the default; hot-air balloon offered as a free-flight option
 - Expedition 9 (The Line) unlocks after three other expeditions
 - Place names: Chinese characters + English always; pinyin added via a setting

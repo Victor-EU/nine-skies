@@ -664,3 +664,101 @@ are a fair test.
 Caveat: these are L0 numbers, the near ground. Distant tiles drop to coarser
 LOD and read shallower, so the walls are worst exactly where the player is
 looking.
+
+## F15 — With the drama held, horizontal compression is a change of units
+
+F14 split the G1 A/B into two questions and recommended asking them
+separately. Building the instrument answered the second one on its own: **the
+compression axis cannot be played.** Hold the apparent exaggeration and the
+three candidates are the same flight, frame for frame.
+
+**The argument.** The render transform from real space is
+`diag(1/c, A/c, 1/c)`, which is the fixed distortion `diag(1, A, 1)` with a
+uniform `1/c` on top. Every other length in the frame is derived from a real
+quantity and so carries the same `1/c`: the camera's distance behind the
+aircraft, the clip planes, the tile size, the skirt depth, the aircraft's
+position after any amount of flying. A uniform scale applied to both the scene
+and the camera is not visible. Compression is therefore a choice of units —
+unobservable in principle, not merely unobserved in this prototype.
+
+**Measured, because an argument is not a measurement.** Same real start, same
+stick inputs, 5,400 simulation steps, then one frame read back from the
+framebuffer and differenced pixel by pixel:
+
+| | real km flown | altitude | world units flown | frame vs 1:8 |
+| --- | ---: | ---: | ---: | ---: |
+| 1:5 × 1.20 | 208.075 | 1,367.812 m | 41,615 | 0.0016 |
+| 1:8 × 0.75 | 208.075 | 1,367.812 m | 26,009 | — |
+| 1:12 × 0.50 | 208.075 | 1,367.812 m | 17,340 | 0.0054 |
+| *1:8 at A = 9* | *208.075* | *1,367.812 m* | *26,009* | *3.135* |
+
+The frame column is mean absolute difference per channel, 0–255. The three
+compressions differ by five thousandths of one grey level — float noise on
+silhouette edges, worst single pixel 27. One step of the *drama* axis, from the
+same position in the same flight, differs by 3.135, some six hundred times
+more. The distances are identical to the millimetre because the simulation
+never sees the compression at all.
+
+**Two confounds turned up while building it,** both of which would have made
+the axis look like it did something:
+
+- **The chase camera was half in world units.** It sat `back = 2080/c` behind
+  the aircraft — correctly real — and then `+95` world units above it, which is
+  79 real metres at 1:5 and 190 at 1:12. The cohort would have ranked camera
+  heights alongside compressions. Both vertical offsets now go through
+  `toWorldH` with the rest of the rig.
+- **Haze was integrated in world units.** `aerialFog` accumulates optical depth
+  along the *world* sight line, so the same real 100 km was 20,000 units at 1:5
+  and 8,333 at 1:12: **1:12 looked 2.4× clearer** than 1:5 for no reason a
+  player could name, in the one respect — air — the GDD sells as the difference
+  between the basin and the plateau. Region densities are now authored per real
+  metre and converted at upload.
+
+  The vertical half of the same bug had already fired. The height falloff was
+  `1/9000` per world `y`, and world `y` carries the exaggeration, so real scale
+  height is `9000/vex`. When F14 dropped the exaggeration from 1.5 to 0.75 an
+  hour earlier it silently doubled the haze layer's real scale height from
+  6 km to 12 km — a change to the atmosphere made by a change to the terrain,
+  which nobody asked for and nobody would have found by reading either diff.
+  The scale height is now 6,000 real metres, named, and cannot drift again.
+
+**What G1 should ask instead.** The gate's stated pass condition is that "one
+compression ratio wins the preference ranking clearly". No ratio can win a
+ranking of identical stimuli. What the GDD means by compression is visible in
+its own two descriptions of it, which cannot both be true:
+
+> cruise covers about 130 real kilometres a minute
+
+> at 1:5 Sea to Sky is about 40 minutes, at 1:12 about 17
+
+Both are in § The world, nine lines apart.
+
+The first is implemented and is scale-free. The Sea to Sky waypoints total
+**3,219.7 real km**, which at 130 km/min is **24.8 minutes at every
+compression** — matching the GDD's own figure for 1:8 while ignoring the
+compression entirely. The second describes a trip-length comparison, and trip
+length is set by `MODE_GROUND_KM_PER_MIN`. The GDD is asking a **speed**
+question in the vocabulary of scale.
+
+So:
+
+- **Axis 1, drama** — `A ∈ {4, 6, 9}` at 1:8. Built, and the only axis that
+  changes the picture.
+- **Axis 2, pacing** — cruise speed, not compression. `{80, 130, 190}` real
+  km/min puts Sea to Sky at **40.2 / 24.8 / 16.9 minutes**, which is the
+  40 / 25 / 17 spread the GDD wanted to compare, reproduced exactly.
+- **Compression** is an engineering parameter and should be decided on
+  engineering grounds — float precision in world coordinates against tile
+  counts and streaming radius — then fixed. It does not belong in a playtest.
+  1:8 is a reasonable place to fix it and nothing measured here argues against
+  it.
+
+The `C` key stays, because a toggle that visibly does nothing is now the
+cheapest demonstration of this finding that exists. There is no gallery for
+this one: `docs/ab/` has nothing to show when the images are identical.
+
+**Action.** Axis 1 is built and keyed to `V`. Axis 2 needs the speed toggle
+before the cohort is recruited — the same shape of work, half a day. The G1
+protocol in the build plan and the compression test in the GDD have both been
+rewritten against this finding; a playtest run on the old protocol would have
+produced a clean, meaningless ranking.

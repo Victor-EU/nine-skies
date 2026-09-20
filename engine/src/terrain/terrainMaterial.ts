@@ -145,6 +145,12 @@ export function createTerrainMaterial(
 export interface RegionAtmosphere {
   name: string;
   hazeColor: Color;
+  /**
+   * Extinction per **real** metre of sight line. Convert with
+   * `hazeDensityPerWorldUnit` at the point of upload; these numbers are a
+   * claim about the air over a place and must not depend on how hard the
+   * world happens to be compressed.
+   */
   hazeDensity: number;
   sunColor: Color;
 }
@@ -153,19 +159,19 @@ export const SPIKE_REGIONS: RegionAtmosphere[] = [
   {
     name: "Yangtze & East coast",
     hazeColor: new Color(0.78, 0.80, 0.82),
-    hazeDensity: 2.8e-5,
+    hazeDensity: 3.5e-6,
     sunColor: new Color(1.0, 0.97, 0.92),
   },
   {
     name: "Sichuan Basin",
     hazeColor: new Color(0.86, 0.88, 0.86),
-    hazeDensity: 5.6e-5,
+    hazeDensity: 7.0e-6,
     sunColor: new Color(0.96, 0.96, 0.94),
   },
   {
     name: "Qinghai-Tibet Plateau",
     hazeColor: new Color(0.55, 0.68, 0.86),
-    hazeDensity: 6.8e-6,
+    hazeDensity: 8.5e-7,
     sunColor: new Color(1.0, 0.99, 0.96),
   },
 ];

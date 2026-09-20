@@ -11,6 +11,10 @@ import {
   buildSyntheticHorizonField,
 } from "../../engine/src/terrain/horizonField.js";
 import {
+  DEFAULT_HAZE_DENSITY_PER_M,
+  HAZE_SCALE_HEIGHT_M,
+} from "../../engine/src/terrain/palette.js";
+import {
   SyntheticTileSource,
   loadWorld,
   type LoadedWorld,
@@ -26,8 +30,20 @@ import {
 } from "../../engine/src/sim/flight.js";
 import { createProbe } from "./probe.js";
 import {
+  CAMERA_AIM_AHEAD,
+  CAMERA_AIM_UP_REAL_M,
+  CAMERA_BACK_REAL_M,
+  CAMERA_FAR_REAL_M,
+  CAMERA_NEAR_REAL_M,
+  CAMERA_UP_REAL_M,
   COMPRESSION_CANDIDATES,
   DEFAULT_SCALE,
+  DRAMA_CANDIDATES,
+  apparentExaggeration,
+  hazeDensityPerWorldUnit,
+  hazeFalloffPerWorldUnit,
+  scaleFor,
+  toWorldH,
   type WorldScale,
 } from "../../engine/src/sim/scale.js";
 
@@ -46,10 +62,17 @@ const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
 const scene = new Scene();
-const camera = new PerspectiveCamera(62, 1, 20, 400_000);
+// The clip planes are real distances divided by the compression, so they are
+// set by `applyScale` once the terrain exists rather than written here.
+const camera = new PerspectiveCamera(62, 1, 1, 1);
 
 let scale: WorldScale = { ...DEFAULT_SCALE };
-let compressionIndex = COMPRESSION_CANDIDATES.indexOf(8 as never);
+// Widening lookup: the candidate lists are `as const` so the tests can assert
+// membership, which leaves `indexOf` refusing a plain number without it.
+const indexIn = (candidates: readonly number[], value: number) => candidates.indexOf(value);
+// A test asserts the default is on the grid, so neither of these is -1.
+let compressionIndex = indexIn(COMPRESSION_CANDIDATES, DEFAULT_SCALE.horizontalCompression);
+let dramaIndex = indexIn(DRAMA_CANDIDATES, apparentExaggeration(DEFAULT_SCALE));
 
 /**
  * Real elevation if the pipeline has published a corridor, otherwise the
@@ -105,10 +128,17 @@ const ring = new HorizonRing(horizon.front, {
   sunColor: new Color(1.0, 0.97, 0.92),
   // The same sun the terrain uses, so the two agree about where the light is.
   sunDirection: new Vector3(0.45, 0.72, 0.53).normalize(),
-  hazeDensity: 2.2e-5,
-  hazeHeightFalloff: 1 / 9000,
+  // Both per real metre, converted for the scale in flight - the frame loop
+  // rewrites them every frame anyway, but a first frame drawn in the wrong
+  // units is still a wrong first frame.
+  hazeDensity: hazeDensityPerWorldUnit(DEFAULT_HAZE_DENSITY_PER_M, DEFAULT_SCALE),
+  hazeHeightFalloff: hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, DEFAULT_SCALE),
 });
 scene.add(ring.mesh);
+
+// Push the starting scale through terrain, ring and camera by the same path a
+// toggle takes, so the boot state cannot drift from a toggled one.
+applyScale();
 
 // Start on the coast, pointed inland, at the altitude the GDD opens on. A
 // published corridor carries its own start - Shanghai, aimed at Lhasa - because
@@ -131,30 +161,48 @@ addEventListener("keydown", (e) => {
   if (k === "2") input.mode = "cruise";
   if (k === "3") input.mode = "boost";
   if (k === "c") cycleCompression();
+  if (k === "v") cycleDrama();
   // The A/B for F1 itself: with the impostor off, the plateau is not drawn.
   if (k === "h") ring.mesh.visible = !ring.mesh.visible;
   if (k === "r") Object.assign(flight, createFlightState({ ...START, headingRad: Math.PI / 2 }));
-  if (["w", "a", "s", "d", "1", "2", "3", "c", "h", "r"].includes(k)) e.preventDefault();
+  if (["w", "a", "s", "d", "1", "2", "3", "c", "v", "h", "r"].includes(k)) e.preventDefault();
 });
 addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
 
 /**
- * The G1 A/B toggle. Compression is a live uniform (build plan D6) precisely
- * so a playtester can be flipped between 1:5, 1:8 and 1:12 mid-flight without
- * rebuilding the world.
+ * The G1 A/B, both axes (build plan D6, finding F14).
+ *
+ * Scale is a live uniform precisely so a playtester can be flipped mid-flight
+ * without rebuilding the world - but there are two things to flip, not one,
+ * and welding them together is what F14 caught. The state here is the pair of
+ * answers, `(compression, drama)`; the vertical exaggeration the renderer
+ * wants is derived from them and never set directly.
  */
-function cycleCompression(): void {
-  compressionIndex = (compressionIndex + 1) % COMPRESSION_CANDIDATES.length;
-  scale = {
-    ...scale,
-    horizontalCompression: COMPRESSION_CANDIDATES[compressionIndex]!,
-  };
+function applyScale(): void {
+  scale = scaleFor(COMPRESSION_CANDIDATES[compressionIndex]!, DRAMA_CANDIDATES[dramaIndex]!);
   terrain.setScale(scale);
   // The profile is stored in real kilometres, so a scale change is a rebuild
   // of the vertices and never another march.
   ring.rebuild(scale);
-  camera.far = 400_000 / (scale.horizontalCompression / 8);
+  // Real distances, divided by the compression. The aircraft is the same real
+  // size in all three candidates, so it is framed identically in all three -
+  // the A/B compares worlds rather than cameras, and every candidate gets the
+  // same depth precision.
+  camera.near = toWorldH(CAMERA_NEAR_REAL_M, scale);
+  camera.far = toWorldH(CAMERA_FAR_REAL_M, scale);
   camera.updateProjectionMatrix();
+}
+
+/** How much world is on screen. Terrain shape does not move. */
+function cycleCompression(): void {
+  compressionIndex = (compressionIndex + 1) % COMPRESSION_CANDIDATES.length;
+  applyScale();
+}
+
+/** How dramatic the relief looks. The framing does not move. */
+function cycleDrama(): void {
+  dramaIndex = (dramaIndex + 1) % DRAMA_CANDIDATES.length;
+  applyScale();
 }
 
 function resize(): void {
@@ -225,6 +273,25 @@ if (import.meta.env.DEV) {
     flight,
     terrain,
     getScale: () => scale,
+    /**
+     * Set either A/B axis by value. G1 randomises the order each participant
+     * sees them in, which a cycle key cannot do - so the operator's script
+     * drives these, and the keys are for the operator's own hands.
+     */
+    setCompression(compression: number): boolean {
+      const i = indexIn(COMPRESSION_CANDIDATES, compression);
+      if (i < 0) return false;
+      compressionIndex = i;
+      applyScale();
+      return true;
+    },
+    setDrama(apparent: number): boolean {
+      const i = indexIn(DRAMA_CANDIDATES, apparent);
+      if (i < 0) return false;
+      dramaIndex = i;
+      applyScale();
+      return true;
+    },
     horizon,
     ring,
     fieldMs,
@@ -302,20 +369,34 @@ function frame(now: number): void {
   );
 
   // Chase camera: behind and above, looking a little ahead of the aircraft.
+  // Every offset goes through `toWorldH`, including the two vertical ones -
+  // see the note on the constants. That is what makes the compression A/B a
+  // comparison of worlds rather than of camera rigs.
   const fwd = new Vector3(Math.sin(flight.headingRad), 0, Math.cos(flight.headingRad));
-  const back = 260 * (8 / scale.horizontalCompression);
-  camera.position.copy(cameraWorld).addScaledVector(fwd, -back).add(new Vector3(0, 95, 0));
-  camera.lookAt(cameraWorld.clone().addScaledVector(fwd, back * 1.6).add(new Vector3(0, 10, 0)));
+  const back = toWorldH(CAMERA_BACK_REAL_M, scale);
+  const up = toWorldH(CAMERA_UP_REAL_M, scale);
+  camera.position.copy(cameraWorld).addScaledVector(fwd, -back).add(new Vector3(0, up, 0));
+  camera.lookAt(
+    cameraWorld
+      .clone()
+      .addScaledVector(fwd, back * CAMERA_AIM_AHEAD)
+      .add(new Vector3(0, toWorldH(CAMERA_AIM_UP_REAL_M, scale), 0)),
+  );
 
   // Sky deepens as the air thins - the GDD's first visual cue for altitude -
   // over whatever the region underneath is doing.
   const thin = Math.min(1, Math.max(0, (1 - tm.densityRatio) / 0.45));
   const density = blendAtmosphere(inlandKm, groundM, thin);
   renderer.setClearColor(sky, 1);
+  // The region table and the scale height are real quantities; the shaders
+  // integrate in world units. Convert here, once, for both materials.
+  const hazeDensityWorld = hazeDensityPerWorldUnit(density, scale);
+  const hazeFalloffWorld = hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, scale);
   for (const m of [terrain.material, ring.material]) {
     (m.uniforms.uHazeColor!.value as Color).copy(sky);
     (m.uniforms.uSunColor!.value as Color).copy(regionSun);
-    m.uniforms.uHazeDensity!.value = density;
+    m.uniforms.uHazeDensity!.value = hazeDensityWorld;
+    m.uniforms.uHazeHeightFalloff!.value = hazeFalloffWorld;
   }
 
   renderer.render(scene, camera);
@@ -355,7 +436,11 @@ function frame(now: number): void {
     `horizon ${ring.mesh.visible ? "on" : "OFF"} · ${ring.triangleCount / 1000}k tris · ` +
     `${horizon.lastSliceMs.toFixed(2)} ms${horizon.marching ? " ◂ marching" : ""}`;
   el("world").textContent = worldLabel;
-  el("scaleText").textContent = `1:${scale.horizontalCompression} · ${scale.verticalExaggeration}x vertical`;
+  // Both axes, always, and the product they make. An operator's notes on a
+  // G1 session are worthless if they record only one of the two.
+  el("scaleText").textContent =
+    `1:${scale.horizontalCompression} · A ${+apparentExaggeration(scale).toFixed(2)}` +
+    ` (${+scale.verticalExaggeration.toFixed(3)}x vertical)`;
 
   requestAnimationFrame(frame);
 }
