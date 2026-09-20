@@ -2802,3 +2802,58 @@ fifteen-to-thirty-five band — 1.7 over, where it was 0.5 over — and that is
 the deliberate consequence of two decisions taken together: keep the climb,
 and arrive. Recorded in *Open questions* as the band being the thing that
 should move, since it is the only one of the three that was never measured.
+
+## F32 — The budget is costed at 2.07 megapixels and the floor device draws 5.94
+
+Deciding the floor device settled one question and opened a smaller one
+underneath it. Every line of the frame budget is written against **1080p**,
+and no Mac renders 1080p at any setting the game currently asks for.
+
+| | pixels |
+| --- | ---: |
+| the budget's 1920×1080 | 2.07 Mpx |
+| this Mac's logical display, 1512×982 | 1.48 Mpx |
+| …at `devicePixelRatio` 2, which is what the app asks for | **5.94 Mpx** |
+
+`app/src/main.ts` has always read
+`renderer.setPixelRatio(Math.min(devicePixelRatio, 2))`. On the old Iris Xe
+floor that line was nearly free — a 1080p panel at DPR 1 is the budget's own
+resolution. On the new floor it means a fullscreen frame is **2.9× the pixels
+the budget was costed against**, and F30 measured fragment cost as close to
+linear in them.
+
+**What this finding does not contain is the number.** The fit that would price
+it — 0.347 ms per megapixel — is fitted over 0.52 to 2.76 Mpx, and 5.94 is
+more than twice beyond its last data point. Multiplying it out gives about
+2.3 ms, and that figure is an extrapolation rather than a measurement, which
+is a distinction this document has spent thirty-one findings not blurring. It
+is recorded here as the quantity to go and get.
+
+The capture already takes it: `width`/`height` and `only` were added so the
+question needs one station rather than seven.
+
+```
+__ns.frameCost(20, [3024, 1964], ["wall-rim"])
+```
+
+It could not be run here. The browser pane this session drives throttles to
+about 1 Hz whenever it is not being looked at, and every attempt was refused
+by F30's own frame-rate guard — correctly, and with the arithmetic in the
+refusal: *"animation frames are arriving at 1.0 Hz, so this capture would take
+about 2,411 seconds per station instead of six."* A capture taken anyway would
+have been a measurement of a throttled compositor.
+
+**Two things follow whatever the number turns out to be.** The budget table
+should be denominated in **megapixels rather than a resolution name**, because
+megapixels is the quantity that transfers between a 1080p panel and a Retina
+one and "1080p" is not. And `setPixelRatio` is now a budget knob rather than a
+default: capping it at 1.5 would cost 44 % of the fragment work and some
+sharpness, and neither half of that trade has been looked at.
+
+**Built.** `width`/`height` and `only` on `captureFrameCost`, so a capture can
+be taken at any resolution and at a subset of stations; `__ns.suspend()`,
+exposed because a hand measurement needs the same seam the harness uses — the
+first attempt at one here was killed partway through and left the canvas at
+the wrong size, which is exactly what the harness's `finally` prevents. And a
+comment on `setPixelRatio` naming what it costs, because the next person to
+read that line should not have to rediscover it.

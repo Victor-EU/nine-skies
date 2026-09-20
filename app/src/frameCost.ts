@@ -102,6 +102,8 @@ export interface FrameCostReport {
   readonly frameRateHz: number;
   readonly samples: number;
   readonly expedition: string;
+  /** Null for a whole capture; the ids asked for when it was a subset. */
+  readonly only: readonly string[] | null;
   readonly takenAt: string;
   /** The instrument check. A capture with a poor fit is not evidence. */
   readonly instrument: Linearity | null;
@@ -130,6 +132,25 @@ export interface FrameCostOptions {
    */
   readonly suspend: () => () => void;
   readonly stationsUrl?: string | undefined;
+  /**
+   * Capture at a resolution other than the budget's.
+   *
+   * The budget is written for 1080p and the floor device is a Retina Mac,
+   * which does not draw 1080p at any setting the game currently asks for -
+   * so the two have to be measured against each other rather than assumed
+   * equal. A capture taken here says so in its own header.
+   */
+  readonly width?: number | undefined;
+  readonly height?: number | undefined;
+  /**
+   * Capture only these station ids, in the fixture's own order.
+   *
+   * A whole capture is seven stations and takes the better part of a minute;
+   * a question about resolution, or about one pass, does not need seven. The
+   * subset goes in the report so a partial capture cannot be mistaken for a
+   * full one later.
+   */
+  readonly only?: readonly string[] | undefined;
   readonly samples?: number | undefined;
 }
 
@@ -246,6 +267,14 @@ async function capture(
     expedition: string;
     stations: CaptureStation[];
   };
+  const wanted = options.only;
+  const chosen = wanted ? fixture.stations.filter((s) => wanted.includes(s.id)) : fixture.stations;
+  if (chosen.length === 0) {
+    throw new Error(
+      `no station matches ${JSON.stringify(wanted)}; the fixture has ` +
+        fixture.stations.map((s) => s.id).join(", "),
+    );
+  }
 
   // Measure at the resolution the budget is written for, then put the canvas
   // back exactly as it was.
@@ -257,9 +286,11 @@ async function capture(
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   };
-  const budgetMegapixels = (BUDGET_WIDTH * BUDGET_HEIGHT) / 1e6;
+  const width = options.width ?? BUDGET_WIDTH;
+  const height = options.height ?? BUDGET_HEIGHT;
+  const budgetMegapixels = (width * height) / 1e6;
   renderer.setPixelRatio(1);
-  setSize(BUDGET_WIDTH, BUDGET_HEIGHT);
+  setSize(width, height);
 
   const draw = (): void => renderer.render(scene, camera);
   const timer = gpuTimer(gl);
@@ -282,7 +313,7 @@ async function capture(
       throw new Error(
         `this capture has been running for ${(DEADLINE_MS / 60_000).toFixed(0)} minutes ` +
           `and is still on "${label}" at station ${stations.length + 1} of ` +
-          `${fixture.stations.length}; something is stopping it making progress`,
+          `${chosen.length}; something is stopping it making progress`,
       );
     }
     return (await lowest(timer, draw, samples)) ?? Number.NaN;
@@ -291,7 +322,7 @@ async function capture(
   let instrument: Linearity | null = null;
   const stations: StationCost[] = [];
 
-  for (const station of fixture.stations) {
+  for (const station of chosen) {
     // Again at every station, not only at the start. A window can go to the
     // back halfway through - this one reliably does, about thirty seconds in -
     // and a capture that began at ninety-eight frames a second and continued
@@ -301,7 +332,7 @@ async function capture(
     if (tooSlowNow) {
       throw new Error(
         `${tooSlowNow} — stopped at station "${station.id}", ` +
-          `${stations.length} of ${fixture.stations.length} taken`,
+          `${stations.length} of ${chosen.length} taken`,
       );
     }
     placeAt(station);
@@ -318,14 +349,14 @@ async function capture(
         timer,
         (megapixels) => {
           const scale = Math.sqrt(megapixels / budgetMegapixels);
-          setSize(Math.round(BUDGET_WIDTH * scale), Math.round(BUDGET_HEIGHT * scale));
+          setSize(Math.round(width * scale), Math.round(height * scale));
           draw();
         },
         INSTRUMENT_SCALES.map((f) => budgetMegapixels * f),
         samples,
         "megapixels",
       );
-      setSize(BUDGET_WIDTH, BUDGET_HEIGHT);
+      setSize(width, height);
       return fit;
     })();
 
@@ -362,6 +393,7 @@ async function capture(
     frameRateHz,
     samples,
     expedition: fixture.expedition,
+    only: wanted ? [...wanted] : null,
     takenAt: new Date().toISOString(),
     instrument,
     stations,
@@ -407,7 +439,8 @@ export function frameCostTable(report: FrameCostReport): string {
   lines.push(
     `  ${report.width}x${report.height}${offBudget ? " ⚠ NOT THE BUDGET'S RESOLUTION" : ""}` +
       ` · lowest of ${report.samples} · ` +
-      `${report.expedition} · ${report.frameRateHz.toFixed(0)} Hz · ${report.takenAt}`,
+      `${report.expedition}${report.only ? ` · ONLY ${report.only.join(", ")}` : ""} · ` +
+      `${report.frameRateHz.toFixed(0)} Hz · ${report.takenAt}`,
   );
   const fit = report.instrument;
   lines.push(

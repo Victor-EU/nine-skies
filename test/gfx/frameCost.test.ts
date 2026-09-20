@@ -37,6 +37,7 @@ const report = (clears: number[]): FrameCostReport => ({
   frameRateHz: 60,
   samples: 20,
   expedition: "sea-to-sky",
+  only: null,
   takenAt: "2026-01-01T00:00:00.000Z",
   instrument: null,
   stations: clears.map((c, i) => station(`s${i}`, c)),

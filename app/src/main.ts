@@ -67,6 +67,22 @@ const MONTH = 11; // late autumn: thick Sichuan fog, clear plateau (GDD, Sea to 
 
 const canvas = document.getElementById("view") as HTMLCanvasElement;
 const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+/**
+ * How many device pixels the renderer draws per CSS pixel.
+ *
+ * Unexamined until the floor device was decided, and now the most expensive
+ * single line in the file. The frame budget is written for 1080p - 2.07
+ * megapixels - and the floor is a Retina Mac, where this line means a
+ * fullscreen frame is 3,024 x 1,964, or 5.94 megapixels. Nearly three times
+ * the pixels the budget was costed against, and fragment cost is close to
+ * linear in them (F30).
+ *
+ * Capping it lower is the obvious lever and is deliberately not pulled here,
+ * because what it costs in sharpness has not been looked at and what it buys
+ * has not been measured - the fit that would price it stops at 2.76
+ * megapixels and 5.94 is well outside it (F32). The measurement is one
+ * command: `__ns.frameCost(20, [3024, 1964], ["wall-rim"])`.
+ */
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
 const scene = new Scene();
@@ -384,7 +400,20 @@ if (import.meta.env.DEV) {
      * the route - the frame budget's own units. From the console:
      *   __ns.frameCost().then((r) => console.log(__ns.frameCostTable(r)))
      */
-    frameCost: (samples?: number) =>
+    /**
+     * Take the frame for a measurement of your own, and give it back with the
+     * returned function. The same seam `frameCost` uses - exposed because any
+     * hand measurement needs it for the same reason: with the loop running,
+     * the camera moves between one timing and the next.
+     */
+    suspend: () => {
+      suspended = true;
+      return () => {
+        suspended = false;
+        resize();
+      };
+    },
+    frameCost: (samples?: number, size?: [number, number], only?: string[]) =>
       captureFrameCost({
         renderer,
         scene,
@@ -392,6 +421,8 @@ if (import.meta.env.DEV) {
         terrain,
         ring,
         placeAt: (s) => placeAt(s.eastM, s.northM, s.altitudeM, s.headingRad),
+        ...(size ? { width: size[0], height: size[1] } : {}),
+        ...(only ? { only } : {}),
         suspend: () => {
           suspended = true;
           return () => {
