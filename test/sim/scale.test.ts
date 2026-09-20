@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  CRUISE_CANDIDATES,
+  DEFAULT_PACING,
+  MODE_GROUND_KM_PER_MIN,
+  MODE_IAS_MS,
+  MODE_SPEED_RATIO,
+  groundGain,
+  groundKmPerMin,
+  minutesForKm,
   CAMERA_AIM_UP_REAL_M,
   CAMERA_BACK_REAL_M,
   CAMERA_UP_REAL_M,
@@ -233,5 +241,59 @@ describe("haze is a property of the air, not of the drawing", () => {
     const realScaleHeight = (vex: number) => 9000 / vex;
     expect(realScaleHeight(1.5)).toBe(6000);
     expect(realScaleHeight(0.75)).toBe(12_000);
+  });
+});
+
+describe("pacing", () => {
+  /** The corridor's flown length, Shanghai to Lhasa via its waypoints. */
+  const SEA_TO_SKY_KM = 3219.7;
+
+  it("is the only thing that sets how long a route takes", () => {
+    // The counterpart to the compression tests above: there, the picture did
+    // not move; here, the clock does, and nothing else in the frame does.
+    const at = CRUISE_CANDIDATES.map((c) =>
+      +minutesForKm(SEA_TO_SKY_KM, "cruise", { cruiseKmPerMin: c }).toFixed(1),
+    );
+    expect(at).toEqual([40.2, 24.8, 16.9]);
+  });
+
+  it("reproduces the spread the GDD asked to compare", () => {
+    // "at 1:5 Sea to Sky is about 40 minutes, at 1:12 about 17" - a speed
+    // question in the vocabulary of scale (F15).
+    expect(minutesForKm(SEA_TO_SKY_KM, "cruise", { cruiseKmPerMin: 80 })).toBeCloseTo(40, 0);
+    expect(minutesForKm(SEA_TO_SKY_KM, "cruise", { cruiseKmPerMin: 190 })).toBeCloseTo(17, 0);
+  });
+
+  it("keeps the GDD's relationship between the three modes", () => {
+    for (const c of CRUISE_CANDIDATES) {
+      const pacing = { cruiseKmPerMin: c };
+      expect(groundKmPerMin("cruise", pacing)).toBe(c);
+      expect(groundKmPerMin("low", pacing)).toBeCloseTo(c / 3, 10);
+      expect(groundKmPerMin("boost", pacing)).toBe(c * 2);
+    }
+    expect(MODE_SPEED_RATIO.cruise).toBe(1);
+  });
+
+  it("leaves the default table derived from the default pacing", () => {
+    // One source of truth: the table cannot drift from the pacing it names.
+    expect(MODE_GROUND_KM_PER_MIN.cruise).toBe(DEFAULT_PACING.cruiseKmPerMin);
+    expect(MODE_GROUND_KM_PER_MIN.low).toBeCloseTo(130 / 3, 10);
+    expect(MODE_GROUND_KM_PER_MIN.boost).toBe(260);
+  });
+
+  /**
+   * The exchange rate between distance and altitude, which is the GDD's
+   * thesis as a number. Pacing moves it, which is why this axis is a design
+   * question where the compression axis was not.
+   */
+  it.each([
+    // cruise km/min, real metres of altitude gained per km of ground
+    [80, 5.33],
+    [130, 3.28],
+    [190, 2.24],
+  ])("at %d km/min a full climb buys %f m of altitude per km", (cruise, mPerKm) => {
+    const climbRateMs = 7.1; // sea level, LIGHT_PISTON
+    const groundMs = MODE_IAS_MS.cruise * groundGain("cruise", { cruiseKmPerMin: cruise });
+    expect((climbRateMs / groundMs) * 1000).toBeCloseTo(mPerKm, 2);
   });
 });

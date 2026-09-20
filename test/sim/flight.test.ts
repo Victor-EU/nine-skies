@@ -8,7 +8,12 @@ import {
   type Environment,
   type FlightInput,
 } from "../../engine/src/sim/flight.js";
-import { MODE_IAS_MS } from "../../engine/src/sim/scale.js";
+import {
+  CLIMB_LIMITED_CRUISE_KM_PER_MIN,
+  CRUISE_CANDIDATES,
+  MODE_IAS_MS,
+} from "../../engine/src/sim/scale.js";
+import { LIGHT_PISTON } from "../../engine/src/sim/aircraft.js";
 
 const CLIMB: FlightInput = { pitch: 1, roll: 0, mode: "cruise" };
 const LEVEL: FlightInput = { pitch: 0, roll: 0, mode: "cruise" };
@@ -119,16 +124,18 @@ describe("Sea to Sky climb budget", () => {
   const PLATEAU_CRUISE_M = 4500;
 
   /** Fly flat out uphill and report where we get to after `km` of ground. */
-  function climbOver(km: number, startAltM: number) {
+  function climbOver(km: number, startAltM: number, cruiseKmPerMin?: number) {
+    const pacing =
+      cruiseKmPerMin === undefined ? undefined : { cruiseKmPerMin };
     const s = createFlightState({ altitudeM: startAltM });
     const targetM = km * 1000;
     let travelled = 0;
     let elapsed = 0;
     const dt = 1;
     // Cap the loop so a tuning regression fails rather than hangs.
-    for (let i = 0; i < 20_000 && travelled < targetM; i++) {
+    for (let i = 0; i < 40_000 && travelled < targetM; i++) {
       const before = s.northM;
-      step(s, CLIMB, STILL_AIR, dt);
+      step(s, CLIMB, STILL_AIR, dt, LIGHT_PISTON, pacing);
       travelled += s.northM - before;
       elapsed += dt;
     }
@@ -147,6 +154,78 @@ describe("Sea to Sky climb budget", () => {
     // tuning note in docs/.
     const { altitudeM } = climbOver(CHONGQING_TO_LHASA, 1000);
     expect(altitudeM).toBeLessThan(PLATEAU_CRUISE_M);
+  });
+
+  /**
+   * The climb budget is what bounds the pacing question (F16). Reaching the
+   * rim costs a fixed number of *minutes*, so the faster cruise is, the more
+   * ground goes under the aircraft before it arrives - and past a point it
+   * arrives too low. These are characterisations, not wishes: two of the
+   * three candidates the GDD's trip-length spread implies do not close.
+   */
+  describe("the climb budget bounds the pacing candidates", () => {
+    it("costs the same minutes of flying whatever the pacing", () => {
+      const minutesTo = (cruiseKmPerMin: number) => {
+        const s = createFlightState({ altitudeM: 0 });
+        let sec = 0;
+        while (s.altitudeM < PLATEAU_CRUISE_M && sec < 40_000) {
+          step(s, CLIMB, STILL_AIR, 1, LIGHT_PISTON, { cruiseKmPerMin });
+          sec += 1;
+        }
+        return sec / 60;
+      };
+      for (const c of CRUISE_CANDIDATES) expect(minutesTo(c)).toBeCloseTo(18.6, 1);
+    });
+
+    /**
+     * On the straight line rather than F3's 2,980 km, because it is the worst
+     * case: fly direct and there is less ground to climb over. The ceiling is
+     * 135 there, 140 over F3's figure and 151 over the published waypoint
+     * route, and 190 fails on all three.
+     */
+    const STRAIGHT_TO_LHASA = 2874.3;
+
+    it.each([
+      // cruise km/min, arrival altitude flying direct, does the budget close
+      [80, 5555, true],
+      [130, 4584, true],
+      [190, 3761, false],
+    ])("at %d km/min the aircraft arrives at %d m", (cruise, arrivalM, closes) => {
+      const { altitudeM } = climbOver(STRAIGHT_TO_LHASA, 0, cruise);
+      expect(altitudeM).toBeCloseTo(arrivalM, -1);
+      expect(altitudeM > PLATEAU_CRUISE_M).toBe(closes);
+    });
+
+    it("clears the rim by only 84 m at the shipped pacing", () => {
+      // Worth its own assertion because F3's "~15 % margin" reads like room
+      // and this does not: one tuning change to the climb rate spends it.
+      const { altitudeM } = climbOver(STRAIGHT_TO_LHASA, 0, 130);
+      expect(altitudeM - PLATEAU_CRUISE_M).toBeGreaterThan(50);
+      expect(altitudeM - PLATEAU_CRUISE_M).toBeLessThan(150);
+    });
+
+    it("puts the ceiling where the named constant says it is", () => {
+      // Re-measured through the sim so the constant cannot go stale behind a
+      // tuning change to the aircraft.
+      const closes = (c: number) => climbOver(STRAIGHT_TO_LHASA, 0, c).altitudeM > PLATEAU_CRUISE_M;
+      expect(closes(CLIMB_LIMITED_CRUISE_KM_PER_MIN)).toBe(true);
+      expect(closes(CLIMB_LIMITED_CRUISE_KM_PER_MIN + 1)).toBe(false);
+    });
+
+    it("reopens at 190 if the route drops to low speed, as F3 suggested", () => {
+      // The per-leg speed mode the GDD already allows is the lever: flown at
+      // low, the same direct route arrives 1,437 m above the rim.
+      const s = createFlightState({ altitudeM: 0 });
+      let travelled = 0;
+      const pacing = { cruiseKmPerMin: 190 };
+      const LOW: FlightInput = { pitch: 1, roll: 0, mode: "low" };
+      for (let i = 0; i < 60_000 && travelled < STRAIGHT_TO_LHASA * 1000; i++) {
+        const before = s.northM;
+        step(s, LOW, STILL_AIR, 1, LIGHT_PISTON, pacing);
+        travelled += s.northM - before;
+      }
+      expect(s.altitudeM).toBeGreaterThan(PLATEAU_CRUISE_M);
+    });
   });
 
   it("spends most of the expedition climbing, which is the lesson", () => {

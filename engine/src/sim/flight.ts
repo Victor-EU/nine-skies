@@ -11,7 +11,13 @@ import {
   trueAirspeedMs,
   type AircraftSpec,
 } from "./aircraft.js";
-import { MODE_IAS_MS, groundGain, type SpeedMode } from "./scale.js";
+import {
+  DEFAULT_PACING,
+  MODE_IAS_MS,
+  groundGain,
+  type Pacing,
+  type SpeedMode,
+} from "./scale.js";
 
 /**
  * Arcade flight model. Pitch, roll, throttle, auto-coordinated turn, no stall,
@@ -114,11 +120,18 @@ export interface FlightTelemetry {
   powerLimited: boolean;
 }
 
+/**
+ * Pacing is configuration, not input: it is not what the player is asking for,
+ * it is what this build means by "cruise". It travels the same way `spec`
+ * does, as a trailing default, so the sim stays a pure function of everything
+ * that can change.
+ */
 export function telemetry(
   state: FlightState,
   env: Environment,
   input: FlightInput,
   spec: AircraftSpec = LIGHT_PISTON,
+  pacing: Pacing = DEFAULT_PACING,
 ): FlightTelemetry {
   const sigma = densityRatio(state.altitudeM);
   const tas = trueAirspeedMs(state.iasMs, state.altitudeM);
@@ -126,7 +139,7 @@ export function telemetry(
   return {
     densityRatio: sigma,
     trueAirspeedMs: tas,
-    groundSpeedMs: tas * groundGain(state.mode),
+    groundSpeedMs: tas * groundGain(state.mode, pacing),
     maxClimbRateMs: maxRoc,
     outsideAirTempC: outsideAirTemperatureC(
       env.groundTempC,
@@ -151,6 +164,7 @@ export function step(
   env: Environment,
   dt: number,
   spec: AircraftSpec = LIGHT_PISTON,
+  pacing: Pacing = DEFAULT_PACING,
 ): FlightState {
   // Boost is gated on air density, so it quietly stops working over the
   // plateau. The mode falls back rather than failing, so the player is never
@@ -201,8 +215,10 @@ export function step(
   state.headingRad = wrapAngle(state.headingRad + turnRate * dt);
 
   // --- horizontal ----------------------------------------------------------
-  // The only place the compression gain is applied.
-  const groundSpeed = tas * groundGain(mode);
+  // The only place the ground gain is applied. Note what it is not: the
+  // compression. Ground speed is real km/min, so how hard the world is drawn
+  // has no effect on how long a route takes (F15).
+  const groundSpeed = tas * groundGain(mode, pacing);
   state.eastM += (Math.sin(state.headingRad) * groundSpeed + env.windEastMs) * dt;
   state.northM += (Math.cos(state.headingRad) * groundSpeed + env.windNorthMs) * dt;
 

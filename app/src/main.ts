@@ -28,6 +28,7 @@ import {
   type Environment,
   type FlightInput,
 } from "../../engine/src/sim/flight.js";
+import { LIGHT_PISTON } from "../../engine/src/sim/aircraft.js";
 import { createProbe } from "./probe.js";
 import {
   CAMERA_AIM_AHEAD,
@@ -36,14 +37,19 @@ import {
   CAMERA_FAR_REAL_M,
   CAMERA_NEAR_REAL_M,
   CAMERA_UP_REAL_M,
+  CLIMB_LIMITED_CRUISE_KM_PER_MIN,
   COMPRESSION_CANDIDATES,
+  CRUISE_CANDIDATES,
+  DEFAULT_PACING,
   DEFAULT_SCALE,
   DRAMA_CANDIDATES,
   apparentExaggeration,
   hazeDensityPerWorldUnit,
   hazeFalloffPerWorldUnit,
+  minutesForKm,
   scaleFor,
   toWorldH,
+  type Pacing,
   type WorldScale,
 } from "../../engine/src/sim/scale.js";
 
@@ -73,6 +79,18 @@ const indexIn = (candidates: readonly number[], value: number) => candidates.ind
 // A test asserts the default is on the grid, so neither of these is -1.
 let compressionIndex = indexIn(COMPRESSION_CANDIDATES, DEFAULT_SCALE.horizontalCompression);
 let dramaIndex = indexIn(DRAMA_CANDIDATES, apparentExaggeration(DEFAULT_SCALE));
+
+/**
+ * The pacing A/B - how long a route takes.
+ *
+ * Trip length is set by cruise speed and by nothing else, which is why this
+ * exists and why the compression toggle turned out not to answer it (F15).
+ * Formally a G2 question, because twelve minutes of a twenty-five-minute
+ * route is not enough of one to judge, but the toggle belongs here: the
+ * prototype is where a whole leg gets flown.
+ */
+let pacing: Pacing = { ...DEFAULT_PACING };
+let cruiseIndex = indexIn(CRUISE_CANDIDATES, DEFAULT_PACING.cruiseKmPerMin);
 
 /**
  * Real elevation if the pipeline has published a corridor, otherwise the
@@ -162,10 +180,12 @@ addEventListener("keydown", (e) => {
   if (k === "3") input.mode = "boost";
   if (k === "c") cycleCompression();
   if (k === "v") cycleDrama();
+  if (k === "p") cyclePacing();
   // The A/B for F1 itself: with the impostor off, the plateau is not drawn.
   if (k === "h") ring.mesh.visible = !ring.mesh.visible;
   if (k === "r") Object.assign(flight, createFlightState({ ...START, headingRad: Math.PI / 2 }));
-  if (["w", "a", "s", "d", "1", "2", "3", "c", "v", "h", "r"].includes(k)) e.preventDefault();
+  if (["w", "a", "s", "d", "1", "2", "3", "c", "v", "p", "h", "r"].includes(k))
+    e.preventDefault();
 });
 addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
 
@@ -205,6 +225,16 @@ function cycleDrama(): void {
   applyScale();
 }
 
+/**
+ * How long the route takes. Nothing to rebuild: the sim reads the pacing on
+ * the next step, and the world is not involved - which is the whole point of
+ * the distinction F15 drew.
+ */
+function cyclePacing(): void {
+  cruiseIndex = (cruiseIndex + 1) % CRUISE_CANDIDATES.length;
+  pacing = { cruiseKmPerMin: CRUISE_CANDIDATES[cruiseIndex]! };
+}
+
 function resize(): void {
   const w = innerWidth;
   const h = innerHeight;
@@ -226,6 +256,23 @@ const worldLabel = world
   ? `${world.manifest.corridor} · ${world.manifest.heights.tiles} real tiles ` +
     `(${(world.manifest.heights.bytes / 1e6).toFixed(1)} MB in ${worldMs.toFixed(0)} ms)`
   : `stand-in world · no published corridor (${worldMs.toFixed(0)} ms)`;
+/**
+ * The corridor's own flown length, for the pacing readout. Anchors arrive in
+ * route order - Shanghai first, Lhasa last, as `ANCHORS` in `tiles.py` lists
+ * them - so this is the route rather than the straight line, which is 345 km
+ * shorter and would quietly flatter every pacing candidate.
+ */
+const routeKm = (() => {
+  const points = Object.values(world?.manifest.anchors ?? {});
+  let km = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!;
+    const b = points[i]!;
+    km += Math.hypot(b.eastM - a.eastM, b.northM - a.northM) / 1000;
+  }
+  return km;
+})();
+
 const skyHigh = new Color(0.16, 0.34, 0.68);
 const sky = new Color();
 const regionHaze = new Color();
@@ -292,6 +339,14 @@ if (import.meta.env.DEV) {
       applyScale();
       return true;
     },
+    getPacing: () => pacing,
+    setCruise(kmPerMin: number): boolean {
+      const i = indexIn(CRUISE_CANDIDATES, kmPerMin);
+      if (i < 0) return false;
+      cruiseIndex = i;
+      pacing = { cruiseKmPerMin: CRUISE_CANDIDATES[i]! };
+      return true;
+    },
     horizon,
     ring,
     fieldMs,
@@ -356,8 +411,8 @@ function frame(now: number): void {
     windNorthMs: 0,
   };
 
-  step(flight, input, env, dt);
-  const tm = telemetry(flight, env, input);
+  step(flight, input, env, dt, LIGHT_PISTON, pacing);
+  const tm = telemetry(flight, env, input, LIGHT_PISTON, pacing);
 
   const cameraWorld = terrain.update(flight.eastM, flight.northM, flight.altitudeM);
 
@@ -425,6 +480,21 @@ function frame(now: number): void {
   boost.textContent = tm.boostAvailable ? "boost ready" : "air too thin for boost";
   boost.classList.toggle("dead", !tm.boostAvailable);
   el("ground").textContent = `${((tm.groundSpeedMs * 60) / 1000).toFixed(0)} km/min · max climb ${tm.maxClimbRateMs.toFixed(1)} m/s`;
+
+  // The pacing condition, and what it means for the route being flown. An
+  // operator logging a G2 session needs the trip length, not the speed - and
+  // needs telling when the condition on screen is one Expedition 1 cannot be
+  // completed in (F16), because that is not visible from the cockpit until
+  // the aircraft arrives under the plateau rim twenty minutes later.
+  const climbLimited = pacing.cruiseKmPerMin > CLIMB_LIMITED_CRUISE_KM_PER_MIN;
+  const pace = el("pace");
+  pace.textContent =
+    `cruise ${pacing.cruiseKmPerMin} km/min` +
+    (routeKm > 0
+      ? ` · ${world!.manifest.corridor} ${minutesForKm(routeKm, "cruise", pacing).toFixed(1)} min`
+      : "") +
+    (climbLimited ? " ◂ climb budget does not close" : "");
+  pace.classList.toggle("warn", climbLimited);
 
   el("fps").textContent = `${fpsShown.toFixed(0)} fps`;
   el("draws").textContent =

@@ -762,3 +762,77 @@ before the cohort is recruited — the same shape of work, half a day. The G1
 protocol in the build plan and the compression test in the GDD have both been
 rewritten against this finding; a playtest run on the old protocol would have
 produced a clean, meaningless ranking.
+
+## F16 — The pacing spread the GDD asked for is bounded by its own climb budget
+
+F15 established that trip length is a cruise-speed question and recommended
+{80, 130, 190} km/min, the speeds that reproduce the GDD's 40 / 25 / 17-minute
+spread. Building the toggle and flying it says the top of that range **does
+not fly**: at 190 km/min the aircraft arrives at Lhasa below the plateau rim
+and Expedition 1 cannot be completed.
+
+**Why it is a ceiling and not a preference.** Climbing to plateau cruise at
+4,500 m costs **18.6 minutes of flying, at every pacing**. Altitude is the one
+axis that is not compressed and not gained any faster by going faster — the
+whole of THE ASYMMETRY in `scale.ts` — so raising cruise speed does not buy
+climb, it spends the ground the climb had to happen over.
+
+Flying flat out from Shanghai, direct (2,874 km, the worst case: a player who
+follows the waypoints has 345 km more to climb over):
+
+| cruise | Sea to Sky | arrives at | clears the 4,500 m rim |
+| ---: | ---: | ---: | --- |
+| 80 km/min | 40.2 min | 5,555 m | yes, by 1,055 m |
+| **130 km/min** *(shipped)* | **24.8 min** | **4,584 m** | **yes, by 84 m** |
+| 135 km/min | 23.9 min | 4,503 m | yes, by 3 m — the ceiling |
+| 190 km/min | 16.9 min | 3,761 m | **no, 739 m short** |
+
+The ceiling moves with how directly the route is flown — 135 km/min direct,
+140 over F3's 2,980 km, 151 over the published 3,220 km waypoint route — and
+190 fails on all three, so the conclusion is not an artefact of which distance
+is used. `CLIMB_LIMITED_CRUISE_KM_PER_MIN` takes the conservative one.
+
+**The squeeze.** The GDD sets its own working bounds: 25 minutes is the
+ceiling for a narrated trip, 15 the floor below which the plateau stops
+feeling vast. As speeds those are 129 and 215 km/min. The climb budget caps
+the same axis at 135. So the window where both hold is **129 to 135 km/min —
+23.9 to 25.0 minutes** — and the shipped 130 sits in it with a kilometre a
+minute to spare on one side and five on the other. That is not a tuning
+coincidence; it is the only place the current aircraft and the current
+narrative bound can both be satisfied.
+
+Which means the honest statement of the pacing A/B is sharper than F15's:
+
+- **80 km/min is a real question.** It breaks the 25-minute guideline, and
+  whether that guideline is real is exactly what a playtest is for.
+- **190 km/min is not a question**, it is a bug report against the aircraft.
+  Ranked by a cohort it would lose for a reason nobody would be able to name:
+  the expedition simply does not arrive.
+
+**Three ways to open the top of the range**, none of them free:
+
+1. **Per-leg speed.** F3 already named this: the western legs drop to low. At
+   190 cruise flown entirely at low speed the same direct route arrives
+   1,437 m *above* the rim. This works today and needs no code — but it means
+   the pacing A/B is then testing a speed *profile*, not a speed, and the two
+   must not be confused the way scale and drama were.
+2. **More climb.** `maxClimbRateMs` is tuning (F4), not physics, and 18.6
+   minutes is what it buys. Raising it is the one change that moves both
+   bounds at once, and it moves the thesis with them: the plateau is supposed
+   to be expensive.
+3. **Widen the narrated-trip ceiling** past 25 minutes, which is a writing and
+   attention question rather than an engineering one.
+
+**Also worth flagging: the shipped margin is 84 metres.** F3 recorded "~15 %
+margin", which reads like room; measured against the direct line it is 84 m of
+altitude, and one tuning change to the climb rate spends it. That is now its
+own test.
+
+**Action.** The toggle is built and keyed to `P`; the HUD names the condition,
+the trip length it implies, and warns in red when the selected pacing cannot
+complete Expedition 1 — because that failure is invisible from the cockpit
+until the aircraft arrives under the rim twenty minutes later. All three
+candidates are characterised in `test/sim/flight.test.ts` rather than
+asserted-as-wished, and `CRUISE_CANDIDATES` still contains 190 because it is
+the GDD's own figure and removing it would hide the finding. Whether 190 stays
+in the A/B is a design decision: it needs option 1 or 2 first.

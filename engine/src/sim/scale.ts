@@ -14,7 +14,8 @@
  * The aircraft's climb rate is real: 7.1 m/s down low, 2.1 m/s on the plateau,
  * zero at 6,200 m. Its ground speed is multiplied by a large gain so the
  * country crosses in under an hour. So a metre of altitude costs roughly forty
- * times what a metre of distance costs.
+ * times what a metre of distance costs - 42 at the default pacing, and 26 to
+ * 61 across the candidates, which is why pacing is a design question.
  *
  * That is not a fudge to work around the compression - it is the GDD's thesis
  * expressed as a constant. Distance is cheap, altitude is expensive, and the
@@ -142,13 +143,72 @@ export const MODE_IAS_MS: Record<SpeedMode, number> = {
 };
 
 /**
- * Ground covered per minute, real kilometres. These are the GDD's numbers and
- * they are the spec - the gains below are derived from them, not the reverse.
+ * What each mode is worth relative to cruise. The GDD's own relationships:
+ * low is about a third of cruise and is for a few minutes in a gorge, boost
+ * doubles it. Fixed, so the pacing question below moves one number.
  */
+export const MODE_SPEED_RATIO: Record<SpeedMode, number> = {
+  low: 1 / 3,
+  cruise: 1,
+  boost: 2,
+};
+
+/**
+ * How much real ground a minute of cruise buys. The game's pacing knob, and
+ * the *only* thing that sets how long a route takes - compression does not
+ * (F15), which is why this is a parameter and 1:8 is a constant.
+ *
+ * It is not merely a clock. The gain below is what makes distance cheap while
+ * altitude stays real, so moving it moves the exchange rate between the two:
+ * a full-power climb gains 5.3 real metres per kilometre of ground at 80, and
+ * 2.2 at 190. That is the GDD's thesis with a dial on it, so the pacing
+ * question is a design question in a way the compression question never was.
+ */
+export interface Pacing {
+  /** Real kilometres of ground per minute at cruise. */
+  cruiseKmPerMin: number;
+}
+
+export const DEFAULT_PACING: Pacing = { cruiseKmPerMin: 130 };
+
+/**
+ * The G2 pacing A/B. Sea to Sky is 3,219.7 real km along its waypoints, so
+ * these put it at 40.2, 24.8 and 16.9 minutes - the 40 / 25 / 17 spread the
+ * GDD asked to compare, and which it mistakenly attributed to compression.
+ * The GDD's own working bounds are 25 minutes as the ceiling for a narrated
+ * trip and 15 as the floor below which the plateau stops feeling vast, so the
+ * candidates sit one either side of the current value and inside both bounds.
+ */
+export const CRUISE_CANDIDATES = [80, 130, 190] as const;
+
+/**
+ * The fastest cruise at which Expedition 1's climb budget still closes, real
+ * km/min. Above this the aircraft arrives below the plateau rim flying flat
+ * out from Shanghai, because reaching 4,500 m costs **18.6 minutes of flying
+ * whatever the pacing** - altitude is not compressed, see THE ASYMMETRY - and
+ * the faster cruise is, the less of China is left when the climb is done.
+ *
+ * On the straight line to Lhasa, 2,874 km, which is the worst case: a player
+ * who flies direct has less ground to climb over than one who follows the
+ * waypoints. The published route's 3,220 km would put it at 151 and F3's
+ * 2,980 km at 140, so this is the conservative one of the three (F16).
+ *
+ * `test/sim/flight.test.ts` re-measures it through the sim, so it cannot go
+ * stale behind a tuning change to the aircraft. Note how little room is left
+ * at the shipped 130: the rim is cleared by 84 metres.
+ */
+export const CLIMB_LIMITED_CRUISE_KM_PER_MIN = 135;
+
+/** Ground covered per minute in a mode, real kilometres. */
+export function groundKmPerMin(mode: SpeedMode, pacing: Pacing = DEFAULT_PACING): number {
+  return pacing.cruiseKmPerMin * MODE_SPEED_RATIO[mode];
+}
+
+/** The default pacing as a table. Derived, so it cannot drift from it. */
 export const MODE_GROUND_KM_PER_MIN: Record<SpeedMode, number> = {
-  low: 130 / 3,
-  cruise: 130,
-  boost: 260,
+  low: groundKmPerMin("low"),
+  cruise: groundKmPerMin("cruise"),
+  boost: groundKmPerMin("boost"),
 };
 
 /**
@@ -159,8 +219,8 @@ export const MODE_GROUND_KM_PER_MIN: Record<SpeedMode, number> = {
  * 163 km/min over the plateau against 130 at the coast. The plateau is crossed
  * quickly and climbed slowly, which is exactly what it is like.
  */
-export function groundGain(mode: SpeedMode): number {
-  const groundMs = (MODE_GROUND_KM_PER_MIN[mode] * 1000) / 60;
+export function groundGain(mode: SpeedMode, pacing: Pacing = DEFAULT_PACING): number {
+  const groundMs = (groundKmPerMin(mode, pacing) * 1000) / 60;
   return groundMs / MODE_IAS_MS[mode];
 }
 
@@ -204,6 +264,10 @@ export function hazeFalloffPerWorldUnit(scaleHeightRealM: number, scale: WorldSc
  * Minutes to fly a real distance at a mode's sea-level ground speed.
  * Used by the expedition tooling to check a route fits its time budget.
  */
-export function minutesForKm(realKm: number, mode: SpeedMode): number {
-  return realKm / MODE_GROUND_KM_PER_MIN[mode];
+export function minutesForKm(
+  realKm: number,
+  mode: SpeedMode,
+  pacing: Pacing = DEFAULT_PACING,
+): number {
+  return realKm / groundKmPerMin(mode, pacing);
 }
