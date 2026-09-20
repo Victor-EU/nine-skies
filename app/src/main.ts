@@ -41,6 +41,13 @@ import {
 } from "../../engine/src/expedition/runner.js";
 import { CardQueue } from "../../engine/src/discovery/queue.js";
 import { Atlas } from "../../engine/src/journal/atlas.js";
+import {
+  DEFAULT_TIME_RATE,
+  WorldClock,
+  clockString,
+  dayOfYear,
+} from "../../engine/src/sim/solar.js";
+import { unprojectAlbers } from "../../engine/src/terrain/worldGrid.js";
 import { spreadsToOpen } from "../../engine/src/journal/spread.js";
 import { TriggerField } from "../../engine/src/discovery/triggers.js";
 import { pointAtKm } from "../../engine/src/expedition/path.js";
@@ -96,7 +103,17 @@ import {
  * and let them answer it - the compression A/B toggle most of all.
  */
 
-const MONTH = 11; // late autumn: thick Sichuan fog, clear plateau (GDD, Sea to Sky)
+/**
+ * The month free flight is flown in, when no expedition names one.
+ *
+ * This used to be the only month there was, with Expedition 1's own value
+ * copied into the comment beside it — a constant and a content file holding
+ * the same number with nothing keeping them equal. The plan carries its
+ * month now and the expedition's wins (F41); this is the fallback.
+ */
+const FREE_FLIGHT_MONTH = 11; // late autumn: thick Sichuan fog, clear plateau
+/** And the hour, Beijing time. Mid-morning: the sun is up everywhere. */
+const FREE_FLIGHT_HOUR = 10;
 
 const canvas = document.getElementById("view") as HTMLCanvasElement;
 const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
@@ -261,6 +278,22 @@ const bundle = await loadBundle();
 const plan = bundle.expeditions.find((p) => p.id === world?.manifest.corridor) ?? null;
 const run = plan ? new ExpeditionRun(plan) : null;
 const planPrint = plan ? planFingerprint(plan) : "";
+/**
+ * The world's clock (F41).
+ *
+ * The month and the start hour are the expedition's, and free flight gets
+ * the fallbacks. The rate is 1x: a session and the world agree on how long a
+ * minute is, so `start_hour` names the hour an expedition is flown at rather
+ * than an hour it begins and leaves behind. What that costs, and what the
+ * alternative costs, is measured in F41 and is a design decision rather than
+ * an engineering one.
+ */
+const month = plan?.month ?? FREE_FLIGHT_MONTH;
+const clock = new WorldClock(
+  (plan?.startHour ?? FREE_FLIGHT_HOUR) * 60,
+  dayOfYear(month),
+  DEFAULT_TIME_RATE,
+);
 /** The card catchments, which belong to free flight as much as to a route. */
 const cardName = new Map(bundle.cards.map((c) => [c.id, c.name]));
 const discoveries = new TriggerField(bundle.cards);
@@ -870,8 +903,8 @@ function frame(now: number): void {
   const northKm = flight.northM / 1000;
   const env: Environment = {
     groundElevationM: groundM,
-    groundTempC: standInGroundTempC(northKm, groundM, MONTH),
-    monthlyPrecipMm: standInPrecipMm(inlandKm, northKm, MONTH),
+    groundTempC: standInGroundTempC(northKm, groundM, month),
+    monthlyPrecipMm: standInPrecipMm(inlandKm, northKm, month),
     windEastMs: 0,
     windNorthMs: 0,
   };
@@ -1057,6 +1090,19 @@ function frame(now: number): void {
     `region(s) complete · ` +
     `${bundle.atlas.spreads.filter((s) => atlas.has(s.id)).length} of ` +
     `${bundle.atlas.spreads.length} spread(s) opened`;
+
+  // The clock, and the thing it is there to teach: China keeps one time zone
+  // across sixty-two degrees of longitude, so flying west moves the sun
+  // backwards against a clock that does not move at all. Shanghai to Lhasa is
+  // two hours and two minutes of it (F41).
+  const { latDeg, lonDeg } = unprojectAlbers(flight.eastM, flight.northM);
+  const sessionS = now / 1000;
+  const sun = clock.sunAt(sessionS, latDeg, lonDeg);
+  el("clock").textContent =
+    `${clockString(clock.minutesAt(sessionS))} Beijing · ` +
+    `${clockString(clock.solarMinutesAt(sessionS, lonDeg))} by the sun · ` +
+    `sun ${sun.elevationDeg >= 0 ? "" : "−"}${Math.abs(sun.elevationDeg).toFixed(0)}°` +
+    `${sun.elevationDeg < 0 ? " below" : ""}`;
 
   el("fps").textContent = `${fpsShown.toFixed(0)} fps`;
   el("draws").textContent =

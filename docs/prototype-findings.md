@@ -3950,3 +3950,162 @@ spread rendered full-screen, and the map pins. A spread currently arrives
 through the same placeholder the narration beats use. That is phase 2's UI
 work, and it is the first thing in this repository that is waiting on content
 rather than on engineering — the twelve pages and the ~225 unwritten entries.
+
+## F41 — Expedition 1 leaves Shanghai after sunrise and lands at Lhasa before it, because thirty-seven minutes of clock crosses two hours of sun
+
+The HUD row of workstream D asks for *altitude, ground elevation,
+temperature, humidity, density bar, Beijing clock + local solar time in the
+overlay*. Five of those six have been on screen since phase 0. The sixth had
+nothing behind it: **there was no clock.**
+
+That turned out to be why two authored fields had no reader.
+
+### A month in two places, and a start hour in none
+
+Every expedition authors `month` and `start_hour`, and the schema has
+validated both since the day it was written. Neither reached the game. The
+month was a constant in `app/src/main.ts` —
+
+```ts
+const MONTH = 11; // late autumn: thick Sichuan fog, clear plateau (GDD, Sea to Sky)
+```
+
+— with Expedition 1's own value copied into the comment beside it and nothing
+keeping the two equal. The start hour had no reader anywhere in the
+repository, because nothing measured time of day. Both are in the bundle now
+(version 3), the temperature the HUD prints is computed for the expedition's
+own month, and free flight has its own fallbacks rather than borrowing a
+route's.
+
+### China keeps one time zone across sixty-two degrees of longitude
+
+That is the GDD's own fact — *Beijing time, which is the only time zone China
+has* — and it is arithmetic, not astronomy. Beijing time is the meridian at
+120 E, so every degree a place sits west of it puts the sun four minutes
+later. In November, with the equation of time running fifteen minutes fast:
+
+| place | longitude | offset from the clock | solar noon, Beijing time |
+| --- | ---: | ---: | ---: |
+| Fuyuan, Heilongjiang | 134.29 E | +57 min | 10:48 |
+| Shanghai | 121.47 E | +6 min | 11:39 |
+| Wuhan | 114.31 E | −23 min | 12:08 |
+| Chongqing | 106.55 E | −54 min | 12:39 |
+| Chengdu | 104.07 E | −64 min | 12:49 |
+| Lhasa | 91.10 E | −116 min | 13:40 |
+| Kashgar | 75.99 E | −176 min | 14:41 |
+
+**3 hours 53 minutes from end to end, on one clock.** Expedition 1 crosses
+**2 hours 2 minutes** of it, between Shanghai and Lhasa alone.
+
+That number needs no decision about how fast the world's clock runs, because
+it is not about time passing. It is about moving.
+
+### So the aeroplane outruns the sunrise
+
+Flown as authored — November, leaving at 07:00 — with the clock running at
+the rate the player's own does:
+
+| | clock | sundial | sun |
+| --- | --- | --- | ---: |
+| Shanghai, km 0 | 07:00 | 07:21 | **+6.8°** |
+| Wuhan, km 679 | 07:08 | 07:01 | +3.2° |
+| Chongqing, km 1,427 | 07:18 | 06:39 | −0.8° |
+| Chengdu, km 1,692 | 07:21 | 06:33 | −2.5° |
+| Lhasa, km 2,931 | 07:37 | 05:56 | **−9.8°** |
+
+The aircraft takes off thirty-nine minutes after sunrise and lands
+forty-seven minutes before one. Sunrise at Shanghai that morning is 06:26 on
+the clock and sunrise at Lhasa is 08:24 — **one hour fifty-eight minutes
+apart, on the same clock, on the same morning** — and the flight is faster
+than the difference.
+
+This is not a bug and it is not the compression being unfair. It is the
+lesson, arriving through the one sense the game had not used: fly far enough
+west and the sun goes *backwards*.
+
+### The sentence in the file was never true, at any rate
+
+Expedition 1's own comment says what the two fields are for:
+
+> Beijing time, the only time zone China has. Leaving Shanghai just after
+> sunrise puts Lhasa in the early afternoon by the clock and mid-morning by
+> the sun, which is the lesson the HUD clock is there to teach.
+
+Half of it is right: the clock reads later than the sun, and the author
+understood why. The magnitudes are not. "Early afternoon by the clock,
+mid-morning by the sun" asks for a gap of about three and a half hours. **The
+gap at Lhasa in November is 1 hour 40 minutes** — 115.6 minutes of longitude
+less 15.1 of equation of time — and it is fixed by geography. No start hour
+and no clock rate moves it, so the sentence is false in every version of this
+game. What is true is the direction, and a bigger number than the author
+expected in the other direction: the clock barely moves while the sun moves
+two hours.
+
+### The clock rate is a real decision, and the candidates are 24× apart
+
+Nothing in the repository had one, and the moment a clock exists it must run
+at *some* rate.
+
+**1×** — the world's clock is the player's. An expedition happens inside one
+part of one day, `start_hour` names which, and every number the route gate
+prints stays a number about a flight in daylight.
+
+**Aircraft time** — the world's clock is the aeroplane's. Horizontal distance
+is compressed by a large gain (THE ASYMMETRY, `scale.ts`), and the aircraft
+really is flying at 38 to 52 m/s indicated. Integrating the flown track at
+the true airspeed it actually has at each kilometre, Expedition 1 takes
+**14.6 hours — 23.8× the session** — and the ratio is not constant, because
+true airspeed rises as the air thins.
+
+At that rate the arrival is 21:33 Beijing, with the sun 30° below the
+horizon. So **both readings land this expedition in the dark**, for different
+reasons, and the difference between them is whether time of day is a setting
+an expedition is flown at or something it passes through.
+
+Shipped at 1×, which is the choice that changes nothing else. The alternative
+is a design decision about what an expedition *is*, and it belongs with
+phase 3's seasons and time of day — which is also where D29 booked the
+analytic sky, against a low sun. It is on the actions list.
+
+### One number fixes the authored flight, and it is not the rate
+
+At 1×, the earliest start hour that puts the sun above the horizon at **both**
+ends of Expedition 1 is **08:00** — and only just, arriving at Lhasa with the
+sun 2.6° up, about twelve minutes after it rises there.
+
+| start | sun at Shanghai | arrive | sun at Lhasa |
+| --- | ---: | --- | ---: |
+| 06:00 | −5.0° | 06:37 | −22.4° |
+| **07:00** *(authored)* | +6.8° | 07:37 | **−9.7°** |
+| **08:00** | +17.8° | 08:37 | **+2.6°** |
+| 09:00 | +27.5° | 09:37 | +14.2° |
+
+Which of the start hour, the comment and the claim moves is a writing
+decision, and it is on the actions list with the numbers beside it.
+
+### What is on screen, and what is not
+
+The HUD carries three things now — `07:00 Beijing · 07:21 by the sun · sun 7°`
+— and reading them at the two ends of the route at the same instant is the
+whole finding:
+
+```
+Shanghai   07:00 Beijing · 07:21 by the sun · sun 7°
+Lhasa      07:00 Beijing · 05:20 by the sun · sun −17° below
+```
+
+What is **not** built is the consequence: the sky does not know. The
+atmosphere blends a region tint and deepens with altitude (F36); it has no sun
+direction and no night, so the HUD currently says it is dark over Lhasa while
+the screen shows a blue morning. That is phase 3's work and the finding is
+recorded here so it is not discovered again from the other end.
+
+The astronomy is NOAA's solar position algorithm in real time and real
+degrees — the world is compressed horizontally and the sun is not, so nothing
+in `solar.ts` knows about the scale. It needed one thing the engine did not
+have: `unprojectAlbers`, because the aircraft flies in projected metres and
+solar time is a function of longitude. It round-trips against the forward
+projection to under a nanometre across every point in the committed
+projection table.
+
+Twenty-two tests; 503 in all.

@@ -107,3 +107,39 @@ export function projectAlbers(latDeg: number, lonDeg: number): WorldPosition {
     northM: RHO_0 - rho * Math.cos(theta) - ORIGIN_Y_M,
   };
 }
+
+/**
+ * The world's own coordinates back to degrees. Snyder 14-8 to 14-11, with
+ * 3-16 iterated for the latitude.
+ *
+ * Needed because two things the player is shown are functions of longitude
+ * rather than of grid metres: local solar time, and where the sun is. The
+ * aircraft flies in projected metres and always will - that is what makes the
+ * floating origin and the tile arithmetic simple - so the conversion belongs
+ * here, beside the forward one it has to agree with.
+ *
+ * The latitude is iterative because the authalic function cannot be inverted
+ * in closed form on an ellipsoid. It converges in three or four
+ * passes over China; the loop is capped so a coordinate outside the
+ * projection's domain returns rather than spins.
+ */
+export function unprojectAlbers(eastM: number, northM: number): { latDeg: number; lonDeg: number } {
+  const x = eastM + ORIGIN_X_M;
+  const y = RHO_0 - (northM + ORIGIN_Y_M);
+  const rho = Math.hypot(x, y);
+  const theta = N >= 0 ? Math.atan2(x, y) : Math.atan2(-x, -y);
+  const lonDeg = CENTRAL_MERIDIAN + (theta / N) * (180 / Math.PI);
+
+  const q = (C - (rho * rho * N * N) / (WGS84_A * WGS84_A)) / N;
+  let phi = Math.asin(Math.min(1, Math.max(-1, q / 2)));
+  for (let i = 0; i < 12; i++) {
+    const s = Math.sin(phi);
+    const one = 1 - E2 * s * s;
+    const delta =
+      ((one * one) / (2 * Math.cos(phi))) *
+      (q / (1 - E2) - s / one + (1 / (2 * E)) * Math.log((1 - E * s) / (1 + E * s)));
+    phi += delta;
+    if (Math.abs(delta) < 1e-12) break;
+  }
+  return { latDeg: (phi * 180) / Math.PI, lonDeg };
+}

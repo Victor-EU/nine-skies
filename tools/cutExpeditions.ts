@@ -24,6 +24,8 @@ import { atlasBundle, loadCards, loadSpreads } from "./journal.ts";
 import { resolveGround } from "./ground.ts";
 import { climbFloor } from "../engine/src/sim/route.ts";
 import { pathFrom } from "../engine/src/expedition/path.ts";
+import { clockString, dayOfYear, solarTimeMinutes } from "../engine/src/sim/solar.ts";
+import { unprojectAlbers } from "../engine/src/terrain/worldGrid.ts";
 import { NO_FLOOR, type AltitudeFloor } from "../engine/src/expedition/resume.ts";
 import {
   BUNDLE_VERSION,
@@ -74,6 +76,24 @@ for (const plan of plans) {
   for (const leg of plan.legs)
     console.log(`    ${leg.name.padEnd(24)} ${leg.mode.padEnd(8)} to km ${leg.endKm.toFixed(0).padStart(5)}`);
   console.log(`    beats: ${plan.beats.map((b) => `${b.name ?? b.id} at ${b.km.toFixed(0)}`).join(", ")}`);
+  // The clock, and the only thing it can say without a flight model: how far
+  // the sun at each end of the route is from the one clock China keeps (F41).
+  const day = dayOfYear(plan.month);
+  const ends = [plan.points[0]!, plan.points[plan.points.length - 1]!].map((p) =>
+    unprojectAlbers(p.eastM, p.northM),
+  );
+  const start = plan.startHour * 60;
+  console.log(
+    `    clock: month ${plan.month}, ${clockString(start)} Beijing · sun reads ` +
+      ends
+        .map((e) => clockString(solarTimeMinutes(start, e.lonDeg, day)))
+        .join(" at the start, ") +
+      ` at the end · ${(
+        (solarTimeMinutes(start, ends[0]!.lonDeg, day) -
+          solarTimeMinutes(start, ends[1]!.lonDeg, day)) /
+        60
+      ).toFixed(2)} h of sun crossed`,
+  );
   console.log(
     plan.floor.m.length === 0
       ? "    ⚠ no altitude floor: no world and no committed section for this route"

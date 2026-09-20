@@ -19,7 +19,12 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { loadCorridor } from "../../tools/corridor.ts";
-import { ORIGIN_X_M, ORIGIN_Y_M, projectAlbers } from "../../engine/src/terrain/worldGrid.js";
+import {
+  ORIGIN_X_M,
+  ORIGIN_Y_M,
+  projectAlbers,
+  unprojectAlbers,
+} from "../../engine/src/terrain/worldGrid.js";
 
 interface ReferencePoint {
   readonly name: string;
@@ -96,6 +101,32 @@ describe("projectAlbers", () => {
 });
 
 const corridor = loadCorridor("dist-world/sea-to-sky");
+
+describe("unprojectAlbers", () => {
+  // The aircraft flies in projected metres and always will. Two things the
+  // player is shown are functions of longitude instead - local solar time and
+  // where the sun is - so the inverse has to agree with the forward one to
+  // better than the quarter of a degree that is a minute of solar time (F41).
+  it("returns the degrees the forward projection was given", () => {
+    for (const p of table.points) {
+      const there = projectAlbers(p.lat, p.lon);
+      const back = unprojectAlbers(there.eastM, there.northM);
+      expect(back.latDeg, `${p.name} lat`).toBeCloseTo(p.lat, 9);
+      expect(back.lonDeg, `${p.name} lon`).toBeCloseTo(p.lon, 9);
+    }
+  });
+
+  it("round-trips to under a nanometre across the country", () => {
+    let worstM = 0;
+    for (const p of table.points) {
+      const there = projectAlbers(p.lat, p.lon);
+      const back = unprojectAlbers(there.eastM, there.northM);
+      const again = projectAlbers(back.latDeg, back.lonDeg);
+      worstM = Math.max(worstM, Math.hypot(again.eastM - there.eastM, again.northM - there.northM));
+    }
+    expect(worstM).toBeLessThan(1e-6);
+  });
+});
 
 describe.skipIf(corridor === null)("the table against a built world", () => {
   it("agrees with the anchors the manifest was written with", () => {

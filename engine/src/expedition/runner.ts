@@ -68,6 +68,18 @@ export interface ExpeditionPlan {
   readonly cruiseKmPerMin: number;
   readonly startAltitudeM: number;
   /**
+   * The month and the hour this expedition is flown at, as authored.
+   *
+   * Both have been in the schema since it was written and neither had a
+   * reader: the month was a constant in the app with the expedition's own
+   * value copied into a comment beside it, and the start hour had no reader
+   * anywhere, because there was no clock. There is one now, and what it
+   * shows is the single time zone: flying Shanghai to Lhasa crosses two
+   * hours and two minutes of sun without the clock moving (F41).
+   */
+  readonly month: number;
+  readonly startHour: number;
+  /**
    * The altitude floor the route demands, sampled along it (D18).
    *
    * Shipped rather than computed because computing one sample means flying
@@ -83,7 +95,7 @@ export interface ExpeditionPlan {
  * than flown: a runtime reading last week's legs would be enforcing a
  * guarantee about a route that no longer exists.
  */
-export const BUNDLE_VERSION = 2;
+export const BUNDLE_VERSION = 3;
 
 /** A discovery catchment with the name a HUD can print (F37). */
 export interface CardTrigger extends Trigger {

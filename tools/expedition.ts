@@ -180,6 +180,8 @@ export function planFor(
     })),
     cruiseKmPerMin: DEFAULT_PACING.cruiseKmPerMin,
     startAltitudeM: expedition.start_altitude_m,
+    month: expedition.month,
+    startHour: expedition.start_hour,
   };
 }
 
