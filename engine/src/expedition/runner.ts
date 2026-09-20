@@ -26,8 +26,12 @@
  * is on the route, so a detour delays narration rather than desyncing it -
  * which is what the plan asked for.
  */
+import type { Trigger } from "../discovery/triggers.js";
+import type { AtlasEntry, RegionInfo } from "../journal/atlas.js";
+import type { SpreadPlan } from "../journal/spread.js";
 import { modeAtKm, type Route, type RouteLeg } from "../sim/route.js";
 import { DEFAULT_PACING, type Pacing, type SpeedMode } from "../sim/scale.js";
+import type { AltitudeFloor } from "./resume.js";
 import {
   pathFrom,
   RouteProgress,
@@ -63,6 +67,15 @@ export interface ExpeditionPlan {
   /** The cruise pacing the route was validated at, km/min. */
   readonly cruiseKmPerMin: number;
   readonly startAltitudeM: number;
+  /**
+   * The altitude floor the route demands, sampled along it (D18).
+   *
+   * Shipped rather than computed because computing one sample means flying
+   * the rest of the route, and the runtime needs the answer in a frame -
+   * for a resume, and for a player who has spent altitude on a detour and
+   * wants to know whether the route is still theirs to finish (F39).
+   */
+  readonly floor: AltitudeFloor;
 }
 
 /**
@@ -70,11 +83,38 @@ export interface ExpeditionPlan {
  * than flown: a runtime reading last week's legs would be enforcing a
  * guarantee about a route that no longer exists.
  */
-export const BUNDLE_VERSION = 1;
+export const BUNDLE_VERSION = 2;
+
+/** A discovery catchment with the name a HUD can print (F37). */
+export interface CardTrigger extends Trigger {
+  readonly name: string;
+}
+
+/**
+ * The journal's side of the bundle (F40).
+ *
+ * `cards` above is the subset of `entries` that can be flown into. They are
+ * separate lists because most of the atlas is not: of the GDD's 228 planned
+ * entries, 33 have no place at all - nine regions, twelve weather events and
+ * twelve comparison spreads - and a catchment list that pretended otherwise
+ * would be a plan to lose them.
+ */
+export interface AtlasBundle {
+  readonly regions: readonly RegionInfo[];
+  readonly entries: readonly AtlasEntry[];
+  readonly spreads: readonly SpreadPlan[];
+}
 
 export interface ExpeditionBundle {
   readonly version: number;
   readonly expeditions: readonly ExpeditionPlan[];
+  /**
+   * The card catchments, which belong to the world rather than to any one
+   * route - a free flight passes them too, and that is most of what free
+   * flight is for.
+   */
+  readonly cards: readonly CardTrigger[];
+  readonly atlas: AtlasBundle;
 }
 
 export interface RunState {

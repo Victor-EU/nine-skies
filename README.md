@@ -66,7 +66,7 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 422 TypeScript tests and 59 Python tests
+make test         # 481 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -79,7 +79,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-413 of the 422 TypeScript tests run without the world; the nine that do not
+472 of the 481 TypeScript tests run without the world; the nine that do not
 are the ones whose subject is the world itself.
 
 A section is also signed by the machine that cut it, and one that does not
@@ -105,11 +105,13 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them, the camera's comfort settings, and the air at the aircraft |
 | `engine/src/input` | The binding table, keyboard and gamepad sources, and the intent the frame polls |
 | `engine/src/discovery` | Which card catchments the aircraft has flown into, and the one-card queue |
-| `engine/src/expedition` | Where along an authored route the aircraft has got to, and what fires when |
+| `engine/src/expedition` | Where along an authored route the aircraft has got to, what fires when, and whether there is room to finish |
+| `engine/src/save` | What survives quitting, and when it is written |
+| `engine/src/journal` | The collection: per-region counts, what to say about an entry nobody has found, and when a comparison spread opens |
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes, frame-cost capture |
-| `content` | Card and expedition schema, the committed route sections, and the validation gate |
+| `content` | Card, expedition and comparison-spread schema, the nine regions, the committed route sections, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, the committed projection reference and the source raster digests |
-| `tools` | Node-only authoring tools: corridor reader, route sections and their signatures, route check, playtest session planner, lesson report, frame-budget stations |
+| `tools` | Node-only authoring tools: corridor reader, route sections and their signatures, route check, playtest session planner, lesson report, atlas report, frame-budget stations |
 | `test` | Unit tests, including the golden reference tables |
 | `docs` | Running findings for each gate, and the golden probe report |
 | `Makefile` | `make world`, `make probes`, `make sources`, `make sections`, `make cut-key`, `make reference`, `make routes`, `make sessions`, `make teaches`, `make stations`, `make test` |

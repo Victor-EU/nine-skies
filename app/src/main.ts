@@ -38,10 +38,25 @@ import {
   ExpeditionRun,
   cappedPacing,
   type ExpeditionBundle,
-  type ExpeditionPlan,
 } from "../../engine/src/expedition/runner.js";
 import { CardQueue } from "../../engine/src/discovery/queue.js";
+import { Atlas } from "../../engine/src/journal/atlas.js";
+import { spreadsToOpen } from "../../engine/src/journal/spread.js";
+import { TriggerField } from "../../engine/src/discovery/triggers.js";
 import { pointAtKm } from "../../engine/src/expedition/path.js";
+import {
+  planFingerprint,
+  resumeRun,
+  roomAt,
+} from "../../engine/src/expedition/resume.js";
+import {
+  emptyProfile,
+  runFor,
+  withRun,
+  type Profile,
+} from "../../engine/src/save/profile.js";
+import { Autosave } from "../../engine/src/save/autosave.js";
+import { openProfiles } from "./profiles.js";
 import {
   BANK_FOLLOW_CANDIDATES,
   DEFAULT_COMFORT,
@@ -225,31 +240,91 @@ applyScale();
  * progress, the leg and the beats, and the HUD prints them. What plays a beat
  * to a player rather than to an operator is the journal, and that is phase 2.
  */
-async function loadPlans(): Promise<readonly ExpeditionPlan[]> {
+async function loadBundle(): Promise<ExpeditionBundle> {
+  const empty: ExpeditionBundle = {
+    version: BUNDLE_VERSION,
+    expeditions: [],
+    cards: [],
+    atlas: { regions: [], entries: [], spreads: [] },
+  };
   try {
     const response = await fetch("/expeditions.json");
-    if (!response.ok) return [];
+    if (!response.ok) return empty;
     const bundle = (await response.json()) as ExpeditionBundle;
-    return bundle.version === BUNDLE_VERSION ? bundle.expeditions : [];
+    return bundle.version === BUNDLE_VERSION ? bundle : empty;
   } catch {
-    return [];
+    return empty;
   }
 }
 
-const plan = (await loadPlans()).find((p) => p.id === world?.manifest.corridor) ?? null;
+const bundle = await loadBundle();
+const plan = bundle.expeditions.find((p) => p.id === world?.manifest.corridor) ?? null;
 const run = plan ? new ExpeditionRun(plan) : null;
+const planPrint = plan ? planFingerprint(plan) : "";
+/** The card catchments, which belong to free flight as much as to a route. */
+const cardName = new Map(bundle.cards.map((c) => [c.id, c.name]));
+const discoveries = new TriggerField(bundle.cards);
+
 /**
- * Whether the authored expedition is being flown, rather than merely tracked.
+ * The profile, read before anything is placed (workstream D, D33).
  *
- * Off by default, and G1 never turns it on: a G1 session is free flight over
- * the corridor, with the drama toggle in the operator's hands. What the flag
- * buys when it is on is the two things that make the route the checked one -
- * the leg's own speed mode, and the pacing cap (D31) - and those are exactly
- * the two things a free-flight session must not have taken away from it.
+ * One profile in the prototype and three in the schema: choosing between them
+ * is a menu, and the menu is phase 2. `__ns.newProfile()` is the operator's
+ * way of starting clean before a session, which is the only reason this
+ * prototype needs more than one.
  */
-let flyingExpedition = false;
-/** The single-card queue from F37, holding beats instead of cards. */
+const store = await openProfiles();
+const PROFILE_ID = "default";
+let profile: Profile =
+  (await store.read(PROFILE_ID)) ?? emptyProfile(PROFILE_ID, "Profile 1");
+discoveries.restore(profile.seen);
+/**
+ * The journal's side of the same set (F40).
+ *
+ * `discoveries` knows which catchments have been entered; the atlas knows
+ * what those entries are, which region each is filed under, and the twelve
+ * comparison spreads, which have no catchment because they are unlocked by
+ * what the player has done rather than by where they are. Both read the one
+ * seen set the profile holds, and the atlas is what writes it back, because
+ * it is the superset: a spread is an entry too.
+ */
+const atlas = new Atlas(bundle.atlas.regions, bundle.atlas.entries, profile.seen);
+const spreadName = new Map(bundle.atlas.spreads.map((s) => [s.id, s.name]));
+/** Expeditions this profile has arrived at, which is one of the two unlocks. */
+const finished = new Set(profile.runs.filter((r) => r.arrived).map((r) => r.expeditionId));
+const resumed = plan ? resumeRun(plan, runFor(profile, plan.id), planPrint) : { kind: "start" as const };
+const autosave = new Autosave();
+/** The single-card queue from F37, holding beats and cards alike. */
 const beatQueue = new CardQueue();
+
+/**
+ * Write the profile. Three things and nothing else: where the aircraft is,
+ * what the player has been told, and what they have found.
+ */
+async function persist(): Promise<void> {
+  const next: Profile = {
+    ...profile,
+    savedAtMs: Date.now(),
+    seen: atlas.seen,
+    position: {
+      eastM: flight.eastM,
+      northM: flight.northM,
+      altitudeM: flight.altitudeM,
+      headingRad: flight.headingRad,
+    },
+    flying: flyingExpedition && plan ? plan.id : null,
+  };
+  profile =
+    run && plan
+      ? withRun(next, {
+          expeditionId: plan.id,
+          fingerprint: planPrint,
+          ...run.snapshot(),
+          arrived: run.arrived,
+        })
+      : next;
+  await store.write(profile);
+}
 const beatName = new Map((plan?.beats ?? []).map((b) => [b.id, b.name ?? b.id]));
 
 const START = world?.manifest.start ?? {
@@ -258,8 +333,75 @@ const START = world?.manifest.start ?? {
   altitudeM: 1200,
   headingRad: Math.PI / 2,
 };
-const flight = createFlightState({ ...START });
-run?.moveTo(flight.eastM, flight.northM);
+/**
+ * Where the aircraft starts: where the player left it, or the world's own
+ * start. Resuming a position rather than a beat is D33, and F39 is the
+ * measurement - Expedition 1's beats are up to 13.5 minutes apart, so "resume
+ * at the last beat" can hand back a third of the trip.
+ */
+const flight = createFlightState(
+  profile.position
+    ? {
+        eastM: profile.position.eastM,
+        northM: profile.position.northM,
+        altitudeM: profile.position.altitudeM,
+        headingRad: profile.position.headingRad,
+      }
+    : { ...START },
+);
+if (run) {
+  // A route that has been re-authored since the save keeps the beats - those
+  // are places the player was told about - and drops the kilometre, which is
+  // measured along waypoints that have moved.
+  if (resumed.kind === "resume") run.restore({ km: resumed.km, beats: resumed.beats });
+  else if (resumed.kind === "moved") run.restore({ km: 0, beats: resumed.beats });
+}
+/**
+ * Cards the aircraft has just met, wherever they came from.
+ *
+ * One path, because there are two sets to keep in step now: the trigger field
+ * knows a catchment has been entered so it does not fire twice, and the atlas
+ * knows it has been *collected*. Those used to be the same set, and the
+ * profile was written from the first of them. Making the journal the writer
+ * is what showed they had drifted apart (F40).
+ */
+function collect(ids: readonly string[]): void {
+  if (ids.length > 0) beatQueue.offer(ids);
+  for (const id of ids) atlas.see(id);
+}
+
+/**
+ * The teleport verb, in all three coordinates at once (D30, D32).
+ *
+ * A jump is not a flight: the route may not be rejoined by sweeping the line
+ * between where the player was and where they now are, and neither may the
+ * card catchments - a 2,900 km jump collects ten of ten in a measured case
+ * against none for a jump (F37). Both engines have had `moveTo` for that
+ * since F38; what they had not had is every caller using it. `goTo` and
+ * `goToAnchor` - the operator's drop-a-participant-here controls, which is
+ * where a teleport actually happens in a playtest - assigned the position
+ * straight onto the flight state, so the next frame's `advance` swept the
+ * whole jump. And the three callers that did use it threw away what it
+ * returned, so a player set down inside a catchment was told nothing and
+ * collected nothing (F40).
+ */
+function landed(): void {
+  run?.moveTo(flight.eastM, flight.northM);
+  collect(discoveries.moveTo(flight.eastM, flight.northM));
+}
+
+landed();
+/**
+ * Whether the authored expedition is being flown, rather than merely tracked.
+ *
+ * Off unless the profile says the player was flying it, and G1 never turns it
+ * on: a G1 session is free flight over the corridor, with the drama toggle in
+ * the operator's hands. What the flag buys when it is on is the two things
+ * that make the route the checked one - the leg's own speed mode and the
+ * pacing cap (D31) - and those are exactly the two a free-flight session must
+ * not have taken away from it.
+ */
+let flyingExpedition = plan !== null && profile.flying === plan.id;
 
 const el = (id: string) => document.getElementById(id)!;
 
@@ -333,9 +475,9 @@ function act(action: Action): void {
       break;
     case "reset":
       Object.assign(flight, createFlightState({ ...START, headingRad: Math.PI / 2 }));
-      // The aircraft did not fly here, so neither did the expedition: the
-      // same seam the discovery field needs, in route coordinates (F37, F38).
-      run?.moveTo(flight.eastM, flight.northM);
+      // The aircraft did not fly here, so neither did the expedition or the
+      // card catchments: the teleport seam, in both coordinates (F37, F38).
+      landed();
       break;
   }
 }
@@ -426,6 +568,11 @@ function resize(): void {
 addEventListener("resize", resize);
 resize();
 
+// A tab being closed gets one more write. IndexedDB may not finish it -
+// nothing on this path is guaranteed to - which is the other half of why the
+// interval is fifteen seconds rather than a minute.
+addEventListener("pagehide", () => void persist());
+
 /**
  * Which world is actually on screen. Worth a permanent HUD line rather than a
  * console message: every screenshot and every playtest note should say whether
@@ -496,22 +643,46 @@ if (import.meta.env.DEV) {
      * flight: the expedition is told so, and the beats behind it are marked
      * heard rather than played (F38).
      */
-    jumpToKm(km: number): boolean {
-      if (!run) return false;
+    jumpToKm(km: number, altitudeM?: number): boolean {
+      if (!run || !plan) return false;
       const at = pointAtKm(run.path, km);
+      // Never below the floor. Dropping a participant at km 1,500 at the
+      // altitude the aircraft happened to have is F28's own hazard - 1,200 m
+      // in front of the Hengduan is a crash twenty minutes later, and the
+      // route's floor there is 5,554 m. An operator who wants the altitude a
+      // whole expedition would have here has it printed by
+      // `npm run content:sessions`, and can pass it.
+      const floorM = roomAt(plan, km, 0)?.floorM ?? 0;
       Object.assign(
         flight,
         createFlightState({
           eastM: at.eastM,
           northM: at.northM,
-          altitudeM: flight.altitudeM,
+          altitudeM: altitudeM ?? Math.max(flight.altitudeM, floorM),
           headingRad: at.headingRad,
         }),
       );
-      run.moveTo(flight.eastM, flight.northM);
+      landed();
       return true;
     },
     getRun: () => (run ? { ...run.snapshot(), plan: run.plan.id } : null),
+    /** Write now, and say how long the write took. The autosave question. */
+    async save(): Promise<number> {
+      const t0 = performance.now();
+      await persist();
+      return performance.now() - t0;
+    },
+    getProfile: () => profile,
+    /**
+     * Start a clean profile, which is what an operator does between
+     * participants. The schema holds three; choosing between them is a menu,
+     * and the menu is phase 2.
+     */
+    async newProfile(name = "Profile 1"): Promise<void> {
+      profile = emptyProfile(PROFILE_ID, name);
+      discoveries.forget();
+      await store.write(profile);
+    },
     setCruise(kmPerMin: number): boolean {
       const i = indexIn(CRUISE_CANDIDATES, kmPerMin);
       if (i < 0) return false;
@@ -583,6 +754,7 @@ if (import.meta.env.DEV) {
       flight.northM = northKm * 1000;
       flight.altitudeM = altitudeM;
       flight.verticalRateMs = 0;
+      landed();
     },
     /**
      * Drop onto a named place from the manifest - "lhasa", "chongqing",
@@ -597,6 +769,7 @@ if (import.meta.env.DEV) {
       const ground = terrain.groundElevationM(anchor.eastM, anchor.northM) ?? 0;
       flight.altitudeM = ground + clearanceM;
       flight.verticalRateMs = 0;
+      landed();
       return true;
     },
   };
@@ -712,6 +885,10 @@ function frame(now: number): void {
   const tm = telemetry(flight, env, input, LIGHT_PISTON, flown);
 
   const progress = run?.advance(flight.eastM, flight.northM) ?? null;
+  // Card catchments are swept whether or not a route is being flown: free
+  // flight is where most of them are met (F37).
+  const found = discoveries.advance(flight.eastM, flight.northM);
+  collect(found);
   // The leg's authored speed, which is the other half of what makes this the
   // route the content gate flew: `low / low / cruise / cruise` is not a
   // suggestion, it is the profile that clears the ground (F18).
@@ -723,7 +900,24 @@ function frame(now: number): void {
   // starting an expedition partway marks everything behind the aircraft heard
   // anyway, because it is a jump rather than a flight.
   if (progress && flyingExpedition && progress.beats.length > 0) beatQueue.offer(progress.beats);
+  // An arrival is the first of the GDD's two unlocks for a comparison spread;
+  // finding the last card in both of a spread's regions is the other. Both
+  // are checked here because both change on the same frames, and a spread
+  // opens once: after that it is a journal page like any other entry (F40).
+  if (progress?.arrived && plan) finished.add(plan.id);
+  for (const spread of spreadsToOpen(bundle.atlas.spreads, atlas, finished)) {
+    atlas.see(spread.id);
+    beatQueue.offer([spread.id]);
+  }
   const beat = beatQueue.update(now / 1000);
+
+  // Every fifteen seconds, and whenever the player has just been told
+  // something - so the last thing said is never ahead of the last thing
+  // written down. The write is asynchronous and unawaited on purpose: the
+  // frame must not wait on storage, and a write lost to a hard quit costs the
+  // interval, which is what the interval is for (D33, F39).
+  const toldSomething = found.length > 0 || (progress?.beats.length ?? 0) > 0;
+  if (autosave.due(now / 1000, toldSomething ? "beat" : "tick")) void persist();
 
   placeAt(
     flight.eastM,
@@ -812,6 +1006,7 @@ function frame(now: number): void {
   // underneath is already outside the margin the route keeps (F38), so the
   // distance is printed beside the kilometre rather than left implied.
   const expedition = el("expedition");
+  const room = progress && plan ? roomAt(plan, progress.km, flight.altitudeM) : null;
   if (progress && plan) {
     const off = progress.crossTrackM / 1000;
     expedition.textContent =
@@ -819,16 +1014,49 @@ function frame(now: number): void {
       `km ${progress.km.toFixed(0)} of ${(progress.km + progress.remainingKm).toFixed(0)} · ` +
       `${progress.leg} (${progress.mode})` +
       (progress.onRoute ? ` · ${off.toFixed(1)} km off` : ` · ${off.toFixed(0)} km off the route`) +
+      // The altitude floor, live, which is F19's hand-off budget asked at the
+      // kilometre the aircraft is actually on rather than offline about the
+      // whole route (D18, F39).
+      (room
+        ? room.ok
+          ? ` · ${(room.marginM / 1000).toFixed(1)} km of room`
+          : ` · ${Math.round(-room.marginM).toLocaleString()} m below the floor`
+        : "") +
       (progress.arrived ? " · arrived" : "");
-    expedition.classList.toggle("warn", !progress.onRoute);
+    expedition.classList.toggle("warn", !progress.onRoute || room?.ok === false);
   } else {
     expedition.textContent = "free flight · no expedition bundle for this world";
   }
 
+  // Which profile is being written, and whether it is being kept at all - a
+  // private window has no storage and the game must say so rather than
+  // quietly throwing an evening away.
+  el("profile").textContent =
+    `${profile.name}${store.kept ? "" : " · not kept: this browser refused storage"} · ` +
+    `saved ${autosave.sinceS(now / 1000).toFixed(0)} s ago` +
+    (resumed.kind === "resume" && resumed.km > 0 ? ` · resumed at km ${resumed.km.toFixed(0)}` : "") +
+    (resumed.kind === "moved" ? " · route changed since the save: kilometre dropped" : "");
+
   // The beat itself, held by the same single-card queue the discovery cards
   // will use (F37). Placeholder presentation on purpose: what a beat looks
   // like to a player is the journal's question, not this prototype's.
-  el("beat").textContent = beat.showing ? (beatName.get(beat.showing) ?? beat.showing) : "";
+  el("beat").textContent = beat.showing
+    ? (beatName.get(beat.showing) ??
+      cardName.get(beat.showing) ??
+      spreadName.get(beat.showing) ??
+      beat.showing)
+    : "";
+
+  // The journal, as far as it goes: counts over the two sets, and the empty
+  // regions left visible because hiding them would hide the shape of the game
+  // (F40). The reader itself is phase 2.
+  const regions = atlas.counts().filter((r) => r.total > 0);
+  el("journal").textContent =
+    `journal ${atlas.seenCount} of ${atlas.total} · ` +
+    `${regions.filter((r) => atlas.complete(r.region)).length} of ${bundle.atlas.regions.length} ` +
+    `region(s) complete · ` +
+    `${bundle.atlas.spreads.filter((s) => atlas.has(s.id)).length} of ` +
+    `${bundle.atlas.spreads.length} spread(s) opened`;
 
   el("fps").textContent = `${fpsShown.toFixed(0)} fps`;
   el("draws").textContent =

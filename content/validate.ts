@@ -9,14 +9,17 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 import {
+  regionName,
   validateCards,
   validateExpeditions,
+  validateSpreads,
   wordCount,
   type Card,
   type Expedition,
 } from "./schema.ts";
 import { checkRoutes, describe, sectionsDir } from "../tools/routeCheck.ts";
 import { loadExpeditions } from "../tools/expedition.ts";
+import { loadSpreads } from "../tools/journal.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cardsDir = join(here, "cards");
@@ -26,7 +29,13 @@ const cards: Card[] = files.map((f) => parse(readFileSync(join(cardsDir, f), "ut
 
 const expeditions: Expedition[] = loadExpeditions(join(here, "expeditions"));
 
-const issues = [...validateCards(cards), ...validateExpeditions(expeditions)];
+const spreads = loadSpreads(join(here, "spreads"));
+
+const issues = [
+  ...validateCards(cards),
+  ...validateExpeditions(expeditions),
+  ...validateSpreads(spreads, cards, expeditions.map((e) => e.id)),
+];
 
 if (issues.length > 0) {
   console.error(`\n${issues.length} content issue(s):\n`);
@@ -90,7 +99,7 @@ for (const c of cards) {
 }
 let sheet = "# Fact-check sheet\n\nOne page per region. Every claim, and where it came from.\n";
 for (const [region, list] of [...byRegion].sort()) {
-  sheet += `\n## ${region}\n`;
+  sheet += `\n## ${regionName(region)}\n`;
   for (const c of list.sort((a, b) => a.id.localeCompare(b.id))) {
     sheet += `\n### ${c.names.en} · ${c.names.zh}\n\n`;
     sheet += `**${c.figure.value} ${c.figure.unit}** — ${c.figure.label}\n\n`;
@@ -106,6 +115,11 @@ writeFileSync(join(outDir, "fact-check-sheet.md"), sheet);
 const totalWords = cards.reduce((n, c) => n + wordCount(c.read_more), 0);
 console.log(
   `${cards.length} card(s) valid · ${byRegion.size} region(s) · ${totalWords} words of read-more`,
+);
+console.log(
+  spreads.length === 0
+    ? `0 comparison spread(s) · the GDD plans 12 and G2 scores one (npm run content:atlas)`
+    : `${spreads.length} comparison spread(s) valid`,
 );
 for (const e of expeditions) {
   const legs = e.route

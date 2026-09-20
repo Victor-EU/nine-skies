@@ -3617,3 +3617,336 @@ its name and that is all it should do: the card reader is the journal, in
 phase 2. The beats themselves are the route's waypoints, which need no author
 — passing Wuhan is an event the file already describes. Narration text is a
 schema field and a writer's, and neither exists yet.
+
+## F39 — "Resumes at the last beat" costs a third of Expedition 1, and the floor the route ships is what makes a resume answerable
+
+The save layer is workstream D's progression row — *IndexedDB, versioned
+schema, 3 local profiles, autosave every 15 s and on every beat* — and it is
+the piece that makes the expedition runner's own spec true: F38 built
+`snapshot()` and `restore()`, and until now there was nowhere to put them.
+
+### The GDD asks for two different resumes, and they differ by thirteen minutes
+
+Two sentences, both in the design: *the game saves position continuously;
+quitting mid-air is fine*, and *quitting mid-expedition saves at the last beat
+and resumes there*. Measured against the route, the second is expensive. The
+beats are the authored waypoints, and on the authored speed profile they fall
+like this:
+
+| beat | km | minute of the flight | gap since the last |
+| --- | ---: | ---: | ---: |
+| Shanghai | 0 | 0.0 | — |
+| Wuhan | 679 | 13.5 | **13.5 min** |
+| Chongqing | 1,427 | 26.9 | 13.4 min |
+| Chengdu | 1,692 | 28.5 | 1.6 min |
+| Lhasa | 2,931 | 36.6 | 8.2 min |
+
+A player who stops at minute 13.4 — one minute short of Wuhan — is put back at
+Shanghai, and 679 km they flew did not happen. That is 37 % of a 36.7-minute
+expedition, and the gaps are uneven enough that the cost is unguessable from
+inside the game: stop just before Chengdu and you lose ninety seconds.
+
+An autosave every fifteen seconds costs a quarter of a minute, and costs it
+evenly, because it is a clock rather than a distance. Fifteen seconds is
+10.8 km at `low`, 32.5 at cruise and 65.0 at boost, and the player loses the
+same fifteen seconds in all three — a save keyed to kilometres would charge
+four minutes of plateau crawling for the same interval it charges fifteen
+seconds of coast.
+
+So a save holds a position, and the beats already heard sit beside it rather
+than instead of it (D33). Resuming at the last beat is still available — the
+beat kilometres are in the bundle — and it is now a narrative choice rather
+than the only thing the save layer can offer.
+
+### What a save costs the frame, measured in the running game
+
+| | |
+| --- | ---: |
+| a whole profile, mid-expedition | **325 bytes** |
+| IndexedDB write, first of a session | 1.3 ms |
+| IndexedDB write, thereafter | **0.1 – 0.2 ms** |
+| how often | every 15 s, and on every beat |
+
+Two tenths of a millisecond is 0.6 % of one frame at 30 fps, once every nine
+hundred frames. The measurement is the main-thread cost — the transaction
+resolving, not the disk flushing — which is exactly the number the frame
+cares about and exactly not a durability guarantee. A tab closed hard can
+lose the last write, which is the other half of why the interval is fifteen
+seconds and not a minute.
+
+### A saved kilometre is only worth anything if the route has not moved
+
+`km: 1500` means a place only while the waypoints it is measured along stay
+put. Move one, and the same number is somewhere else — over ground nobody
+checked, at an altitude the floor there does not support. This is the argument
+a route section already makes about its own elevations (D21) one level up, so
+it gets the same treatment: the plan carries a fingerprint over the waypoints,
+the leg ends and modes, and the pacing, and a run saved against a different
+one keeps its beats — those are places the player really was told about — and
+drops its kilometre.
+
+The profile is refused outright in the other cases, and refusing is the point:
+a save is the one file in this game written by an older version of it, and the
+failure it must not have is the quiet one. Wrong version, missing id, a
+position with a missing number — none of those half-load.
+
+### The floor had to ship, because computing one sample means flying the rest
+
+The GDD says a resume "has to be able to say it cannot", and F19 measured why:
+Expedition 1's tightest moment has eighteen seconds of nose-down in it. The
+quantity that answers it is the altitude floor — the lowest altitude the rest
+of the route still clears from — and `climbFloor` computes one sample by
+flying the remainder, about 3.5 ms. That is a build step, not a frame.
+
+So the route ships its floor (D18, finally literal), sampled at one kilometre,
+which is the resolution its ground profile has and therefore the finest the
+number can honestly claim. Sampling coarser was measured:
+
+| stride | samples | bytes | reads *below* the true floor by, over the body | inside the last 100 km |
+| --- | ---: | ---: | ---: | ---: |
+| 1 km | 2,932 | 15 kB | 0 | 0 |
+| 2 km | 1,467 | 7.3 kB | 83 m | 166 m |
+| 5 km | 588 | 2.9 kB | 129 m | 268 m |
+
+Reading below the true floor is the one error this table must not make: it
+tells a player they can finish when they cannot. The approach taper is where
+it bites — the floor moves 409 m in a single kilometre at km 2,898, coming
+down onto Lhasa (D20) — and 15 kB against a 67 MB world is not a trade worth
+thinking about. The cut takes ten seconds a route.
+
+In the game the floor is an array lookup, so the HUD carries the margin
+continuously: `2.3 km of room`, or `4,354 m below the floor`. That number is
+F19's hand-off budget, asked at the kilometre the aircraft is actually on
+rather than offline about the whole route.
+
+### It caught the first thing it was pointed at
+
+`__ns.jumpToKm(1500)` — the operator control F38 added for starting a session
+partway — kept the aircraft's current altitude, which was 1,200 m. The floor
+at km 1,500 is 5,554 m, and the HUD said so: **4,354 m below the floor**. That
+is F28's hazard exactly ("1,200 m in front of the Hengduan is a crash"), and
+it had been sitting in the operator tool since it was written. The jump now
+places the aircraft no lower than the floor, and an operator who wants the
+altitude a whole expedition would have at that kilometre has it printed by
+`npm run content:sessions`.
+
+### What else got connected
+
+The card catchments ship in the same bundle, so the trigger field built in
+F37 is now running in the game rather than only in its report — free flight is
+where most cards are met, and the seen set is what a profile is for. Nothing
+in the corridor's three cards is within reach of Expedition 1 (F37), so the
+HUD reads `0 of 3 card(s)` and will keep reading it until that content
+decision is made.
+
+What is not built is the menu: one profile is created, and the schema holds
+three. Choosing between them is a screen, and screens are phase 2.
+`__ns.newProfile()` is what an operator needs between participants, which is
+the only reason a prototype needs more than one.
+
+## F40 — The atlas plans 228 entries and the discovery system can reach 150 of them; the page G2 is scored on validates green and is wrong in every field
+
+The journal is phase 2's *journal skeleton* and the last unbuilt node on the
+critical path into G2 — `D[Discovery + journal] --> E`, whose other half
+shipped in F37. The GDD is blunt about what it is for: *everything feeds the
+journal; the journal is the progression.* So this is a counting layer over two
+sets, the entries that exist and the entries a profile has met, and almost
+everything interesting is about the first set.
+
+### One trigger shape, five kinds of entry
+
+The GDD's volume table names eight entry types and, beside each, how it fires.
+Written down as data (`ENTRY_PLAN`) rather than as prose, they do not agree
+with each other:
+
+| type | planned | how it fires | shape |
+| --- | ---: | --- | --- |
+| Hero landmark | 40 | within 15 km | a circle |
+| Point of interest | 80 | within 5 km | a circle |
+| City | 30 | overflight | a circle |
+| Food | 25 | overflying the city that owns it | a circle **on another entry** |
+| People & culture | 20 | region entry or landmark | a circle **on another entry** |
+| Region | 9 | crossing the region boundary | an area |
+| Weather event | 12 | experiencing it | a state |
+| Comparison spread | 12 | end of the linking expedition, or both regions complete | a rule |
+
+228 entries. The discovery system built in F37 tests one shape — the distance
+from the swept segment to a circle on the ground (D30) — and **150 of the 228
+are that shape and nothing else**. Another 45 are that shape sitting on top of
+an entry that is already there, and **33 are not places at all**: the nine
+regions, twelve weather events and twelve spreads.
+
+The nine regions are already an open schema question (F37: the plateau card
+never fires, because a region got the `{lat, lon, radius_km}` a landmark gets
+and 120 km around 33.0 N 88.0 E is a spot in the Changtang). What this adds is
+the size of it. It is not one card filed oddly; it is a seventh of the atlas,
+and the twelve weather events and twelve spreads are a second and third kind
+of the same gap rather than more of the first.
+
+### The rule against stacking forbids forty-five planned entries
+
+The 45 on top of another entry are worse than unbuilt, because the schema
+actively refuses them. `RULES.minTriggerSeparationKm` is 3 km — *two cards
+closer than this would both fire and stack* — and the GDD's own trigger for a
+food card is "overflying the city that owns it". Run rather than argued, with
+a Chongqing city card and a Chongqing hotpot food card at the same
+coordinates:
+
+```
+A food card authored at the city that owns it: rejected —
+  "only 0.0 km from chongqing-hotpot; cards would stack".
+```
+
+That rule was written before there was a queue. There is one now: F37's
+`CardQueue` holds cards in the order they were flown into and shows them one
+at a time with a cooldown, precisely so that two catchments entered together
+do not stack. The rule the queue replaced is still refusing content — 25 food
+cards and 20 people cards, a fifth of the atlas — and the fix is a rule about
+*what may share a place*, not about distance. That is a schema decision and
+it is on the actions list.
+
+### Two of the three authored cards were filed under a region that does not exist
+
+`region` was a free string. The GDD's table names nine, with an en dash:
+*Qinghai–Tibet Plateau*, *Yunnan–Guizhou*. Two of the three cards in the
+repository wrote a hyphen. Nothing could see it, because nothing had ever
+grouped by that field — and a journal that groups by it shows **eleven regions
+for a nine-region game**, with `Qinghai-Tibet Plateau 1 of 1` sitting beside
+an empty `Qinghai–Tibet Plateau 0 of 0`.
+
+So the nine are a closed vocabulary now, keyed by ASCII kebab-case ids like
+every other id here, with the display name in one place instead of in 228
+files. What this cannot catch is a card filed under the *wrong* region, which
+is a reading of the map rather than a spelling of it.
+
+It leaves one gap standing: **the nine region names have no Chinese.** The GDD
+shows place names in characters and English everywhere, and a region is a
+place name. Nine strings, and they are a writer's.
+
+### Nothing in the build can say which of the nine regions the aircraft is in
+
+The journal needs that for three things the GDD asks for by name: the
+per-region count on the page, *first discovery in each of the nine regions*
+unlocking that region's music, and a soft hint that says "somewhere along the
+Tian Shan" rather than "somewhere in Xinjiang". The only position → region map
+in the repository is `standInRegionWeights`, the three-way blend that mixes
+the air (D14's placeholder), and it cannot be borrowed:
+
+- It knows **three** regions where the journal counts nine.
+- Its middle region is called the Sichuan Basin and has **zero weight over
+  every kilometre of Expedition 1**, including the 265 km from Chongqing to
+  Chengdu, which is the Sichuan Basin. Its band is an east-coordinate window
+  crossed with low ground, and the route is never inside both at once.
+- Evaluated at low ground so only the band decides, that window sits over
+  **Golmud, Dunhuang and Yumen** — the Hexi Corridor and the Qaidam, 800 to
+  1,200 km northwest of Sichuan. Chengdu and Chongqing score 0.00.
+
+None of that is a bug in what shipped: the file says *REPLACED BY THE REGION
+RASTER (build plan D14)* and its stated job was to prove the plateau's air
+reads clean and the basin's as milk, which F36 measured against the parameter
+table rather than against the route. What it means is that **D14 is now on the
+journal's path as well as the atmosphere's**, and that the basin parameter set
+F36 costed has never actually been seen in flight.
+
+Until there is a raster, the atlas groups by the region a card was *filed*
+under — a fact about the card, not about the aircraft — and an entry with no
+authored hint falls back to `somewhere in <region>`, which is the weakest
+sentence that can be said and is a pin for nobody. All three authored cards
+are on that fallback.
+
+### The page G2 is scored on does not exist, and the slot for it validated green
+
+G2's fourth pass criterion is *the full-screen comparison spread is read
+rather than dismissed by a majority*. **Zero of twelve are authored.** That
+alone is a content gap, and the report says so. What makes it a finding is the
+slot that was waiting for them.
+
+`comparison` was one of `CARD_TYPES`, so a spread could be written as a card —
+and a spread written as a card **passes every check in the validator**:
+
+- one `figure`, where the GDD asks for five numbers plus a dish and a sketch,
+  **on each of two sides**;
+- a `trigger` circle, which must be at one of its two subjects, so the page
+  fires as a flyover fifteen kilometres from the Bund instead of at the end of
+  the expedition;
+- nowhere at all to name the other side.
+
+Green CI over content that cannot be the thing it claims to be is the worst
+shape this class of error takes. F28 and F29 each found a gate criterion that
+could not be scored because the event could not occur; this is the third, and
+it is the one where the repository was answering *yes* to the question.
+
+So a spread is its own file type with two sides and the same measures on both
+(D34), and the rule that makes it a comparison rather than two cards side by
+side is enforced: a number on one side and not the other is a row the page
+cannot draw, and CI says which.
+
+### Of the five numbers a spread carries, exactly one is already here
+
+The measures are elevation, January and July mean temperature, annual
+rainfall and population density, plus a dish and a landscape sketch. Four of
+the five numbers are a writer's, with sources, like every other claim in the
+content. The first is not: the route sections committed beside each
+expedition hold the ground at one-kilometre spacing along it (D21), signed by
+the machine that cut them (D23). Where a spread pairs the ends of an
+expedition — which is the case the GDD names, *Shanghai–Lhasa after Sea to
+Sky* — the authored elevation can be checked against the ground the route was
+actually flown over, in CI, with no world:
+
+| place | route section | published |
+| --- | ---: | ---: |
+| Shanghai | 9.9 m at km 0 | 4 m |
+| Lhasa | 3,651.8 m at km 2,931 | 3,650 m |
+
+Within the Lhasa golden probe's own 30 m, which is the same number F26 checked
+the section against. The tolerance is 25 m, because a city's published
+elevation is a datum somebody chose and the section holds a kilometre of
+ground averaged — so this catches a wrong place or a wrong unit, not a
+disagreement about where the middle of a city is.
+
+### Making the journal the record showed that two sets had drifted apart
+
+The save layer wrote the profile's `seen` from the trigger field, which knows
+which catchments have been *entered*. The atlas knows which entries have been
+*collected*, and it is the superset, because a spread is an entry with no
+catchment. Switching the writer made them disagree — and the reason was a
+teleport seam, in the place D30 was written about:
+
+- `discoveries.moveTo(...)` returns what the player landed inside, and **all
+  three callers threw it away**. A jump onto Ayding Lake marked the catchment
+  entered so it would never fire again, and told the player nothing.
+- `__ns.goTo` and `__ns.goToAnchor` — the operator's drop-a-participant-here
+  controls, which are where a teleport actually happens in a playtest —
+  assigned the position straight onto the flight state and never used the
+  teleport verb at all, so the *next frame's* `advance` swept the whole jump
+  line. That is exactly the failure D30 exists to prevent: ten catchments of
+  ten collected for a 2,900 km jump against none for a flight.
+
+Both are one function now, and a jump fires what it landed on and nothing
+else. Verified in the running game: `__ns.goTo` onto Wulingyuan shows the
+card, moves the journal from 1 of 3 to 2 of 3, completes the second region,
+and survives a reload.
+
+### What is built
+
+`engine/src/journal/atlas.ts` is counts over the two sets — per region,
+including the empty ones, because hiding them hides the shape of the game —
+plus the hint fallback and the seen set the profile writes.
+`engine/src/journal/spread.ts` is the unlock, which has two arms of different
+kinds: an arrival, which the runner already reports (F38), and a state
+re-read whenever a card is found. One guard matters enough to be a method:
+**a region with nothing in it is not complete**, because six of the nine hold
+nothing today and the vacuous reading opens nine of the twelve spreads to a
+player who has found nothing at all. A condition that passes because nothing
+can fail it is the same defect as a check that silently skips (F24, F28).
+
+The bundle carries the journal beside the routes (version 2), so the app is
+running the real thing rather than a fixture, and `npm run content:atlas`
+prints every number above. Thirty-five tests; 481 in all, 472 of them without
+a built world.
+
+What is not built is the reader: the page a player looks at, the comparison
+spread rendered full-screen, and the map pins. A spread currently arrives
+through the same placeholder the narration beats use. That is phase 2's UI
+work, and it is the first thing in this repository that is waiting on content
+rather than on engineering — the twelve pages and the ~225 unwritten entries.

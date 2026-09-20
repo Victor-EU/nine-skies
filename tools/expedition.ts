@@ -9,11 +9,13 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
-import type { Expedition } from "../content/schema.ts";
+import type { Card, Expedition } from "../content/schema.ts";
+import { triggerAt } from "../engine/src/discovery/triggers.ts";
 import { projectAlbers } from "../engine/src/terrain/worldGrid.ts";
 import type { Route, RouteLeg } from "../engine/src/sim/route.ts";
 import { DEFAULT_PACING, type SpeedMode } from "../engine/src/sim/scale.ts";
-import type { ExpeditionPlan } from "../engine/src/expedition/runner.ts";
+import type { CardTrigger, ExpeditionPlan } from "../engine/src/expedition/runner.ts";
+import { NO_FLOOR, type AltitudeFloor } from "../engine/src/expedition/resume.ts";
 import {
   firstUncoveredKm,
   measureAlong,
@@ -159,10 +161,14 @@ export function legsFor(expedition: Expedition): RouteLeg[] {
  * default, which is what the content gate flies and therefore what the
  * route's clearance and arrival have actually been checked at.
  */
-export function planFor(expedition: Expedition): ExpeditionPlan {
+export function planFor(
+  expedition: Expedition,
+  floor: AltitudeFloor = NO_FLOOR,
+): ExpeditionPlan {
   const points = projectedWaypoints(expedition);
   const { legEndKm } = measureAlong(points);
   return {
+    floor,
     id: expedition.id,
     name: expedition.name,
     points,
@@ -175,6 +181,24 @@ export function planFor(expedition: Expedition): ExpeditionPlan {
     cruiseKmPerMin: DEFAULT_PACING.cruiseKmPerMin,
     startAltitudeM: expedition.start_altitude_m,
   };
+}
+
+/**
+ * The authored cards, as catchments in the plane the aircraft flies in.
+ *
+ * The same projection the report uses and the same the runtime gets, because
+ * a card that fires in the game and not in `content:discoveries` would make
+ * the report a fiction.
+ */
+export function loadTriggers(cardsDir: string): CardTrigger[] {
+  return readdirSync(cardsDir)
+    .filter((f) => f.endsWith(".yaml"))
+    .sort()
+    .map((f) => parse(readFileSync(join(cardsDir, f), "utf8")) as Card)
+    .map((c) => ({
+      ...triggerAt(c.id, c.trigger.lat, c.trigger.lon, c.trigger.radius_km),
+      name: c.names?.en ?? c.id,
+    }));
 }
 
 /** Project an authored route onto a built corridor and cut it into legs. */

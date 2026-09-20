@@ -13,7 +13,7 @@ function card(over: Partial<Card> = {}): Card {
   return {
     id: "test-card",
     type: "hero-landmark",
-    region: "Xinjiang",
+    region: "xinjiang",
     names: { zh: "测试", en: "Test" },
     trigger: { lat: 40, lon: 90, radius_km: 15 },
     one_liner: "A short line well under the limit.",

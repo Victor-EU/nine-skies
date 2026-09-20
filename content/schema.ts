@@ -14,14 +14,98 @@ export const CARD_TYPES = [
   "weather",
   "food",
   "people",
-  "comparison",
 ] as const;
 
 export type CardType = (typeof CARD_TYPES)[number];
 
+/**
+ * The nine skies, as a closed vocabulary with ids.
+ *
+ * `region` was a free string, and two of the three authored cards named a
+ * region that is not one of the nine -- by one character, a hyphen where the
+ * GDD's table has an en dash. Nothing could see it: a journal that groups by
+ * that string shows eleven regions for a nine-region game, one of them empty
+ * and one of them a near-duplicate sitting beside it (F40).
+ *
+ * So the id is ASCII kebab-case like every other id in this repository, and
+ * the display name lives here rather than in 228 files. What this cannot
+ * catch is a card filed under the wrong region, which is a reading of the map
+ * rather than a spelling of it.
+ *
+ * There is no `zh` here yet, and that is a gap rather than an omission: the
+ * GDD shows place names in characters and English everywhere, and a region is
+ * a place name. Nine strings, and they are a writer's, not an engineer's.
+ */
+export const REGIONS = [
+  { id: "dongbei", en: "Northeast (Dongbei)" },
+  { id: "north-china-loess", en: "North China Plain & Loess" },
+  { id: "inner-mongolia-gobi", en: "Inner Mongolia & Gobi" },
+  { id: "xinjiang", en: "Xinjiang" },
+  { id: "qinghai-tibet", en: "Qinghai\u2013Tibet Plateau" },
+  { id: "sichuan-hengduan", en: "Sichuan Basin & Hengduan" },
+  { id: "yunnan-guizhou", en: "Yunnan\u2013Guizhou" },
+  { id: "southeast-karst", en: "Southeast & Guangxi karst" },
+  { id: "yangtze-coast", en: "Yangtze & East coast" },
+] as const;
+
+export type RegionId = (typeof REGIONS)[number]["id"];
+
+export const REGION_IDS: readonly string[] = REGIONS.map((r) => r.id);
+
+export function regionName(id: string): string {
+  return REGIONS.find((r) => r.id === id)?.en ?? id;
+}
+
+/**
+ * How each entry type is meant to fire, from the GDD's own table.
+ *
+ * Written down because the discovery system has exactly one trigger shape --
+ * a circle on the ground (D30) -- and the GDD's eight entry types name five
+ * different ways of arriving at an entry. Recording the plan as data is what
+ * lets `npm run content:atlas` count how much of the atlas the built trigger
+ * can carry, instead of that being a paragraph somebody has to remember.
+ *
+ * - `disc`      a catchment at a place, which is what `TriggerField` tests
+ * - `on-entry`  a catchment at *another entry's* place: the food of a city,
+ *               the people of a landmark. Same shape, and the schema's
+ *               anti-stacking rule currently rejects it (F40)
+ * - `boundary`  crossing into a region, which is an area and not a point
+ *               (F37, and an open schema question)
+ * - `condition` experiencing weather, which is a state rather than a place
+ * - `progress`  a rule about what the player has done, not where they are
+ */
+export const TRIGGER_KINDS = ["disc", "on-entry", "boundary", "condition", "progress"] as const;
+export type TriggerKind = (typeof TRIGGER_KINDS)[number];
+
+export interface EntryPlan {
+  readonly type: CardType | "comparison";
+  readonly target: number;
+  readonly trigger: TriggerKind;
+  /** The GDD's own words for how it fires. */
+  readonly how: string;
+}
+
+/** GDD, "Entry types and volume targets". 228 entries. */
+export const ENTRY_PLAN: readonly EntryPlan[] = [
+  { type: "region", target: 9, trigger: "boundary", how: "crossing the region boundary" },
+  { type: "hero-landmark", target: 40, trigger: "disc", how: "within 15 km" },
+  { type: "point-of-interest", target: 80, trigger: "disc", how: "within 5 km" },
+  { type: "city", target: 30, trigger: "disc", how: "overflight" },
+  { type: "weather", target: 12, trigger: "condition", how: "experiencing it" },
+  { type: "food", target: 25, trigger: "on-entry", how: "overflying the city that owns it" },
+  { type: "people", target: 20, trigger: "on-entry", how: "region entry or landmark" },
+  {
+    type: "comparison",
+    target: 12,
+    trigger: "progress",
+    how: "end of the linking expedition, or both regions complete",
+  },
+];
+
 export interface Card {
   id: string;
   type: CardType;
+  /** One of `REGIONS`, by id. */
   region: string;
   names: { zh: string; en: string; pinyin?: string };
   trigger: { lat: number; lon: number; radius_km: number };
@@ -30,6 +114,16 @@ export interface Card {
   figure: { value: number; unit: string; label: string };
   illustration_id: string;
   sources: string[];
+  /**
+   * What the journal says about an entry the player has not found.
+   *
+   * GDD: *a soft hint for each missing entry ("somewhere along the Tian
+   * Shan"), never an exact pin.* Optional, because the journal has a hint
+   * without one -- the entry's region, which is the weakest thing that can be
+   * said and is a pin for nobody. `npm run content:atlas` counts how many
+   * entries are relying on that.
+   */
+  hint?: string;
 }
 
 /** GDD rules, enforced rather than hoped for. */
@@ -91,6 +185,11 @@ export function validateCards(cards: Card[]): Issue[] {
     }
     if (!c.names?.zh) add(id, "names.zh", "Chinese name is required on every card");
     if (!c.names?.en) add(id, "names.en", "English name is required on every card");
+
+    // A free string here is how "Qinghai-Tibet Plateau" and "Qinghai-Tibet
+    // Plateau" became two regions in a nine-region game (F40).
+    if (!REGION_IDS.includes(c.region ?? ""))
+      add(id, "region", `"${c.region}" is not one of the nine; use ${REGION_IDS.join(", ")}`);
 
     const t = c.trigger;
     if (!t) {
@@ -360,6 +459,136 @@ export function validateExpeditions(expeditions: Expedition[]): Issue[] {
           "arrival.altitude_m",
           `zero is the ground itself, which the check cannot tell from a crash; ` +
             `author the threshold-crossing height instead (F23)`,
+        );
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * Comparison spread schema (GDD, "Comparison spreads"; build plan D34).
+ *
+ * A spread is not a card, and it was one: `comparison` sat in `CARD_TYPES`
+ * and a spread written as a card passed every check in this file. That is the
+ * worst shape a validation error can take, because CI stays green over
+ * content that cannot be the thing it claims to be -- one figure where the
+ * GDD asks for six measures a side, a catchment at one of its two subjects so
+ * it fires as a flyover fifteen kilometres from the Bund instead of at the
+ * end of the expedition, and nowhere at all to name the other side (F40).
+ *
+ * So it gets its own file type, with the two things a card cannot hold: two
+ * sides, and the same measures on both. The unlock is a rule about what the
+ * player has done rather than a place, and it lives in
+ * `engine/src/journal/spread.ts` where the atlas can evaluate it.
+ */
+
+/** GDD: *the same measures* -- elevation, two temperatures, rain, density. */
+export const SPREAD_MEASURES = [
+  { key: "elevation_m", unit: "m", label: "elevation" },
+  { key: "january_mean_c", unit: "°C", label: "January mean" },
+  { key: "july_mean_c", unit: "°C", label: "July mean" },
+  { key: "annual_rain_mm", unit: "mm", label: "annual rainfall" },
+  { key: "people_per_km2", unit: "/km²", label: "population density" },
+] as const;
+
+export type MeasureKey = (typeof SPREAD_MEASURES)[number]["key"];
+
+export const MEASURE_KEYS: readonly string[] = SPREAD_MEASURES.map((m) => m.key);
+
+export interface SpreadSide {
+  /** A card id. The spread shows that entry; it does not restate it. */
+  entry: string;
+  measures: Partial<Record<MeasureKey, number>>;
+  /** GDD: "a dish". A name, in the entry's own language plus English. */
+  dish?: string;
+  /** GDD: "a landscape sketch". An illustration id, like a card's. */
+  sketch?: string;
+}
+
+export interface Spread {
+  id: string;
+  names: { zh: string; en: string };
+  /**
+   * The expedition whose arrival opens this spread full-screen.
+   *
+   * Optional: the GDD gives two unlocks and this is the first of them. A
+   * spread with no linking expedition can still be reached the other way,
+   * by completing both regions in free flight.
+   */
+  after?: string;
+  left: SpreadSide;
+  right: SpreadSide;
+  sources: string[];
+}
+
+export function validateSpreads(
+  spreads: Spread[],
+  cards: Card[],
+  expeditionIds: readonly string[],
+): Issue[] {
+  const issues: Issue[] = [];
+  const seen = new Set<string>();
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const add = (subject: string, field: string, message: string) =>
+    issues.push({ subject, field, message });
+
+  for (const s of spreads) {
+    const id = s.id ?? "(no id)";
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(s.id ?? "")) add(id, "id", "must be kebab-case");
+    if (seen.has(s.id)) add(id, "id", "duplicate id");
+    seen.add(s.id);
+
+    if (!s.names?.zh) add(id, "names.zh", "a spread is a page with a title");
+    if (!s.names?.en) add(id, "names.en", "a spread is a page with a title");
+    if (!Array.isArray(s.sources) || s.sources.filter(Boolean).length === 0)
+      add(id, "sources", "at least one source note is required");
+
+    if (s.after !== undefined && !expeditionIds.includes(s.after))
+      add(id, "after", `no expedition called "${s.after}"`);
+
+    const sides: [string, SpreadSide | undefined][] = [
+      ["left", s.left],
+      ["right", s.right],
+    ];
+    for (const [which, side] of sides) {
+      if (!side) {
+        add(id, which, "a spread has two sides");
+        continue;
+      }
+      if (!byId.has(side.entry))
+        add(id, `${which}.entry`, `no card called "${side.entry}"`);
+      for (const key of Object.keys(side.measures ?? {}))
+        if (!MEASURE_KEYS.includes(key))
+          add(id, `${which}.measures.${key}`, `not a measure; use ${MEASURE_KEYS.join(", ")}`);
+    }
+
+    if (!s.left || !s.right) continue;
+
+    if (s.left.entry === s.right.entry)
+      add(id, "right.entry", "a spread compares two entries, not one twice");
+
+    const l = byId.get(s.left.entry);
+    const r = byId.get(s.right.entry);
+    if (l && r && l.region === r.region)
+      add(
+        id,
+        "right.entry",
+        `both sides are in ${regionName(l.region)}; a spread is the game's thesis, ` +
+          `and two entries from one region do not carry it`,
+      );
+
+    // The rule that makes it a comparison rather than two cards side by side:
+    // the GDD asks for *the same measures*, so a number on one side and not
+    // the other is a row the page cannot draw.
+    for (const key of MEASURE_KEYS) {
+      const onLeft = (s.left.measures ?? {})[key as MeasureKey] !== undefined;
+      const onRight = (s.right.measures ?? {})[key as MeasureKey] !== undefined;
+      if (onLeft !== onRight)
+        add(
+          id,
+          `measures.${key}`,
+          `only ${onLeft ? s.left.entry : s.right.entry} has it; a spread compares like with like`,
         );
     }
   }

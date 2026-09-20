@@ -11,6 +11,7 @@
 #   make routes                     # every expedition flown over the world
 #   make sessions                   # what a playtest session of N minutes contains
 #   make teaches                    # what each route shows against what it claims
+#   make atlas                      # what the journal can show, and what it cannot yet
 #   make stations                   # re-cut where the frame budget is measured
 #   make test                       # every suite, TypeScript and Python
 #
@@ -23,7 +24,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles probes sources sections cut-key reference routes sessions teaches stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles probes sources sections cut-key reference routes sessions teaches atlas stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -100,6 +101,14 @@ sessions:
 ## written above it, and which of the two moves is a writing decision.
 teaches:
 	npm run content:teaches
+
+## The planned atlas against the trigger that exists (F40). Counts the 228
+## entries by how each is meant to fire, the regions that hold anything, the
+## entries with no authored hint, and the comparison spreads -- of which G2
+## scores one. A report, for the same reason: every gap it finds is closed by
+## writing rather than by code.
+atlas:
+	npm run content:atlas
 
 ## Where the frame budget is measured (D25). Cut from the route, committed,
 ## and deliberately not part of `world`: a capture is only worth taking if it
