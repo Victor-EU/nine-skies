@@ -11,8 +11,9 @@ import { join } from "node:path";
 import { parse } from "yaml";
 import type { Expedition } from "../content/schema.ts";
 import { projectAlbers } from "../engine/src/terrain/worldGrid.ts";
-import type { Route } from "../engine/src/sim/route.ts";
-import type { SpeedMode } from "../engine/src/sim/scale.ts";
+import type { Route, RouteLeg } from "../engine/src/sim/route.ts";
+import { DEFAULT_PACING, type SpeedMode } from "../engine/src/sim/scale.ts";
+import type { ExpeditionPlan } from "../engine/src/expedition/runner.ts";
 import {
   firstUncoveredKm,
   measureAlong,
@@ -99,7 +100,26 @@ export interface FlyableExpedition {
 export function flyableFrom(expedition: Expedition, groundM: readonly number[]): FlyableExpedition {
   const metrics = measureAlong(projectedWaypoints(expedition));
   const profiled: ProfiledRoute = { ...metrics, profileM: [...groundM] };
-  const legs = metrics.legEndKm.map((endKm, i) => ({
+
+  return {
+    expedition,
+    profiled,
+    route: { name: expedition.name, legs: legsFor(expedition) },
+    ground: (km) =>
+      profiled.profileM[Math.min(Math.max(0, Math.round(km)), profiled.profileM.length - 1)]!,
+  };
+}
+
+/**
+ * The legs an authored route is flown in, with no ground involved.
+ *
+ * Shared by the offline check and the runtime plan on purpose: a bundle that
+ * described different legs from the ones the content gate flew would be a
+ * guarantee about a different flight (D21's argument, in a smaller place).
+ */
+export function legsFor(expedition: Expedition): RouteLeg[] {
+  const metrics = measureAlong(projectedWaypoints(expedition));
+  const legs: RouteLeg[] = metrics.legEndKm.map((endKm, i) => ({
     name: `to ${expedition.route[i + 1]!.name}`,
     endKm,
     mode: expedition.route[i + 1]!.speed as SpeedMode,
@@ -123,13 +143,37 @@ export function flyableFrom(expedition: Expedition, groundM: readonly number[]):
       );
     }
   }
+  return legs;
+}
 
+/**
+ * An authored expedition in the form the runtime flies it (F38).
+ *
+ * Waypoints are beats without anyone authoring one: passing Wuhan is an event
+ * the route already knows about, and a beat is a kilometre rather than a disc
+ * because on a route there is something to measure along. Narration text
+ * joins the schema when there is a writer to put it there; what the runner
+ * needs is an id and a kilometre, and both are in the file already.
+ *
+ * The pacing is the one number here that nobody authored: it is the shipped
+ * default, which is what the content gate flies and therefore what the
+ * route's clearance and arrival have actually been checked at.
+ */
+export function planFor(expedition: Expedition): ExpeditionPlan {
+  const points = projectedWaypoints(expedition);
+  const { legEndKm } = measureAlong(points);
   return {
-    expedition,
-    profiled,
-    route: { name: expedition.name, legs },
-    ground: (km) =>
-      profiled.profileM[Math.min(Math.max(0, Math.round(km)), profiled.profileM.length - 1)]!,
+    id: expedition.id,
+    name: expedition.name,
+    points,
+    legs: legsFor(expedition),
+    beats: expedition.route.slice(1).map((point, i) => ({
+      id: point.id,
+      km: +legEndKm[i]!.toFixed(3),
+      name: point.name,
+    })),
+    cruiseKmPerMin: DEFAULT_PACING.cruiseKmPerMin,
+    startAltitudeM: expedition.start_altitude_m,
   };
 }
 

@@ -21,6 +21,8 @@
     "content:cut-key": "vite-node tools/cutKey.ts",
     "content:sessions": "vite-node tools/sessionPlan.ts",
     "content:teaches": "vite-node tools/teachCheck.ts",
+    "content:discoveries": "vite-node tools/discoveries.ts",
+    "content:expeditions": "vite-node tools/cutExpeditions.ts",
     "content:stations": "vite-node tools/cutStations.ts",
     "check": "npm run typecheck && npm test && npm run content:validate"
   },

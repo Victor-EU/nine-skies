@@ -26,6 +26,7 @@ export type Action =
   | "toggleHorizon"
   | "cycleFov"
   | "cycleBankFollow"
+  | "toggleExpedition"
   | "reset";
 
 export interface AxisBinding {
@@ -108,6 +109,15 @@ export const ACTION_BINDINGS: readonly ActionBinding[] = [
     padButton: 5,
     label: "camera bank locked / eased / with the wing",
     note: "comfort — 0 is the GDD's horizon lock, and what the prototype did (F35)",
+  },
+  {
+    action: "toggleExpedition",
+    key: "x",
+    padButton: 8,
+    label: "fly the authored expedition on/off",
+    note:
+      "off is free flight, which is what G1 flies — on gives the route its own " +
+      "leg speeds and holds the pacing at what its clearance was checked at (F38)",
   },
   { action: "reset", key: "r", padButton: 9, label: "reset to the start" },
 ];

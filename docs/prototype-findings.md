@@ -3329,3 +3329,291 @@ into `engine/src/gfx/aerial.ts`, a perceptual-difference helper went in beside
 it, and nine tests pin the numbers above — including the no-seam rule, that the
 clear colour and the colour terrain fades into are the same value, which is now
 checked rather than asserted in a comment.
+
+## F37 — Asking where the aircraft *is* loses a discovery in four at boost, and Expedition 1 flies past none of the cards it has
+
+The discovery trigger is workstream D's four-week item and it sits on the
+critical path into the expedition runner without depending on G1, so it is
+buildable now. The plan's line for it is one sentence: *uniform spatial grid
+over the ~150 point triggers, polled at 4 Hz, per-entry radius, single-card
+queue with cooldown, seen-set persisted.* Two of those four changed on
+measurement, one turns out to cost nothing, and the content it runs over
+turned out to have a hole in it.
+
+### A point poll flies straight through small catchments
+
+Horizontal motion carries the mode's ground gain and vertical motion does not
+— the asymmetry `scale.ts` exists to defend — so the aircraft crosses real
+ground very fast indeed. What 4 Hz means in metres:
+
+| | `low` | cruise | boost |
+| --- | ---: | ---: | ---: |
+| ground between polls at 4 Hz | 181 m | 542 m | 1,083 m |
+| smallest catchment a dead-centre pass can slip through | 0.09 km | 0.27 km | **0.54 km** |
+
+Randomising the poll phase and the impact parameter over crossings that
+genuinely happen, and counting how many get reported:
+
+| catchment radius | point poll, cruise | point poll, boost | swept segment |
+| --- | ---: | ---: | ---: |
+| 0.5 km | 94.8 % | **69.8 %** | 100 % |
+| 1 km | 98.8 % | 95.0 % | 100 % |
+| 2 km | 99.7 % | 98.9 % | 100 % |
+| 5 km | 100 % | 99.8 % | 100 % |
+
+Three flights in ten through a 500 m catchment at boost are never reported.
+That is not a rounding error in a HUD, it is **a discovery that silently does
+not happen** — the worst failure this system has, because nothing downstream
+can tell it apart from a player who did not go there.
+
+The three cards in the repository are 15 km and 120 km, so none of them is at
+risk today. The schema is what is at risk: `radius_km` has no floor, and the
+first author who writes a tight catchment for a small landmark gets a card
+that fails one flight in twenty with nothing to show for it.
+
+So the question asked is not *where is the aircraft* but *where has it been*:
+the distance from each catchment to the segment travelled since the last
+update. That reports every crossing at every radius at every speed, and it
+makes the poll rate a cost decision rather than a correctness one. Entry is
+reported as a fraction along the segment rather than a yes, so a single update
+that crosses several catchments hands them over in the order they were flown
+into rather than in array order.
+
+### The grid is not needed, and neither is 4 Hz
+
+A linear scan of **230** catchments with the segment test costs **1.28 µs** an
+update — 0.0005 % of a core at 4 Hz, 0.008 % at 60. There is no spatial index
+here and none is wanted; the note in the plan should be read as a budget that
+was never spent rather than a design. And since the cost is nil and the
+segment test makes the rate irrelevant to correctness, the sensible rate is
+every frame: shorter segments, no accumulator, one less thing running on its
+own clock.
+
+### A swept test needs a seam, and a map jump is where
+
+The segment is also the bug. The GDD's free flight lets the player *jump to
+any map pin with a three-second fade rather than fly back across the country*,
+and a jump asked as a flight is a 2,900 km segment: every catchment within
+radius of the straight line from Shanghai to Lhasa would be collected at once.
+Measured on 230 strung-out catchments, the same call hands back ten as a
+flight and none as a jump. So `advance` and `moveTo` are different verbs, and
+`moveTo` still fires what the player has landed inside, because they really
+are there. This is the same seam the comfort pass needed for the camera (F35):
+anything that remembers where you were has to be told when you did not travel.
+
+### Projecting a circle costs 2.5 % and buys a haversine per poll
+
+Catchments are authored as a latitude, a longitude and a radius in kilometres;
+the flight is in Albers metres. Projecting the centre once at load and keeping
+the radius in metres tests a circle in the plane, which is not quite the circle
+on the sphere — Albers is equal-area and not conformal. Walking 15 km in every
+direction and measuring the result in the projection:
+
+| | radius comes back as | out of round |
+| --- | --- | ---: |
+| Wulingyuan (29.3 N) | 14.87 – 15.12 km | 1.65 % |
+| Heihe, the NE corner | 14.77 – 15.28 km | 3.43 % |
+| Hainan, the worst in the country | 14.58 – 15.38 km | **5.34 %** |
+
+2.5 % of largest radial error, on a radius an author picked by feel, against a
+haversine per catchment per poll. Recorded so that nobody later "fixes" it.
+
+### The thing the measurement did not expect: no card fires on Expedition 1
+
+`npm run content:discoveries` flies each authored route past the whole card
+set. A report and never a gate, for the same reason `content:teaches` is one.
+
+```
+  sea-to-sky · 2931 km · 3 card(s) in the set
+    ⚠ no card fires on this route
+    not passed:
+      ayding-lake                 1476 km away at its nearest · radius 15 km
+      qinghai-tibet-plateau        476 km away at its nearest · radius 120 km
+      wulingyuan                    91 km away at its nearest · radius 15 km
+```
+
+Ayding Lake is in Turpan and belongs to another expedition; that one is fine.
+The other two are not.
+
+**Wulingyuan misses by 76 km** — 91 km off the Wuhan–Chongqing leg against a
+15 km catchment. It is the kind of miss a route tweak or a second landmark
+fixes, and it is the ordinary case this report exists to surface.
+
+**The plateau card is a different problem.** Expedition 1 spends its last third
+on the Qinghai-Tibet Plateau, and the card called *Qinghai-Tibet Plateau* does
+not fire, because it is 476 km away. It is not misplaced: 33.0 N 88.0 E is the
+middle of the Changtang, which is exactly where the plateau is flattest and
+exactly where F29 already found the route does not go. The fault is the
+*shape*. A region is not a disc, and the schema gives it the same
+`{lat, lon, radius_km}` a landmark gets, so a card about 2.5 million km² is
+represented by a 120 km spot and a player who crosses the plateau is never
+told they are on it. That is the discovery layer failing its single most
+important card on the flagship route.
+
+Worth naming, because it is nearly free: the renderer already knows.
+`standInRegionWeights` decides coast, basin or plateau from ground elevation
+and distance inland, every frame, to blend the air (F36). A region card that
+fired on that weight crossing a threshold would be right everywhere by
+construction, and would need no coordinates at all. Which of that, a polygon,
+or simply a much larger radius is right is a schema decision, and it is in
+*Open questions* rather than here.
+
+## F38 — The route check guarantees a flight the player can opt out of with one key, and progress along a route is not a position
+
+The expedition runner is the workstream D item every other phase-2 system
+converges on, and most of it exists already: `flyRoute` flies an authored
+route over real ground, `climbFloor` says how high it has to be, `validateRoute`
+runs both halves in CI, and F37's trigger field watches for the things beside
+it. What was missing is the part that runs while somebody is holding the
+stick — where along the route the aircraft has got to, which leg it is on,
+and what fires when.
+
+Four things came out of building it. One is a hole in a guarantee this
+repository has been quoting since F18.
+
+### The route's numbers were all measured at one pacing, and the player has a key for it
+
+`npm run content:validate` prints, on every commit: *clears by 333 m at
+2366 km · arrives 264 m up against an authored 300*. Both halves of that are
+flown at the shipped cruise pacing, 130 km/min, because that is what
+`flyRoute` defaults to and nothing in the expedition file says otherwise. The
+running game binds `P` to a three-way toggle over {80, 130, 190}.
+
+Flying the authored profile — `low / low / cruise / cruise` plus the
+approach — at each pacing, through the same `validateRoute` the gate uses:
+
+| cruise km/min | clears the ground | worst clearance | gets down onto Lhasa | lowest arrival |
+| ---: | --- | ---: | --- | ---: |
+| 60 | yes | 1,075 m | yes | 299 m |
+| 73 | yes | 960 m | yes | 306 m |
+| 80 | yes | 889 m | yes | 291 m |
+| 100 | yes | 671 m | yes | 297 m |
+| **130 — authored** | yes | **333 m** | yes | **251 m** |
+| 160 | yes | 13 m | **no** | 592 m |
+| 190 | **no** — contact at km 2,359 | **−210 m** | no | — |
+
+Two failures, and they arrive in the order nobody would guess. **The arrival
+breaks first.** At 160 the aeroplane still clears the ground — by thirteen
+metres — and can no longer descend into Lhasa, finishing 592 m up against an
+authored 300, because getting down is a matter of seconds and there are fewer
+of them (F23, F31). Only at 190 does the terrain win, and where it wins is
+F17's crash again: km 2,359, in the Nyainqêntanglha, 210 m inside the ridge at
+the worst of it.
+
+The guarantee is one-sided. Slower is safe on this route all the way down to
+60 km/min; faster is a different flight from the one CI checked. So an
+expedition is flown at or below the pacing its route was checked at (D31), the
+bundle carries that number so the runtime can enforce it, and free flight —
+which is what a G1 session is — keeps all three candidates. The HUD says when
+it is holding: `cruise 190 km/min ◂ held at 130 for sea-to-sky`.
+
+Worth being plain about what this was before today: the number 130 appears in
+no expedition file. It is a constant in `scale.ts` that the check happens to
+default to, and every "this route clears by 333 m" in this repository has been
+a claim about it. The bundle now writes it down. Whether an author should be
+able to *set* it — a route validated at 80, say — is a schema question and is
+in *Open questions*.
+
+### A kilometre off the line, the route is describing a different mountain
+
+Everything a route knows is indexed by distance along it: the altitude floor,
+the arrival ceiling, the remaining minutes, the clearance. The aircraft is not
+on the line. Sampling the built corridor either side of Expedition 1 and
+comparing with the route's own profile, at 2 km stations:
+
+| off the line | ground differs by > 100 m | > 300 m — the margin the route keeps | > 1,000 m |
+| ---: | ---: | ---: | ---: |
+| 1 km | 25 % | **4 %** | 0 % |
+| 2 km | 36 % | 14 % | 0 % |
+| 5 km | 48 % | 23 % | 3 % |
+| 25 km | 56 % | 35 % | 7 % |
+| 50 km | 60 % | 40 % | 10 % |
+
+So the runner's kilometre is a position *along the route*, and nothing more.
+Anything that needs to know what is under the aircraft asks the terrain, which
+the HUD already does. Every route-indexed number the runner reports carries
+`crossTrackM` beside it, because that is the distance between the player and
+the thing the number is about.
+
+### The projection needs a memory, and a corridor cannot be tighter than the aeroplane's turn
+
+Nearest-point projection onto a polyline is ambiguous inside a corner: the
+line bends towards the aircraft, so a point off to the side reads as further
+along than the station it came from. Swept over every kilometre of
+Expedition 1 and both sides of it:
+
+| off the line | worst error in credited distance | where |
+| ---: | ---: | --- |
+| 5 km | 3.5 km | the run-up to Chongqing |
+| 25 km | 17.7 km | " |
+| 50 km | 35.5 km | " |
+
+**0.71 km of credit per kilometre off the line**, at the 39.1° turn into
+Chongqing, which is this route's sharpest. A straight cut across that corner —
+60 km before to 60 km after — flies 113.1 km and is credited 120.0.
+
+The other half of the geometry is the one a longer route makes worse. Sea to
+Sky's closest non-adjacent legs pass **266 km** apart, and at cruise 266 km is
+**two minutes of flying**. An unwindowed projection is therefore one ordinary
+detour away from crediting several hundred kilometres nobody flew. So progress
+is monotonic, and one update may credit at most 1.5× what it covered.
+
+How wide should the corridor be — the band inside which a player still counts
+as flying the route? Not a number picked by feel: the aeroplane cannot hold a
+line tighter than it can turn. A full-bank reversal, measured through the
+flight model:
+
+| | at 1,200 m | at 4,500 m |
+| --- | ---: | ---: |
+| `low` | 5.3 km | 7.8 km |
+| cruise | 16.2 km | 23.3 km |
+| boost | 36.0 km | 23.3 km — boost is locked out up here (F16) |
+
+Anything under about 20 km would report every sightseeing turn as leaving the
+route. 25 km is wider than every cruise reversal and narrower than the 266 km
+that would let the projection jump legs.
+
+### The window, on its own, is a trap
+
+The first version froze. A detour outside the corridor stops progress — which
+is right — and then the player rejoins the route forty kilometres further on,
+and the window is `[wherever progress stopped, + a little]`, so everything
+ahead is outside it, forever. The expedition simply ends without saying so.
+The test that caught it is the detour case; the fix is that rejoining the
+route ahead of where progress stopped is allowed, and is treated as what it
+is — *arriving somewhere without having flown the route to get there*, which
+is the same seam F37 needed for a map jump, in the coordinate a route has.
+
+### A beat is a kilometre, not a disc
+
+A discovery card is a catchment because free flight has nothing to measure
+against. On a route there is: asking whether progress has passed a kilometre
+cannot miss at any frame rate or speed, needs no radius an author has to
+guess, and fires in route order by construction.
+
+What a detour does to narration then has a clean answer. Beats between where
+the player left the route and where they rejoined it are marked heard and
+**not played** — going round Wuhan and being told about Wuhan eighty
+kilometres the far side is exactly the desync the plan's "location-triggered
+beats" line is there to prevent. They are reported as `skipped`, so a journal
+can one day say the player went round rather than through. Arriving counts as
+passing the last beat, which every route has: the destination.
+
+### What is connected, and what is not
+
+`npm run content:expeditions` cuts the authored file into
+`app/public/expeditions.json` — the same legs the content gate flies, with the
+approach split and the pacing it was checked at — and the app fetches it. `X`
+flies it: the legs set the speed mode, the pacing is capped, beats play
+through F37's single-card queue. Off, which is the default and what G1 uses,
+it tracks: progress, leg, cross-track, no cap and no mode override.
+
+`__ns.jumpToKm(900)` puts the aircraft on the route facing along it, which is
+the operator control F28's own session protocol implies and could not have
+without a runner.
+
+What is not connected is what a beat looks like to a player. The HUD prints
+its name and that is all it should do: the card reader is the journal, in
+phase 2. The beats themselves are the route's waypoints, which need no author
+— passing Wuhan is an event the file already describes. Narration text is a
+schema field and a writer's, and neither exists yet.

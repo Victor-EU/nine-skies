@@ -20,11 +20,17 @@ npm run dev
 Then open the URL Vite prints. Controls: `W`/`S` pitch, `A`/`D` roll, `1`/`2`/`3`
 for low / cruise / boost, `V` to cycle the drama (the gate G1 A/B), `C` the
 compression, `P` the cruise pace, `H` to toggle the horizon impostor, `F` the
-field of view, `L` the camera's bank, `R` to reset to the start. A gamepad
+field of view, `L` the camera's bank, `X` to fly the authored expedition
+rather than free-fly over it, `R` to reset to the start. A gamepad
 works alongside: left stick for pitch and roll, forward climbs, face buttons
 for the modes, d-pad for the toggles, shoulders for the two comfort settings.
 The help block on screen is generated from the one binding table
 (`engine/src/input/bindings.ts`), so it is always right.
+
+`X` is off by default, which is free flight and what a G1 session is. On, the
+route sets the speed of each leg and the pacing is held at what that route's
+clearance was actually checked at — 190 km/min flies Expedition 1 into the
+Nyainqêntanglha (F38).
 
 `F` and `L` are the comfort pass. `L` at its zero end is the GDD's
 horizon-locked camera, which is what this prototype did before the setting
@@ -60,7 +66,7 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 384 TypeScript tests and 59 Python tests
+make test         # 422 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -73,7 +79,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-376 of the 384 TypeScript tests run without the world; the eight that do not
+413 of the 422 TypeScript tests run without the world; the nine that do not
 are the ones whose subject is the world itself.
 
 A section is also signed by the machine that cut it, and one that does not
@@ -98,6 +104,8 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | `engine/src/terrain` | Shared grid, heightmap texture array, shaders, streaming, horizon impostor |
 | `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them, the camera's comfort settings, and the air at the aircraft |
 | `engine/src/input` | The binding table, keyboard and gamepad sources, and the intent the frame polls |
+| `engine/src/discovery` | Which card catchments the aircraft has flown into, and the one-card queue |
+| `engine/src/expedition` | Where along an authored route the aircraft has got to, and what fires when |
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes, frame-cost capture |
 | `content` | Card and expedition schema, the committed route sections, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, the committed projection reference and the source raster digests |

@@ -34,6 +34,15 @@ import type { PadSnapshot } from "../../engine/src/input/gamepad.js";
 import { captureFrameCost, frameCostTable } from "./frameCost.js";
 import { Aerial } from "../../engine/src/gfx/aerial.js";
 import {
+  BUNDLE_VERSION,
+  ExpeditionRun,
+  cappedPacing,
+  type ExpeditionBundle,
+  type ExpeditionPlan,
+} from "../../engine/src/expedition/runner.js";
+import { CardQueue } from "../../engine/src/discovery/queue.js";
+import { pointAtKm } from "../../engine/src/expedition/path.js";
+import {
   BANK_FOLLOW_CANDIDATES,
   DEFAULT_COMFORT,
   FOV_CANDIDATES,
@@ -202,6 +211,47 @@ applyScale();
 // Start on the coast, pointed inland, at the altitude the GDD opens on. A
 // published corridor carries its own start - Shanghai, aimed at Lhasa - because
 // only the pipeline knows where Shanghai is in grid metres.
+/**
+ * The authored expedition under the aircraft, if there is one (F38).
+ *
+ * `npm run content:expeditions` cuts the same legs the content gate flies
+ * into `app/public/expeditions.json`, and this reads them. Nothing here
+ * re-derives a route: a runtime that measured its own legs could disagree
+ * with the check that passed, which is the one thing a bundle must not do.
+ *
+ * Absent - a stand-in world, a missing bundle, a bundle from a different
+ * shape of this file - means free flight, which is what every G1 session is
+ * anyway. The expedition is instrumentation for now: the runner reports
+ * progress, the leg and the beats, and the HUD prints them. What plays a beat
+ * to a player rather than to an operator is the journal, and that is phase 2.
+ */
+async function loadPlans(): Promise<readonly ExpeditionPlan[]> {
+  try {
+    const response = await fetch("/expeditions.json");
+    if (!response.ok) return [];
+    const bundle = (await response.json()) as ExpeditionBundle;
+    return bundle.version === BUNDLE_VERSION ? bundle.expeditions : [];
+  } catch {
+    return [];
+  }
+}
+
+const plan = (await loadPlans()).find((p) => p.id === world?.manifest.corridor) ?? null;
+const run = plan ? new ExpeditionRun(plan) : null;
+/**
+ * Whether the authored expedition is being flown, rather than merely tracked.
+ *
+ * Off by default, and G1 never turns it on: a G1 session is free flight over
+ * the corridor, with the drama toggle in the operator's hands. What the flag
+ * buys when it is on is the two things that make the route the checked one -
+ * the leg's own speed mode, and the pacing cap (D31) - and those are exactly
+ * the two things a free-flight session must not have taken away from it.
+ */
+let flyingExpedition = false;
+/** The single-card queue from F37, holding beats instead of cards. */
+const beatQueue = new CardQueue();
+const beatName = new Map((plan?.beats ?? []).map((b) => [b.id, b.name ?? b.id]));
+
 const START = world?.manifest.start ?? {
   eastM: 120_000,
   northM: 1_500_000,
@@ -209,6 +259,7 @@ const START = world?.manifest.start ?? {
   headingRad: Math.PI / 2,
 };
 const flight = createFlightState({ ...START });
+run?.moveTo(flight.eastM, flight.northM);
 
 const el = (id: string) => document.getElementById(id)!;
 
@@ -273,8 +324,18 @@ function act(action: Action): void {
       // sets the level up-vector rather than leaving the last one on.
       comfort = { ...comfort, bankFollow: BANK_FOLLOW_CANDIDATES[bankIndex]! };
       break;
+    case "toggleExpedition":
+      flyingExpedition = run !== null && !flyingExpedition;
+      // Starting is not flying here from the start: the expedition picks up
+      // where the aircraft already is, which is what an operator dropping a
+      // participant at km 900 needs (F28), and what a resume is.
+      if (flyingExpedition) run?.moveTo(flight.eastM, flight.northM);
+      break;
     case "reset":
       Object.assign(flight, createFlightState({ ...START, headingRad: Math.PI / 2 }));
+      // The aircraft did not fly here, so neither did the expedition: the
+      // same seam the discovery field needs, in route coordinates (F37, F38).
+      run?.moveTo(flight.eastM, flight.northM);
       break;
   }
 }
@@ -428,6 +489,29 @@ if (import.meta.env.DEV) {
       return true;
     },
     getPacing: () => pacing,
+    /**
+     * Put the aircraft at a kilometre of the loaded expedition, facing along
+     * it - the operator's way of starting a session partway, which G1's own
+     * protocol asks for (F28 prices a session from km 900). A jump, not a
+     * flight: the expedition is told so, and the beats behind it are marked
+     * heard rather than played (F38).
+     */
+    jumpToKm(km: number): boolean {
+      if (!run) return false;
+      const at = pointAtKm(run.path, km);
+      Object.assign(
+        flight,
+        createFlightState({
+          eastM: at.eastM,
+          northM: at.northM,
+          altitudeM: flight.altitudeM,
+          headingRad: at.headingRad,
+        }),
+      );
+      run.moveTo(flight.eastM, flight.northM);
+      return true;
+    },
+    getRun: () => (run ? { ...run.snapshot(), plan: run.plan.id } : null),
     setCruise(kmPerMin: number): boolean {
       const i = indexIn(CRUISE_CANDIDATES, kmPerMin);
       if (i < 0) return false;
@@ -619,8 +703,27 @@ function frame(now: number): void {
     windNorthMs: 0,
   };
 
-  step(flight, input, env, dt, LIGHT_PISTON, pacing);
-  const tm = telemetry(flight, env, input, LIGHT_PISTON, pacing);
+  // An expedition is flown at or below the pacing its route was checked at
+  // (D31). Faster is not a preference, it is a different flight: at 190 this
+  // route is 210 m inside the Nyainqentanglha, and at 160 it can no longer
+  // get down onto Lhasa (F38). Free flight keeps all three candidates.
+  const flown = plan && flyingExpedition ? cappedPacing(plan, pacing) : pacing;
+  step(flight, input, env, dt, LIGHT_PISTON, flown);
+  const tm = telemetry(flight, env, input, LIGHT_PISTON, flown);
+
+  const progress = run?.advance(flight.eastM, flight.northM) ?? null;
+  // The leg's authored speed, which is the other half of what makes this the
+  // route the content gate flew: `low / low / cruise / cruise` is not a
+  // suggestion, it is the profile that clears the ground (F18).
+  // `approach` included: it is the one mode that changes the compression
+  // rather than the airspeed, and it is the only thing measured that gets
+  // this aeroplane down into Lhasa (D26, F31).
+  if (progress && flyingExpedition) input.mode = progress.mode;
+  // Tracking still crosses beats and marks them heard, and that is not a leak:
+  // starting an expedition partway marks everything behind the aircraft heard
+  // anyway, because it is a jump rather than a flight.
+  if (progress && flyingExpedition && progress.beats.length > 0) beatQueue.offer(progress.beats);
+  const beat = beatQueue.update(now / 1000);
 
   placeAt(
     flight.eastM,
@@ -691,10 +794,41 @@ function frame(now: number): void {
         // airspeed rises with altitude, so a climbing aircraft covers the
         // route faster than the arithmetic (F17). An operator who writes
         // this number down for a G2 session would be five minutes out.
-        ` · ${world!.manifest.corridor} ${minutesForKm(routeKm, "cruise", pacing).toFixed(1)} min nominal`
+        // Nominal at the pacing actually flown, not the one selected: with an
+        // expedition loaded those differ, and the minutes are the half an
+        // operator writes down.
+        ` · ${world!.manifest.corridor} ${minutesForKm(routeKm, "cruise", flown).toFixed(1)} min nominal`
       : "") +
-    (grounded ? " ◂ no single speed above 73 flies Expedition 1" : "");
+    (grounded ? " ◂ no single speed above 73 flies Expedition 1" : "") +
+    // With a route loaded the HUD is no longer guessing: the cap is the
+    // pacing that route's clearance and arrival were actually checked at.
+    (plan && flown.cruiseKmPerMin !== pacing.cruiseKmPerMin
+      ? ` ◂ held at ${flown.cruiseKmPerMin} for ${plan.id}`
+      : "");
   pace.classList.toggle("warn", grounded);
+
+  // Where the expedition has got to, and how far the aircraft is from the
+  // line every route-indexed number is about. A kilometre off it the ground
+  // underneath is already outside the margin the route keeps (F38), so the
+  // distance is printed beside the kilometre rather than left implied.
+  const expedition = el("expedition");
+  if (progress && plan) {
+    const off = progress.crossTrackM / 1000;
+    expedition.textContent =
+      `${plan.id} ${flyingExpedition ? "flying" : "tracking"} · ` +
+      `km ${progress.km.toFixed(0)} of ${(progress.km + progress.remainingKm).toFixed(0)} · ` +
+      `${progress.leg} (${progress.mode})` +
+      (progress.onRoute ? ` · ${off.toFixed(1)} km off` : ` · ${off.toFixed(0)} km off the route`) +
+      (progress.arrived ? " · arrived" : "");
+    expedition.classList.toggle("warn", !progress.onRoute);
+  } else {
+    expedition.textContent = "free flight · no expedition bundle for this world";
+  }
+
+  // The beat itself, held by the same single-card queue the discovery cards
+  // will use (F37). Placeholder presentation on purpose: what a beat looks
+  // like to a player is the journal's question, not this prototype's.
+  el("beat").textContent = beat.showing ? (beatName.get(beat.showing) ?? beat.showing) : "";
 
   el("fps").textContent = `${fpsShown.toFixed(0)} fps`;
   el("draws").textContent =

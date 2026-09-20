@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "expeditions": [
+    {
+      "id": "sea-to-sky",
+      "name": "Sea to Sky",
+      "points": [
+        {
+          "eastM": 4996128.433611722,
+          "northM": 1645840.3475631978
+        },
+        {
+          "eastM": 4336048.411789315,
+          "northM": 1487165.5666760914
+        },
+        {
+          "eastM": 3604513.007439802,
+          "northM": 1332577.3886646274
+        },
+        {
+          "eastM": 3368035.6526723327,
+          "northM": 1454147.1369962674
+        },
+        {
+          "eastM": 2129718.096113881,
+          "northM": 1433382.8270159531
+        }
+      ],
+      "legs": [
+        {
+          "name": "to Wuhan",
+          "endKm": 678.8838790976263,
+          "mode": "low"
+        },
+        {
+          "name": "to Chongqing",
+          "endKm": 1426.574692601249,
+          "mode": "low"
+        },
+        {
+          "name": "to Chengdu",
+          "endKm": 1692.470805824511,
+          "mode": "cruise"
+        },
+        {
+          "name": "to Lhasa (cruise)",
+          "endKm": 2885.962439809114,
+          "mode": "cruise"
+        },
+        {
+          "name": "to Lhasa (approach)",
+          "endKm": 2930.962439809114,
+          "mode": "approach"
+        }
+      ],
+      "beats": [
+        {
+          "id": "wuhan",
+          "km": 678.884,
+          "name": "Wuhan"
+        },
+        {
+          "id": "chongqing",
+          "km": 1426.575,
+          "name": "Chongqing"
+        },
+        {
+          "id": "chengdu",
+          "km": 1692.471,
+          "name": "Chengdu"
+        },
+        {
+          "id": "lhasa",
+          "km": 2930.962,
+          "name": "Lhasa"
+        }
+      ],
+      "cruiseKmPerMin": 130,
+      "startAltitudeM": 1200
+    }
+  ]
+}
