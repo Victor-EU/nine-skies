@@ -59,7 +59,7 @@ The 2D strengths come back as an overlay: a toggleable minimap and full-screen m
 **Art direction**
 
 - Low-poly terrain with flat shading and a strong regional palette; no photo textures. Think Alto's Odyssey meets a Chinese landscape scroll.
-- Vertical exaggeration of 1.5x on terrain so mountains read at game speed without becoming cartoons.
+- Vertical scale of 0.75x on terrain so mountains read at game speed without becoming cartoons. Compressing horizontally by 1:8 already exaggerates relief eightfold, so the vertical is trimmed rather than stretched — at the 1.5x this document first specified, a third of the Shanghai–Lhasa route renders past 60° and the result is spikes (prototype finding F14).
 - Atmospheric scattering is the main tool: warm dusty haze in the north, milky humidity in Sichuan, hard clean blue over Tibet, grey-green mist over karst country.
 - Cities as clusters of simple blocks with warm night lighting; the eastern seaboard glows, the west is dark.
 - Rivers as bright ribbons; the Yangtze and Yellow River are always visible from altitude.
@@ -68,7 +68,7 @@ The 2D strengths come back as an overlay: a toggleable minimap and full-screen m
 
 ## The world
 
-The map is all of mainland China plus Hainan and Taiwan's coastline as a horizon, built from real elevation data at roughly 1 km resolution and rendered as one continuous streamed world. Horizontal scale is compressed 1:8 so a Shanghai–Lhasa crossing takes about 25 minutes at cruise; vertical scale is exaggerated 1.5x. Proportions between regions stay true.
+The map is all of mainland China plus Hainan and Taiwan's coastline as a horizon, built from real elevation data at roughly 1 km resolution and rendered as one continuous streamed world. Horizontal scale is compressed 1:8 so a Shanghai–Lhasa crossing takes about 25 minutes at cruise; vertical scale is 0.75x, which with the horizontal compression leaves relief reading about six times real. Proportions between regions stay true.
 
 The country is organised as the three great steps of Chinese physical geography, which is also how the difficulty and mood of the game rise from east to west.
 
@@ -117,7 +117,7 @@ Every layer of the world is driven by a real dataset; hand-authoring is limited 
 
 Rules that keep it honest:
 
-- One global horizontal compression factor and one vertical exaggeration (1.5x); no per-region tweaking, so proportions between regions stay true.
+- One global horizontal compression factor and one vertical scale (0.75x); no per-region tweaking, so proportions between regions stay true. Only their product is visible in the terrain, and it is that product — about 6 — which G1 decides.
 - Rivers are carved, not painted, so the Yangtze sits in its valley and follows its real bends.
 - Colour comes from land cover plus elevation plus slope, never from a hand-painted map.
 - Air density, temperature and humidity are computed from the elevation and climate grids; the plateau's thin air is arithmetic, not a scripted event.

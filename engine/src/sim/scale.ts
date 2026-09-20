@@ -7,7 +7,9 @@
  *
  * THE ASYMMETRY
  * -------------
- * Horizontal distance is compressed. Vertical distance is not.
+ * This is about the simulation, not the picture. The sim works in real metres
+ * throughout; `verticalExaggeration` below is a rendering scale and changes
+ * none of what follows.
  *
  * The aircraft's climb rate is real: 7.1 m/s down low, 2.1 m/s on the plateau,
  * zero at 6,200 m. Its ground speed is multiplied by a large gain so the
@@ -24,17 +26,38 @@
 export interface WorldScale {
   /** Horizontal compression. 8 means the world is built at 1/8 real size. */
   horizontalCompression: number;
-  /** Vertical exaggeration applied for rendering only - the sim uses real metres. */
+  /**
+   * Vertical scale, rendering only - the sim uses real metres. Above 1 it
+   * exaggerates, below 1 it flattens; horizontal compression already
+   * exaggerates relief on its own, so the useful range is below 1.
+   */
   verticalExaggeration: number;
 }
 
-/** Starting values from the GDD; the compression is decided at gate G1. */
+/**
+ * Compression is the GDD's; it is decided at gate G1.
+ *
+ * The exaggeration is not the GDD's 1.5x any more. That value was tuned
+ * against the stand-in world, which turned out to be ~15x smoother than China
+ * (F13), and measuring it over real elevation showed 1.5x puts a third of the
+ * flown route past 60 degrees and a ninth of it past 75 -- spikes, not
+ * mountains (F14). What governs the picture is the product
+ * `horizontalCompression * verticalExaggeration`; at 1:8, 0.75 puts it at 6,
+ * where ridgelines and valley floors are legible again.
+ */
 export const DEFAULT_SCALE: WorldScale = {
   horizontalCompression: 8,
-  verticalExaggeration: 1.5,
+  verticalExaggeration: 0.75,
 };
 
-/** The three candidates the prototype A/B tests. */
+/**
+ * The three candidates the prototype A/B tests.
+ *
+ * Note what the C key actually sweeps: with the exaggeration fixed, cycling
+ * these varies the product too, so at 0.75 it walks apparent exaggeration
+ * through 3.75, 6 and 9. That happens to be a sensible drama range, but it
+ * is still two questions in one control - see F14 for the split G1 needs.
+ */
 export const COMPRESSION_CANDIDATES = [5, 8, 12] as const;
 
 export type SpeedMode = "low" | "cruise" | "boost";
