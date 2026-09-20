@@ -116,6 +116,39 @@ export class HorizonField {
   get byteLength(): number {
     return this.data.byteLength;
   }
+
+  /**
+   * Adopt a raster the pipeline already reduced (workstream A stage 5).
+   *
+   * The pipeline sees all 64 one-kilometre samples inside each 8 km cell, so
+   * its reduction is the real thing rather than this class's four sub-samples.
+   * The layout and the bias constant are shared, which is the point: the wall
+   * you fly at and the wall on the map are one artefact.
+   */
+  static fromData(
+    data: Int16Array,
+    width: number,
+    height: number,
+    sampleKm: number = HORIZON_SAMPLE_KM,
+  ): HorizonField {
+    if (data.length !== width * height) {
+      throw new Error(
+        `horizon raster is ${data.length} samples, not ${width} x ${height}`,
+      );
+    }
+    const field = new HorizonField(
+      sampleKm,
+      (width - 1) * sampleKm,
+      (height - 1) * sampleKm,
+    );
+    if (field.width !== width || field.height !== height) {
+      throw new Error(
+        `derived ${field.width} x ${field.height} from ${width} x ${height}`,
+      );
+    }
+    field.data.set(data);
+    return field;
+  }
 }
 
 /** The stand-in world's horizon field. Replaced by the pipeline's raster. */

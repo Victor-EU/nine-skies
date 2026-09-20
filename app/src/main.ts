@@ -6,7 +6,15 @@ import {
   standInRegionWeights,
 } from "../../engine/src/terrain/syntheticTiles.js";
 import { SPIKE_REGIONS } from "../../engine/src/terrain/terrainMaterial.js";
-import { buildSyntheticHorizonField } from "../../engine/src/terrain/horizonField.js";
+import {
+  HorizonField,
+  buildSyntheticHorizonField,
+} from "../../engine/src/terrain/horizonField.js";
+import {
+  SyntheticTileSource,
+  loadWorld,
+  type LoadedWorld,
+} from "../../engine/src/terrain/tileSource.js";
 import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
 import { HorizonRing } from "../../engine/src/terrain/horizonRing.js";
 import {
@@ -43,7 +51,30 @@ const camera = new PerspectiveCamera(62, 1, 20, 400_000);
 let scale: WorldScale = { ...DEFAULT_SCALE };
 let compressionIndex = COMPRESSION_CANDIDATES.indexOf(8 as never);
 
-const terrain = new Terrain({ scale, viewRadiusTiles: 6, layers: 256 });
+/**
+ * Real elevation if the pipeline has published a corridor, otherwise the
+ * stand-in world (workstream A stages 4 and 5).
+ *
+ * No fallback inside a corridor build: past its edge the world simply stops
+ * rather than handing back fiction, because a seam between real China and a
+ * plausible invention is the one thing a playtest must never be shown.
+ */
+const standIn = new SyntheticTileSource();
+let world: LoadedWorld | null = null;
+const worldT0 = performance.now();
+try {
+  world = await loadWorld("/world/sea-to-sky");
+} catch (error) {
+  console.error("published world failed to load; flying the stand-in", error);
+}
+const worldMs = performance.now() - worldT0;
+
+const terrain = new Terrain({
+  scale,
+  viewRadiusTiles: 6,
+  layers: 256,
+  source: world?.source ?? standIn,
+});
 for (const mesh of terrain.meshes) scene.add(mesh);
 
 /**
@@ -53,11 +84,20 @@ for (const mesh of terrain.meshes) scene.add(mesh);
  * 564 km ahead. Without this the wall is simply not in the world, and G1's
  * playtest would be asking players about a moment that never rendered.
  *
- * The field is generated here because the stand-in world is a function. In
- * production it is a ~150 kB fetch that the pipeline built once.
+ * The field is generated here only when the stand-in world is flying. A
+ * published corridor ships it pre-reduced, from the same 1 km grid the tiles
+ * came from - one artefact, so the wall you fly at and the wall on the map
+ * cannot disagree.
  */
 const fieldT0 = performance.now();
-const horizonField = buildSyntheticHorizonField();
+const horizonField = world
+  ? HorizonField.fromData(
+      world.horizon,
+      world.manifest.horizon.width,
+      world.manifest.horizon.height,
+      world.manifest.horizon.sampleKm,
+    )
+  : buildSyntheticHorizonField();
 const fieldMs = performance.now() - fieldT0;
 const horizon = new HorizonScheduler(horizonField);
 const ring = new HorizonRing(horizon.front, {
@@ -70,9 +110,16 @@ const ring = new HorizonRing(horizon.front, {
 });
 scene.add(ring.mesh);
 
-// Start on the coast, pointed inland, at the altitude the GDD opens on.
-const START = { eastM: 120_000, northM: 1_500_000, altitudeM: 1200 };
-const flight = createFlightState({ ...START, headingRad: Math.PI / 2 });
+// Start on the coast, pointed inland, at the altitude the GDD opens on. A
+// published corridor carries its own start - Shanghai, aimed at Lhasa - because
+// only the pipeline knows where Shanghai is in grid metres.
+const START = world?.manifest.start ?? {
+  eastM: 120_000,
+  northM: 1_500_000,
+  altitudeM: 1200,
+  headingRad: Math.PI / 2,
+};
+const flight = createFlightState({ ...START });
 
 const input: FlightInput = { pitch: 0, roll: 0, mode: "cruise" };
 const keys = new Set<string>();
@@ -121,6 +168,16 @@ addEventListener("resize", resize);
 resize();
 
 const el = (id: string) => document.getElementById(id)!;
+
+/**
+ * Which world is actually on screen. Worth a permanent HUD line rather than a
+ * console message: every screenshot and every playtest note should say whether
+ * the terrain in it was measured or invented.
+ */
+const worldLabel = world
+  ? `${world.manifest.corridor} · ${world.manifest.heights.tiles} real tiles ` +
+    `(${(world.manifest.heights.bytes / 1e6).toFixed(1)} MB in ${worldMs.toFixed(0)} ms)`
+  : `stand-in world · no published corridor (${worldMs.toFixed(0)} ms)`;
 const skyHigh = new Color(0.16, 0.34, 0.68);
 const sky = new Color();
 const regionHaze = new Color();
@@ -179,12 +236,30 @@ if (import.meta.env.DEV) {
      *   requestAnimationFrame(() => console.log(__ns.probe.horizonAB()))
      */
     probe: createProbe(renderer, scene, camera, ring),
+    world,
+    /** The fiction, kept reachable so the two worlds can be compared. */
+    standIn,
     /** Jump to a distance inland, in km. */
     goTo(inlandKm: number, northKm: number, altitudeM: number) {
       flight.eastM = inlandKm * 1000;
       flight.northM = northKm * 1000;
       flight.altitudeM = altitudeM;
       flight.verticalRateMs = 0;
+    },
+    /**
+     * Drop onto a named place from the manifest - "lhasa", "chongqing",
+     * "tiger-leaping-gorge". The whole point of publishing anchors is that a
+     * playtest operator never has to know a grid coordinate.
+     */
+    goToAnchor(name: string, clearanceM = 900): boolean {
+      const anchor = world?.manifest.anchors[name];
+      if (!anchor) return false;
+      flight.eastM = anchor.eastM;
+      flight.northM = anchor.northM;
+      const ground = terrain.groundElevationM(anchor.eastM, anchor.northM) ?? 0;
+      flight.altitudeM = ground + clearanceM;
+      flight.verticalRateMs = 0;
+      return true;
     },
   };
 }
@@ -271,11 +346,15 @@ function frame(now: number): void {
   el("ground").textContent = `${((tm.groundSpeedMs * 60) / 1000).toFixed(0)} km/min · max climb ${tm.maxClimbRateMs.toFixed(1)} m/s`;
 
   el("fps").textContent = `${fpsShown.toFixed(0)} fps`;
-  el("draws").textContent = `${terrain.stats.drawCalls} draws · ${terrain.stats.instances} tiles`;
+  el("draws").textContent =
+    `${terrain.stats.drawCalls} draws · ${terrain.stats.instances} tiles` +
+    // Non-zero means the view is reaching past the built corridor's edge.
+    (terrain.stats.missing > 0 ? ` · ${terrain.stats.missing} off-world` : "");
   el("tris").textContent = `${(terrain.stats.triangles / 1000).toFixed(0)}k tris · ${terrain.stats.resident} resident`;
   el("horizon").textContent =
     `horizon ${ring.mesh.visible ? "on" : "OFF"} · ${ring.triangleCount / 1000}k tris · ` +
     `${horizon.lastSliceMs.toFixed(2)} ms${horizon.marching ? " ◂ marching" : ""}`;
+  el("world").textContent = worldLabel;
   el("scaleText").textContent = `1:${scale.horizontalCompression} · ${scale.verticalExaggeration}x vertical`;
 
   requestAnimationFrame(frame);

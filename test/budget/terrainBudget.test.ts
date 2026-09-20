@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { Terrain } from "../../engine/src/terrain/terrain.js";
 import { DEFAULT_SCALE } from "../../engine/src/sim/scale.js";
 import { DEFAULT_HORIZON } from "../../engine/src/terrain/horizon.js";
+import {
+  HORIZON_FIELD_BYTES,
+  HORIZON_FIELD_HEIGHT,
+  HORIZON_FIELD_WIDTH,
+} from "../../engine/src/terrain/worldGrid.js";
 import { HorizonField, HORIZON_SAMPLE_KM } from "../../engine/src/terrain/horizonField.js";
 
 /**
@@ -19,7 +24,8 @@ const BUDGET = {
   residentTiles: 256,
   /** The horizon is meant to be nearly free. If it stops being, say so. */
   horizonTriangles: 16_384,
-  horizonFieldBytes: 700 * 1024,
+  // The shipped world budget's '<1 MB' line for the horizon field.
+  horizonFieldBytes: 1024 * 1024,
 };
 
 /** Three points on the Sea to Sky corridor: coast, basin, plateau. */
@@ -65,8 +71,14 @@ describe("terrain budget on the Sea to Sky corridor", () => {
     expect(triangles).toBeLessThanOrEqual(BUDGET.horizonTriangles);
     expect(triangles).toBeLessThan(BUDGET.triangles / 100);
 
-    const field = new HorizonField(HORIZON_SAMPLE_KM);
-    expect(field.byteLength).toBeLessThanOrEqual(BUDGET.horizonFieldBytes);
+    // The stand-in world's field, and the real country-wide one the pipeline
+    // ships. The second is the number the budget is actually about: the
+    // prototype's 5,200 x 3,400 km fiction is smaller than China is.
+    const standIn = new HorizonField(HORIZON_SAMPLE_KM);
+    expect(standIn.byteLength).toBeLessThanOrEqual(BUDGET.horizonFieldBytes);
+    expect(HORIZON_FIELD_BYTES).toBeLessThanOrEqual(BUDGET.horizonFieldBytes);
+    expect(HORIZON_FIELD_WIDTH).toBe(841);
+    expect(HORIZON_FIELD_HEIGHT).toBe(553);
   });
 
   it("reuses resident tiles instead of regenerating them", () => {

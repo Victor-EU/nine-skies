@@ -1,0 +1,11 @@
+# Pinned so CI and a developer's venv agree. Two direct dependencies; the
+# rasterio wheel bundles libgdal, which is why the pipeline needs no system
+# GDAL and no Homebrew.
+numpy==2.5.3
+rasterio==1.5.1
+
+# Transitive, but named because our own code imports them: acquire.py uses
+# certifi to build an SSL context (the python.org macOS build ships no CA
+# bundle), and grid.py constructs Affine transforms directly.
+affine==3.0.1
+certifi==2026.7.22

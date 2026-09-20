@@ -38,7 +38,7 @@ The GDD leaves these open or implies something the build cannot use as written. 
 | D12 | **Atmosphere: analytic single-scattering approximation with per-region parameters, not a precomputed LUT** | Bruneton-style tables are expensive to evaluate and hard to art-direct. Nine hand-tuned parameter sets blended by region weight is cheaper and matches "hard clean blue over Tibet" more directly |
 | D13 | **Desktop wrapper: Electron, not Tauri** | Tauri uses the system webview, so macOS gets WebKit and a different WebGL driver path. For a GPU-bound game the pinned Chromium/ANGLE is worth the binary size |
 | D14 | **Region blend weights are one value, shared by terrain shader, atmosphere, audio and weather tables** | One source of truth means the music crossfade and the sky tint cross the Sichuan/plateau boundary on the same frame |
-| D15 | **The horizon beyond the streamed tiles is a per-azimuth ridge line marched from one coarse country-wide heightfield, not a pre-built impostor mesh** | A silhouette *is* the maximum elevation angle along each sight line, so marching for it is both exactly right and cheap: 6k triangles, one draw call, 0.6 ms a frame amortised. Extending the tile pyramid instead needs hole-punching and fights the depth buffer for ground the haze eats anyway. The same 556 kB field is what the map overlay draws, so the wall you fly at and the wall on the map cannot disagree |
+| D15 | **The horizon beyond the streamed tiles is a per-azimuth ridge line marched from one coarse country-wide heightfield, not a pre-built impostor mesh** | A silhouette *is* the maximum elevation angle along each sight line, so marching for it is both exactly right and cheap: 6k triangles, one draw call, 0.6 ms a frame amortised. Extending the tile pyramid instead needs hole-punching and fights the depth buffer for ground the haze eats anyway. The same 930 kB field is what the map overlay draws, so the wall you fly at and the wall on the map cannot disagree |
 
 ## Repository & toolchain
 
@@ -62,7 +62,7 @@ The pipeline is the spine: nothing in the game can be looked at until tiles exis
 
 ```mermaid
 flowchart LR
-  A[Copernicus GLO-30<br/>~2,232 tiles, ~70 GB] --> B[Mosaic + reproject<br/>to Albers 1 km]
+  A[Copernicus GLO-30<br/>1,969 tiles, ~70 GB] --> B[Mosaic + reproject<br/>to Albers 1 km]
   B --> C[Hydro-condition<br/>burn rivers, flatten lakes]
   C --> D[Tile 64 km<br/>Int16 metres]
   D --> E[Brotli + content hash<br/>dist/world]
@@ -81,14 +81,14 @@ flowchart LR
 
 **Stages and what each one guarantees**
 
-1. **Acquire.** Copernicus GLO-30 from the AWS Open Data mirror over lon 73–135°E, lat 18–54°N: 2,232 one-degree tiles, ~70 GB, one-time. Cached on a NAS, not in the repo.
-2. **Mosaic and reproject** to Albers 1 km with cubic resampling. Output grid 5,200 × 5,500 = 28.6 M samples.
+1. **Acquire.** Copernicus GLO-30 from the AWS Open Data mirror over lon 73–135°E, lat 18–54°N: 2,232 one-degree cells, of which **1,969 exist** as files — the other 263 are open ocean and simply absent from the bucket. ~70 GB, one-time, cached outside the repo. The bucket serves anonymous HTTPS, so this stage needs no AWS CLI and no credentials. The phase 0 corridor is a 331-file, **13.9 GB** subset of the same set.
+2. **Mosaic and reproject** to Albers 1 km. Output grid **6,721 × 4,417 = 29.7 M samples** (105 × 69 tiles of 64 km, plus the shared edge sample). The plan's original 5,200 × 5,500 was two true facts about China that are not the bounding box of a projected boundary — see finding F10. Resampling is **mean plus 0.25 of (max − mean)** rather than cubic: a 30× reduction makes cubic an aliased point sample, a plain mean shaves every ridge, and a plain maximum lifts the valley floors this game flies down. Same idea as stage 5, different weight.
 3. **Hydro-condition.** This is where "rivers are carved, not painted" becomes real:
    - Burn HydroSHEDS centrelines 2 cells wide, depth scaled by stream order.
    - **Enforce monotonic non-increasing elevation downstream** along each polyline. Without this the Yangtze visibly runs uphill in places where 1 km resampling clips a meander.
    - Flatten named lakes to a table of real surface elevations (Qinghai 3,196 m, Namtso 4,718 m, Poyang 13 m, …) rather than to the DEM minimum, which is noisy.
-4. **Tile.** 64 km tiles at 65 × 65 samples (shared edge row/column so neighbours match exactly). 82 × 86 = 7,052 tiles, of which ~4,300 contain land and ship.
-5. **Horizon field.** One country-wide 8 km Int16 raster, 657 × 433 = 556 kB raw, reduced from the 1 km grid with a **silhouette bias** — cell mean plus 0.6 of (max − mean). The bias is the stage's guarantee: a plain mean shaves the crests off and the Himalaya arrive as a hump, a plain maximum inflates flat ground and fills the Sichuan Basin in behind its own rim. Consumed by the horizon impostor (D15) and the map overlay, which is why it is one artefact and not two.
+4. **Tile.** 64 km tiles at 65 × 65 samples (shared edge row/column so neighbours match exactly, which is why the grid is a sample grid and carries one sample more than it has cells). 105 × 69 = 7,245 tiles, of which ~4,400 contain land and ship.
+5. **Horizon field.** One country-wide 8 km Int16 raster, 841 × 553 = 930 kB raw, reduced from the 1 km grid with a **silhouette bias** — cell mean plus 0.6 of (max − mean). The bias is the stage's guarantee: a plain mean shaves the crests off and the Himalaya arrive as a hump, a plain maximum inflates flat ground and fills the Sichuan Basin in behind its own rim. Consumed by the horizon impostor (D15) and the map overlay, which is why it is one artefact and not two.
 6. **Hero areas** at 90 m: Guilin, Zhangjiajie, Three Gorges, Everest/Rongbuk, Tiger Leaping Gorge. 11.52 km tiles at 129 × 129, ~550 tiles total.
 7. **Land cover** aggregated to 2 km as class *fractions* (tree, crop, grass/shrub, bare/sand, snow/ice) packed RGBA — fractions, not a dominant class, so the loess-to-steppe gradient blends instead of banding.
 8. **Climate atlas** at 10 km: 12 months × mean temperature and precipitation, one country-wide texture set, ~6 MB. **Wind atlas** at 25 km from ERA5 monthly means, ~2 MB.
@@ -99,7 +99,7 @@ flowchart LR
 
 | Probe | Expected | Tolerance |
 | --- | --- | --- |
-| Everest summit | 8,849 m | ±40 m (1 km resampling) |
+| Everest summit | the summit the source gives, not lost | **see F12** — GLO-30 reads 8,737.8 m at native 30 m, so ±40 m against the 8,849 m survey is unpassable at any resolution; this probe must move to the 90 m hero grid and widen |
 | Turpan / Ayding Lake | −154 m | ±15 m |
 | Qinghai Lake surface | 3,196 m, flat across the polygon | ±2 m, std dev < 1 m |
 | Yangtze profile, source → mouth | Monotonic non-increasing | 0 violations |
@@ -322,9 +322,9 @@ Pulled in this order, top first, when a gate is at risk. Each rung names what it
 
 ## Immediate next actions
 
-- [ ] Stand up the repo, CI and app shell (week 1)
-- [ ] Spike D3/D4 — displaced grid and texture arrays on the floor device (week 2, blocks the terrain architecture)
-- [ ] Pull Copernicus GLO-30 for the Shanghai–Lhasa corridor and get the two corridor golden probes passing (weeks 1–3)
-- [ ] Implement the flight model and density curve against the unit-test table (week 3, independent of terrain)
-- [ ] Write the card schema and validator so authoring can start before G1 (week 3)
+- [x] Stand up the repo, CI and app shell (week 1) — **done**: npm workspaces, three CI jobs (typecheck/tests/content/build, draw-call budget, pipeline suite), app shell flying
+- [ ] Spike D3/D4 — displaced grid and texture arrays on the floor device (week 2, blocks the terrain architecture) — **half done**: both are implemented and hold budget in CI (R16I `isampler2DArray`, instanced LOD buckets with skirts), but the spike's actual question is frame time **on the Iris Xe**, and that has only been measured on the development machine. Until it is, the 4 ms L0 trip-wire is a guess
+- [x] Pull Copernicus GLO-30 for the Shanghai–Lhasa corridor and get the two corridor golden probes passing (weeks 1–3) — **done**: 331 tiles / 13.9 GB, 1,155 tiles cut, Lhasa 3,651.9 m and the Yangtze profile both pass
+- [x] Implement the flight model and density curve against the unit-test table (week 3, independent of terrain) — **done**: ISA density and the Gagg–Farrar piston lapse, 56 tests across aircraft, atmosphere and flight
+- [x] Write the card schema and validator so authoring can start before G1 (week 3) — **done**: 13 schema tests, `npm run content:validate` green, fact-check sheet generated from the cards
 - [ ] Recruit the G1 playtest cohort (week 4 — ten people with no flight-sim experience takes longer to find than it sounds)

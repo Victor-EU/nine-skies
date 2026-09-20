@@ -4,8 +4,10 @@ Six probes. If they pass, the georeferencing, the projection, the
 hydro-conditioning and the equal-area claim are all correct. If any fails, the
 world is wrong and no amount of shader work will fix it.
 
-Only two can run against a corridor build; the other four need the
-full-country grid and first run in phase 2.
+Only two can run against a corridor build. Three more need the full-country
+grid and first run in phase 2. The sixth -- Everest -- needs the 90 m hero
+grid from stage 6, because at 1 km it cannot pass at any tolerance; see
+`docs/prototype-findings.md`, F12.
 """
 
 from __future__ import annotations
@@ -14,6 +16,11 @@ from dataclasses import dataclass, field
 from typing import Callable, Literal, Sequence
 
 Phase = Literal["corridor", "full"]
+
+#: Which built artefact a probe reads. The country grid is 1 km (stage 2);
+#: the hero grid is 90 m over a handful of named places (stage 6). A probe
+#: sampled from the wrong one is not a weaker test, it is a different test.
+Grid = Literal["country", "hero"]
 
 
 @dataclass(frozen=True)
@@ -27,6 +34,11 @@ class PointProbe:
     tolerance_m: float
     phase: Phase
     source: str
+    grid: Grid = "country"
+    #: What a player would look up, where that differs from `expected_m`.
+    #: Recorded so the gap stays visible instead of looking like a typo.
+    published_m: float | None = None
+    note: str = ""
 
     def check(self, sample_m: float) -> str | None:
         if abs(sample_m - self.expected_m) > self.tolerance_m:
@@ -117,10 +129,27 @@ POINT_PROBES: tuple[PointProbe, ...] = (
         name="Everest summit",
         lat=27.9881,
         lon=86.9250,
-        expected_m=8849,
-        tolerance_m=40,  # 1 km resampling clips a sharp summit
+        # Not the survey height. GLO-30 is 111 m below it before the pipeline
+        # touches the data -- TanDEM-X radar penetrates snow and averages the
+        # summit pyramid across its cell -- so a probe against 8,849 m would
+        # test the radar forever and call the result a pipeline bug (F12).
+        # This is the source's own highest 30 m sample at the summit, and the
+        # claim is the only one a pipeline can be held to: it does not lose
+        # the summit the source gives it.
+        expected_m=8737.8,
+        # Measured, not guessed. Reducing 30 m -> 90 m with the stage-2 bias
+        # costs 9.1 m at this summit, and shifting the destination grid
+        # sub-cell moves the answer by at most 8.4 m. 25 m covers both with
+        # headroom and still fails by an order of magnitude if the probe is
+        # ever pointed at the 1 km grid, which reads 235-388 m low.
+        tolerance_m=25,
         phase="full",
-        source="2020 China-Nepal joint survey, 8,848.86 m",
+        grid="hero",
+        published_m=8848.86,
+        source="Copernicus GLO-30 at native 30 m; published height from the "
+        "2020 China-Nepal joint survey",
+        note="At 1 km this probe is unpassable at any tolerance: grid phase "
+        "alone swings the summit by 153 m. It needs the 90 m hero grid.",
     ),
     PointProbe(
         name="Ayding Lake, Turpan",
@@ -193,14 +222,36 @@ def probes_for(phase: Phase) -> list[object]:
     return [p for p in everything if getattr(p, "phase", "full") == "corridor"]
 
 
+def runnable_on(phase: Phase, grid: Grid = "country") -> list[object]:
+    """Every probe runnable against a built artefact.
+
+    `probes_for` answers "has this probe's data been built yet?". This answers
+    the narrower question the runner actually has to ask: "can I read this
+    probe from the file in my hand?". Keeping them apart is what stops the
+    Everest probe being sampled from the 1 km grid, where it cannot pass at
+    any tolerance and would read as a pipeline bug (finding F12).
+    """
+    return [p for p in probes_for(phase) if getattr(p, "grid", "country") == grid]
+
+
+def deferred_on(phase: Phase, grid: Grid = "country") -> list[object]:
+    """Probes this phase has built data for, but not on *this* grid."""
+    runnable = {id(p) for p in runnable_on(phase, grid)}
+    return [p for p in probes_for(phase) if id(p) not in runnable]
+
+
 Sampler = Callable[[float, float], float]
 
 
-def run_point_probes(sampler: Sampler, phase: Phase = "full") -> list[str]:
-    """Check every point probe available at this phase. Returns failures."""
+def run_point_probes(
+    sampler: Sampler, phase: Phase = "full", grid: Grid = "country"
+) -> list[str]:
+    """Check every point probe readable from this grid. Returns failures."""
     failures: list[str] = []
     for probe in POINT_PROBES:
         if phase == "corridor" and probe.phase != "corridor":
+            continue
+        if probe.grid != grid:
             continue
         problem = probe.check(sampler(probe.lat, probe.lon))
         if problem:

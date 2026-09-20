@@ -9,7 +9,8 @@ import {
 } from "three";
 import { LOD_SEGMENTS, buildGrid, lodForDistance, type LodLevel } from "./grid.js";
 import { HeightTileArray, TILE_SAMPLES } from "./tileArray.js";
-import { TILE_KM, generateTile } from "./syntheticTiles.js";
+import { TILE_KM } from "./syntheticTiles.js";
+import { SyntheticTileSource, type TileSource } from "./tileSource.js";
 import { createTerrainMaterial } from "./terrainMaterial.js";
 import type { WorldScale } from "../sim/scale.js";
 
@@ -27,6 +28,8 @@ export interface TerrainOptions {
   /** How many tiles out to draw, in each direction. */
   viewRadiusTiles: number;
   layers: number;
+  /** Where heightmaps come from. Defaults to the stand-in world. */
+  source?: TileSource;
 }
 
 export interface TerrainStats {
@@ -35,6 +38,8 @@ export interface TerrainStats {
   triangles: number;
   resident: number;
   generatedThisFrame: number;
+  /** Tiles the view wanted and the source could not supply. */
+  missing: number;
 }
 
 interface LodBucket {
@@ -48,6 +53,7 @@ interface LodBucket {
 
 export class Terrain {
   readonly heights: HeightTileArray;
+  readonly source: TileSource;
   readonly material: ShaderMaterial;
   readonly meshes: Mesh[] = [];
   private readonly buckets: LodBucket[] = [];
@@ -61,10 +67,12 @@ export class Terrain {
     triangles: 0,
     resident: 0,
     generatedThisFrame: 0,
+    missing: 0,
   };
 
   constructor(private readonly options: TerrainOptions) {
     this.heights = new HeightTileArray(options.layers);
+    this.source = options.source ?? new SyntheticTileSource();
     const span = options.viewRadiusTiles * 2 + 1;
     this.maxInstances = span * span;
 
@@ -129,6 +137,7 @@ export class Terrain {
 
     for (const b of this.buckets) b.count = 0;
     let generated = 0;
+    let missing = 0;
 
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
@@ -141,8 +150,14 @@ export class Terrain {
         if (distTiles > radius + 0.5) continue;
 
         if (!this.heights.has(tx, ty)) {
-          // The pipeline will stream these; the spike generates them.
-          this.heights.insert(tx, ty, generateTile(tx, ty));
+          const samples = this.source.request(tx, ty);
+          if (samples === null) {
+            // Not ready, or outside the built world. Skip it and ask again
+            // next frame rather than drawing a hole at sea level.
+            missing++;
+            continue;
+          }
+          this.heights.insert(tx, ty, samples);
           generated++;
         }
         const layer = this.heights.layerFor(tx, ty);
@@ -174,6 +189,7 @@ export class Terrain {
     this.stats.triangles = triangles;
     this.stats.resident = this.heights.residentCount;
     this.stats.generatedThisFrame = generated;
+    this.stats.missing = missing;
 
     const cameraWorld = this.toWorld(eastM, northM, altitudeM);
     (this.material.uniforms.uCameraWorld!.value as Vector3).copy(cameraWorld);

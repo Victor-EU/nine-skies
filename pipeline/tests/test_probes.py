@@ -10,9 +10,13 @@ from nineskies.probes import (  # noqa: E402
     AREA_PROBES,
     MONOTONIC_PROBES,
     POINT_PROBES,
+    deferred_on,
     probes_for,
     run_point_probes,
+    runnable_on,
 )
+
+EVEREST = next(p for p in POINT_PROBES if "Everest" in p.name)
 
 
 class TestPhaseSplit(unittest.TestCase):
@@ -23,6 +27,23 @@ class TestPhaseSplit(unittest.TestCase):
 
     def test_full_build_reaches_all_six(self):
         self.assertEqual(len(probes_for("full")), 6)
+
+    def test_the_country_grid_cannot_reach_everest(self):
+        # F12: at 1 km the summit moves 153 m with grid phase alone, so the
+        # probe is unpassable at any tolerance. It must be deferred to the
+        # hero grid, not run and failed, and not dropped without a word.
+        names = [p.name for p in runnable_on("full")]
+        self.assertNotIn("Everest summit", names)
+        self.assertIn("Everest summit", [p.name for p in deferred_on("full")])
+
+    def test_the_hero_grid_reaches_exactly_everest(self):
+        self.assertEqual([p.name for p in runnable_on("full", "hero")],
+                         ["Everest summit"])
+
+    def test_no_probe_is_lost_between_the_two_grids(self):
+        for phase in ("corridor", "full"):
+            total = len(runnable_on(phase)) + len(deferred_on(phase))
+            self.assertEqual(total, len(probes_for(phase)), phase)
 
 
 class TestPointProbes(unittest.TestCase):
@@ -37,9 +58,17 @@ class TestPointProbes(unittest.TestCase):
 
     def test_a_vertical_datum_error_fails(self):
         # Every point 60 m high: the classic geoid-vs-ellipsoid mistake.
+        country = [p for p in POINT_PROBES if p.grid == "country"]
         failures = run_point_probes(lambda la, lo: self.truth(la, lo) + 60)
-        self.assertEqual(len(failures), len(POINT_PROBES))
+        self.assertEqual(len(failures), len(country))
         self.assertIn("Lhasa", failures[0])
+
+        # ...including on the hero grid, where 60 m is well outside 25 m.
+        hero = run_point_probes(
+            lambda la, lo: self.truth(la, lo) + 60, grid="hero"
+        )
+        self.assertEqual(len(hero), 1)
+        self.assertIn("Everest", hero[0])
 
     def test_a_sign_flip_on_turpan_fails(self):
         def sampler(la, lo):
@@ -49,10 +78,25 @@ class TestPointProbes(unittest.TestCase):
         failures = run_point_probes(sampler)
         self.assertTrue(any("Ayding" in f for f in failures))
 
-    def test_summit_tolerance_absorbs_resampling_but_not_a_real_error(self):
-        everest = next(p for p in POINT_PROBES if "Everest" in p.name)
-        self.assertIsNone(everest.check(everest.expected_m - 35))  # 1 km clipping
-        self.assertIsNotNone(everest.check(everest.expected_m - 300))  # wrong
+    def test_the_summit_probe_is_measured_against_the_source_not_the_survey(self):
+        # The whole point of F12. Expecting the survey height means expecting
+        # the radar to be something it is not, and the probe fails forever
+        # while looking like our bug.
+        self.assertAlmostEqual(EVEREST.expected_m, 8737.8, places=1)
+        self.assertAlmostEqual(EVEREST.published_m, 8848.86, places=2)
+        self.assertGreater(EVEREST.published_m - EVEREST.expected_m, 100)
+        self.assertEqual(EVEREST.grid, "hero")
+
+    def test_summit_tolerance_absorbs_the_hero_grid_but_not_a_real_error(self):
+        # Measured: 90 m reduction costs 9.1 m, grid phase another 8.4 m.
+        self.assertIsNone(EVEREST.check(EVEREST.expected_m - 9.1))
+        self.assertIsNone(EVEREST.check(EVEREST.expected_m - 17.5))
+        # Sampling the 1 km grid by mistake reads 235-388 m low.
+        self.assertIsNotNone(EVEREST.check(8503.3))
+        self.assertIsNotNone(EVEREST.check(8350.0))
+        # And the survey height itself is now out of tolerance, which is the
+        # correct behaviour: if we ever read 8,849 m the source changed.
+        self.assertIsNotNone(EVEREST.check(EVEREST.published_m))
 
 
 class TestMonotonicProbe(unittest.TestCase):
