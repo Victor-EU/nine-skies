@@ -312,7 +312,7 @@ Pulled in this order, top first, when a gate is at risk. Each rung names what it
 
 ## Open questions
 
-- [ ] **Compression ratio** — 1:5, 1:8 or 1:12. Decided at G1 by the playtest, not by argument.
+- [ ] **Compression ratio and vertical exaggeration** — two questions, not one. Terrain shape depends only on the *product* A = compression × exaggeration, so the old 1:5 / 1:8 / 1:12 toggle at a fixed 1.5× vertical was sweeping A from 7.5 to 18 and asking the cohort about drama while calling it scale (F14). Ask drama first (A ∈ {4, 6, 9} at 1:8; measurement favours **A ≈ 6**, i.e. 0.75× vertical, not 1.5×), then compression with A held and exaggeration moving inversely. Decided at G1 by the playtest, but the playtest now has a well-formed question to answer.
 - [ ] **Commercial model.** The GDD wants a link anyone can open; a Steam release wants something to sell. Recommendation: one codebase, the web build gated to Expeditions 1 and 2 as a free demo, the Electron build the full game. This needs deciding before phase 2 because it changes the save layer and the content bundling.
 - [ ] **Team shape.** This plan assumes 2.5 engineers. At 1.5 the calendar goes to roughly 28 months and rungs 1–3 of the ladder should be taken up front rather than under pressure.
 - [ ] **Floor device confirmation.** Is Apple Silicon in scope as a floor, or only as a ceiling? M-series integrated graphics are several times an Intel Iris Xe; picking the wrong floor either wastes optimisation or misses the target.

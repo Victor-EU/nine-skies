@@ -467,6 +467,12 @@ cheap now — `C` already cycles compression and the corridor already flies — 
 it is the difference between G1 answering the real question and G1 answering a
 question about a world nobody will ship.
 
+**Done, in F14** — and the guess above was right: real relief needs *less than
+none*. The measurement says 0.75×, half what the stand-in was tuned to. It also
+found something F13 did not anticipate: the A/B as specified could not have
+tested compression at all, because it varied compression and exaggeration
+together as a single product.
+
 ## Spike result: D3, D4 and the impostor
 
 Measured in Chrome on the development machine (not the Iris Xe floor device,
@@ -551,3 +557,110 @@ Three things the build should not forget:
   is. That is correct for what has been built and wrong about China, so the HUD
   names the corridor and counts `off-world` tiles rather than letting it pass
   for scenery.
+
+## F14 — The G1 compression A/B was testing exaggeration, not compression
+
+F13 said the compression A/B had to be re-driven over real terrain before the
+cohort is recruited. Driving it turned up something prior to the playtest: as
+specified, **the A/B does not vary compression in any way the player can see.**
+
+Terrain is drawn by dividing horizontal distance by the compression and
+multiplying elevation by the exaggeration, so the angle of a mesh facet between
+two 1 km samples is
+
+    slope = atan(vex * dh / (1000 / compression)) = atan(A * gradient)
+
+where **A = compression × exaggeration**. Terrain *shape* depends only on that
+product. The three candidates hold `verticalExaggeration` at 1.5 and so sweep
+
+| Candidate | A | what the player is actually being shown |
+| --- | ---: | --- |
+| 1:5 × 1.5 | 7.5 | |
+| 1:8 × 1.5 | 12 | three different vertical exaggerations |
+| 1:12 × 1.5 | 18 | |
+
+The cohort would have been asked "how big should the world be?" and would have
+answered "how exaggerated do you like your mountains?", and nobody would have
+noticed, because the two questions were welded together by a constant.
+
+**Measured over the corridor.** Gradient between adjacent 1 km samples, inside
+a 40 km band either side of the flown Shanghai–Lhasa route (259,443 land
+cells), against the whole corridor for context:
+
+| | p50 | p90 | p99 | max |
+| --- | ---: | ---: | ---: | ---: |
+| Whole corridor, land | 66 m/km | 245 | 464 | 4,060 |
+| Flown route band | 80 m/km | 324 | 512 | 995 |
+
+Rendered, that becomes:
+
+| Setting | A | p50 | p90 | p99 | over 60° | over 75° |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1:5 × 1.5 | 7.5 | 30.9° | 67.6° | 75.4° | 21.0 % | 1.2 % |
+| **1:8 × 1.5 (shipped)** | **12** | **43.8°** | **75.6°** | **80.8°** | **35.6 %** | **11.2 %** |
+| 1:12 × 1.5 | 18 | 55.2° | 80.3° | 83.8° | 45.9 % | 24.6 % |
+
+At the shipped setting **a third of the ground you fly over is steeper than
+60°, and a ninth of it is past 75°** — vertical, for practical purposes. At
+1:12 a quarter of the world is a wall. The renders in `docs/ab/` are all the
+same real vantage point 1,400 m over Tiger Leaping Gorge, and they show it
+plainly: at A = 12 the Yunnan highlands are a bed of nails, and the gorge that
+gives the place its name is not visible as a gorge at all.
+
+**Sweeping A on the flown route** shows where terrain starts reading as
+terrain:
+
+| A | p50 | p90 | over 60° | over 75° |
+| ---: | ---: | ---: | ---: | ---: |
+| 2.0 | 9.1° | 32.9° | 0.0 % | 0.0 % |
+| 4.0 | 17.7° | 52.3° | 3.0 % | 0.0 % |
+| **6.0** | **25.6°** | **62.7°** | **13.6 %** | **0.1 %** |
+| 7.5 | 30.9° | 67.6° | 21.0 % | 1.2 % |
+| 12.0 | 43.8° | 75.6° | 35.6 % | 11.2 % |
+
+**A ≈ 6 is the recommendation**, which at 1:8 means dropping
+`verticalExaggeration` from 1.5 to **0.75** — not raising it. Compare
+`ab-1to8-vex1.5.jpg` with `ab-1to8-vex0.75.jpg`: same compression, same camera,
+same ground, and the second one has ridgelines, valley floors and a legible
+drainage pattern where the first has spikes. `ab-1to8-vex0.5.jpg` (A = 4) is
+readable but starts to look like moorland, which is the other failure.
+
+**This is a legibility question, not a difficulty one.** The simulation works
+in real metres, so exaggeration changes nothing about flying. At 4,429 m over
+the gorge the aircraft makes 163 km/min with a maximum climb of 2.2 m/s, which
+is a gradient of **0.81 m/km** against a route median of **80 m/km** — a
+hundredfold short. Terrain cannot be climbed by flying at it at *any* setting;
+that is the "distance is cheap, altitude is expensive" thesis in `scale.ts`
+working as designed. What A changes is only whether the player can see what
+they are flying over.
+
+**It also interacts with F12.** At 1 km a summit is one sample, and the b = 0.25
+silhouette bias deliberately biases single samples upward. A high A then
+amplifies that: a 100 m difference between neighbouring samples — ordinary in
+the mountains at this resolution — becomes a 50° facet at A = 12 and a 31° one
+at A = 6. Much of the spikiness above is **the reduction's own noise, magnified**,
+not ridgelines that exist. The 90 m hero grid will change this picture and the
+A/B should be re-checked once stage 6 lands.
+
+**What the A/B should be.** Two questions, asked separately:
+
+- *Drama* — hold compression at 1:8 and vary A over {4, 6, 9}. This is the
+  question the current toggle actually asks, and it deserves to be asked on
+  purpose.
+- *Compression* — hold A at whatever drama wins and vary compression with
+  exaggeration moving inversely (1:5 × 1.20, 1:8 × 0.75, 1:12 × 0.50). Terrain
+  shape is then **identical** and only the framing changes:
+
+| Setting | tile on screen | camera back | far plane |
+| --- | ---: | ---: | ---: |
+| 1:5 × 1.20 | 12,800 u | 416 u | 640,000 u |
+| 1:8 × 0.75 | 8,000 u | 260 u | 400,000 u |
+| 1:12 × 0.50 | 5,333 u | 173 u | 266,667 u |
+
+Note the camera sits the same 2,080 *real* metres behind the aircraft in all
+three, so that comparison is already controlled — which is why the renders here
+are a fair test.
+
+Caveat: these are L0 numbers, the near ground. Distant tiles drop to coarser
+LOD and read shallower, so the walls are worst exactly where the player is
+looking.

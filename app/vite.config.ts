@@ -52,7 +52,11 @@ export default defineConfig({
   root: ".",
   plugins: [publishedWorld()],
   server: {
-    port: 5173,
+    // Honour PORT when a harness assigns one (the Claude Code preview does),
+    // otherwise the usual 5173. Without this Vite silently auto-increments
+    // past a busy 5173 and the harness points a tab at a port nothing is
+    // listening on.
+    port: process.env.PORT ? Number(process.env.PORT) : 5173,
     // The app imports engine sources from outside its own root.
     fs: { allow: [".."] },
   },
