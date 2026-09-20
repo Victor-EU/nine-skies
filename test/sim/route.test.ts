@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   altitudeFloorM,
+  approachBand,
+  arrivalCeilingM,
+  arrivalShortfallM,
   climbDemandMs,
   climbFloor,
   floorProfile,
@@ -10,6 +13,7 @@ import {
   groundSpeedForGradient,
   handOff,
   longestHoldS,
+  lowestLegal,
   modeAtKm,
   routeFrom,
   routeLengthKm,
@@ -426,5 +430,172 @@ describe("the hand-off budget belongs to the autopilot as well as the route", ()
     const spendthrift = longestHoldS(route, distantWall, 0, { probeS: 30 });
     expect(thrifty).toBeGreaterThan(0);
     expect(thrifty).toBeLessThan(spendthrift);
+  });
+});
+
+/**
+ * A wall up to a plateau, and then the ground falling away to a destination
+ * in a hole. The shape Lhasa is: everything else in this file is about
+ * getting *up*, and a route that ends at a place has to get back down (F21).
+ */
+function mesa(
+  plainM: number,
+  footKm: number,
+  rimKm: number,
+  plateauM: number,
+  brinkKm: number,
+  valleyKm: number,
+  valleyM: number,
+) {
+  const up = escarpment(plainM, footKm, rimKm, plateauM);
+  return (km: number): number => {
+    if (km <= brinkKm) return up(km);
+    if (km >= valleyKm) return valleyM;
+    return plateauM + ((valleyM - plateauM) * (km - brinkKm)) / (valleyKm - brinkKm);
+  };
+}
+
+describe("the floor has to include the place the route ends", () => {
+  const distantWall = escarpment(100, 1200, 1500, 3400);
+
+  it("samples its own destination, whatever the stride", () => {
+    const samples = climbFloor(oneLeg(2000), distantWall, { strideKm: 300, toleranceM: 5 });
+    expect(samples[samples.length - 1]!.km).toBe(2000);
+  });
+
+  it("does not leave the last stride pinned at what the route demanded before it", () => {
+    // `floorProfile` holds its last sample flat past the end, so a stride
+    // that stops short reports the floor at the destination as whatever the
+    // route wanted three hundred kilometres earlier - which is how a route
+    // becomes un-landable by arithmetic rather than by terrain.
+    const ground = mesa(100, 1200, 1500, 3400, 1600, 1750, 200);
+    const floor = floorProfile(climbFloor(oneLeg(2000), ground, { strideKm: 300, toleranceM: 5 }));
+    expect(floor(2000)).toBeCloseTo(200, -2);
+  });
+});
+
+describe("whether a route can be arrived at, which is not whether it clears", () => {
+  const roomy = mesa(100, 900, 1200, 2200, 1300, 1450, 200);
+  const walled = mesa(100, 1200, 1500, 3400, 1960, 1990, 200);
+  const route = oneLeg(2000);
+  const base = { strideKm: 100, toleranceM: 5, clearanceM: 200, arrivalM: 400 } as const;
+
+  it("clearing and landing are different questions with different answers", () => {
+    // Both of these clear. Only one of them can be arrived at.
+    expect(flyRoute(route, roomy).clears).toBe(true);
+    expect(flyRoute(route, walled).clears).toBe(true);
+    expect(arrivalShortfallM(route, roomy, base)).toBeLessThanOrEqual(0);
+    expect(arrivalShortfallM(route, walled, base)).toBeGreaterThan(1000);
+  });
+
+  it("the band at the destination is the arrival height less the margin", () => {
+    const ceiling = arrivalCeilingM(route, roomy, 2000, base);
+    expect(ceiling).toBeCloseTo(roomy(2000) + base.arrivalM, -1);
+    const floor = floorProfile(climbFloor(route, roomy, base));
+    expect(ceiling - floor(2000)).toBeCloseTo(base.arrivalM - base.clearanceM, -1);
+  });
+
+  it("asking to arrive below your own margin is a contradiction, and says so", () => {
+    // Not a near miss and not a bug: the floor keeps 200 m to the last
+    // kilometre, so there is no altitude at the destination that is both on
+    // the floor and 100 m above the ground.
+    const band = approachBand(route, roomy, { ...base, arrivalM: 100, strideKm: 500 });
+    for (const sample of band) expect(sample.ceilingM).toBe(-Infinity);
+  });
+
+  it("reports where the route stops being landable, not just that it is not", () => {
+    const band = approachBand(route, walled, { ...base, strideKm: 200 });
+    expect(band[0]!.bandM).toBe(-Infinity);
+    const open = band.filter((s) => s.ceilingM > -Infinity);
+    expect(open.length).toBeGreaterThan(0);
+    // Every open sample is in the last stretch, after the ground has fallen.
+    for (const sample of open) expect(sample.km).toBeGreaterThan(1900);
+  });
+
+  it("a band is a ceiling minus a floor and nothing cleverer", () => {
+    for (const sample of approachBand(route, roomy, { ...base, strideKm: 400 })) {
+      expect(sample.bandM).toBe(sample.ceilingM - sample.floorM);
+      expect(sample.groundM).toBe(roomy(sample.km));
+    }
+  });
+});
+
+describe("the lowest line anything can fly", () => {
+  const roomy = mesa(100, 900, 1200, 2200, 1300, 1450, 200);
+  const route = oneLeg(2000);
+  const floor = floorProfile(
+    climbFloor(route, roomy, { strideKm: 100, toleranceM: 5, clearanceM: 200 }),
+  );
+
+  it("arrives lower than a gentler autopilot, which is what makes it a bound", () => {
+    const low = flyRoute(route, roomy, { policy: lowestLegal(floor) });
+    const gentle = flyRoute(route, roomy, {
+      policy: followFloor(floor, { maxDescent: 0.25, bandM: 200 }),
+    });
+    expect(low.clears).toBe(true);
+    expect(low.arrivalAltitudeM).toBeLessThan(gentle.arrivalAltitudeM);
+  });
+
+  it("spends a little of the clearance it was given, and not much", () => {
+    // Thirty-four metres past the floor at its worst, which is under two
+    // seconds of descent: a discrete integrator diving at full stick
+    // overshoots by a step and then turns round. A law that treated the floor
+    // as a setpoint instead of a bound would porpoise straight through it.
+    const low = flyRoute(route, roomy, { policy: lowestLegal(floor), track: true });
+    let keptM = Infinity;
+    for (const sample of low.track) keptM = Math.min(keptM, sample.altitudeM - roomy(sample.km));
+    expect(keptM).toBeGreaterThan(150);
+    expect(keptM).toBeLessThan(200);
+  });
+
+  it("still climbs when it is under the floor, because the floor is the bound", () => {
+    // Below the floor there is nothing to give back: the policy is asymmetric
+    // for the same reason `followFloor` is.
+    expect(lowestLegal(floor)(0, 0, floor(0) - 500)).toBe(1);
+    expect(lowestLegal(floor)(0, 0, floor(0) + 500)).toBe(-1);
+  });
+});
+
+describe("a probe that dives cannot be trusted with a floor alone", () => {
+  const roomy = mesa(100, 900, 1200, 2200, 1300, 1450, 200);
+  const cliff = mesa(100, 900, 1200, 2200, 1850, 1900, 200);
+  const route = oneLeg(2000);
+  const base = { toleranceM: 5, clearanceM: 200, arrivalM: 400 } as const;
+
+  it("the answer does not depend on how finely the floor was sampled", () => {
+    for (const ground of [roomy, cliff]) {
+      const answers = [50, 100, 250].map((strideKm) =>
+        arrivalShortfallM(route, ground, { ...base, strideKm }),
+      );
+      for (const answer of answers) {
+        expect(answer).toBeLessThan(Infinity);
+        expect(answer).toBeCloseTo(answers[0]!, -2);
+      }
+    }
+  });
+
+  it("because without the clamp the same flight lands in the hill", () => {
+    // The floor is concave, so a chord between samples lies under it. At a
+    // fifty kilometre stride that is worth a few metres; at two hundred and
+    // fifty it is worth the aircraft. The autopilot never finds out, because
+    // it only ever eases downward - it takes a probe at full forward stick
+    // to fly the gap between the chord and the curve.
+    const fine = floorProfile(climbFloor(route, roomy, { ...base, strideKm: 50 }));
+    const coarse = floorProfile(climbFloor(route, roomy, { ...base, strideKm: 250 }));
+    expect(flyRoute(route, roomy, { policy: lowestLegal(fine) }).clears).toBe(true);
+    const crash = flyRoute(route, roomy, { policy: lowestLegal(coarse) });
+    expect(crash.clears).toBe(false);
+    expect(crash.contact!.km).toBeGreaterThan(1200);
+  });
+
+  it("and the look-ahead costs nothing on ground with no surprises", () => {
+    // It is there for one kilometre terrain crossed two kilometres at a step
+    // (the sweep that set the default is in the engine, against the real
+    // corridor). On a linear ramp there is nothing for it to find, and a
+    // safety margin that quietly made every answer more pessimistic would be
+    // worse than the problem.
+    const blind = arrivalShortfallM(route, cliff, { ...base, strideKm: 100, lookAheadKm: 0 });
+    const seeing = arrivalShortfallM(route, cliff, { ...base, strideKm: 100, lookAheadKm: 25 });
+    expect(seeing).toBeCloseTo(blind, -1);
   });
 });

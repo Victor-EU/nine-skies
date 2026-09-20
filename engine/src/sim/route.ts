@@ -252,9 +252,18 @@ export function climbFloor(
   const { strideKm = 50 } = options;
   const lengthKm = routeLengthKm(route);
   const out: FloorSample[] = [];
-  for (let km = 0; km < lengthKm; km += strideKm) {
-    out.push({ km, groundM: ground(km), floorM: altitudeFloorM(route, ground, km, options) });
-  }
+  const sample = (km: number): FloorSample => ({
+    km,
+    groundM: ground(km),
+    floorM: altitudeFloorM(route, ground, km, options),
+  });
+  for (let km = 0; km < lengthKm; km += strideKm) out.push(sample(km));
+  // The destination itself, always. `floorProfile` holds the last sample flat
+  // past its end, so a stride that stops short leaves the floor pinned at
+  // whatever the route demanded fifty kilometres out - which on Sea to Sky is
+  // four hundred metres above the arrival it is supposed to permit, and makes
+  // the route un-landable by arithmetic rather than by terrain (F21).
+  if (lengthKm > 0 && out[out.length - 1]!.km < lengthKm) out.push(sample(lengthKm));
   return out;
 }
 
@@ -598,4 +607,236 @@ export function longestHoldS(
     else high = mid;
   }
   return low;
+}
+
+/**
+ * The pointwise-lowest legal trajectory: everything down, until the floor.
+ *
+ * `followFloor` with the brakes off. Wherever the aircraft is above the floor
+ * it commands full forward stick, and the floor is by construction the lowest
+ * it may ever be, so nothing a player or an autopilot could legally fly is
+ * ever below this line. That is what makes it an argument rather than a
+ * flight: what this one cannot reach, nothing reaches.
+ *
+ * It is not a flight anyone would take - eighteen metres a second nose-down
+ * is the opposite of the GDD's calm, and it spends clearance the way F19's
+ * hand-off budget spends it: on Sea to Sky it flies 300 m of margin down to
+ * 223 before it turns round. It exists to be the bound.
+ */
+export function lowestLegal(floor: GroundProfile): ClimbPolicy {
+  // A one-metre band rather than zero: the arithmetic is the same (any error
+  // at all saturates the clamp) and it does not divide by zero to get there.
+  return followFloor(floor, { maxDescent: 1, bandM: 1 });
+}
+
+export interface ArrivalOptions extends FloorOptions {
+  /**
+   * The lowest line the aircraft may fly, if one has already been built.
+   *
+   * Required in spirit and merely defaulted in code: "descend as hard as you
+   * can" without a floor to stop at is a dive into the first valley and a
+   * ridge the aircraft can no longer out-climb, which would report a ceiling
+   * far below the real one. Pass a memoised floor - each one costs a few
+   * hundred flights - or let it be built from the same options.
+   */
+  readonly floor?: GroundProfile;
+  /**
+   * How far above the destination's ground still counts as arriving there.
+   *
+   * An authoring number, not a tuning constant: it is how low over the place
+   * the expedition is about to end. Zero is the ground itself.
+   *
+   * It has to clear `clearanceM`, and the arithmetic says why. A floor built
+   * with a margin keeps that margin to the last kilometre, so at the
+   * destination the floor is `ground + clearanceM` and the target is
+   * `ground + arrivalM`: the band the route leaves open at its own end is
+   * exactly `arrivalM - clearanceM`. Ask for an arrival below the margin and
+   * the answer is `-Infinity` everywhere, which is not a bug but the question
+   * contradicting itself. Ask for one equal to it and the answer is a
+   * knife-edge. Defaults to the margin so it is never a contradiction; pass
+   * the height a player would actually want to be at.
+   */
+  readonly arrivalM?: number;
+  /**
+   * How finely to sample a floor these functions have to build themselves.
+   *
+   * Ignored when `floor` is supplied, which is the usual case: a floor costs
+   * a few hundred flights and is worth memoising across every question asked
+   * about the same route.
+   */
+  readonly strideKm?: number;
+  /**
+   * How far ahead the probe's floor looks for ground, in kilometres.
+   *
+   * Defaults to ten. One simulation step at the fastest speed mode is four
+   * kilometres of ground and the probe has to have seen a ridge before the
+   * step that crosses it, so four is the floor of the range; ten is where the
+   * answer stops moving. Measured on Sea to Sky: at a 25 km floor stride,
+   * five gives 1,605 m of shortfall and ten and twenty both give 1,588.
+   */
+  readonly lookAheadKm?: number;
+}
+
+/**
+ * The floor to fly against, never below the ground just ahead of it.
+ *
+ * The clamp is not belt-and-braces, and neither is the look-ahead.
+ *
+ * A sampled floor is interpolated between its samples and the floor is
+ * concave, so a chord lies *below* the curve - about 17 m of clearance at a
+ * 100 km stride mid-route (F20), and changing sign entirely at the end, where
+ * the floor's own fall is steeper than any chord can follow. Sixty
+ * kilometres from Lhasa a 100 km stride puts the floor 150 m *under the
+ * ground*.
+ *
+ * And a policy is asked for a command once per step, while `flyRoute` checks
+ * the ground at every kilometre that step crossed - which at cruise is two
+ * and at boost four. A floor read only at the aircraft's own kilometre is
+ * blind to a ridge the very next second flies into.
+ *
+ * Neither matters to the shipped autopilot, which only ever eases downward at
+ * a quarter stick and is well above the floor when a chord sags. Both matter
+ * enormously to a probe that dives at full stick to prove a bound: it flies
+ * into the hill and reports the route un-landable for reasons that are
+ * entirely about sampling. So the probe's floor is the ground it has to clear
+ * over the next few kilometres, not the one underneath it.
+ */
+function floorFor(
+  route: Route,
+  ground: GroundProfile,
+  options: ArrivalOptions,
+): GroundProfile {
+  const { clearanceM = 0, lookAheadKm = 10 } = options;
+  const floor = options.floor ?? floorProfile(climbFloor(route, ground, options));
+  return (km) => {
+    let worst = ground(km);
+    for (let k = Math.ceil(km); k <= km + lookAheadKm; k++) worst = Math.max(worst, ground(k));
+    return Math.max(floor(km), worst + clearanceM);
+  };
+}
+
+/**
+ * The highest altitude at `km` from which the route can still be *arrived at*.
+ *
+ * The mirror of `altitudeFloorM`, and the half of the question nobody had
+ * asked. A floor says how low the aircraft may be; on a route that ends in
+ * open sky that is the whole story, and on a route that ends at a place it is
+ * half of one. Descent is 18 m/s and does not improve with altitude, so every
+ * metre held at `km` is a metre that has to be given back before the
+ * destination - and where the ground ahead forces the aircraft to hold more
+ * than the remaining minutes can return, the route cannot be landed by any
+ * policy at all.
+ *
+ * Bisected on the sim for the same reason the floor is: true airspeed rises
+ * with altitude, so a high aircraft covers the remaining ground faster and
+ * has *less* time to lose the height, not more. That is the wrong sign for
+ * anyone doing this on paper.
+ *
+ * Returns `-Infinity` when even sitting on the floor arrives too high, which
+ * is not "no answer" but the sharpest answer there is: the route is
+ * un-landable here and the gap is the shortfall.
+ */
+export function arrivalCeilingM(
+  route: Route,
+  ground: GroundProfile,
+  km: number,
+  options: ArrivalOptions = {},
+): number {
+  const {
+    maxM = ceilingM(options.spec ?? LIGHT_PISTON),
+    toleranceM = 1,
+    arrivalM = options.clearanceM ?? 0,
+  } = options;
+  const floor = floorFor(route, ground, options);
+  const lengthKm = routeLengthKm(route);
+  const targetM = ground(lengthKm) + arrivalM;
+
+  const rest = routeFrom(route, km);
+  const restGround = groundFrom(ground, km);
+  const restFloor = groundFrom(floor, km);
+  const policy = lowestLegal(restFloor);
+  const arrivesFrom = (altitudeM: number): boolean => {
+    const flight = flyRoute(rest, restGround, { ...options, startAltitudeM: altitudeM, policy });
+    return flight.clears && flight.arrivalAltitudeM <= targetM;
+  };
+
+  const low = floor(km);
+  if (!arrivesFrom(low)) return -Infinity;
+  if (arrivesFrom(maxM)) return maxM;
+  let lo = low;
+  let hi = maxM;
+  while (hi - lo > toleranceM) {
+    const mid = (lo + hi) / 2;
+    if (arrivesFrom(mid)) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
+
+export interface ApproachSample {
+  readonly km: number;
+  readonly groundM: number;
+  readonly floorM: number;
+  readonly ceilingM: number;
+  /**
+   * Ceiling minus floor: the altitudes this route actually leaves open.
+   *
+   * Negative is not a near miss. It is the number of metres by which the
+   * route asks the aircraft to be somewhere it cannot afterwards leave, and
+   * no autopilot, no hand-off and no speed mode moves it - only the route.
+   */
+  readonly bandM: number;
+}
+
+/**
+ * Floor and ceiling together, which is the only way either one means anything.
+ *
+ * A route is flyable where the band is positive and landable only if it is
+ * positive everywhere. Where it goes negative is where the route has to
+ * change, and the depth says by how much - on Sea to Sky the answer is a
+ * ridge 46 km from Lhasa and 1,738 m above it, which is a waypoint problem
+ * and was being discussed as a pacing one (F21).
+ */
+export function approachBand(
+  route: Route,
+  ground: GroundProfile,
+  options: ArrivalOptions = {},
+): readonly ApproachSample[] {
+  const { strideKm = 50 } = options;
+  const floor = floorFor(route, ground, options);
+  const withFloor: ArrivalOptions = { ...options, floor };
+  const lengthKm = routeLengthKm(route);
+  const out: ApproachSample[] = [];
+  for (let km = 0; km <= lengthKm; km += strideKm) {
+    const floorM = floor(km);
+    const ceiling = arrivalCeilingM(route, ground, km, withFloor);
+    out.push({
+      km,
+      groundM: ground(km),
+      floorM,
+      ceilingM: ceiling,
+      bandM: ceiling - floorM,
+    });
+  }
+  return out;
+}
+
+/**
+ * How far above its destination the route arrives when it tries hardest.
+ *
+ * Zero or less means the route can be landed. A positive number is the
+ * shortfall in metres, and it is a property of the route and the ground, not
+ * of anything the flight does: this is the lowest trajectory that exists.
+ */
+export function arrivalShortfallM(
+  route: Route,
+  ground: GroundProfile,
+  options: ArrivalOptions = {},
+): number {
+  const { arrivalM = options.clearanceM ?? 0 } = options;
+  const floor = floorFor(route, ground, options);
+  const lengthKm = routeLengthKm(route);
+  const flight = flyRoute(route, ground, { ...options, policy: lowestLegal(floor) });
+  if (!flight.clears) return Infinity;
+  return flight.arrivalAltitudeM - (ground(lengthKm) + arrivalM);
 }

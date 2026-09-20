@@ -1410,6 +1410,12 @@ fifth waypoint short of Lhasa, flown at low, gives the descent the time it
 needs. Slowing the whole Chengdu–Lhasa leg does not — it is 1,239 km long and
 takes the trip to fifty-two minutes.
 
+> **Wrong, and F21 measured it.** A fifth waypoint flown at low buys about
+> half of what is missing and no placement buys more; the obstacle is
+> ninety-three kilometres out and 1,571 m above the city, and the only
+> configuration that lands is an hour and a quarter long. "Cheap to fix" was
+> an estimate made without building the instrument that could price it.
+
 **Built:** `followFloor` (asymmetric, proportional only on the way down, never
 a dive), `floorProfile`, `clearanceM` on the floor search so a margin is part
 of the curve, `ClimbPolicy` now sees altitude so a policy can close the loop,
@@ -1424,3 +1430,178 @@ of them route decisions rather than engineering ones: a fifth waypoint if the
 expedition is to arrive at Lhasa rather than over it, and the pacing choice,
 which is now known to set the sightseeing altitude for the first two thirds of
 the trip as well as the clock.
+
+## F21 — Expedition 1 does not arrive at Lhasa, and the reason is ninety-three kilometres out
+
+D17 asks whether the aircraft can get *over* the ground. F19 added the floor,
+which is how low it may be while still getting over what is coming. Both of
+those are about staying up, and between them they had used up all the
+attention: the expedition was checked, replayed, costed in minutes and in
+seconds of player freedom, and nobody had asked whether it can get back down.
+
+On a route that ends at a city in a valley behind a wall, that is the half
+with the answer in it.
+
+### The ceiling, which is the floor's mirror
+
+`altitudeFloorM` is the lowest altitude at a kilometre from which the rest of
+the route still clears. `arrivalCeilingM` is the highest altitude from which
+the rest can still be *arrived at* — flown down to some chosen height over the
+destination without breaking the clearance on the way. The floor rises as the
+wall approaches. The ceiling falls as the destination approaches. A route is
+flyable where the band between them is positive, and landable only if it is
+positive all the way along.
+
+Bisected on the simulator, like the floor, and for a sharper reason than
+consistency. Descent is 18 m/s and does not improve with altitude, but true
+airspeed does, so an aircraft holding height covers the remaining ground
+*faster* and has less time to lose it, not more. That is the wrong sign for
+anyone doing this on paper, and it is exactly the kind of thing a replay gets
+right for free.
+
+### The band is negative for 2,900 of 2,931 kilometres
+
+| km | ground | floor | ceiling | band |
+| ---: | ---: | ---: | ---: | ---: |
+| 250 | 40 m | 2,501 m | — | none |
+| 1,500 | 405 m | 5,554 m | — | none |
+| 2,500 | 4,882 m | 5,793 m | — | none |
+| 2,880 | 4,681 m | 5,229 m | — | none |
+| 2,895 | 4,369 m | 4,359 m | — | none |
+| **2,900** | 3,717 m | 4,069 m | 4,276 m | **208 m** |
+| 2,930 | 3,668 m | 3,955 m | 4,151 m | 196 m |
+
+There is no altitude at all from which Expedition 1 can be landed until
+**thirty-one kilometres** from Lhasa. The band then opens two hundred metres
+wide — and the aircraft is 1,300 m above the top of it, because everything it
+did for the previous two thousand nine hundred kilometres was required.
+
+The lowest trajectory that exists — full forward stick everywhere above the
+floor, which no player would fly and nothing legal is below — arrives **1,588 m
+over the city**. The shipped autopilot arrives at 1,959 m. **The entire policy
+knob, from gentlest to most violent, is worth 371 m of a 1,588 m deficit.**
+
+The lowest height the expedition can be authored to arrive at is 1,600 m.
+
+### One ridge, and three numbers
+
+The last hundred kilometres peak at **5,223 m, ninety-three kilometres out**,
+over a city at 3,652 m. With the 300 m margin the route is flown with, the
+aircraft has to be at 5,523 m there, which is 1,871 m above where it is going.
+Ninety-three kilometres at cruise is forty-three seconds. Forty-three seconds
+at 18 m/s is 773 m.
+
+That is the whole finding. Everything else is consequences.
+
+It is also, annoyingly, correct geography. Lhasa sits at 3,650 m in the Kyi
+Chu valley with the Nyainqêntanglha at 5,000–6,000 m around it; real aircraft
+come in down the Yarlung Tsangpo rather than over the rim. A great-circle line
+from Chengdu crosses the rim.
+
+### What the knobs are worth
+
+Shortfall against a 500 m arrival, which is a flypast rather than a landing:
+
+| | shortfall | trip |
+| --- | ---: | ---: |
+| shipped | 1,088 m | 35.7 min |
+| approach waypoint 81 km out, flown low | 566 m | 36.6 min |
+| the whole route slowed to 73 km/min | 934 m | 68.7 min |
+| approach waypoint **and** cruise at 80 | 47 m | 63.5 min |
+| approach waypoint **and** cruise at 70 | lands | **73.7 min** |
+
+The second row is the fix F20 called cheap. It buys 522 m of the 1,088 and
+**no placement buys more** — 2,800 km out, 2,850, 2,880, all within 60 m of
+each other, because what binds is ninety-three kilometres long and a waypoint
+before it changes nothing about the ninety-three.
+
+The third row is the one that looks like it should work and does not. Slowing
+*everything* by 44 % gives the last ninety-three kilometres nearly twice as
+long to descend in, and recovers 154 m of the 1,088 — thirty-three extra
+minutes of trip for a seventh of the deficit, which is the sharpest available
+statement that this is not a pacing problem.
+
+Only the last two rows land it, and both are past an hour.
+
+### The line cannot be moved either, which is the part that surprised me
+
+If the rim is the problem, route around it. Four candidates, each with the
+final leg flown low:
+
+| via | detour | shortfall |
+| --- | ---: | ---: |
+| Nyingchi, in the Yarlung Tsangpo at 3,032 m | +4 km | 1,247 m |
+| Tsetang | +24 km | 1,354 m |
+| **Gonggar — Lhasa's actual airport** | +68 km | **603 m** |
+| Damxung, from the north | +82 km | 1,313 m |
+
+Nyingchi is the obvious answer and it is +4 km, because it is already *on* the
+line — Chengdu, Nyingchi and Lhasa are very nearly collinear, and the valley
+that makes Nyingchi low does not run where the route does. Routing via the
+city's own airport, sixty-eight kilometres out of the way, still leaves 603 m.
+Every straight line into Lhasa crosses something above 5,300 m within a
+hundred and fifty kilometres. **This is not a waypoint problem. It is what
+Lhasa is.**
+
+### The floor never included the place the route ends
+
+Found on the way: `climbFloor` sampled `0, stride, 2·stride…` and stopped
+short of the destination, and `floorProfile` holds its last sample flat past
+the end. So every floor ever built was pinned, over its final stride, at
+whatever the route demanded fifty kilometres earlier. On Sea to Sky that put
+the floor at the destination 400 m above the arrival it was supposed to
+permit, and made the route un-landable by arithmetic before terrain got a say.
+
+The autopilot never noticed — being told to stay too high at the very end is
+invisible when you are 1,900 m too high anyway — and it would have gone on not
+noticing until the first route with room in it arrived and mysteriously
+refused to descend.
+
+### What the probe costs to be honest
+
+The bound rests on flying the lowest legal line at full forward stick, and
+that turns out to be the only thing in this codebase that a *sampled* floor
+cannot carry.
+
+The floor is concave, so a chord between samples lies under it. F20 costed
+that at 17 m of clearance mid-route at a 100 km stride. At the end of a route
+it changes sign entirely: where the floor falls faster than any chord can
+follow, a 100 km stride puts it **150 m below the ground** sixty kilometres
+from Lhasa. The shipped autopilot never finds out, because it only ever eases
+downward at a quarter stick and is nowhere near the floor when a chord sags. A
+probe diving at eighteen metres a second flies straight into the hill and
+reports the route un-landable for a reason that is entirely about sampling.
+
+Two clamps fix it, and the second is the one I would not have guessed. The
+probe's floor is never below the ground plus the margin — and it reads that
+ground for ten kilometres *ahead*, because a policy is asked for one command
+per step while `flyRoute` checks every kilometre the step crossed, which at
+cruise is two and at boost four. A floor read only at the aircraft's own
+kilometre is blind to a ridge the next second flies into. With both, the
+answer converges instead of crashing: within twenty metres across strides of
+50, 100 and 250 on the synthetic shapes, and on the real corridor — 1 km
+terrain, where a chord has much more to hide — settled by 25 km, which is
+where this suite reads it. Fifty is not converged, and the engine carries the
+sweep that says so rather than a round number someone liked.
+
+**Built:** `arrivalCeilingM`, `approachBand` and `arrivalShortfallM`;
+`lowestLegal`, the pointwise-lowest trajectory that makes the bound an
+argument rather than a flight; `climbFloor` now samples its own destination;
+`strideKm`, `lookAheadKm` and `arrivalM` on the options. Nine corridor-backed
+tests and thirteen synthetic ones, including the stride-independence check and
+the one that keeps the unclamped probe's crash.
+
+**Action.** D17's clearance check is half a check, and route validation should
+run both halves — a route whose band closes is broken in a way no autopilot,
+no hand-off and no speed mode can rescue, and it should fail at content
+validation rather than at G2. That is a workstream-D item and it is cheap now
+that the instrument exists.
+
+The expedition itself is a writing decision with a price on it at last.
+**Sea to Sky ends in a flypast, not an arrival**, and the alternatives are: say
+so and author the ending at 1,600 m over the city; move the destination to
+somewhere the aircraft can reach, which on this line means Nyingchi or
+Gonggar; or keep Lhasa and accept seventy-four minutes. The GDD's band is
+fifteen to thirty-five. The comparison spread's automatic snapshot is taken
+from wherever this ends, so the choice is visible in the shipping artefact
+either way.
