@@ -27,6 +27,7 @@ fly through.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import sys
 from pathlib import Path
@@ -39,7 +40,7 @@ from rasterio.enums import Resampling
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject, transform as transform_points
 
-from . import grid
+from . import grid, sources
 from .acquire import data_root, tile_name
 from .grid import CORRIDORS
 
@@ -158,8 +159,39 @@ def build(
     if not tiles:
         raise SystemExit("no source tiles; run nineskies.acquire first")
 
+    # The gate D24 exists for: a world is built from tiles that hash to what
+    # was recorded, or it is not built. Checked here rather than at fetch
+    # time because a tile can rot on disk long after it arrived, and this is
+    # the last moment at which the bytes are still identifiable as tiles --
+    # after the warp they are one array and their provenance is gone.
+    names = [tile_name(lat, lon) for lat, lon, _ in tiles]
+    problems = sources.verify(source, names)
+    if problems:
+        raise SystemExit(
+            "source tiles do not match the committed digests, so nothing was built:\n  "
+            + "\n  ".join(problems[:10])
+            + (f"\n  … and {len(problems) - 10} more" if len(problems) > 10 else "")
+        )
+    print(f"  {len(names)} source tiles verified against pipeline/sources/cop30.json")
+
     vrt_path = work / f"{corridor}.vrt"
     vrt_path.write_text(vrt_xml(tiles, box))
+
+    # What this grid was actually made of, beside the grid itself. `tiles.py`
+    # folds it into the corridor manifest, so the chain from the mirror's
+    # ETag to a signed route section has no gap in it (D24).
+    record = sources.read()
+    (work / f"{corridor}-sources.json").write_text(
+        json.dumps(
+            {
+                "bucket": record.get("bucket", ""),
+                "tiles": len(names),
+                "sha256": sources.digest_of(names, record["digests"]),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
 
     window = corridor_window(box)
     print(

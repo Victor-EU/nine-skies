@@ -4,6 +4,7 @@
 #   make world                      # the phase 0 corridor, end to end
 #   make world CORRIDOR=china       # the full country (phase 2, ~70 GB)
 #   make probes                     # golden probes against what is built
+#   make sources                    # record the source raster digests
 #   make sections                   # re-cut the committed route sections
 #   make cut-key                    # generate this machine's cutting key
 #   make reference                  # re-cut the projection reference table
@@ -19,7 +20,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles probes sections cut-key reference routes test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles probes sources sections cut-key reference routes test test-ts test-py typecheck dev clean-work help
 
 help:
 	@sed -n '1,10p' Makefile | sed 's/^# \{0,1\}//'
@@ -33,6 +34,13 @@ $(PY): pipeline/requirements.txt
 ## Stage 1 — fetch Copernicus GLO-30 from the AWS Open Data mirror.
 acquire: $(PY)
 	$(PIPELINE) -m nineskies.acquire --corridor $(CORRIDOR)
+
+## The digests of the source rasters, checked against the mirror's own ETags
+## (D24). One HEAD per tile and no download; needs the rasters on disk. The
+## build refuses to run on tiles that do not match what this recorded, so a
+## corridor is always built from nameable bytes.
+sources: $(PY)
+	$(PIPELINE) -m nineskies.sources --corridor $(CORRIDOR)
 
 ## Stage 2 — mosaic and reproject to Albers 1 km.
 grid: $(PY)
@@ -65,7 +73,7 @@ sections:
 cut-key:
 	npm run content:cut-key
 
-world: acquire grid tiles probes sections
+world: acquire sources grid tiles probes sections
 	@echo "world built: $(WORLD_OUT)"
 
 ## The other gate: every authored route flown over real ground. Needs no flag

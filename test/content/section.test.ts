@@ -67,6 +67,10 @@ describe("the section committed for Expedition 1", () => {
     expect(section.version).toBe(SECTION_VERSION);
     expect(section.cutFrom.resolutionM).toBe(1000);
     expect(section.cutFrom.heightsSha256).toMatch(/^[0-9a-f]{64}$/);
+    // And the rasters behind that heightfield (D24). The set is named by one
+    // digest; `pipeline/tests/test_sources.py` is what checks it still means
+    // the same set the committed record describes.
+    expect(section.cutFrom.sourceSha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("holds one station per kilometre of route, plus the end", () => {
@@ -175,6 +179,19 @@ describe("a section whose ground has been edited", () => {
     const edited = { ...section, groundM: section.groundM.map((m, i) => (i === 2366 ? m - 40 : m)) };
     expect(verifySection(edited, seaToSky(), verify)).toMatch(/signature does not match/);
     expect(verifySection(edited, seaToSky(), verify)).toMatch(/content:sections/);
+  });
+
+  it("is refused when the stamp is edited, not just the ground", () => {
+    // The stamp is what names the heightfield and the rasters behind it
+    // (D24). A field outside the attestation would be a field anyone could
+    // rewrite, which would let a section claim a provenance it does not have
+    // while every number in it stayed honest.
+    const { verify, section } = resigned();
+    const relabelled = {
+      ...section,
+      cutFrom: { ...section.cutFrom, sourceSha256: "f".repeat(64) },
+    };
+    expect(verifySection(relabelled, seaToSky(), verify)).toMatch(/signature does not match/);
   });
 
   it("is refused for a single decimetre, not just for a mountain", () => {

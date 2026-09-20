@@ -8,11 +8,18 @@ that only runs on the machine it was written on.
 Downloads are resumable and idempotent. A tile whose local size already
 matches the server's Content-Length is left alone, so re-running after an
 interruption costs one HEAD per tile and nothing else.
+
+Content is verified as it arrives, against the mirror rather than against
+ourselves: S3 returns the object's MD5 as its ETag, and a tile whose bytes do
+not hash to it is discarded and retried rather than written (D24). The
+digests are recorded by `nineskies.sources`; see that module for why the
+mirror's own header turned out to be evidence and not a formality.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import ssl
@@ -82,13 +89,31 @@ def load_tile_list(cache: Path) -> set[tuple[int, int]]:
     return parse_tile_list(cache.read_text())
 
 
-def remote_size(name: str, retries: int = 3) -> int | None:
-    """Content-Length, or None if the tile is not in the bucket."""
+def content_md5(etag: str | None) -> str | None:
+    """The object's MD5, when the ETag is one.
+
+    S3 gives a single-part upload's ETag as the plain content MD5 and a
+    multipart one as `md5-of-md5s-N`, which is a digest of a chunking we
+    cannot see. GLO-30 is single-part today and this returns None rather than
+    a wrong answer if that ever changes, so the caller records what the mirror
+    said and skips the comparison instead of failing every download.
+    """
+    if not etag:
+        return None
+    value = etag.strip().strip('"')
+    return value if re.fullmatch(r"[0-9a-f]{32}", value) else None
+
+
+def remote_head(name: str, retries: int = 3) -> tuple[int, str | None] | None:
+    """(Content-Length, ETag), or None if the tile is not in the bucket."""
     request = urllib.request.Request(tile_url(name), method="HEAD")
     for attempt in range(retries):
         try:
             with urllib.request.urlopen(request, timeout=60, context=SSL_CONTEXT) as response:
-                return int(response.headers["Content-Length"])
+                return (
+                    int(response.headers["Content-Length"]),
+                    response.headers.get("ETag"),
+                )
         except urllib.error.HTTPError as error:
             if error.code == 404:
                 return None
@@ -101,26 +126,48 @@ def remote_size(name: str, retries: int = 3) -> int | None:
     return None
 
 
+def remote_size(name: str, retries: int = 3) -> int | None:
+    """Content-Length, or None if the tile is not in the bucket."""
+    head = remote_head(name, retries)
+    return None if head is None else head[0]
+
+
 def fetch(name: str, dest: Path, retries: int = 3) -> tuple[str, int, bool]:
-    """Download one tile. Returns (name, bytes, downloaded)."""
+    """Download one tile. Returns (name, bytes, downloaded).
+
+    A tile that does not hash to the ETag the mirror served is deleted and
+    retried, never written. Size was the only check here until D24, and size
+    is exactly the property a wrong tile is most likely to share with a right
+    one -- every GLO-30 cell of the same latitude band compresses to roughly
+    the same length.
+    """
     target = dest / f"{name}.tif"
-    size = remote_size(name)
-    if size is None:
+    head = remote_head(name)
+    if head is None:
         return (name, 0, False)
+    size, etag = head
     if target.exists() and target.stat().st_size == size:
         return (name, size, False)
 
+    expected = content_md5(etag)
     partial = target.with_suffix(".tif.part")
     for attempt in range(retries):
         try:
+            md5 = hashlib.md5()
             with urllib.request.urlopen(
                 tile_url(name), timeout=300, context=SSL_CONTEXT
             ) as response:
                 with open(partial, "wb") as handle:
                     while chunk := response.read(1 << 20):
                         handle.write(chunk)
+                        md5.update(chunk)
             if partial.stat().st_size != size:
                 raise OSError(f"{name}: got {partial.stat().st_size} of {size} bytes")
+            if expected and md5.hexdigest() != expected:
+                raise OSError(
+                    f"{name}: {size} bytes arrived but hash to {md5.hexdigest()[:12]}…, "
+                    f"and the mirror's ETag says {expected[:12]}…"
+                )
             partial.replace(target)
             return (name, size, True)
         except (OSError, urllib.error.HTTPError):

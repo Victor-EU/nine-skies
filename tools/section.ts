@@ -52,11 +52,11 @@ import { projectedWaypoints } from "./expedition.ts";
 import { PUBLIC_KEY_FILE, type Signer, type Verifier } from "./attest.ts";
 
 /**
- * Bumped to 2 by D23, which added the signature. A v1 section is not read
- * rather than read unsigned: the whole value of the signature is that there
- * is no unsigned path to fall back to.
+ * 2 added the signature (D23), 3 the source digest (D24). An older section
+ * is not read rather than read leniently: the value of both fields is that
+ * there is no path around them to fall back to.
  */
-export const SECTION_VERSION = 2;
+export const SECTION_VERSION = 3;
 
 /**
  * How far the recomputed leg lengths may sit from the stored ones, km.
@@ -81,6 +81,14 @@ export interface RouteSection {
     readonly corridor: string;
     readonly resolutionM: number;
     readonly heightsSha256: string;
+    /**
+     * The digest of the source rasters behind that heightfield (D24), or
+     * "unrecorded" for a world built before they were recorded. It names the
+     * exact set without carrying several hundred hashes: the committed
+     * record in `pipeline/sources/cop30.json` holds those, and every one of
+     * them was corroborated against the mirror's own ETag when it was taken.
+     */
+    readonly sourceSha256: string;
   };
   readonly waypoints: readonly SectionWaypoint[];
   readonly legEndKm: readonly number[];
@@ -105,7 +113,7 @@ export function attestation(section: Omit<RouteSection, "signature">): string {
   return [
     `nineskies/section v${section.version}`,
     section.expedition,
-    `${cutFrom.corridor} ${cutFrom.resolutionM} m ${cutFrom.heightsSha256}`,
+    `${cutFrom.corridor} ${cutFrom.resolutionM} m ${cutFrom.heightsSha256} ${cutFrom.sourceSha256}`,
     section.waypoints.map((w) => `${w.id} ${w.lat} ${w.lon}`).join(" | "),
     `${section.legEndKm.join(" ")} of ${section.lengthKm}`,
     section.groundM.join(" "),
@@ -170,6 +178,7 @@ export function cutSection(
       corridor: corridor.manifest.corridor,
       resolutionM: corridor.manifest.resolutionM,
       heightsSha256: corridor.heightsSha256,
+      sourceSha256: corridor.manifest.source?.sha256 ?? "unrecorded",
     },
     waypoints: waypointsOf(expedition),
     legEndKm: profiled.legEndKm.map((km) => round(km, 3)),

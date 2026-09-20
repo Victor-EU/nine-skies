@@ -181,6 +181,13 @@ def build(corridor: str = "sea-to-sky", out_dir: Path | None = None) -> Path:
         anchors["lhasa"]["eastM"] - anchors["shanghai"]["eastM"],
         anchors["lhasa"]["northM"] - anchors["shanghai"]["northM"],
     )
+    # What mosaic actually consumed, written beside the grid it produced. An
+    # older grid has no sidecar; the manifest says so rather than leaving the
+    # key out, because an absent field reads as "not applicable" and this one
+    # means "this world predates D24 and its provenance is unrecorded".
+    sidecar = root / "work" / f"{corridor}-sources.json"
+    source = json.loads(sidecar.read_text()) if sidecar.exists() else {"unrecorded": True}
+
     manifest = {
         "version": 1,
         "corridor": corridor,
@@ -220,6 +227,7 @@ def build(corridor: str = "sea-to-sky", out_dir: Path | None = None) -> Path:
             "bytes": horizon_path.stat().st_size,
             "sha256": digest(horizon_path),
         },
+        "source": source,
         "anchors": anchors,
         "start": {
             "eastM": anchors["shanghai"]["eastM"],

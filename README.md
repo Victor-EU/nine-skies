@@ -47,7 +47,7 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 310 TypeScript tests and 52 Python tests
+make test         # 311 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -60,13 +60,16 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-302 of the 310 TypeScript tests run without the world; the eight that do not
+303 of the 311 TypeScript tests run without the world; the eight that do not
 are the ones whose subject is the world itself.
 
 A section is also signed by the machine that cut it, and one that does not
 verify against the committed public key is refused rather than flown — so the
 only way to change the ground under a route is to cut it from a world again
-(D23). The signature says where the numbers came from and cannot say they are
+(D23). It names the source rasters behind it, too, and those are digested
+against the mirror's own ETag rather than against ourselves: all 331 tiles of
+the corridor match what Copernicus serves today, and a build refuses tiles
+that have moved since (D24). The signature says where the numbers came from and cannot say they are
 real: that is the probes' job, and where a route flies over a probe's
 coordinates, that probe now runs against the committed file with no world
 (Lhasa, 3,651.8 m against a published 3,650). The projection the sections
@@ -82,11 +85,11 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | `engine/src/terrain` | Shared grid, heightmap texture array, shaders, streaming, horizon impostor |
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes |
 | `content` | Card and expedition schema, the committed route sections, and the validation gate |
-| `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, and the committed projection reference |
+| `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, the committed projection reference and the source raster digests |
 | `tools` | Node-only authoring tools: corridor reader, route sections and their signatures, route check |
 | `test` | Unit tests, including the golden reference tables |
 | `docs` | Running findings for each gate, and the golden probe report |
-| `Makefile` | `make world`, `make probes`, `make sections`, `make cut-key`, `make reference`, `make routes`, `make test` |
+| `Makefile` | `make world`, `make probes`, `make sources`, `make sections`, `make cut-key`, `make reference`, `make routes`, `make test` |
 
 ## The two things worth knowing before reading the code
 

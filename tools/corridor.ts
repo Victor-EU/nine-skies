@@ -26,6 +26,11 @@ export interface CorridorManifest {
   readonly anchors: Record<string, { lat: number; lon: number; eastM: number; northM: number }>;
   readonly start: { eastM: number; northM: number; altitudeM: number; headingRad: number };
   readonly heights: { tiles: number; sha256: string };
+  /**
+   * The source rasters this world was built from (D24), or `unrecorded: true`
+   * for a world built before they were.
+   */
+  readonly source?: { bucket?: string; tiles?: number; sha256?: string; unrecorded?: boolean };
 }
 
 export interface Corridor {

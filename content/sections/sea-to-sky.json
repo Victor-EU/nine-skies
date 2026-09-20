@@ -1,10 +1,11 @@
 {
-  "version": 2,
+  "version": 3,
   "expedition": "sea-to-sky",
   "cutFrom": {
     "corridor": "sea-to-sky",
     "resolutionM": 1000,
-    "heightsSha256": "ec5a5e1b83247978fdbec6fed3d3064207d1492973b0fcb3fc81a39a1d888b0d"
+    "heightsSha256": "ec5a5e1b83247978fdbec6fed3d3064207d1492973b0fcb3fc81a39a1d888b0d",
+    "sourceSha256": "cdfe219053c32a7e4c04daa67a251468d345f5befdd778df4f25ade8b757be0d"
   },
   "waypoints": [
     {
@@ -287,5 +288,5 @@
     3690.5, 3695.2, 3715.7, 3758.4, 3750.1, 3743.6, 3738.6, 3688.8, 3672, 3660.2, 3659.4, 3659.1,
     3661.5, 3668.9, 3667.7, 3651.8
   ],
-  "signature": "GVdCJaq7HYdiBuGMIiGLP3Sp+mMuYbkVM6ao9HMCw3MOlC7EWKQDapbTSuqnyPqpAdgbh76juQssYPjJcwzmBA=="
+  "signature": "PYkahC9EDd2NvnPd4x07kD+KL0OoemxS/yGGirQ+l/DjnNz81E9vL1RqQc8UOlTbxXTUtakbWVOVolexQtlVDg=="
 }

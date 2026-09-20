@@ -2197,3 +2197,123 @@ worth doing before phase 2 turns 331 tiles into several thousand. Whether it
 can be checked against something the mirror publishes, rather than only
 against what we ourselves first downloaded, is the part that needs looking
 up.
+
+## F27 — The mirror had been publishing a checksum all along, in a header the pipeline was throwing away
+
+F26 left one link in the chain uncheckable. `acquire.py` verified a download
+by its byte count and recorded nothing about its content, so *"the corridor
+was built from the tiles the mirror served"* had no evidence behind it, and a
+tile that arrived intact but wrong was indistinguishable from one that
+arrived right. The action written down for it ended with a caveat: whether a
+recorded digest could ever be checked against anything but our own first
+download **was the part that needed looking up**.
+
+It can, and the answer was already in the response.
+
+**S3 returns an object's MD5 as its ETag**, on every request, including the
+HEAD `acquire` was already performing on every tile of every run to read
+`Content-Length`. The pipeline was reading one header out of that response
+and discarding the one that mattered. The worry going in was that Copernicus
+tiles would be multipart uploads, whose ETag is `md5-of-md5s-N` and says
+nothing checkable about the content; they are not. Measured on N29/E091,
+38,500,243 bytes:
+
+```
+served ETag  "14562d345e9a55dc14e40344e86e524f"
+local MD5     14562d345e9a55dc14e40344e86e524f
+```
+
+So a recorded digest is third-party evidence rather than a note to self, and
+the distinction is the whole difference between provenance and
+trust-on-first-use. This was the one place in the chain where that was
+available — a section's ground cannot be re-derived without 14 GB of rasters
+(D21), and a projection table can only be re-derived by PROJ (D22). Here the
+publisher hands over a digest for free.
+
+**All 331 tiles, 13.9 GB, agree with what the mirror serves today.** Not one
+disagreement and not one tile whose ETag was unusable. That number is the
+finding: the corpus this world was built from is, tile for tile, the corpus
+Copernicus is still serving.
+
+**Where the checks sit, and why each is where it is.**
+
+| | when | against |
+| --- | --- | --- |
+| `fetch` compares MD5 to the ETag as bytes arrive | every download | the mirror |
+| `make sources` records both digests per tile | when the corpus changes | the mirror |
+| `mosaic` refuses to build on tiles that do not match | every build | the record |
+| `sources --verify` | on demand, no network | the record |
+| the section names the source set it came from | every commit, in CI | the record |
+
+The build gate is at mosaic rather than at fetch because a tile can rot on
+disk long after it arrived, and mosaic is the last moment the bytes are still
+identifiable as tiles — one warp later they are a single array and their
+provenance is gone. It earns its place immediately: flipping **one bit** in
+the middle of one 38.5 MB tile, leaving the byte count identical, is refused
+by name.
+
+```
+source tiles do not match the committed digests, so nothing was built:
+  Copernicus_DSM_COG_10_N29_00_E091_00_DEM: sha256 9b2971437948… on disk, 16a6e20e8159… recorded
+```
+
+Identical byte count is exactly the case size could never catch, and it is
+also the likeliest: every GLO-30 cell in a latitude band compresses to
+roughly the same length, so a truncated or swapped tile is *more* likely to
+match on size than a random file would be.
+
+**Two digests per tile, for two different jobs.** MD5 is the one the mirror
+publishes and therefore the only one that can ever be checked against
+somebody who is not us; SHA-256 is what local verification uses afterwards.
+MD5 is fine against a truncated transfer and worthless against a chosen
+collision, and the point of keeping the second is that the first one's
+weakness does not propagate into everything downstream of it.
+
+**The chain now closes, and it is worth being exact about what CI sees.** A
+section records the digest of the *set* of rasters behind it — one number
+rather than several hundred hashes — and that digest is inside the signed
+attestation, so a section cannot claim a provenance it does not have while
+its elevations stay honest. `test_sources.py` checks the section's number
+against the committed record's, with no world, no rasters and no network.
+
+```
+mirror ETag → pipeline/sources/cop30.json → corridor manifest → cutFrom → signature
+   (at fetch)        (at make sources)         (at build)      (at cut)   (D23)
+```
+
+What CI verifies is the agreement between committed artefacts; the comparison
+against the mirror happens where the rasters are. That is the same shape as
+D21 and D23, and saying so is better than implying CI has checked something
+it cannot reach.
+
+**An unplanned result from having to rebuild.** Adding provenance to the
+corridor manifest meant re-running the warp and the tile cut over all 331
+tiles — four minutes — and `heights.bin` came out with byte-identical
+contents, the same `ec5a5e1b…` as the build from three findings ago. The
+section's 2,932 elevations did not move by a decimetre; its diff is four lines
+of stamp and signature. Nobody had ever asked whether the pipeline was
+deterministic across a full rebuild. It is, and every number quoted in F17
+through F26 survives regenerating the world underneath them.
+
+| | F26 | F27 |
+| --- | ---: | ---: |
+| TypeScript tests | 310 | 311 |
+| running on a fresh checkout | 302 | 303 |
+| Python tests | 52 | 59 |
+| source rasters with a digest | 0 | 331 |
+| …corroborated by the publisher | 0 | 331 |
+
+**Built.** `pipeline/nineskies/sources.py` (record, verify, `digest_of` over a
+set), `pipeline/sources/cop30.json` (63 kB, one tile per line), the ETag check
+inside `acquire.fetch`, the verification gate in `mosaic.build`, the `source`
+block in the corridor manifest, `cutFrom.sourceSha256` inside the signed
+attestation, `make sources` as part of `make world`, and
+`pipeline/tests/test_sources.py`.
+
+**Action.** Nothing on the provenance chain. The remaining engineering item on
+the list is still the Iris Xe frame timing, which needs the device; the two
+above it are the writing decisions on Expedition 1. Worth noting for phase 2:
+`make sources` is one HEAD per tile, so the full country's ~4,000 tiles will
+be a minute of HEADs and perhaps twenty of hashing, and the committed record
+grows to roughly 750 kB. Both fine; neither is fine if it is discovered
+during a build.

@@ -50,7 +50,12 @@ jobs:
 
   # The pipeline suite runs without GDAL or any elevation data -- it tests grid
   # arithmetic, tile orientation, seams and probe logic against synthetic
-  # arrays. But most of it is guarded by `skipUnless(HAVE_NUMPY)`, so on a bare
+  # arrays, plus the committed artefacts it can reach with neither: the
+  # projection table against PROJ (D22), a golden probe against a route
+  # section (D23), and the source raster digests against the set each section
+  # says it was cut from (D24). What it cannot do is compare a digest to the
+  # mirror -- that happens where the 13.9 GB is, at `make sources` and again
+  # at every build. But most of it is guarded by `skipUnless(HAVE_NUMPY)`, so on a bare
   # interpreter it would pass while asserting almost nothing. The preflight step
   # exists to make that failure loud rather than green.
   pipeline:
