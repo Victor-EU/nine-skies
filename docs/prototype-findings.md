@@ -2433,3 +2433,107 @@ climb, which is the writing decision already open. Recruiting the cohort is
 blocked on it: thirty-six minutes and ninety minutes are different
 recruitment problems. The same question now has to be asked of G2 and of every
 expedition after it, which is why the tool is committed and not the answer.
+
+## F29 — The route claims to teach the three steps, and spends fifty-eight per cent of itself over one of them
+
+F28's action said the session question had to be asked of G2 as well. Asking
+it turned up something G2 has in common with G1 and something it does not.
+
+The common part is that a gate criterion is a claim about what a cohort saw.
+G2's first is that **seven of ten sketch an east-to-west profile with three
+steps, west higher, and the plateau drawn as a flat top rather than a peak.**
+`content/expeditions/sea-to-sky.yaml` makes the same claim in its own words —
+`teaches: The three steps, and why the west is sparse` — and the schema has
+always checked that the field is not empty ("say what it teaches, or it is a
+flight not an expedition") while never checking whether the flight does it.
+
+**It does not, in two different ways, and only one of them is fixable by
+writing.**
+
+### The steps are there and the time is not
+
+| | minutes | share |
+| --- | ---: | ---: |
+| third step (< 500 m) | 20.5 | **58 %** |
+| second step (500–2,000 m) | 8.5 | 24 % |
+| first step (> 2,000 m) | 6.6 | **19 %** |
+
+Measured in minutes rather than kilometres, deliberately: airspeed rises by
+nearly three times as the air thins, so the share of the *route* crossing a
+step and the share of the *trip* spent over it are different numbers, and a
+sketch drawn from memory is weighted by the second. A player spends **three
+times as long** below five hundred metres as above two thousand. All three
+steps are crossed, so the criterion is not unpassable the way G1's was — but
+what the cohort is being asked to draw in thirds, they experienced in
+58/24/19.
+
+### The plateau is the least flat thing in the flight
+
+| section, cut at the route's own wall | ground | sd | longest level run | reversals ≥ 500 m |
+| --- | ---: | ---: | ---: | ---: |
+| before the wall, km 0–1,760 | 0–2,013 m | 460 m | **390 km** | 14 |
+| the wall, km 1,760–1,860 | 1,039–4,708 m | 879 m | 7 km | 11 |
+| beyond the rim, km 1,860–2,931 | 2,271–5,558 m | 557 m | **40 km** | **122** |
+
+The part of the route a player would be told is the plateau is rougher than
+the eastern plain on every measure: a tenth of the level ground, higher
+deviation, and a hundred and twenty-two reversals of half a kilometre or
+more. The aircraft holds 5,715–6,010 m across that stretch — a 294 m swing —
+while the ground under it moves 3,286 m. The experience on offer is *being
+level while the world churns*, which is a fine thing and is not a flat top.
+
+**This is not a pipeline error and not a routing error.** Shanghai to Lhasa
+crosses the dissected eastern margin of Tibet — the Hengduan ranges, then the
+Nyainqêntanglha — and arrives at Lhasa in the Yarlung Tsangpo valley. The flat
+Changtang is north and west of the line. The ground is right, the route is
+honest, and **the criterion is asking after a landform somewhere else.** Seven
+of ten players could sketch it only by having read about it.
+
+The sections above are cut at the wall `steepestRise` finds rather than at
+names anybody authored, which is the only way the question is not begged: the
+point is to find out whether the part *called* the plateau behaves like one.
+
+### One bug, caught by the test that pins it
+
+The longest-level-run search had an optimisation that looks obviously safe —
+having found a run from `i`, skip to its end, since nothing inside it can be
+longer. It is wrong, and it cost the plateau section 7 km of its true answer
+before anything was written down. A run is measured against **its own** first
+sample, so a slow drift carries an inner run further than the one containing
+it:
+
+```
+[0, 240, 250, 260, 270, 280, 290, 300], tolerance 250
+  from index 0:  3 samples   (260 is 260 away from 0)
+  from index 1:  7 samples   — and index 1 is inside the run from 0
+```
+
+Skipping reports 6 where the answer is 7. The suite now asserts that exact
+array, because the reasoning that produced the bug is more persuasive than
+the bug is visible.
+
+| | F28 | F29 |
+| --- | ---: | ---: |
+| TypeScript tests | 319 | 327 |
+| running on a fresh checkout | 311 | 319 |
+| Python tests | 59 | 59 |
+
+**Built.** `tools/teaches.ts` (`stepMinutes`, `flatness`, `lessonOf`),
+`tools/teachCheck.ts` and `npm run content:teaches`, and
+`test/route/teaches.test.ts` — eight tests, three of which are hand-computed
+profiles that need no world at all.
+
+It reports and never gates. A route crossing honest ground is not broken by a
+sentence written above it, so failing a build here would be answering a
+question that belongs to whoever writes the expedition.
+
+**Action.** Recorded in *Open questions* as a writing decision with three
+options that are not equivalent. **Change the lesson** to what this route does
+teach — the wall, which this line shows better than any other and which is the
+GDD's own reason for starting at Shanghai. **Reroute north** through the
+Changtang so the flat top is genuinely crossed, which is a different and
+longer expedition. Or **move the flat-top criterion** to whichever of the nine
+expeditions crosses the Changtang, which costs nothing and has to be decided
+before G2's protocol is written rather than after. The other half of the
+file's claim — `Low, wet and crowded to high, dry and empty` — the route
+delivers exactly as authored.

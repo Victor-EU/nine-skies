@@ -47,7 +47,7 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 319 TypeScript tests and 59 Python tests
+make test         # 327 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -60,7 +60,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-311 of the 319 TypeScript tests run without the world; the eight that do not
+319 of the 327 TypeScript tests run without the world; the eight that do not
 are the ones whose subject is the world itself.
 
 A section is also signed by the machine that cut it, and one that does not
@@ -86,10 +86,10 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes |
 | `content` | Card and expedition schema, the committed route sections, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, the committed projection reference and the source raster digests |
-| `tools` | Node-only authoring tools: corridor reader, route sections and their signatures, route check, playtest session planner |
+| `tools` | Node-only authoring tools: corridor reader, route sections and their signatures, route check, playtest session planner, lesson report |
 | `test` | Unit tests, including the golden reference tables |
 | `docs` | Running findings for each gate, and the golden probe report |
-| `Makefile` | `make world`, `make probes`, `make sources`, `make sections`, `make cut-key`, `make reference`, `make routes`, `make sessions`, `make test` |
+| `Makefile` | `make world`, `make probes`, `make sources`, `make sections`, `make cut-key`, `make reference`, `make routes`, `make sessions`, `make teaches`, `make test` |
 
 ## The two things worth knowing before reading the code
 

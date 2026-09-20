@@ -10,6 +10,7 @@
 #   make reference                  # re-cut the projection reference table
 #   make routes                     # every expedition flown over the world
 #   make sessions                   # what a playtest session of N minutes contains
+#   make teaches                    # what each route shows against what it claims
 #   make test                       # every suite, TypeScript and Python
 #
 # Source rasters land in data/source/ and intermediates in data/work/, both
@@ -21,7 +22,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles probes sources sections cut-key reference routes sessions test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles probes sources sections cut-key reference routes sessions teaches test test-ts test-py typecheck dev clean-work help
 
 help:
 	@sed -n '1,10p' Makefile | sed 's/^# \{0,1\}//'
@@ -89,6 +90,12 @@ routes:
 MINUTES ?= 12
 sessions:
 	npm run content:sessions -- $(MINUTES)
+
+## The claimed lesson against the measured ground (G2, F29). A report and
+## never a gate: a route crossing honest ground is not broken by a sentence
+## written above it, and which of the two moves is a writing decision.
+teaches:
+	npm run content:teaches
 
 typecheck:
 	npm run typecheck
