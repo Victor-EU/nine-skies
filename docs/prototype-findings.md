@@ -2989,3 +2989,51 @@ that station's highest. The instrument re-fitted at 0.440 ms per megapixel
 plus 0.226 per pass, r² 0.96. The conclusion does not move: on this machine
 everything drawn is about a millisecond of the 33.3 ms frame, at every
 station. It is still not the M1.
+
+**Addendum — the pane cannot be measured in, and the second defence is what
+proved it.** F32 recorded that the tool's browser pane throttles to about 1 Hz
+and that the capture's frame-rate guard refuses it. That left a question the
+refusal could not answer: is the pane merely slow, or is it unmeasurable? It
+is unmeasurable, and it took getting past the guard to find out.
+
+The pane runs at 95 Hz while a screenshot is being taken of it and at about
+1 Hz otherwise, so a capture started immediately after a burst of screenshots
+passes the rate check, and a capture kept under continuous screenshot pressure
+runs to completion. One did: three stations at 3,024×1,964, lowest of 12,
+reported at 36 Hz. Every number in it is rubbish.
+
+```
+instrument: 0.443 ms per megapixel + 0.684 ms per pass, r² 0.8859
+            ⚠ POOR FIT — these numbers are not measurements
+
+  station      clear terrain horizon   all
+  shanghai      2.47   0.18   0.53    3.76
+  wall-rim      7.32  -0.55  -4.73    2.90
+  lhasa         2.80   3.36   1.36    4.11
+
+  resolution ±4.84 ms
+```
+
+Against the same machine's real window ten minutes earlier: clear 0.47–0.85,
+terrain 0.14–0.78, resolution ±0.39. Here `clear` — identical work at every
+station — ranges over 4.84 ms, a pass costs negative time, and the fit falls
+to r² 0.886 against the 0.95 floor. The report says so itself, on its own
+second line, without being asked.
+
+**The cause is the remedy.** Screen capture is GPU work. The screenshots that
+keep the pane's animation frames arriving are contending with the very draws
+being timed, so the thing that makes the pane fast enough to measure in is the
+thing that makes the measurement worthless. There is no setting that separates
+them.
+
+**What this says about the instrument.** The two defences are independent and
+the second one is not decoration. The frame-rate guard is about *time* — will
+this finish, or will it look like a hang — and it can be satisfied by a window
+that is fast and noisy. The linearity check is about *trust*, and it caught a
+capture the first check had waved through. D25 built both because a number is
+either a measurement or it is not; this is the first time only one of them
+fired, and the run it rejected is the run that would otherwise have been
+written down.
+
+So the pane is closed as a route, not deferred: frame measurements are taken
+in a real window on the machine being measured, and nowhere else.
