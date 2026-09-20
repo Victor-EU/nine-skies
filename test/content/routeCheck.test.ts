@@ -54,6 +54,26 @@ describe.skipIf(!built)("the check over a world that is actually built", () => {
     expect(describeReport(report!).join("\n")).toMatch(/NO ARRIVAL AUTHORED/);
   }, 30_000);
 
+  it("lands a route that ends on the plain, which nothing could do before D20", () => {
+    // Shanghai to Wuhan over the real eastern corridor, arriving 100 m over
+    // a destination 25 m above the sea. The whole route is inside the first
+    // leg of Expedition 1, so the ground is the same ground F17 flew.
+    const base = seaToSky();
+    // Keeps the id, because that is how the check finds the corridor to fly
+    // it over - one built world per expedition until `china` exists.
+    const east: Expedition = { ...base, route: base.route.slice(0, 2), arrival: { altitude_m: 100 } };
+    const [report] = checkRoutes([east], WORLD);
+    const check = report!.check!;
+    expect(check.clears).toBe(true);
+    expect(check.arrives).toBe(true);
+    expect(check.lowestArrivalM).toBeLessThan(150);
+    // And the line says what it cost: the taper releases margin on the way
+    // in, so the lowest legal line passes closer to the ground than the
+    // 300 m the rest of the route keeps.
+    expect(check.approachMarginM).toBeLessThan(300);
+    expect(describeReport(report!).join("\n")).toMatch(/approach: the lowest legal line/);
+  }, 30_000);
+
   it("fails it the moment it claims the landing it cannot make", () => {
     const claiming: Expedition = { ...seaToSky(), arrival: { altitude_m: 500 } };
     const [report] = checkRoutes([claiming], WORLD);

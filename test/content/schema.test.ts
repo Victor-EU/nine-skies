@@ -202,20 +202,28 @@ describe("an arrival is a claim, and the schema checks the ones a parser can", (
     ).toEqual([]);
   });
 
-  it("rejects an arrival at or below that clearance, which nothing satisfies", () => {
-    // F21's identity: at the destination the floor is ground + clearance and
-    // the target is ground + altitude, so the band the route leaves at its
-    // own end is exactly altitude - clearance. Ask for 100 m with a 300 m
-    // margin and there is no altitude that is both.
-    expect(expeditionFields([expedition({ arrival: { altitude_m: 100 } })])).toContain(
-      "arrival.altitude_m",
-    );
-    expect(
-      expeditionFields([expedition({ arrival: { altitude_m: 300 } })]),
-    ).toContain("arrival.altitude_m");
+  it("accepts an arrival below the clearance, which is what a landing is", () => {
+    // This was rejected until D20, on F21's identity: the floor kept its full
+    // margin to the last kilometre, so nothing satisfied both. The floor now
+    // tapers to the arrival height as the destination comes within descending
+    // distance, and the flown check prices what that costs (F23).
+    expect(validateExpeditions([expedition({ arrival: { altitude_m: 100 } })])).toEqual([]);
+    expect(validateExpeditions([expedition({ arrival: { altitude_m: 50 } })])).toEqual([]);
   });
 
-  it("lets a route lower its own clearance and arrive under the default", () => {
+  it("rejects an arrival finer than the flown check can resolve", () => {
+    // Not a rule about routes. The probe steps eighteen metres of altitude a
+    // second, so below that it cannot tell arriving from flying into the
+    // ground, and zero is the ground itself.
+    expect(expeditionFields([expedition({ arrival: { altitude_m: 5 } })])).toContain(
+      "arrival.altitude_m",
+    );
+    expect(expeditionFields([expedition({ arrival: { altitude_m: 0 } })])).toContain(
+      "arrival.altitude_m",
+    );
+  });
+
+  it("lets a route lower its own clearance", () => {
     expect(
       validateExpeditions([expedition({ arrival: { altitude_m: 100, clearance_m: 50 } })]),
     ).toEqual([]);

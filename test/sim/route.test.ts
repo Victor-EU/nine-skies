@@ -17,6 +17,7 @@ import {
   modeAtKm,
   routeFrom,
   routeLengthKm,
+  approachClearanceM,
   steepestRise,
   validateRoute,
   type Route,
@@ -496,12 +497,14 @@ describe("whether a route can be arrived at, which is not whether it clears", ()
     expect(ceiling - floor(2000)).toBeCloseTo(base.arrivalM - base.clearanceM, -1);
   });
 
-  it("asking to arrive below your own margin is a contradiction, and says so", () => {
-    // Not a near miss and not a bug: the floor keeps 200 m to the last
-    // kilometre, so there is no altitude at the destination that is both on
-    // the floor and 100 m above the ground.
+  it("asks to arrive below its own margin, which is what the taper is for", () => {
+    // This was a contradiction until D20 and is now an ordinary question.
+    // The floor used to keep its full margin to the last kilometre, so no
+    // altitude at the destination was both on the floor and 100 m above the
+    // ground; it now relaxes to the arrival height as the destination comes
+    // within descending distance, and the band opens (F23).
     const band = approachBand(route, roomy, { ...base, arrivalM: 100, strideKm: 500 });
-    for (const sample of band) expect(sample.ceilingM).toBe(-Infinity);
+    expect(band.some((sample) => sample.ceilingM > -Infinity)).toBe(true);
   });
 
   it("reports where the route stops being landable, not just that it is not", () => {
@@ -656,37 +659,83 @@ describe("both halves of the question, which is what a gate has to ask", () => {
   });
 });
 
-describe("a landing is a claim this check cannot evaluate yet (F22)", () => {
+describe("a floor that knows where it is going, which is what lets a route land", () => {
   // Utterly flat ground at 100 m: nothing to clear, and a landing is
-  // trivially possible in the only sense that matters - the aircraft can
-  // obviously get down. The check says otherwise, and these pin why, so that
-  // the floor taper that fixes it has something to be measured against.
+  // trivially possible in the only sense that matters. Before D20 the check
+  // said otherwise, and said it on every ground there is (F22).
   const flat = () => 100;
   const route = oneLeg(600);
   const base = { strideKm: 50, toleranceM: 5, startAltitudeM: 1200 } as const;
 
-  it("cannot arrive below the clearance it keeps en route, even over nothing", () => {
-    const check = validateRoute(route, flat, { ...base, clearanceM: 300, arrivalM: 0 });
+  it("arrives near the ground it is aimed at, not at the margin it kept", () => {
+    const check = validateRoute(route, flat, { ...base, clearanceM: 300, arrivalM: 100 });
     expect(check.clears).toBe(true);
-    // The floor is ground + 300 to the last kilometre, so the lowest legal
-    // trajectory is 300 m up at the threshold and the shortfall is the
-    // margin itself. Not terrain: arithmetic.
-    expect(check.lowestArrivalM).toBeCloseTo(300, 0);
-    expect(check.arrives).toBe(false);
+    // Was 300.2 m - the margin itself - for every arrival ever asked for.
+    expect(check.lowestArrivalM).toBeLessThan(120);
+    expect(check.arrives).toBe(true);
   });
 
-  it("is not rescued by dropping the margin, which crashes the probe instead", () => {
-    // The other escape route, and it is closed too: with no margin the floor
-    // is bare interpolated ground, and a probe diving at full stick goes
-    // through it between samples. Infinity is `arrivalShortfallM` reporting
-    // that the flight it was asked about did not finish.
-    const check = validateRoute(route, flat, { ...base, clearanceM: 0, arrivalM: 0 });
+  it("leaves a flypast exactly where it was, because the taper never starts", () => {
+    // The relaxation is capped at `clearanceM`, so a route arriving no lower
+    // than its own margin gets the identity and the pre-D20 answer. Every
+    // corridor number in F17 through F22 depends on this staying true.
+    const check = validateRoute(route, flat, { ...base, clearanceM: 300, arrivalM: 500 });
+    expect(check.lowestArrivalM).toBeCloseTo(300, 0);
+  });
+
+  it("keeps the full margin until the destination is within descending distance", () => {
+    const far = approachClearanceM(route, flat, 200, { clearanceM: 300, arrivalM: 0 });
+    const near = approachClearanceM(route, flat, 570, { clearanceM: 300, arrivalM: 0 });
+    const at = approachClearanceM(route, flat, 600, { clearanceM: 300, arrivalM: 0 });
+    expect(far).toBe(300);
+    expect(near).toBeLessThan(300);
+    expect(at).toBe(0);
+  });
+
+  it("lets a slow final leg keep its margin longer, which is the way round that helps", () => {
+    // Descent is bought with time, not distance, so a leg flown at a third
+    // of cruise has three times the seconds in its last forty kilometres and
+    // does not have to start giving margin away nearly as early. Slowing the
+    // approach buys terrain clearance rather than spending it - which is why
+    // F21 found a slow final leg worth several hundred metres on a route
+    // that could not otherwise get down.
+    const fast = oneLeg(600, "cruise");
+    const slow: Route = {
+      name: "slow",
+      legs: [
+        { name: "a", endKm: 500, mode: "cruise" },
+        { name: "b", endKm: 600, mode: "low" },
+      ],
+    };
+    const opts = { clearanceM: 300, arrivalM: 0 };
+    expect(approachClearanceM(fast, flat, 560, opts)).toBeLessThan(300);
+    expect(approachClearanceM(slow, flat, 560, opts)).toBe(300);
+  });
+});
+
+describe("the arrival the gate can resolve, and the one it cannot", () => {
+  const flat = () => 100;
+  const route = oneLeg(600);
+  const base = { strideKm: 50, toleranceM: 5, startAltitudeM: 1200, clearanceM: 300 } as const;
+
+  it("cannot tell arriving from crashing at the ground itself", () => {
+    // At `arrivalM` of zero the floor at the threshold *is* the ground, and
+    // a probe descending at eighteen metres a second steps through it between
+    // samples. Infinity is the check reporting that the flight it was asked
+    // about never finished, which is the honest answer: below one second of
+    // descent the question is finer than the simulation (F23).
+    const check = validateRoute(route, flat, { ...base, arrivalM: 0 });
     expect(check.lowestArrivalM).toBe(Infinity);
   });
 
-  it("works the moment the arrival is above the margin", () => {
-    const check = validateRoute(route, flat, { ...base, clearanceM: 300, arrivalM: 500 });
-    expect(check.arrives).toBe(true);
-    expect(check.issues).toHaveLength(0);
+  it("resolves anything from one second of descent upward", () => {
+    // Within a descent step of whatever it was aimed at, every time. The
+    // verdict carries the same tolerance, so an arrival authored at 20 m is
+    // not failed for a 2 m miss that is really the probe's step size.
+    for (const arrivalM of [20, 30, 50, 100]) {
+      const check = validateRoute(route, flat, { ...base, arrivalM });
+      expect(check.lowestArrivalM).toBeLessThan(arrivalM + MAX_DESCENT_MS);
+      expect(check.arrives).toBe(true);
+    }
   });
 });

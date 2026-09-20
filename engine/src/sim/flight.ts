@@ -7,6 +7,7 @@ import {
 import {
   LIGHT_PISTON,
   MAX_DESCENT_MS,
+  PITCH_TAU_S,
   maxClimbRateMs,
   maxTurnRateRadS,
   trueAirspeedMs,
@@ -82,7 +83,7 @@ const BOUNCE_CLEARANCE_M = 25;
  * weight change.
  */
 const TAU_SPEED_S = 6;
-const TAU_VERTICAL_S = 4;
+const TAU_VERTICAL_S = PITCH_TAU_S;
 const TAU_BANK_S = 1.5;
 
 function approach(current: number, target: number, tau: number, dt: number): number {

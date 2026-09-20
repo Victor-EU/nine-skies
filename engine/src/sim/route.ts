@@ -28,7 +28,13 @@
  * above it is, to the second, how long the autopilot may hand the stick back
  * (F19).
  */
-import { ceilingM, LIGHT_PISTON, type AircraftSpec } from "./aircraft.js";
+import {
+  MAX_DESCENT_MS,
+  ceilingM,
+  descentReachM,
+  LIGHT_PISTON,
+  type AircraftSpec,
+} from "./aircraft.js";
 import {
   STILL_AIR,
   createFlightState,
@@ -36,7 +42,7 @@ import {
   type Environment,
   type FlightState,
 } from "./flight.js";
-import { DEFAULT_PACING, type Pacing, type SpeedMode } from "./scale.js";
+import { DEFAULT_PACING, groundKmPerMin, type Pacing, type SpeedMode } from "./scale.js";
 
 /**
  * One leg of a route: where it ends, and how fast it is flown.
@@ -175,6 +181,70 @@ export function groundFrom(ground: GroundProfile, fromKm: number): GroundProfile
  * formula anyone should write twice. Returns `Infinity` when no altitude at
  * or below `maxM` saves the route.
  */
+/**
+ * Seconds of flying left between `fromKm` and the end of the route.
+ *
+ * Walked leg by leg, because a route that ends slowly has far more time in
+ * its last fifty kilometres than the same distance at cruise. Nominal speeds:
+ * true airspeed rises with altitude, so a high aircraft really covers this
+ * ground faster than this says (F21's sign surprise), and the over-estimate
+ * is left in deliberately - see `approachClearanceM` for why it is safe.
+ */
+export function remainingSecondsFrom(
+  route: Route,
+  fromKm: number,
+  pacing: Pacing = DEFAULT_PACING,
+): number {
+  const lengthKm = routeLengthKm(route);
+  let seconds = 0;
+  let startKm = 0;
+  for (const leg of route.legs) {
+    const from = Math.max(fromKm, startKm);
+    const to = Math.min(lengthKm, leg.endKm);
+    if (to > from) seconds += ((to - from) / groundKmPerMin(leg.mode, pacing)) * 60;
+    startKm = leg.endKm;
+  }
+  return seconds;
+}
+
+/**
+ * The clearance the route actually has to keep at `km` (D20).
+ *
+ * The full margin over terrain it crosses, relaxing to the arrival height as
+ * the destination comes within descending distance. Constant, and equal to
+ * `clearanceM`, for any route arriving no lower than its own margin - so
+ * every flypast behaves exactly as it did before this existed.
+ *
+ * It exists because without it no route can land anywhere. A floor built with
+ * a margin keeps that margin to the last kilometre, so the lowest trajectory
+ * that legally exists arrives 300 m above a runway at sea level and the
+ * shortfall the gate reports *is the margin* (F22). The destination is not
+ * terrain to be cleared; it is the place the route is going.
+ *
+ * **What it costs is real and is the point.** An aircraft cannot be 300 m
+ * over a ridge twenty kilometres out and on the ground at the threshold, so
+ * a route that lands gives up margin in its approach - here, exactly as much
+ * as it must and no more, because the relaxation at any kilometre is capped
+ * at what the remaining flying time can still give back. A route that wants
+ * its full margin over everything should arrive above it, which is a flypast,
+ * and then this function is the identity.
+ */
+export function approachClearanceM(
+  route: Route,
+  ground: GroundProfile,
+  km: number,
+  options: FloorOptions = {},
+): number {
+  const { clearanceM = 0, arrivalM = clearanceM, pacing = DEFAULT_PACING } = options;
+  if (arrivalM >= clearanceM) return clearanceM;
+  // The descent is paid for where it finishes, which is over the destination:
+  // thin air lengthens the pitch lag and deepens the debt, so an approach
+  // into Lhasa at 3,652 m gets less reach per second than one into Shanghai.
+  const destinationM = ground(routeLengthKm(route)) + arrivalM;
+  const reach = descentReachM(remainingSecondsFrom(route, km, pacing), destinationM);
+  return Math.min(clearanceM, arrivalM + reach);
+}
+
 export interface FloorOptions extends FlyRouteOptions {
   /**
    * Metres of clearance the rest of the route must keep, not just zero.
@@ -199,6 +269,23 @@ export interface FloorOptions extends FlyRouteOptions {
   readonly maxM?: number;
   /** Bisection stops here. Metres. */
   readonly toleranceM?: number;
+  /**
+   * How far over the asked-for arrival still counts as arriving, metres.
+   *
+   * Defaults to one second of full descent, which is the finest the probe
+   * resolves: it steps eighteen metres of altitude a second, so anything
+   * under that is which side of a sample the threshold fell on (F23).
+   */
+  readonly arrivalToleranceM?: number;
+  /**
+   * How far above the destination's ground the route means to end, metres.
+   *
+   * The floor needs this because a floor that does not know where it is going
+   * treats its own destination as terrain and keeps the full margin over it,
+   * which is why no route could land before D20 (F22). Defaults to
+   * `clearanceM`, which is the no-taper case.
+   */
+  readonly arrivalM?: number;
 }
 
 export function altitudeFloorM(
@@ -213,7 +300,16 @@ export function altitudeFloorM(
     clearanceM = 0,
   } = options;
   const rest = routeFrom(route, km);
-  const raised = clearanceM === 0 ? ground : (k: number) => ground(k) + clearanceM;
+  // The clearance is a profile, not a number: it relaxes to the arrival
+  // height as the destination comes within descending distance (D20). For a
+  // flypast it is constant and this is the same arithmetic as before.
+  const arrivalM = options.arrivalM ?? clearanceM;
+  const raised =
+    clearanceM === 0 && arrivalM === 0
+      ? ground
+      : arrivalM >= clearanceM
+        ? (k: number) => ground(k) + clearanceM
+        : (k: number) => ground(k) + approachClearanceM(route, ground, k, options);
   const restGround = groundFrom(raised, km);
   const clearsFrom = (altitudeM: number): boolean =>
     flyRoute(rest, restGround, { ...options, startAltitudeM: altitudeM }).clears;
@@ -707,11 +803,21 @@ function floorFor(
   options: ArrivalOptions,
 ): GroundProfile {
   const { clearanceM = 0, lookAheadKm = 10 } = options;
+  const arrivalM = options.arrivalM ?? clearanceM;
+  const tapers = arrivalM < clearanceM;
+  const required = (k: number): number =>
+    tapers ? approachClearanceM(route, ground, k, options) : clearanceM;
   const floor = options.floor ?? floorProfile(climbFloor(route, ground, options));
   return (km) => {
-    let worst = ground(km);
-    for (let k = Math.ceil(km); k <= km + lookAheadKm; k++) worst = Math.max(worst, ground(k));
-    return Math.max(floor(km), worst + clearanceM);
+    // The requirement is folded into the window rather than added after it,
+    // because both terms move: the ground the aircraft is about to cross and
+    // the margin it still has to keep over that ground are read at the same
+    // kilometre, and taking the worst of the sums is the only combination
+    // that is right at both ends of the taper.
+    let worst = ground(km) + required(km);
+    for (let k = Math.ceil(km); k <= km + lookAheadKm; k++)
+      worst = Math.max(worst, ground(k) + required(k));
+    return Math.max(floor(km), worst);
   };
 }
 
@@ -863,13 +969,25 @@ export interface RouteCheck {
   readonly contact: Contact | null;
   /** Trip time of the clearance replay, minutes. */
   readonly minutes: number;
+  /**
+   * The least terrain clearance the *lowest legal* trajectory ever has.
+   *
+   * Worth printing next to the arrival, because a route that lands pays for
+   * it here: the approach taper releases margin as the destination comes
+   * within descending distance, so the aircraft that gets lowest is also the
+   * one that passes closest to the ground on the way in (D20). `Infinity`
+   * when there is no such trajectory.
+   */
+  readonly approachMarginM: number;
   /** Metres above the destination the route arrives at when it tries hardest. */
   readonly lowestArrivalM: number;
   /** What the route was asked to arrive at, metres above the destination. */
   readonly arrivalM: number;
+  /** The terrain margin it was asked to keep on the way, metres. */
+  readonly clearanceM: number;
   /** Whether that was authored or defaulted. Only a claim can be broken. */
   readonly claimed: boolean;
-  /** `lowestArrivalM - arrivalM`. Zero or less means the route arrives. */
+  /** `lowestArrivalM - arrivalM`. At or under the tolerance means it arrives. */
   readonly shortfallM: number;
   readonly arrives: boolean;
   readonly issues: readonly RouteIssue[];
@@ -895,7 +1013,15 @@ export function validateRoute(
   ground: GroundProfile,
   options: ArrivalOptions = {},
 ): RouteCheck {
-  const { arrivalM = options.clearanceM ?? 0 } = options;
+  const {
+    arrivalM = options.clearanceM ?? 0,
+    // One second of full descent. The probe moves eighteen metres a second
+    // vertically, so an arrival missed by less than that is a sample landing
+    // on one side of the threshold rather than the other - the simulation
+    // does not resolve it, and a gate that failed on it would be reporting
+    // its own step size (F23).
+    arrivalToleranceM = MAX_DESCENT_MS,
+  } = options;
   const issues: RouteIssue[] = [];
   const lengthKm = routeLengthKm(route);
 
@@ -924,13 +1050,15 @@ export function validateRoute(
   // one the lowest arrival is still computed and returned, because that is
   // the number somebody needs in order to write a claim down, but it is not
   // an issue: a route has not failed to keep a promise it never made.
-  const floor = climb.clears ? floorProfile(climbFloor(route, ground, options)) : null;
-  const lowestArrivalM = floor
-    ? arrivalShortfallM(route, ground, { ...options, floor, arrivalM: 0 })
-    : Infinity;
+  const floor = climb.clears ? floorFor(route, ground, options) : null;
+  const probe = floor
+    ? flyRoute(route, ground, { ...options, policy: lowestLegal(floor), track: true })
+    : null;
+  const lowestArrivalM =
+    probe && probe.clears ? probe.arrivalAltitudeM - ground(lengthKm) : Infinity;
   const shortfallM = lowestArrivalM - arrivalM;
   const claimed = options.arrivalM !== undefined;
-  if (floor && claimed && shortfallM > 0) {
+  if (floor && claimed && shortfallM > arrivalToleranceM) {
     issues.push({
       check: "arrival",
       km: lengthKm,
@@ -948,11 +1076,13 @@ export function validateRoute(
     worstKm: climb.worstKm,
     contact: climb.contact,
     minutes: climb.minutes,
+    approachMarginM: probe?.clears ? probe.worstClearanceM : Infinity,
     lowestArrivalM,
     arrivalM,
+    clearanceM: options.clearanceM ?? 0,
     claimed,
     shortfallM,
-    arrives: shortfallM <= 0,
+    arrives: shortfallM <= arrivalToleranceM,
     issues,
   };
 }

@@ -1703,6 +1703,12 @@ m/s and cruise, shedding 300 m takes 17 seconds and 36 km of ground, so a
 threshold shorter than that reports an impossible descent as a floor and a
 longer one gives away margin over real terrain.
 
+> **The 36 km is wrong, and F23 measured it.** Eighteen metres a second is the
+> asymptote of a four-second lag, not a rate: the real answer is 21 seconds
+> and 45 km, and a taper built on the naive figure descends faster than the
+> aircraft can follow. It reported a 91 m shortfall on ground with nothing in
+> it.
+
 That is a model with a number in it that wants measuring, which is what F20
 and F21 each were, and folding it into the commit that built the gate would
 have meant shipping the interesting half unmeasured. The gate is honest about
@@ -1721,3 +1727,117 @@ expeditions, because the arrival every one of them wants is a landing. Until
 it exists, an expedition either authors a flypast height or authors nothing
 and reads the measured one off the gate — which is where Expedition 1 sits,
 still waiting on the writing decision F21 priced.
+
+## F23 — A floor that knows where it is going, and the seventy-two metres nobody had paid for
+
+F22 found that no route could land anywhere, including on flat ground at sea
+level, because the altitude floor keeps its terrain margin all the way to the
+threshold. This is D20, the taper that fixes it, and it cost two corrections
+to arithmetic that had been wrong in the repo since F19.
+
+### The model
+
+The clearance a route has to keep is not a number, it is a profile. Full
+margin over terrain it crosses; the arrival height at the threshold; and in
+between, exactly what the remaining flying time can still give back:
+
+```
+required(km) = min(clearanceM, arrivalM + descentReach(secondsLeftFrom(km)))
+```
+
+Nothing in it is free to choose. The relaxation at any kilometre is capped at
+what the aircraft can still shed before it gets there, so the floor never
+permits a descent that does not exist, and it is capped again at `clearanceM`,
+so a route arriving no lower than its own margin gets the identity and the
+pre-D20 answer to the metre. Every corridor number in F17 through F22 depends
+on that second cap, and a test now says so.
+
+**What it costs is real and is the point.** An aircraft cannot be 300 m over a
+ridge twenty kilometres out and on the ground at the threshold. A route that
+lands gives up margin in its approach — here, as little as it must — and the
+gate prints what it gave up rather than hiding it:
+
+```
+approach: the lowest legal line passes 108 m over terrain at its closest
+```
+
+A route that wants its full margin over everything should arrive above it,
+which is a flypast, and then the taper never starts.
+
+### Eighteen metres a second is an asymptote, not a rate
+
+The first version used `MAX_DESCENT_MS` directly and reported a 91 m shortfall
+on ground with nothing in it. The floor was descending at 8.31 m per kilometre
+and the aircraft managed 6.8.
+
+Full forward stick *commands* 18 m/s; the flight model approaches it with a
+four-second time constant, stretched by `1/sigma` in thin air. So a descent
+that begins from level flight is permanently one time constant short:
+
+```
+descentReachM(T) = 18 · (T − τ · (1 − e^(−T/τ)))     τ = 4 s / sigma
+```
+
+which is `18 · (T − τ)` once T is a few τ — **72 m at sea level, 104 m into
+Lhasa**. Checked against the flight model at three altitudes and three
+durations, it agrees within nine metres everywhere and is always on the low
+side, which is the safe side.
+
+That constant had been sitting in `flight.ts` as a feel parameter. It is not
+only a feel parameter: any planner asking "can this aircraft get down in
+time?" has to pay it, and one that does not over-estimates by the better part
+of a hundred metres. It now lives in `aircraft.ts` as `PITCH_TAU_S`, where
+`flight.ts` reads it too.
+
+### The gate cannot see the last eighteen metres
+
+With the taper working, `arrivalM: 0` still reported a crash. It is not a bug
+and it does not want fixing. At an arrival of zero the floor at the threshold
+*is* the ground, and the probe moves eighteen metres of altitude between
+samples, so it steps through. Below one second of descent the question is
+finer than the simulation, and `Infinity` is the honest answer: the flight it
+was asked about never finished.
+
+So the verdict carries a tolerance of one descent step, the way the floor
+search carries `toleranceM`, and the schema refuses an arrival under 20 m with
+the reason. That is not a restriction on expeditions — real aviation authors
+the threshold-crossing height at fifty feet for the same reason nobody
+measures a landing at the runway surface.
+
+### What it does to Expedition 1: nothing at all
+
+| arrival asked | lowest | shortfall | approach margin |
+| ---: | ---: | ---: | ---: |
+| none | 1,588 m | — | 223 m |
+| 500 m | 1,588 m | 1,088 m | 223 m |
+| 50 m | 1,588 m | 1,538 m | 223 m |
+
+Every F21 number survives to the metre, which is the strongest thing that
+could have happened to it. D20 changes the floor, and F21's claim was that
+**no** change to the floor, the policy, the hand-off or the speed mode moves
+this route — so a floor change that leaves it at 1,588 m is that claim being
+tested rather than restated.
+
+There is a second confirmation in it, from an instrument that did not exist
+when F21 ran. The taper starts biting at km 2,900 on Sea to Sky, because that
+is where Lhasa first comes within descending distance. F21 found the arrival
+band opens at km 2,900, by bisecting flights. Same thirty-one kilometres,
+reached from opposite directions: one asks how far back the aircraft could
+start down, the other asks from how far back it could still arrive.
+
+What does land now is a route that ends where the ground is flat. Shanghai to
+Wuhan over the real corridor, arriving 100 m over a destination 25 m above the
+sea, keeping 108 m of terrain margin at its closest. That could not be
+expressed at all a commit ago.
+
+**Built.** `descentReachM` and `PITCH_TAU_S` in `aircraft.ts`;
+`remainingSecondsFrom` and `approachClearanceM` in `route.ts`, threaded through
+`altitudeFloorM` and the probe's look-ahead clamp; `approachMarginM` on the
+check and a line for it in the gate; `minArrivalM` in the schema; the F21
+identity retired from both the schema and its test. 284 TypeScript tests in 16
+files, 236 with 48 skipped on a fresh checkout.
+
+**Action.** Eight expeditions can now be authored with the arrival they
+actually want. Expedition 1 still cannot, and after three findings trying, the
+remaining question about it has not moved an inch: it is a writing decision,
+it has a price, and the price is the same as it was.

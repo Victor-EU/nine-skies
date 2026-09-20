@@ -121,6 +121,36 @@ export function maxClimbRateMs(spec: AircraftSpec, altitudeM: number): number {
 export const MAX_DESCENT_MS = 18;
 
 /**
+ * Seconds the aircraft takes to spool the nose to a commanded pitch, at sea
+ * level. Stretched by `1/sigma` in thin air, like every other response.
+ *
+ * It lives here rather than in the flight model because it is not only a feel
+ * parameter: any planner that asks "can this aircraft get down in time?" has
+ * to pay it, and one that does not over-estimates the answer by seventy
+ * metres (F23).
+ */
+export const PITCH_TAU_S = 4;
+
+/**
+ * Metres of altitude lost in `seconds` of full forward stick from level.
+ *
+ * Not `18 * seconds`. Eighteen is the *asymptote* of a first-order lag, so a
+ * descent that starts from level flight is always one time-constant short of
+ * the naive figure: `18 * (T - tau)` once T is a few tau, which is 72 m at
+ * sea level and 104 m at Lhasa. Small, fixed, and exactly the size of the
+ * error that makes a landable route report a shortfall (F23).
+ *
+ * `altitudeM` is where the descent happens, because thin air lengthens the
+ * lag and therefore deepens the debt. Measured against the flight model
+ * within nine metres everywhere it was checked, always on the low side.
+ */
+export function descentReachM(seconds: number, altitudeM = 0): number {
+  if (seconds <= 0) return 0;
+  const tau = PITCH_TAU_S / Math.max(0.35, densityRatio(altitudeM));
+  return MAX_DESCENT_MS * (seconds - tau * (1 - Math.exp(-seconds / tau)));
+}
+
+/**
  * How many seconds of climbing one second of descent costs, at this altitude.
  *
  * The plateau mechanic expressed as a single number, and the one the GDD's

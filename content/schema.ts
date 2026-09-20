@@ -223,6 +223,17 @@ export const EXPEDITION_RULES = {
    * value every route check in the repo has used since.
    */
   defaultClearanceM: 300,
+  /**
+   * The lowest arrival the flown check can tell from a crash, metres.
+   *
+   * One second of full descent, because that is how far the probe moves
+   * vertically between samples: aim it at the ground itself and it steps
+   * through the floor and reports a flight that never finished (F23). A real
+   * landing is authored at threshold-crossing height anyway - aviation puts
+   * that at fifty feet - so this is a rule about what the instrument can see
+   * rather than a restriction on what an expedition may do.
+   */
+  minArrivalM: 20,
 } as const;
 
 export function validateExpeditions(expeditions: Expedition[]): Issue[] {
@@ -289,20 +300,27 @@ export function validateExpeditions(expeditions: Expedition[]): Issue[] {
         add(id, "arrival.altitude_m", `must be metres above the destination, not ${a.altitude_m}`);
       const clearance = a.clearance_m ?? EXPEDITION_RULES.defaultClearanceM;
       if (!(clearance >= 0)) add(id, "arrival.clearance_m", `must be metres, not ${clearance}`);
-      // The identity from F21: a floor built with a margin keeps that margin
-      // to the last kilometre, so the band the route leaves at its own end is
-      // exactly `altitude_m - clearance_m`. Ask for an arrival at or below the
-      // margin and no altitude satisfies both - the question contradicts
-      // itself, and the flown check would report it as an unflyable route
-      // rather than as a file that cannot mean what it says. Catching it here
-      // costs a parse instead of a corridor. This is also the wall a landing
-      // runs into, which is F22 and not yet fixable in a YAML file.
-      if (a.altitude_m <= clearance)
+      // An arrival below the clearance used to be a contradiction: the floor
+      // kept its full margin to the last kilometre, so nothing satisfied both
+      // (F21, F22). D20 tapers the floor to the arrival height as the
+      // destination comes within descending distance, so this is now an
+      // ordinary landing - and what it costs is terrain margin in the
+      // approach, which the flown check prints rather than guesses at.
+      //
+      // What is left is a limit of the instrument rather than of the route.
+      if (a.altitude_m > 0 && a.altitude_m < EXPEDITION_RULES.minArrivalM)
         add(
           id,
           "arrival.altitude_m",
-          `${a.altitude_m} m is not above the ${clearance} m clearance the route keeps, ` +
-            `so no altitude satisfies both (F22)`,
+          `${a.altitude_m} m is below the ${EXPEDITION_RULES.minArrivalM} m the flown check ` +
+            `can resolve; author the threshold-crossing height (F23)`,
+        );
+      if (a.altitude_m === 0)
+        add(
+          id,
+          "arrival.altitude_m",
+          `zero is the ground itself, which the check cannot tell from a crash; ` +
+            `author the threshold-crossing height instead (F23)`,
         );
     }
   }

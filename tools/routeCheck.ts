@@ -130,8 +130,17 @@ export function describe(report: RouteReport): string[] {
   const arrival = report.authored
     ? `arrives ${check.lowestArrivalM.toFixed(0)} m up against an authored ${check.arrivalM.toFixed(0)}`
     : `lowest arrival ${check.lowestArrivalM.toFixed(0)} m over it · NO ARRIVAL AUTHORED`;
-  return [
+  const lines = [
     `  ✓ ${report.expedition} over ${report.corridor} · ${check.minutes.toFixed(1)} min · ` +
       `clears by ${check.worstClearanceM.toFixed(0)} m at ${check.worstKm.toFixed(0)} km · ${arrival}`,
   ];
+  // What a route that lands actually paid for it. Only worth a line when the
+  // approach taper released margin, which is when the arrival is below the
+  // clearance the rest of the route keeps (D20).
+  if (check.claimed && check.arrivalM < check.clearanceM && Number.isFinite(check.approachMarginM))
+    lines.push(
+      `      approach: the lowest legal line passes ` +
+        `${check.approachMarginM.toFixed(0)} m over terrain at its closest`,
+    );
+  return lines;
 }
