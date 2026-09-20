@@ -3,6 +3,8 @@ import {
   altitudeFloorM,
   climbDemandMs,
   climbFloor,
+  floorProfile,
+  followFloor,
   flyRoute,
   groundFrom,
   groundSpeedForGradient,
@@ -288,11 +290,11 @@ describe("how long the player may have the stick", () => {
 
   it("hands the stick back at the end of the window", () => {
     const policy = handOff(100, 50, -0.4);
-    expect(policy(0, 99)).toBe(1);
-    expect(policy(0, 100)).toBe(-0.4);
-    expect(policy(0, 149.9)).toBe(-0.4);
-    expect(policy(0, 150)).toBe(1);
-    expect(handOff(0, 10)(0, 5)).toBe(0); // level by default
+    expect(policy(0, 99, 0)).toBe(1);
+    expect(policy(0, 100, 0)).toBe(-0.4);
+    expect(policy(0, 149.9, 0)).toBe(-0.4);
+    expect(policy(0, 150, 0)).toBe(1);
+    expect(handOff(0, 10)(0, 5, 0)).toBe(0); // level by default
   });
 
   it("is a real budget, and a smaller one the harder the player pushes", () => {
@@ -336,5 +338,93 @@ describe("the price of altitude, which is what thin air actually means", () => {
     expect(at(0)).toBeLessThan(at(3000));
     expect(at(3000)).toBeLessThan(at(5000));
     expect(at(ceilingM(LIGHT_PISTON, 0) + 100)).toBe(Infinity);
+  });
+});
+
+describe("an autopilot that flies the route instead of proving it", () => {
+  const distantWall = escarpment(100, 1200, 1500, 3400);
+  const route = oneLeg(1600, "cruise");
+  const floorFor = (clearanceM: number) =>
+    floorProfile(climbFloor(route, distantWall, { strideKm: 100, clearanceM }));
+
+  it("interpolates a sampled floor and clamps past both ends", () => {
+    const profile = floorProfile([
+      { km: 0, groundM: 0, floorM: 100 },
+      { km: 100, groundM: 0, floorM: 300 },
+      { km: 200, groundM: 0, floorM: 400 },
+    ]);
+    expect(profile(-50)).toBe(100);
+    expect(profile(0)).toBe(100);
+    expect(profile(50)).toBe(200);
+    expect(profile(150)).toBe(350);
+    expect(profile(999)).toBe(400);
+    expect(floorProfile([])(10)).toBe(0);
+  });
+
+  it("gives everything it has at or below the floor, and eases back down above it", () => {
+    const policy = followFloor(() => 1000, { bandM: 200, maxDescent: 0.25 });
+    expect(policy(0, 0, 1000)).toBe(1); // exactly on it
+    expect(policy(0, 0, 900)).toBe(1); // under it
+    expect(policy(0, 0, 1040)).toBeCloseTo(-0.2, 6); // 40 m high, easing down
+    expect(policy(0, 0, 1100)).toBe(-0.25); // 100 m high, already at the cap
+    expect(policy(0, 0, 5000)).toBe(-0.25); // and never a dive
+  });
+
+  it("keeps the clearance it was built with", () => {
+    const flight = flyRoute(route, distantWall, { policy: followFloor(floorFor(250)) });
+    expect(flight.clears).toBe(true);
+    // Tracking lag is one-sided and small - tens of metres, not the band.
+    expect(flight.worstClearanceM).toBeGreaterThan(200);
+    expect(flight.worstClearanceM).toBeLessThan(250);
+  });
+
+  it("does not, if the margin is added to the floor afterwards", () => {
+    // The wrong turn, kept as a test because it is the kind of mistake that
+    // reads as correct. Climb rate falls with altitude, so an aircraft
+    // holding station above a rising floor cannot climb as fast as the floor
+    // does and slides back onto it. A margin has to be in the curve.
+    const bare = floorFor(0);
+    const flight = flyRoute(route, distantWall, {
+      policy: followFloor((km) => bare(km) + 250),
+    });
+    expect(flight.worstClearanceM).toBeLessThan(200);
+  });
+
+  it("flies lower than full climb, and never below the floor", () => {
+    const following = flyRoute(route, distantWall, {
+      policy: followFloor(floorFor(250)),
+      track: true,
+    });
+    const full = flyRoute(route, distantWall, { track: true });
+    expect(following.peakAltitudeM).toBeLessThan(full.peakAltitudeM);
+    expect(following.clears).toBe(true);
+  });
+});
+
+describe("the hand-off budget belongs to the autopilot as well as the route", () => {
+  const distantWall = escarpment(100, 1200, 1500, 3400);
+  const route = oneLeg(1600, "cruise");
+
+  it("interrupts whatever the autopilot was doing, and gives it back", () => {
+    const base: ReturnType<typeof followFloor> = (_km, _s, altitudeM) =>
+      altitudeM > 2000 ? -0.5 : 0.25;
+    const policy = handOff(100, 50, 0, base);
+    expect(policy(0, 99, 3000)).toBe(-0.5);
+    expect(policy(0, 120, 3000)).toBe(0); // the player has it
+    expect(policy(0, 200, 1000)).toBe(0.25); // and hands it back
+  });
+
+  it("is smaller for an autopilot that has already spent the altitude", () => {
+    // Full climb banks every metre it can and so has the most to give away.
+    // A floor-follower has deliberately spent the difference on flying low,
+    // and the player feels that as a shorter leash.
+    const floor = floorProfile(climbFloor(route, distantWall, { strideKm: 100, clearanceM: 150 }));
+    const thrifty = longestHoldS(route, distantWall, 0, {
+      probeS: 30,
+      policy: followFloor(floor),
+    });
+    const spendthrift = longestHoldS(route, distantWall, 0, { probeS: 30 });
+    expect(thrifty).toBeGreaterThan(0);
+    expect(thrifty).toBeLessThan(spendthrift);
   });
 });

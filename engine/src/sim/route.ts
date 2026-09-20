@@ -110,7 +110,11 @@ export interface RouteFlight {
  * +1, the same number `step` takes. `FULL_CLIMB` is the reference policy and
  * everything else is measured against it.
  */
-export type ClimbPolicy = (km: number, seconds: number) => number;
+export type ClimbPolicy = (
+  km: number,
+  seconds: number,
+  altitudeM: number,
+) => number;
 
 export const FULL_CLIMB: ClimbPolicy = () => 1;
 
@@ -127,9 +131,207 @@ export function handOff(
   startS: number,
   durationS: number,
   pitch = 0,
+  base: ClimbPolicy = FULL_CLIMB,
 ): ClimbPolicy {
-  return (_km, seconds) =>
-    seconds >= startS && seconds < startS + durationS ? pitch : 1;
+  return (km, seconds, altitudeM) =>
+    seconds >= startS && seconds < startS + durationS
+      ? pitch
+      : base(km, seconds, altitudeM);
+}
+
+/**
+ * The route from `fromKm` onward, renumbered so it starts at zero.
+ *
+ * Pair it with `groundFrom` and the remainder of a route is just another
+ * route, which is what lets the floor search below reuse `flyRoute` instead
+ * of reimplementing the integrator backwards.
+ */
+export function routeFrom(route: Route, fromKm: number): Route {
+  return {
+    name: route.name,
+    legs: route.legs
+      .filter((leg) => leg.endKm > fromKm)
+      .map((leg) => ({ ...leg, endKm: leg.endKm - fromKm })),
+  };
+}
+
+export function groundFrom(ground: GroundProfile, fromKm: number): GroundProfile {
+  return (km) => ground(km + fromKm);
+}
+
+/**
+ * The lowest altitude at `km` from which the rest of the route still clears.
+ *
+ * This is the number the aircraft is really flying against, and it is not the
+ * ground. Eight hundred kilometres inland the Sea to Sky floor is 3,588 m
+ * over farmland 32 m above the sea: nothing within sight of the aircraft
+ * explains it, and it is binding all the same, because the wall is fourteen
+ * hundred kilometres ahead and the climb that clears it has to be bought
+ * here (F19).
+ *
+ * Bisected on the sim itself rather than derived, because the thing being
+ * asked about - climb rate falling with density, true airspeed rising with
+ * altitude, boost quietly lapsing - is the integrator's behaviour and not a
+ * formula anyone should write twice. Returns `Infinity` when no altitude at
+ * or below `maxM` saves the route.
+ */
+export interface FloorOptions extends FlyRouteOptions {
+  /**
+   * Metres of clearance the rest of the route must keep, not just zero.
+   *
+   * This is where a margin belongs, and it took a wrong turn to find out:
+   * adding it to the floor afterwards does not work, because floor + margin
+   * is not a trajectory. Climb rate falls with altitude, so an aircraft
+   * holding station a few hundred metres over the floor cannot climb as fast
+   * as the floor rises and slides back down onto it - a 200 m margin asked
+   * for that way arrives at the wall as 5 m (F20). Raising the ground instead
+   * makes the margin part of the curve, and the curve is flyable because the
+   * floor *is* a full-climb trajectory: an aircraft sitting on it and holding
+   * full up-elevator stays on it exactly.
+   */
+  readonly clearanceM?: number;
+  /**
+   * Highest altitude worth searching. Defaults to the *service* ceiling - the
+   * altitude where climb falls below half a metre a second - rather than the
+   * absolute one, because a floor up in that last 550 m is a floor the
+   * aircraft reaches by not climbing, which no route can be planned around.
+   */
+  readonly maxM?: number;
+  /** Bisection stops here. Metres. */
+  readonly toleranceM?: number;
+}
+
+export function altitudeFloorM(
+  route: Route,
+  ground: GroundProfile,
+  km: number,
+  options: FloorOptions = {},
+): number {
+  const {
+    maxM = ceilingM(options.spec ?? LIGHT_PISTON),
+    toleranceM = 1,
+    clearanceM = 0,
+  } = options;
+  const rest = routeFrom(route, km);
+  const raised = clearanceM === 0 ? ground : (k: number) => ground(k) + clearanceM;
+  const restGround = groundFrom(raised, km);
+  const clearsFrom = (altitudeM: number): boolean =>
+    flyRoute(rest, restGround, { ...options, startAltitudeM: altitudeM }).clears;
+
+  if (!clearsFrom(maxM)) return Infinity;
+  let low = Math.min(raised(km), maxM);
+  if (clearsFrom(low)) return low;
+  let high = maxM;
+  while (high - low > toleranceM) {
+    const mid = (low + high) / 2;
+    if (clearsFrom(mid)) high = mid;
+    else low = mid;
+  }
+  return high;
+}
+
+export interface FloorSample {
+  readonly km: number;
+  readonly groundM: number;
+  readonly floorM: number;
+}
+
+/**
+ * The floor sampled along a route: the climb path the route demands.
+ *
+ * A route's altitude plan, in other words, and the thing an expedition ought
+ * to ship beside its speed profile. The autopilot flies floor plus a chosen
+ * margin, and that margin is not decoration - it is exactly how long the
+ * player may hold the stick (F19).
+ */
+export function climbFloor(
+  route: Route,
+  ground: GroundProfile,
+  options: FloorOptions & { readonly strideKm?: number } = {},
+): readonly FloorSample[] {
+  const { strideKm = 50 } = options;
+  const lengthKm = routeLengthKm(route);
+  const out: FloorSample[] = [];
+  for (let km = 0; km < lengthKm; km += strideKm) {
+    out.push({ km, groundM: ground(km), floorM: altitudeFloorM(route, ground, km, options) });
+  }
+  return out;
+}
+
+/**
+ * An autopilot that flies the route rather than proving it.
+ *
+ * `FULL_CLIMB` answers "is this route possible?" and is the wrong thing to
+ * ship: it arrives over Lhasa 2,342 m above the city with nothing left to
+ * give. This one tracks a floor - which is the lowest the aircraft may ever
+ * be - so it flies as low as the route allows and no lower. Pass a floor
+ * built with `clearanceM` and that clearance is what the flight keeps, which
+ * is the same statement as "this is how much of the expedition the player
+ * gets" (D18): the margin is the authored answer, not a tuning constant.
+ *
+ * Proportional rather than bang-bang, over a capture band, because the
+ * aircraft porpoising up and down its target is the opposite of the GDD's
+ * calm. It is allowed to descend, gently, because the floor falls away into
+ * Lhasa at the end and following it down is the arrival.
+ *
+ * Safe by construction: the floor is the altitude from which full climb still
+ * clears, so an aircraft anywhere above it can always abandon this policy and
+ * make the route. That is exactly what the rejoin has to decide, and it is a
+ * comparison rather than a simulation.
+ */
+export interface FollowFloorOptions {
+  /** Over how many metres of error the command goes from level to full. */
+  readonly bandM?: number;
+  /** Most nose-down it will ever command, 0..1. */
+  readonly maxDescent?: number;
+}
+
+export function followFloor(
+  floor: GroundProfile,
+  options: FollowFloorOptions = {},
+): ClimbPolicy {
+  const { bandM = 200, maxDescent = 0.25 } = options;
+  return (km, _seconds, altitudeM) => {
+    const error = floor(km) - altitudeM;
+    // Asymmetric on purpose. A proportional law in both directions needs
+    // standing error to produce command, so it sags below a rising target by
+    // most of its band - 200 m of band turned a 300 m margin into 136 (F20).
+    // A floor is not a setpoint to be split: at or under it the answer is
+    // always everything the aircraft has, and the easing is only for coming
+    // back down.
+    if (error >= 0) return 1;
+    return Math.max(-maxDescent, error / bandM);
+  };
+}
+
+/**
+ * Turn a sampled floor into a profile, linearly between samples.
+ *
+ * The floor is bisected at a stride because each sample costs a dozen
+ * flights, and it is smooth between them - it is an integral of climb rate,
+ * not a terrain profile.
+ *
+ * It is also **concave**, because climb rate falls as the aircraft rises, so
+ * a chord between two samples lies slightly *below* the curve and an
+ * interpolated floor grants a little permission the real one did not: 100 km
+ * of stride costs about 17 m of delivered clearance, 50 km costs none worth
+ * measuring (F20). That is small, it is one-signed, and it is not something
+ * to trust on argument - the clearance a floor actually delivers is whatever
+ * the replay says it delivers, which is D17 one level down.
+ */
+export function floorProfile(samples: readonly FloorSample[]): GroundProfile {
+  if (samples.length === 0) return () => 0;
+  return (km) => {
+    if (km <= samples[0]!.km) return samples[0]!.floorM;
+    const last = samples[samples.length - 1]!;
+    if (km >= last.km) return last.floorM;
+    let i = 1;
+    while (i < samples.length && samples[i]!.km < km) i++;
+    const a = samples[i - 1]!;
+    const b = samples[i]!;
+    const t = (km - a.km) / (b.km - a.km);
+    return a.floorM + (b.floorM - a.floorM) * t;
+  };
 }
 
 export interface FlyRouteOptions {
@@ -217,7 +419,11 @@ export function flyRoute(
     const beforeM = state.northM;
     step(
       state,
-      { pitch: policy(km, seconds), roll: 0, mode: modeAtKm(route, km) },
+      {
+        pitch: policy(km, seconds, state.altitudeM),
+        roll: 0,
+        mode: modeAtKm(route, km),
+      },
       noBounce,
       dt,
       spec,
@@ -346,113 +552,18 @@ export function steepestRise(
 }
 
 /**
- * The route from `fromKm` onward, renumbered so it starts at zero.
- *
- * Pair it with `groundFrom` and the remainder of a route is just another
- * route, which is what lets the floor search below reuse `flyRoute` instead
- * of reimplementing the integrator backwards.
- */
-export function routeFrom(route: Route, fromKm: number): Route {
-  return {
-    name: route.name,
-    legs: route.legs
-      .filter((leg) => leg.endKm > fromKm)
-      .map((leg) => ({ ...leg, endKm: leg.endKm - fromKm })),
-  };
-}
-
-export function groundFrom(ground: GroundProfile, fromKm: number): GroundProfile {
-  return (km) => ground(km + fromKm);
-}
-
-/**
- * The lowest altitude at `km` from which the rest of the route still clears.
- *
- * This is the number the aircraft is really flying against, and it is not the
- * ground. Eight hundred kilometres inland the Sea to Sky floor is 3,588 m
- * over farmland 32 m above the sea: nothing within sight of the aircraft
- * explains it, and it is binding all the same, because the wall is fourteen
- * hundred kilometres ahead and the climb that clears it has to be bought
- * here (F19).
- *
- * Bisected on the sim itself rather than derived, because the thing being
- * asked about - climb rate falling with density, true airspeed rising with
- * altitude, boost quietly lapsing - is the integrator's behaviour and not a
- * formula anyone should write twice. Returns `Infinity` when no altitude at
- * or below `maxM` saves the route.
- */
-export interface FloorOptions extends FlyRouteOptions {
-  /**
-   * Highest altitude worth searching. Defaults to the *service* ceiling - the
-   * altitude where climb falls below half a metre a second - rather than the
-   * absolute one, because a floor up in that last 550 m is a floor the
-   * aircraft reaches by not climbing, which no route can be planned around.
-   */
-  readonly maxM?: number;
-  /** Bisection stops here. Metres. */
-  readonly toleranceM?: number;
-}
-
-export function altitudeFloorM(
-  route: Route,
-  ground: GroundProfile,
-  km: number,
-  options: FloorOptions = {},
-): number {
-  const { maxM = ceilingM(options.spec ?? LIGHT_PISTON), toleranceM = 1 } = options;
-  const rest = routeFrom(route, km);
-  const restGround = groundFrom(ground, km);
-  const clearsFrom = (altitudeM: number): boolean =>
-    flyRoute(rest, restGround, { ...options, startAltitudeM: altitudeM }).clears;
-
-  if (!clearsFrom(maxM)) return Infinity;
-  let low = Math.min(ground(km), maxM);
-  if (clearsFrom(low)) return low;
-  let high = maxM;
-  while (high - low > toleranceM) {
-    const mid = (low + high) / 2;
-    if (clearsFrom(mid)) high = mid;
-    else low = mid;
-  }
-  return high;
-}
-
-export interface FloorSample {
-  readonly km: number;
-  readonly groundM: number;
-  readonly floorM: number;
-}
-
-/**
- * The floor sampled along a route: the climb path the route demands.
- *
- * A route's altitude plan, in other words, and the thing an expedition ought
- * to ship beside its speed profile. The autopilot flies floor plus a chosen
- * margin, and that margin is not decoration - it is exactly how long the
- * player may hold the stick (F19).
- */
-export function climbFloor(
-  route: Route,
-  ground: GroundProfile,
-  options: FloorOptions & { readonly strideKm?: number } = {},
-): readonly FloorSample[] {
-  const { strideKm = 50 } = options;
-  const lengthKm = routeLengthKm(route);
-  const out: FloorSample[] = [];
-  for (let km = 0; km < lengthKm; km += strideKm) {
-    out.push({ km, groundM: ground(km), floorM: altitudeFloorM(route, ground, km, options) });
-  }
-  return out;
-}
-
-/**
  * The longest the player can hold `pitch` anywhere on the route and still
  * arrive, in seconds.
  *
  * Scanned rather than solved. The worst moment to take the controls is not
- * obvious and is not the start: an early loss is repaid by the climb rate the
- * aircraft has down low, and a late one is not, so the binding hand-off is
- * the last one before the route's tightest point (F19).
+ * obvious and is not the start: it is the last hold still being paid for when
+ * the route's tightest point arrives (F19).
+ *
+ * The budget belongs to the route *and* the autopilot flying it, so the hold
+ * interrupts whatever `options.policy` was doing rather than always
+ * interrupting full climb. Measuring one autopilot's budget against another's
+ * flight is how the first version of this reported that riding the floor and
+ * climbing flat out cost the player exactly the same thing.
  */
 export function longestHoldS(
   route: Route,
@@ -465,14 +576,14 @@ export function longestHoldS(
     readonly maxS?: number;
   } = {},
 ): number {
-  const { probeS = 15, maxS = 3_600 } = options;
+  const { probeS = 15, maxS = 3_600, policy: base = FULL_CLIMB } = options;
   const reference = flyRoute(route, ground, options);
   if (!reference.clears) return 0;
   const totalS = Math.ceil(reference.minutes * 60);
 
   const survivesAnywhere = (durationS: number): boolean => {
     for (let start = 0; start + durationS <= totalS; start += probeS) {
-      const policy = handOff(start, durationS, pitch);
+      const policy = handOff(start, durationS, pitch, base);
       if (!flyRoute(route, ground, { ...options, policy }).clears) return false;
     }
     return true;

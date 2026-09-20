@@ -1288,3 +1288,139 @@ consumes the margin — and the gain cannot be taken twice. If the answer is
 that Expedition 1 keeps its climb, that is a real answer and the narration is
 simply written to it: two minutes of "you have control" anywhere, the long
 free stretch before Wuhan or after the rim, and never on the approach.
+
+## F20 — The autopilot and the proof are the same flight, because there is only one
+
+D17 replays every route and asserts it clears. F19 pointed out what that
+replay actually flies: full up-elevator from Shanghai to Lhasa, which is a
+proof and not a flight, so the guarantee is about a policy the game will never
+use. The obvious next move is to write the policy it *will* use — track the
+floor, which is the lowest the aircraft may ever be — and check that the
+guarantee survives.
+
+It survives completely, and the reason is worth more than the autopilot:
+
+| km | ground | proof flies at | autopilot flies at | apart |
+| ---: | ---: | ---: | ---: | ---: |
+| 800 | 32 m | 4,531 m | 4,438 m | 93 m |
+| 1,427 | 254 m | 5,560 m | 5,513 m | 47 m |
+| 1,692 | 507 m | 5,659 m | 5,617 m | 42 m |
+| 2,000 | 4,045 m | 5,760 m | 5,723 m | 37 m |
+| 2,366 | 5,535 m | 5,867 m | 5,832 m | 35 m |
+
+**The highest trajectory the aircraft has and the lowest one that is safe are
+the same line for twenty-seven hundred kilometres.** There is no altitude plan
+to make. An autopilot given the whole envelope and told to fly as low as it
+dares comes within ninety metres of one told to climb as hard as it can, for
+the entire eastern two thirds of the route, and the two arrive within half a
+minute of each other. D18's "floor plus a chosen margin" is a real interface
+and on this route it is choosing between 5,832 and 5,867.
+
+### Three things the measurement caught
+
+**A margin added to a floor is not a trajectory.** The first version asked for
+300 m of clearance by tracking `floor(km) + 300`, and delivered 136 m. Climb
+rate falls with altitude, so an aircraft holding station above a rising floor
+cannot climb as fast as the floor does; it slides back down onto it and
+arrives at the wall with whatever it has left. The margin has to go *inside*
+the floor — bisect against a ground raised by 300 m — and then it is flyable,
+because the floor is itself a full-climb trajectory: an aircraft sitting on it
+with the stick back stays on it exactly.
+
+**A floor is not a setpoint.** A proportional law in both directions needs
+standing error to produce command, so it tracks a rising target from below by
+most of its capture band — 200 m of band turned 300 m of asked-for clearance
+into 136 m of delivered. A floor is asymmetric by meaning: at or under it the
+answer is everything the aircraft has, and the easing is only for coming back
+down. That change alone recovered 152 of the 164 metres.
+
+**`longestHoldS` was measuring the wrong aircraft.** It scanned hand-offs
+against `FULL_CLIMB` regardless of the autopilot it was handed, so it happily
+reported that riding the floor and climbing flat out gave the player exactly
+the same freedom. A hold has to interrupt whatever the autopilot was doing;
+`handOff` now takes the base policy, and the numbers below are the first ones
+that are about the flight they claim to be about.
+
+### The dial, and what it is worth
+
+With the margin inside the floor, D18's parameter does exactly what it says:
+
+| clearance asked | delivered | level hand-off | trip |
+| ---: | ---: | ---: | ---: |
+| 150 m | 115 m | 139 s | 36.6 min |
+| 200 m | 168 m | 188 s | 36.3 min |
+| 300 m | 272 m | 309 s | 35.8 min |
+
+**One metre of authored clearance is one second of player**, to within 15 %,
+because what burns the margin is the climb forgone and at plateau altitude
+that is about a metre a second. The shortfall between asked and delivered is
+two one-signed errors — twelve metres of controller lag and seventeen of a
+100 km stride chording under a concave curve — and neither is to be taken on
+argument. What a floor delivers is what the replay says it delivers, which is
+D17 one level down.
+
+Note also which way the trip time runs: flying *higher* is faster, because
+true airspeed rises with altitude. There is no trade here between the player's
+freedom and the clock. The only thing a lower flight buys is the view, and on
+this route it does not buy much of one.
+
+### Four kilometres above the Hubei plain, and no policy fixes it
+
+Over farmland 32 m above the sea, the autopilot flies at 4,438 m — **4,406 m
+of clearance** — and it is not being cautious. The floor there is 3,588 m
+(F19), and the floor is a property of the route and the aircraft, not of the
+policy. **For the eastern 1,700 km of Expedition 1 the player is too high to
+see anything, and nothing that can be done in code changes that.**
+
+One thing does change it, and it is the knob this build has already turned
+three times:
+
+| cruise | floor over Hubei | the flight there | trip |
+| ---: | ---: | ---: | ---: |
+| 130 km/min | 3,588 m | 4,402 m up | 35.8 min |
+| 100 km/min | 2,354 m | 3,588 m up | 48.4 min |
+| 73 km/min | **32 m — the ground** | 1,362 m up | 68.7 min |
+
+A climb that has longer to happen can start later, so the floor falls as the
+route slows. At F17's terrain-limited 73 km/min the floor over Hubei is the
+ground itself: the aircraft is free to fly at any height it likes over the
+Yangtze, and the expedition takes sixty-nine minutes.
+
+**The pacing knob is the altitude knob.** F15 established that compression
+changes nothing a player can see and that trip length is a cruise-speed
+question; F17 bounded that speed with the terrain; F18 authored a profile
+inside the bound. F20 adds the part nobody had costed: *the same number also
+decides how far above the ground the player spends the first two thirds of the
+expedition.* A thirty-five minute Sea to Sky is a four-kilometre-high one.
+That is not a bug and it may well be the right trade — the plateau is the
+subject and the delta is the runway — but it should be chosen rather than
+discovered at G2 by ten people saying the first half was boring.
+
+### It cannot land at Lhasa either
+
+The plateau falls **1,350 m in the last hundred kilometres**, and the final leg
+is authored at cruise, which crosses them in well under a minute. Arriving
+over the city needs about 30 m/s of descent; the aircraft has 18 at full
+forward stick, and a descent at full forward stick is not an arrival. So the
+expedition ends **1,949 m above Lhasa** under any policy, which is the altitude
+the comparison spread's "automatic snapshot of the plane" would be taken from.
+
+This one is cheap to fix and it is a route change rather than a policy one: a
+fifth waypoint short of Lhasa, flown at low, gives the descent the time it
+needs. Slowing the whole Chengdu–Lhasa leg does not — it is 1,239 km long and
+takes the trip to fifty-two minutes.
+
+**Built:** `followFloor` (asymmetric, proportional only on the way down, never
+a dive), `floorProfile`, `clearanceM` on the floor search so a margin is part
+of the curve, `ClimbPolicy` now sees altitude so a policy can close the loop,
+and `handOff`/`longestHoldS` corrected to interrupt the autopilot under test.
+Six corridor-backed tests and nine synthetic ones, including one that keeps
+the wrong turn — a margin added after the fact — as a test, because it is the
+kind of mistake that reads as correct.
+
+**Action.** The replay now flies a policy the game could ship, so D17's
+guarantee is about a real flight. Two things move to the authoring side, both
+of them route decisions rather than engineering ones: a fifth waypoint if the
+expedition is to arrive at Lhasa rather than over it, and the pacing choice,
+which is now known to set the sightseeing altitude for the first two thirds of
+the trip as well as the clock.
