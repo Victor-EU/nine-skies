@@ -8,7 +8,13 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
-import { validateCards, wordCount, type Card } from "./schema.ts";
+import {
+  validateCards,
+  validateExpeditions,
+  wordCount,
+  type Card,
+  type Expedition,
+} from "./schema.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cardsDir = join(here, "cards");
@@ -16,11 +22,20 @@ const cardsDir = join(here, "cards");
 const files = readdirSync(cardsDir).filter((f) => f.endsWith(".yaml"));
 const cards: Card[] = files.map((f) => parse(readFileSync(join(cardsDir, f), "utf8")) as Card);
 
-const issues = validateCards(cards);
+const expeditionsDir = join(here, "expeditions");
+const expeditionFiles = readdirSync(expeditionsDir).filter((f) => f.endsWith(".yaml"));
+const expeditions: Expedition[] = expeditionFiles.map(
+  (f) => parse(readFileSync(join(expeditionsDir, f), "utf8")) as Expedition,
+);
+
+// Schema only. Whether a route can actually be flown over the ground it
+// crosses is D17's question, and it needs a built corridor rather than a
+// parser - `test/route/seaToSkyClearance.test.ts` answers it.
+const issues = [...validateCards(cards), ...validateExpeditions(expeditions)];
 
 if (issues.length > 0) {
   console.error(`\n${issues.length} content issue(s):\n`);
-  for (const i of issues) console.error(`  ${i.card} · ${i.field}: ${i.message}`);
+  for (const i of issues) console.error(`  ${i.subject} · ${i.field}: ${i.message}`);
   console.error("");
   process.exit(1);
 }
@@ -51,4 +66,11 @@ const totalWords = cards.reduce((n, c) => n + wordCount(c.read_more), 0);
 console.log(
   `${cards.length} card(s) valid · ${byRegion.size} region(s) · ${totalWords} words of read-more`,
 );
+for (const e of expeditions) {
+  const legs = e.route
+    .slice(1)
+    .map((p) => `${p.speed} to ${p.name}`)
+    .join(", ");
+  console.log(`expedition ${e.id} valid · ${e.route.length} waypoints · ${legs}`);
+}
 console.log(`fact-check sheet -> dist-content/fact-check-sheet.md`);

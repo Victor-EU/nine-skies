@@ -153,17 +153,7 @@ export function flyRoute(
   const maxSteps = Math.ceil((6 * 3600) / dt);
   for (let i = 0; i < maxSteps && travelledM < lengthKm * 1000; i++) {
     km = travelledM / 1000;
-    const groundM = ground(km);
-    const clearanceM = state.altitudeM - groundM;
-
-    if (clearanceM < worstClearanceM) {
-      worstClearanceM = clearanceM;
-      worstKm = km;
-    }
-    if (clearanceM <= 0) {
-      contact = { km, shortfallM: clearanceM };
-      break;
-    }
+    const altitudeBefore = state.altitudeM;
 
     const beforeM = state.northM;
     step(
@@ -177,6 +167,32 @@ export function flyRoute(
     travelledM += state.northM - beforeM;
     seconds += dt;
     peakAltitudeM = Math.max(peakAltitudeM, state.altitudeM);
+
+    // Every kilometre the step crossed, not just the one it landed on. A
+    // single second of boost covers four kilometres of ground, and a check
+    // that samples only its endpoints steps straight over a ridge and reports
+    // a flight. Altitude is interpolated across the span, which is exact
+    // enough: the aircraft climbs at metres per second and the ground it is
+    // being compared against moves by thousands.
+    const kmAfter = travelledM / 1000;
+    const from = Math.floor(km);
+    const to = Math.min(Math.ceil(kmAfter), Math.ceil(lengthKm));
+    for (let k = from; k <= to; k++) {
+      const t = kmAfter === km ? 0 : Math.min(1, Math.max(0, (k - km) / (kmAfter - km)));
+      const altitudeM = altitudeBefore + (state.altitudeM - altitudeBefore) * t;
+      const clearanceM = altitudeM - ground(k);
+      if (clearanceM < worstClearanceM) {
+        worstClearanceM = clearanceM;
+        worstKm = k;
+      }
+      if (clearanceM <= 0 && contact === null) {
+        contact = { km: k, shortfallM: clearanceM };
+      }
+    }
+    if (contact !== null) {
+      km = contact.km;
+      break;
+    }
   }
 
   return {

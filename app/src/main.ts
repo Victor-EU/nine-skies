@@ -492,6 +492,12 @@ function frame(now: number): void {
   // F17 found the tighter constraint a thousand kilometres earlier, and the
   // shipped 130 fails it. Warning on the looser one left the default
   // condition unmarked, which is the one case a warning had to cover.
+  //
+  // All three candidates trip it, and that is the point rather than a bug in
+  // the warning: no single cruise speed flies Expedition 1, which is why the
+  // expedition is authored as a per-leg profile instead (F18). A free-flight
+  // HUD has no route, so the most it can say is which of those two worlds
+  // the pacing on screen belongs to.
   const grounded = pacing.cruiseKmPerMin > TERRAIN_LIMITED_CRUISE_KM_PER_MIN;
   const pace = el("pace");
   pace.textContent =
@@ -504,7 +510,7 @@ function frame(now: number): void {
         // this number down for a G2 session would be five minutes out.
         ` · ${world!.manifest.corridor} ${minutesForKm(routeKm, "cruise", pacing).toFixed(1)} min nominal`
       : "") +
-    (grounded ? " ◂ flown at cruise throughout, this route hits the ground" : "");
+    (grounded ? " ◂ no single speed above 73 flies Expedition 1" : "");
   pace.classList.toggle("warn", grounded);
 
   el("fps").textContent = `${fpsShown.toFixed(0)} fps`;

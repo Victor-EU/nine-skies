@@ -26,3 +26,84 @@ export const HORIZON_FIELD_HEIGHT =
   Math.ceil(COUNTRY_NORTH_KM / HORIZON_SAMPLE_KM) + 1;
 export const HORIZON_FIELD_BYTES =
   HORIZON_FIELD_WIDTH * HORIZON_FIELD_HEIGHT * 2;
+
+/**
+ * Albers Equal Area Conic, forward, WGS84 (D1).
+ *
+ * The pipeline owns the projection and computes every anchor with PROJ. That
+ * was enough while the only projected things in the game were tiles, which
+ * arrive pre-projected. It stops being enough the moment content carries
+ * coordinates: 150 discovery triggers, nine expedition routes and every map
+ * pin are authored in degrees, and something has to put them in the world.
+ *
+ * Snyder's ellipsoidal equations, not the spherical ones. On the central
+ * meridian at 40 N the two disagree by 16.9 km - seventeen tiles - which
+ * would put a card's trigger on the far side of a mountain range and still
+ * look plausible on a map.
+ *
+ * Verified against the corridor manifest's own anchors in
+ * `test/route/albers.test.ts` - seven points PROJ computed independently -
+ * so this cannot drift from `pipeline/nineskies/grid.py` unnoticed.
+ */
+const WGS84_A = 6_378_137;
+const WGS84_F = 1 / 298.257_223_563;
+const E2 = 2 * WGS84_F - WGS84_F * WGS84_F;
+const E = Math.sqrt(E2);
+
+const STANDARD_PARALLEL_1 = 25;
+const STANDARD_PARALLEL_2 = 47;
+const LATITUDE_OF_ORIGIN = 0;
+const CENTRAL_MERIDIAN = 105;
+
+/** South-west corner of tile (0, 0) in projected metres (grid.py). */
+export const ORIGIN_X_M = -3_456_000;
+export const ORIGIN_Y_M = 1_792_000;
+
+const rad = (deg: number): number => (deg * Math.PI) / 180;
+
+/** Snyder 3-12: the authalic area function. */
+function authalic(latRad: number): number {
+  const s = Math.sin(latRad);
+  return (
+    (1 - E2) *
+    (s / (1 - E2 * s * s) -
+      (1 / (2 * E)) * Math.log((1 - E * s) / (1 + E * s)))
+  );
+}
+
+/** Snyder 14-15: the scale factor along a parallel. */
+function parallelScale(latRad: number): number {
+  const s = Math.sin(latRad);
+  return Math.cos(latRad) / Math.sqrt(1 - E2 * s * s);
+}
+
+const PHI_1 = rad(STANDARD_PARALLEL_1);
+const PHI_2 = rad(STANDARD_PARALLEL_2);
+const M1 = parallelScale(PHI_1);
+const M2 = parallelScale(PHI_2);
+const Q1 = authalic(PHI_1);
+const Q2 = authalic(PHI_2);
+const N = (M1 * M1 - M2 * M2) / (Q2 - Q1);
+const C = M1 * M1 + N * Q1;
+const RHO_0 = (WGS84_A * Math.sqrt(C - N * authalic(rad(LATITUDE_OF_ORIGIN)))) / N;
+
+export interface WorldPosition {
+  /** Metres east of the country grid's south-west corner. */
+  eastM: number;
+  /** Metres north of it. */
+  northM: number;
+}
+
+/**
+ * Degrees to the world's own coordinates - metres from the country grid's
+ * south-west corner, which is what the manifest's anchors are in and what the
+ * simulation flies in.
+ */
+export function projectAlbers(latDeg: number, lonDeg: number): WorldPosition {
+  const theta = N * rad(lonDeg - CENTRAL_MERIDIAN);
+  const rho = (WGS84_A * Math.sqrt(C - N * authalic(rad(latDeg)))) / N;
+  return {
+    eastM: rho * Math.sin(theta) - ORIGIN_X_M,
+    northM: RHO_0 - rho * Math.cos(theta) - ORIGIN_Y_M,
+  };
+}

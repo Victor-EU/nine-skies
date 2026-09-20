@@ -841,6 +841,17 @@ in the A/B is a design decision: it needs option 1 or 2 first.
 
 ## F17 — Expedition 1 does not clear the ground, and F16 was checking the wrong rim
 
+> **Corrected by F18 in two places, both in the same direction.** The
+> clearance walk sampled the ground only where each simulation step landed,
+> which at cruise skips two kilometres of terrain at a time and at boost over
+> four; checking every kilometre a step crosses moves the single-speed ceiling
+> from 92 to 91 km/min on the waypoints flown below. And those waypoints were
+> the corridor manifest's seven anchors, which exist for the Yangtze golden
+> probe rather than for the expedition. The GDD's own Expedition 1 — Shanghai,
+> Wuhan, Chongqing, Chengdu, Lhasa — is 2,931 km, has less ground to climb
+> over, and clears at **73 km/min**, not 92. Every conclusion below holds; the
+> route it holds for is worse than the one measured.
+
 F16 asked whether the aircraft **arrives** at Lhasa above plateau cruise
 height, and answered yes at the shipped pacing, by 84 m. That is a good
 question about Lhasa and the wrong question about the route to it. The plateau
@@ -966,3 +977,123 @@ over eleven minutes of flying and one of scraping a mountainside. Worth
 knowing before the cohort is booked; it does not invalidate the drama
 question, which is answered long before minute eleven. G2, which flies
 Expedition 1 end to end, is blocked until one of the four remedies lands.
+
+---
+
+## F18 — The speed profile that flies Expedition 1, and why its slow legs are the flat ones
+
+F17 left four remedies and no choice between them. This is the first of them
+authored: Expedition 1 is now data — `content/expeditions/sea-to-sky.yaml` —
+with a speed per leg, validated in CI, and flown over the real corridor by
+`test/route/seaToSkyClearance.test.ts`. D17 is no longer a policy; it is a
+test that reads the file.
+
+**Two corrections first**, because both changed the numbers F17 recorded and
+both made them worse.
+
+*The check skipped terrain.* `flyRoute` sampled the ground where each
+simulation step landed. A one-second step at cruise covers 2.2 km and at boost
+4.3 km, so on a 1 km profile the walk stepped straight over ridges and
+reported a flight. Checking every kilometre a step crosses — altitude
+interpolated across the span — is the fix. It moves the single-speed ceiling
+on F17's route from 92 to 91 km/min, and it invalidated a "31.4 minute"
+profile that had simply jumped a mountain at boost.
+
+*And it was the wrong route.* F17 flew the corridor manifest's seven anchors.
+Those exist for the Yangtze golden probe — Tuotuo He to Shanghai — with
+Chengdu and Lhasa added; they are not the expedition. The GDD's Expedition 1
+is **Shanghai → Wuhan → Chongqing → Chengdu → Lhasa**, 2,931 km, and being
+shorter it is harder, not easier: less ground to climb over.
+
+| route | length | highest ground | clears at cruise up to |
+| --- | ---: | ---: | ---: |
+| corridor anchors (what F17 flew) | 3,219.7 km | 5,595 m | 91 km/min |
+| **Expedition 1 as the GDD writes it** | **2,931.0 km** | **5,558 m** | **73 km/min** |
+| straight line | 2,874.3 km | 5,847 m | 62 km/min |
+
+At the shipped 130 km/min the authored route puts the aircraft 321 m inside a
+ridge west of Chengdu at 1,846 km, twelve minutes out, 63 % of the way.
+
+**The profile.** `low / low / cruise / cruise` — slow to Wuhan, slow to
+Chongqing, cruise from there. It clears the worst ground by **333 m** and
+arrives over Lhasa at 6,010 m, in **35.5 minutes**. Of 81 possible profiles,
+19 clear by 200 m and this is the fastest of them.
+
+| through | cumulative | altitude |
+| --- | ---: | ---: |
+| Wuhan (679 km, low) | 13.5 min | 4,231 m |
+| Chongqing (1,427 km, low) | 26.9 min | 5,560 m |
+| Chengdu (1,692 km, cruise) | 28.5 min | 5,659 m |
+| Lhasa (2,931 km, cruise) | 35.5 min | 6,010 m |
+
+**The slow legs are the flat ones, and that is not a mistake.** It is the
+first thing anyone will want to change, so it is worth saying exactly why it
+is upside down. Climbing costs *minutes*, not kilometres: reaching 5,858 m —
+the route's highest ground plus a margin — takes **32.1 minutes of flying**
+whatever speed the ground goes past underneath. The only place to buy 32
+minutes is the eastern plain, where there are 1,427 km of nothing in the way.
+Spend them there and the aircraft crosses the Hengduan already above it; spend
+them anywhere else and there is nowhere left to spend them, because the wall
+west of Chengdu rises 37 m per kilometre of ground and asks for 80 m/s of
+climb from an aircraft that gives 6. **Reversing the profile is not slower, it
+is a crash**, and that is now a test.
+
+The same arithmetic sets a floor nobody can beat: no profile, on any route
+through this corridor, flies Expedition 1 in less than about 33 minutes,
+because 32.1 of them are the climb. The GDD's "~25 min" for Sea to Sky was
+never reachable at this start altitude.
+
+**Three things the authoring turned up:**
+
+1. **`boost` west of Chongqing is a no-op.** It is gated on air density and
+   cuts out at 3,564 m, which by the third leg is below the aircraft. An
+   author who writes `boost` there gets cruise and no warning, so the
+   equivalence is pinned in a test rather than left as a trap. The GDD's
+   trip-length table has a "with boost" column for every expedition; for
+   anything that climbs, that column is fiction.
+2. **Extra waypoints buy nothing here.** Adding Yichang as a fifth leg — a
+   finer profile over the same ground — improves the trip by 0.1 minutes. The
+   constraint is the climb, and the climb does not care where the legs are
+   cut. The GDD's four legs are enough, so the route is left as the GDD
+   writes it.
+3. **Start altitude is the lever that actually moves it**, and it is one line
+   of the authored file:
+
+   | start | fastest profile clearing by 300 m | trip | single-speed ceiling |
+   | ---: | --- | ---: | ---: |
+   | **1,200 m** *(authored)* | low / low / cruise / cruise | **35.5 min** | 73 km/min |
+   | 2,500 m | low / low / cruise / cruise | 34.6 min | 85 km/min |
+   | 3,000 m | low / cruise / low / cruise | 28.9 min | 94 km/min |
+   | 4,000 m | low / cruise / cruise / cruise | 25.2 min | 126 km/min |
+
+   Note the cliff between 2,500 and 3,000 m: 500 m of start altitude buys
+   5.7 minutes, because at 3,000 m the second leg can be flown at cruise. And
+   note where 4,000 m lands — 25.2 minutes, the GDD's own figure, at very
+   nearly the shipped pacing. **The GDD's twenty-five minute Sea to Sky is
+   reachable, but only by an expedition that starts at cruise altitude
+   instead of climbing from the coast.** That is a real choice and it is not
+   an engineering one: 1,200 m is authored here because the build plan's own
+   test is called "spends most of the expedition climbing, which is the
+   lesson", and starting at 4,000 m deletes the lesson to save ten minutes.
+
+**What it costs, stated plainly.** 35.5 minutes is half a minute outside the
+GDD's own fifteen-to-thirty-five minute band, and 76 % of it is spent east of
+Chongqing. The plateau leg is 42 % of the distance and 20 % of the time. Both
+of those are consequences of the climb, not of the profile, and both are the
+writer's problem rather than the engine's — which is the right place for them
+to be, and one line of YAML from being different.
+
+**Also built, because content with coordinates needs it:** `projectAlbers` in
+`worldGrid.ts`, the engine-side forward projection (D1), checked against
+PROJ's own answer at all seven corridor anchors and agreeing to five
+centimetres. Until now nothing outside the pipeline could turn a latitude into
+a position, which was fine while the only projected things were pre-projected
+tiles and would have stopped being fine at the first discovery trigger.
+Snyder's ellipsoidal form: the spherical one is 16.9 km out at 40 N.
+
+**Action.** Done and in CI. The remaining three remedies stay open and are
+now optional rather than blocking: more climb rate, a reroute needing the
+90 m hero grid, and widening the narrated-trip ceiling past 35 minutes. G2 is
+unblocked — Expedition 1 can be flown end to end — but what it will measure is
+a thirty-five minute trip, not a twenty-five minute one, and the gate's second
+criterion should be read with that in mind.

@@ -1,10 +1,14 @@
 /**
- * Does Expedition 1 clear the ground it crosses? (Finding F17.)
+ * Does Expedition 1 clear the ground it crosses? (Findings F17 and F18.)
  *
  * The build plan's test table asks for an autopilot replay of all nine routes
  * once they exist. This is the first of them, one phase early, because the
  * route that does not exist yet was not the one that needed checking: the one
  * the GDD has carried in its own text since the first draft was.
+ *
+ * It flies `content/expeditions/sea-to-sky.yaml` - the authored file, not a
+ * copy of its numbers - so D17 means what it says: a route is not data until
+ * an autopilot has flown it over the ground.
  *
  * Skips without a built corridor, which is the normal state of a fresh
  * checkout and of CI. A green tick for a check that silently ran on no data
@@ -12,6 +16,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { loadCorridor, profileAlong, type Corridor, type ProfiledRoute } from "./corridorProfile.js";
+import { flyable, loadExpedition, type FlyableExpedition } from "./expedition.js";
 import {
   climbDemandMs,
   flyRoute,
@@ -20,6 +25,7 @@ import {
   type Route,
 } from "../../engine/src/sim/route.js";
 import { ceilingM, LIGHT_PISTON, maxClimbRateMs } from "../../engine/src/sim/aircraft.js";
+import { EXPEDITION_RULES } from "../../content/schema.ts";
 import {
   MODE_GROUND_KM_PER_MIN,
   TERRAIN_LIMITED_CRUISE_KM_PER_MIN,
@@ -31,7 +37,7 @@ const corridor = loadCorridor("dist-world/sea-to-sky");
 
 interface Fixture {
   readonly built: Corridor;
-  readonly published: ProfiledRoute;
+  readonly sea: FlyableExpedition;
   readonly direct: ProfiledRoute;
 }
 
@@ -44,67 +50,57 @@ let cached: Fixture | null = null;
 function fixture(): Fixture {
   if (cached === null) {
     const built = corridor!;
-    const waypoints = Object.values(built.manifest.anchors);
+    const anchors = built.manifest.anchors;
     cached = {
       built,
-      published: profileAlong(built, waypoints),
-      direct: profileAlong(built, [waypoints[0]!, waypoints[waypoints.length - 1]!]),
+      sea: flyable(loadExpedition("content/expeditions/sea-to-sky.yaml"), built),
+      direct: profileAlong(built, [anchors["shanghai"]!, anchors["lhasa"]!]),
     };
   }
   return cached;
 }
 
-const groundOf = (p: ProfiledRoute) => (km: number) =>
-  p.profileM[Math.min(Math.max(0, Math.round(km)), p.profileM.length - 1)]!;
-
-/** The waypoints as a route, with a speed mode per leg. */
-const asRoute = (p: ProfiledRoute, modes: SpeedMode[]): Route => ({
-  name: "sea to sky",
-  legs: p.legEndKm.map((endKm, i) => ({
-    name: `leg ${i + 1}`,
-    endKm,
-    mode: modes[i] ?? modes[modes.length - 1]!,
-  })),
+const atSpeed = (route: Route, mode: SpeedMode): Route => ({
+  ...route,
+  legs: route.legs.map((l) => ({ ...l, mode })),
 });
-const everyLeg = (mode: SpeedMode, p: ProfiledRoute) =>
-  Array<SpeedMode>(p.legEndKm.length).fill(mode);
-
-function fly(p: ProfiledRoute, modes: SpeedMode[], cruiseKmPerMin: number) {
-  return flyRoute(asRoute(p, modes), groundOf(p), {
-    pacing: { cruiseKmPerMin },
-    startAltitudeM: fixture().built.manifest.start.altitudeM,
-  });
-}
 
 describe.skipIf(corridor === null)("Sea to Sky, flown over its own ground", () => {
-  it("reads the corridor the pipeline built", () => {
-    const { built, published } = fixture();
-    expect(built.manifest.corridor).toBe("sea-to-sky");
-    expect(published.lengthKm).toBeCloseTo(3219.7, 0);
-    expect(published.legEndKm).toHaveLength(6);
-    expect(built.manifest.start.altitudeM).toBe(1200);
+  it("reads the route from the authored file", () => {
+    const { sea } = fixture();
+    expect(sea.expedition.id).toBe("sea-to-sky");
+    // The GDD's own waypoints, in the GDD's own order.
+    expect(sea.expedition.route.map((p) => p.id)).toEqual([
+      "shanghai",
+      "wuhan",
+      "chongqing",
+      "chengdu",
+      "lhasa",
+    ]);
+    expect(sea.profiled.lengthKm).toBeCloseTo(2931, 0);
+    expect(sea.route.legs).toHaveLength(4);
   });
 
   /**
    * The number F16 should have been measured against. It checked arrival
    * altitude at Lhasa against the 4,500 m the GDD calls plateau cruise; the
-   * route crosses ground more than a kilometre higher than that, a hundred
-   * and thirty kilometres short of the destination.
+   * route crosses ground more than a kilometre higher than that, two hundred
+   * kilometres short of the destination.
    */
   it("crosses ground a kilometre above the rim it was checked against", () => {
-    const { published } = fixture();
-    const highest = Math.max(...published.profileM);
-    expect(highest).toBeGreaterThan(5500);
-    expect(published.profileM.indexOf(highest)).toBeGreaterThan(3000);
+    const { sea } = fixture();
+    const highest = Math.max(...sea.profiled.profileM);
+    expect(highest).toBeCloseTo(5558, -2);
+    expect(sea.profiled.profileM.indexOf(highest)).toBeGreaterThan(2700);
     expect(highest - 4500).toBeGreaterThan(1000);
     // Still inside the aircraft's reach, so this is a pacing problem rather
-    // than an impossible one - but only by six hundred metres.
+    // than an impossible one - but only by twelve hundred metres.
     expect(highest).toBeLessThan(ceilingM(LIGHT_PISTON, 0));
   });
 
   it("asks for a climb rate an order of magnitude past the aircraft", () => {
-    const { published } = fixture();
-    const wall = steepestRise(published.profileM);
+    const { sea } = fixture();
+    const wall = steepestRise(sea.profiled.profileM);
     expect(wall.gradientMPerKm).toBeGreaterThan(35);
     expect(wall.riseM).toBeGreaterThan(3500);
 
@@ -112,114 +108,155 @@ describe.skipIf(corridor === null)("Sea to Sky, flown over its own ground", () =
     // at any pacing the GDD proposes; it is climbed over the thousand
     // kilometres before it, or it is flown into.
     const demanded = climbDemandMs(wall.gradientMPerKm, 130);
-    const available = maxClimbRateMs(LIGHT_PISTON, published.profileM[wall.footKm]!);
+    const available = maxClimbRateMs(LIGHT_PISTON, sea.profiled.profileM[wall.footKm]!);
     expect(demanded / available).toBeGreaterThan(10);
     expect(groundSpeedForGradient(wall.gradientMPerKm, available)).toBeLessThan(
       MODE_GROUND_KM_PER_MIN.low,
     );
   });
 
-  /**
-   * The finding itself. These are characterisations, not wishes: the shipped
-   * pacing does not get an aircraft to Lhasa, and the failure is not subtle.
-   */
-  it("flies into the Hengduan at the shipped pacing", () => {
-    const { published } = fixture();
-    const flight = fly(published, everyLeg("cruise", published), 130);
-    expect(flight.clears).toBe(false);
-    expect(flight.contact!.km).toBeCloseTo(1954, -2);
-    expect(flight.minutes).toBeCloseTo(13.0, 0);
-    // Sixty-one per cent of the way. Not a near miss at the destination.
-    expect(flight.reachedKm / published.lengthKm).toBeCloseTo(0.61, 1);
+  describe("at a single speed, which is what the GDD assumes", () => {
+    it("flies into a ridge west of Chengdu at the shipped pacing", () => {
+      const { sea } = fixture();
+      const flight = flyRoute(atSpeed(sea.route, "cruise"), sea.ground, {
+        startAltitudeM: sea.expedition.start_altitude_m,
+      });
+      expect(flight.clears).toBe(false);
+      expect(flight.contact!.km).toBeCloseTo(1846, -2);
+      expect(flight.contact!.shortfallM).toBeLessThan(-300);
+      expect(flight.minutes).toBeCloseTo(12.3, 0);
+      // Sixty-three per cent of the way. Not a near miss at the destination.
+      expect(flight.reachedKm / sea.profiled.lengthKm).toBeCloseTo(0.63, 1);
+    });
+
+    it("clears at 73 km/min and not at 74", () => {
+      const { sea } = fixture();
+      const single = atSpeed(sea.route, "cruise");
+      const clears = (cruiseKmPerMin: number) =>
+        flyRoute(single, sea.ground, {
+          pacing: { cruiseKmPerMin },
+          startAltitudeM: sea.expedition.start_altitude_m,
+        }).clears;
+      // Every pacing below it, not merely the one below it: near the boundary
+      // the answer can alternate, because the deciding crossing is a ridge
+      // the aircraft passes with tens of metres in hand.
+      for (let v = 50; v <= TERRAIN_LIMITED_CRUISE_KM_PER_MIN; v++) expect(clears(v)).toBe(true);
+      expect(clears(TERRAIN_LIMITED_CRUISE_KM_PER_MIN + 1)).toBe(false);
+    });
+
+    it("cannot be both flyable and a fifteen-to-thirty-five minute trip", () => {
+      const { sea } = fixture();
+      const slowEnough = flyRoute(atSpeed(sea.route, "cruise"), sea.ground, {
+        pacing: { cruiseKmPerMin: TERRAIN_LIMITED_CRUISE_KM_PER_MIN },
+        startAltitudeM: sea.expedition.start_altitude_m,
+      });
+      expect(slowEnough.clears).toBe(true);
+      expect(slowEnough.minutes).toBeCloseTo(32.3, 0);
+      // The nominal arithmetic the HUD and the GDD's table both use is longer
+      // still, which is the other half of the trap: it says forty minutes for
+      // a flight that takes thirty-two.
+      expect(
+        minutesForKm(sea.profiled.lengthKm, "cruise", {
+          cruiseKmPerMin: TERRAIN_LIMITED_CRUISE_KM_PER_MIN,
+        }),
+      ).toBeCloseTo(40.2, 0);
+    });
+
+    it("does not spare the straight line either", () => {
+      // F16 used the direct line as its worst case because it gives the least
+      // ground to climb over. Against terrain it is worse still, and it fails
+      // eleven and a half minutes in - inside the twelve the G1 protocol asks
+      // a playtester to fly, along the heading the corridor starts on.
+      const { direct } = fixture();
+      const ground = (km: number) =>
+        direct.profileM[Math.min(Math.max(0, Math.round(km)), direct.profileM.length - 1)]!;
+      const route: Route = {
+        name: "direct",
+        legs: [{ name: "to Lhasa", endKm: direct.lengthKm, mode: "cruise" }],
+      };
+      const flight = flyRoute(route, ground, { startAltitudeM: 1200 });
+      expect(flight.clears).toBe(false);
+      expect(flight.minutes).toBeLessThan(12);
+      expect(flight.contact!.km).toBeCloseTo(1704, -2);
+    });
   });
 
-  it("fails faster, not differently, at the top of the pacing range", () => {
-    const { published } = fixture();
-    const flight = fly(published, everyLeg("cruise", published), 190);
-    expect(flight.clears).toBe(false);
-    expect(flight.contact!.km).toBeCloseTo(1950, -2);
-    expect(flight.contact!.shortfallM).toBeLessThan(-400);
-  });
+  describe("as authored, with a speed per leg", () => {
+    const flyAuthored = () => {
+      const { sea } = fixture();
+      return flyRoute(sea.route, sea.ground, {
+        startAltitudeM: sea.expedition.start_altitude_m,
+      });
+    };
 
-  it("clears at the bottom of the range, and only there", () => {
-    const { published } = fixture();
-    const flight = fly(published, everyLeg("cruise", published), 80);
-    expect(flight.clears).toBe(true);
-    expect(flight.worstClearanceM).toBeGreaterThan(200);
-    expect(flight.worstKm).toBeGreaterThan(3000);
-  });
+    it("clears the ground, by a margin that is actually a margin", () => {
+      const flight = flyAuthored();
+      expect(flight.clears).toBe(true);
+      expect(flight.worstClearanceM).toBeGreaterThan(300);
+      expect(flight.worstClearanceM).toBeCloseTo(333, -1);
+      expect(flight.worstKm).toBeCloseTo(2366, -2);
+      expect(flight.arrivalAltitudeM).toBeCloseTo(6010, -2);
+    });
 
-  it("stops clearing the ground somewhere in the nineties", () => {
-    // Scanned rather than bisected, because the boundary is not a boundary:
-    // 95 clears and 96 does not. The deciding crossing is a 5,595 m ridge
-    // that the aircraft passes with tens of metres in hand, so which
-    // kilometre the integrator samples at which altitude decides it. The
-    // useful number is therefore the last pacing below which *every* pacing
-    // clears, not the last one that happens to.
-    const { published } = fixture();
-    const ceiling = TERRAIN_LIMITED_CRUISE_KM_PER_MIN;
-    for (let cruise = 80; cruise <= ceiling; cruise++) {
-      expect(fly(published, everyLeg("cruise", published), cruise).clears).toBe(true);
-    }
-    expect(fly(published, everyLeg("cruise", published), ceiling + 1).clears).toBe(false);
+    it("is the fastest profile that does, and it is still half a minute too long", () => {
+      // 35.5 against the GDD's own fifteen-to-thirty-five minute band. Kept
+      // as an assertion rather than quietly rounded, because the next person
+      // to trim thirty seconds off this will do it by making the route
+      // unflyable, and this is where that gets caught.
+      const flight = flyAuthored();
+      expect(flight.minutes).toBeCloseTo(35.5, 1);
+      expect(flight.minutes).toBeGreaterThan(EXPEDITION_RULES.maxMinutes);
+      expect(flight.minutes).toBeLessThan(EXPEDITION_RULES.maxMinutes + 1);
+    });
 
-    // Even at the ceiling the margin is not a margin.
-    expect(fly(published, everyLeg("cruise", published), ceiling).worstClearanceM)
-      .toBeLessThan(100);
+    it("is slow where the ground is flat, which is the counter-intuitive part", () => {
+      // The two low legs are the eastern plain. Climbing costs minutes, not
+      // kilometres, and the only place to buy them is where nothing is in the
+      // way. Anyone reading this file will want to swap these round.
+      const { sea } = fixture();
+      expect(sea.route.legs.slice(0, 2).map((l) => l.mode)).toEqual(["low", "low"]);
+      expect(sea.route.legs.slice(2).map((l) => l.mode)).toEqual(["cruise", "cruise"]);
 
-    // And what it costs, measured rather than divided: twenty-eight and a
-    // half minutes of flying, against the GDD's twenty-five minute ceiling
-    // for a narrated trip. The window F16 reported - 129 to 135 km/min - is
-    // empty, and not narrowly.
-    const atTheCeiling = fly(published, everyLeg("cruise", published), ceiling);
-    expect(atTheCeiling.minutes).toBeCloseTo(28.5, 0);
-    expect(atTheCeiling.minutes).toBeGreaterThan(25);
-    // The nominal arithmetic the HUD shows is longer still, which is the
-    // other half of the trap: it says 35 minutes for a flight that takes 28.
-    expect(minutesForKm(published.lengthKm, "cruise", { cruiseKmPerMin: ceiling }))
-      .toBeCloseTo(35, 0);
-  });
+      // Reversing them is not slower. It is a crash.
+      const reversed: Route = {
+        ...sea.route,
+        legs: sea.route.legs.map((l, i) => ({ ...l, mode: (i < 2 ? "cruise" : "low") as SpeedMode })),
+      };
+      expect(
+        flyRoute(reversed, sea.ground, { startAltitudeM: sea.expedition.start_altitude_m }).clears,
+      ).toBe(false);
+    });
 
-  it("is rescued by per-leg speed, and by nothing else", () => {
-    // F3's lever, and now not a lever but a requirement. Dropping only the
-    // last leg changes nothing, because the aircraft never reaches it: the
-    // contact is on the leg before, in the Hengduan.
-    const { published } = fixture();
-    const lastLegLow: SpeedMode[] = ["cruise", "cruise", "cruise", "cruise", "cruise", "low"];
-    const lastTwoLow: SpeedMode[] = ["cruise", "cruise", "cruise", "cruise", "low", "low"];
-    expect(fly(published, lastLegLow, 130).clears).toBe(false);
+    it("spends three quarters of itself climbing, which is the lesson", () => {
+      // Chongqing is 1,427 km of 2,931 - not half the route, and 76 % of the
+      // time. That is the asymmetry the GDD is about, arriving as a pacing
+      // consequence rather than as a line of narration.
+      const { sea } = fixture();
+      const through = (n: number) =>
+        flyRoute({ ...sea.route, legs: sea.route.legs.slice(0, n) }, sea.ground, {
+          startAltitudeM: sea.expedition.start_altitude_m,
+        });
+      const toChongqing = through(2);
+      const whole = flyAuthored();
+      expect(toChongqing.minutes / whole.minutes).toBeGreaterThan(0.7);
+      expect(toChongqing.arrivalAltitudeM).toBeGreaterThan(5000);
+    });
 
-    const rescued = fly(published, lastTwoLow, 130);
-    expect(rescued.clears).toBe(true);
-    expect(rescued.worstClearanceM).toBeGreaterThan(150);
-    // The cost is the GDD's whole narrative budget: thirty-eight minutes.
-    expect(rescued.minutes).toBeGreaterThan(35);
-  });
-
-  it("does not spare the straight line either", () => {
-    // F16 used the direct line as its worst case because it gives the least
-    // ground to climb over. Against terrain it is worse still, and it fails
-    // eleven and a half minutes in - inside the twelve the G1 protocol asks a
-    // playtester to fly, and along the heading the corridor actually starts on.
-    const { direct } = fixture();
-    const flight = fly(direct, ["cruise"], 130);
-    expect(flight.clears).toBe(false);
-    expect(flight.minutes).toBeLessThan(12);
-    expect(flight.contact!.km).toBeCloseTo(1705, -2);
-  });
-
-  it("takes a fifth less time than the HUD predicts", () => {
-    // Ground speed is pinned to *indicated* airspeed, so true airspeed rising
-    // with altitude carries the aircraft over the ground faster than the
-    // pacing claims. `minutesForKm` is arithmetic on the nominal figure and
-    // does not know. Worth recording because the trip length it shows is the
-    // number a G2 operator writes down.
-    const { published } = fixture();
-    const flown = fly(published, everyLeg("low", published), 130);
-    const predicted = minutesForKm(published.lengthKm, "low", { cruiseKmPerMin: 130 });
-    expect(flown.clears).toBe(true);
-    expect(predicted).toBeCloseTo(74.3, 0);
-    expect(flown.minutes).toBeCloseTo(57.0, 0);
-    expect(1 - flown.minutes / predicted).toBeGreaterThan(0.2);
+    it("gains nothing from asking for boost west of Chongqing", () => {
+      // Boost is gated on air density and cuts out at 3,564 m, which by the
+      // third leg is below the aircraft. An author writing `boost` there
+      // would get cruise and no warning, so the equality is pinned here.
+      const { sea } = fixture();
+      const boosted: Route = {
+        ...sea.route,
+        legs: sea.route.legs.map((l, i) => (i < 2 ? l : { ...l, mode: "boost" as SpeedMode })),
+      };
+      const a = flyAuthored();
+      const b = flyRoute(boosted, sea.ground, {
+        startAltitudeM: sea.expedition.start_altitude_m,
+      });
+      expect(b.minutes).toBeCloseTo(a.minutes, 5);
+      expect(b.worstClearanceM).toBeCloseTo(a.worstClearanceM, 5);
+    });
   });
 });

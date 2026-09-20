@@ -65,7 +65,8 @@ export function haversineKm(
 }
 
 export interface Issue {
-  card: string;
+  /** The id of whatever is at fault - a card, an expedition, a waypoint. */
+  subject: string;
   field: string;
   message: string;
 }
@@ -73,8 +74,8 @@ export interface Issue {
 export function validateCards(cards: Card[]): Issue[] {
   const issues: Issue[] = [];
   const seen = new Map<string, Card>();
-  const add = (card: string, field: string, message: string) =>
-    issues.push({ card, field, message });
+  const add = (subject: string, field: string, message: string) =>
+    issues.push({ subject, field, message });
 
   for (const c of cards) {
     const id = c.id ?? "(no id)";
@@ -141,6 +142,110 @@ export function validateCards(cards: Card[]): Issue[] {
         add(a.id, "trigger", `only ${d.toFixed(1)} km from ${b.id}; cards would stack`);
       }
     }
+  }
+
+  return issues;
+}
+
+/**
+ * Expedition schema (build plan D11 and D17).
+ *
+ * An expedition is waypoints, a speed for each leg, a month and a start hour.
+ * Narration beats join it at phase 2; the route and its pacing are here now
+ * because D17 makes a route something an autopilot has to fly over real
+ * ground before it counts as data, and that check needs something to read.
+ */
+
+export const SPEED_MODES = ["low", "cruise", "boost"] as const;
+export type SpeedName = (typeof SPEED_MODES)[number];
+
+export interface RoutePoint {
+  id: string;
+  name: string;
+  zh?: string;
+  lat: number;
+  lon: number;
+  /** How the leg *into* this point is flown. Absent on the first point. */
+  speed?: SpeedName;
+}
+
+export interface Expedition {
+  id: string;
+  name: string;
+  contrast: string;
+  teaches: string;
+  /** 1-12. Authored, not simulated: each expedition fixes its own month. */
+  month: number;
+  /** 0-23, Beijing time, which is the only time zone China has. */
+  start_hour: number;
+  start_altitude_m: number;
+  route: RoutePoint[];
+}
+
+export const EXPEDITION_RULES = {
+  /** GDD, "Expeditions": nine curated journeys of 15-35 minutes. */
+  minMinutes: 15,
+  maxMinutes: 35,
+  /** Two waypoints closer than this are a corner, not a leg. */
+  minLegKm: 25,
+  /** Above the aircraft's absolute ceiling nothing can start. */
+  maxStartAltitudeM: 6000,
+} as const;
+
+export function validateExpeditions(expeditions: Expedition[]): Issue[] {
+  const issues: Issue[] = [];
+  const seen = new Set<string>();
+  const add = (subject: string, field: string, message: string) =>
+    issues.push({ subject, field, message });
+
+  for (const e of expeditions) {
+    const id = e.id ?? "(no id)";
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(e.id ?? "")) add(id, "id", "must be kebab-case");
+    if (seen.has(e.id)) add(id, "id", "duplicate id");
+    seen.add(e.id);
+
+    if (!e.name) add(id, "name", "missing");
+    if (!e.contrast) add(id, "contrast", "every expedition is built on one contrast");
+    if (!e.teaches) add(id, "teaches", "say what it teaches, or it is a flight not an expedition");
+
+    if (!Number.isInteger(e.month) || e.month < 1 || e.month > 12)
+      add(id, "month", `${e.month} is not a month`);
+    if (!Number.isInteger(e.start_hour) || e.start_hour < 0 || e.start_hour > 23)
+      add(id, "start_hour", `${e.start_hour} is not an hour`);
+    if (!(e.start_altitude_m >= 0) || e.start_altitude_m > EXPEDITION_RULES.maxStartAltitudeM)
+      add(id, "start_altitude_m", `must be 0-${EXPEDITION_RULES.maxStartAltitudeM} m`);
+
+    const route = e.route ?? [];
+    if (route.length < 2) {
+      add(id, "route", "needs at least a start and a destination");
+      continue;
+    }
+
+    route.forEach((p, i) => {
+      const where = `route[${i}] ${p.id ?? "(no id)"}`;
+      if (!p.id) add(id, where, "every waypoint needs an id");
+      if (!p.name) add(id, where, "every waypoint needs a name");
+      const { bbox } = RULES;
+      if (!(p.lat >= bbox.minLat && p.lat <= bbox.maxLat))
+        add(id, `${where}.lat`, `${p.lat} is outside China`);
+      if (!(p.lon >= bbox.minLon && p.lon <= bbox.maxLon))
+        add(id, `${where}.lon`, `${p.lon} is outside China`);
+
+      if (i === 0) {
+        // The first point is where the aircraft starts, so there is no leg
+        // into it and a speed there would silently do nothing.
+        if (p.speed !== undefined)
+          add(id, `${where}.speed`, "the first waypoint has no leg into it");
+      } else {
+        if (p.speed === undefined) add(id, `${where}.speed`, "every leg names its speed");
+        else if (!SPEED_MODES.includes(p.speed))
+          add(id, `${where}.speed`, `must be one of ${SPEED_MODES.join(", ")}`);
+        const prev = route[i - 1]!;
+        const legKm = haversineKm(prev.lat, prev.lon, p.lat, p.lon);
+        if (legKm < EXPEDITION_RULES.minLegKm)
+          add(id, where, `only ${legKm.toFixed(1)} km from ${prev.id}; that is a corner, not a leg`);
+      }
+    });
   }
 
   return issues;

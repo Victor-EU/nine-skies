@@ -205,35 +205,28 @@ export const CRUISE_CANDIDATES = [80, 130, 190] as const;
 export const CLIMB_LIMITED_CRUISE_KM_PER_MIN = 135;
 
 /**
- * The fastest cruise at which Expedition 1 reliably clears the ground it
- * crosses, flown at cruise from end to end.
+ * The fastest single cruise speed at which Expedition 1 clears the ground it
+ * crosses, real km/min.
  *
  * The same climb budget, asked the question that actually decides whether the
  * expedition can be flown: not "how high is the aircraft when it arrives" but
- * "is it ever lower than the terrain". At the shipped 130 the aircraft flies
- * into the Hengduan at 1,954 km, thirteen minutes in and 61 % of the way
- * (F17).
+ * "is it ever lower than the terrain". Flown at cruise from end to end, Sea
+ * to Sky as authored - Shanghai, Wuhan, Chongqing, Chengdu, Lhasa - clears at
+ * 73 km/min and not at 74. At the shipped 130 the aircraft is 321 m inside a
+ * ridge west of Chengdu after twelve minutes, 63 % of the way (F17, F18).
  *
- * "Reliably" is doing real work here. Between 93 and 102 km/min the answer
- * alternates - 95 clears, 96 does not - because the deciding crossing is the
- * Nyenchen Tanglha at 3,089 km, where the whole margin is a few tens of
- * metres over a 5,595 m ridge and which kilometre sample the integrator reads
- * at which altitude settles it. So this is the last pacing below which *every*
- * pacing clears, and even there the margin is 73 m. A route with a hundred
- * metres of headroom is not a route with headroom.
- *
- * Two consequences worth stating plainly. The GDD's twenty-five minute
- * narrative ceiling needs 129 km/min, so **the window where both hold is
- * empty** - the pacing question cannot be settled by picking a number. And
- * per-leg speed stops being F3's optional lever and becomes the thing that
- * makes the route flyable at all: dropping the last two legs to low clears by
- * 202 m, at the cost of a thirty-eight minute trip.
+ * 73 km/min is a 32-minute trip, so there is no single speed that both flies
+ * the route and fits the GDD's fifteen-to-thirty-five minute band. That is
+ * what the authored per-leg profile is for: `low / low / cruise / cruise`
+ * crosses the same ground in 35.5 minutes with 333 m to spare, by buying the
+ * climb over the eastern plain where there is nothing in the way.
  *
  * Measured in `test/route/seaToSkyClearance.test.ts` against the built
- * corridor. That suite skips where no corridor is built, so this constant is
- * the one place the number survives a fresh checkout.
+ * corridor and the authored route. That suite skips where no corridor is
+ * built, so this constant is the one place the number survives a fresh
+ * checkout.
  */
-export const TERRAIN_LIMITED_CRUISE_KM_PER_MIN = 92;
+export const TERRAIN_LIMITED_CRUISE_KM_PER_MIN = 73;
 
 /** Ground covered per minute in a mode, real kilometres. */
 export function groundKmPerMin(mode: SpeedMode, pacing: Pacing = DEFAULT_PACING): number {

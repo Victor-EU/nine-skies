@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { RULES, haversineKm, validateCards, wordCount, type Card } from "../../content/schema.js";
+import {
+  RULES,
+  haversineKm,
+  validateCards,
+  validateExpeditions,
+  wordCount,
+  type Card,
+  type Expedition,
+} from "../../content/schema.js";
 
 function card(over: Partial<Card> = {}): Card {
   return {
@@ -92,5 +100,91 @@ describe("helpers", () => {
     expect(RULES.bbox.maxLat).toBeGreaterThan(53.5); // Mohe
     expect(RULES.bbox.minLon).toBeLessThan(73.6); // Pamirs
     expect(RULES.bbox.maxLon).toBeGreaterThan(135.0); // Heilongjiang
+  });
+});
+
+function expedition(over: Partial<Expedition> = {}): Expedition {
+  return {
+    id: "test-run",
+    name: "Test Run",
+    contrast: "Low to high",
+    teaches: "That the west is higher",
+    month: 11,
+    start_hour: 7,
+    start_altitude_m: 1200,
+    route: [
+      { id: "shanghai", name: "Shanghai", lat: 31.23, lon: 121.47 },
+      { id: "wuhan", name: "Wuhan", lat: 30.59, lon: 114.31, speed: "low" },
+      { id: "lhasa", name: "Lhasa", lat: 29.65, lon: 91.1, speed: "cruise" },
+    ],
+    ...over,
+  };
+}
+
+const expeditionFields = (list: Expedition[]) =>
+  validateExpeditions(list).map((i) => i.field);
+
+describe("expedition validation", () => {
+  it("passes a well-formed expedition", () => {
+    expect(validateExpeditions([expedition()])).toEqual([]);
+  });
+
+  it("insists every leg names its speed", () => {
+    const route = expedition().route.map((p, i) => {
+      if (i !== 2) return p;
+      const { speed: _dropped, ...withoutSpeed } = p;
+      return withoutSpeed;
+    });
+    expect(expeditionFields([expedition({ route })])).toContain("route[2] lhasa.speed");
+  });
+
+  it("rejects a speed on the first waypoint, where there is no leg", () => {
+    // Not pedantry: it would read as "fly the first leg at low" and do
+    // nothing at all, which is the kind of silence that survives review.
+    const route = expedition().route.map((p, i) =>
+      i === 0 ? { ...p, speed: "low" as const } : p,
+    );
+    expect(expeditionFields([expedition({ route })])).toContain("route[0] shanghai.speed");
+  });
+
+  it("rejects a speed that is not a mode", () => {
+    const route = expedition().route.map((p, i) =>
+      i === 1 ? { ...p, speed: "fast" as never } : p,
+    );
+    expect(expeditionFields([expedition({ route })])).toContain("route[1] wuhan.speed");
+  });
+
+  it("rejects a waypoint outside China", () => {
+    const route = expedition().route.map((p, i) => (i === 1 ? { ...p, lon: 10 } : p));
+    expect(expeditionFields([expedition({ route })])).toContain("route[1] wuhan.lon");
+  });
+
+  it("rejects two waypoints close enough to be a corner", () => {
+    const route = [
+      ...expedition().route,
+      { id: "lhasa-again", name: "Lhasa again", lat: 29.66, lon: 91.11, speed: "low" as const },
+    ];
+    expect(expeditionFields([expedition({ route })])).toContain("route[3] lhasa-again");
+  });
+
+  it("rejects a route with nowhere to go", () => {
+    expect(expeditionFields([expedition({ route: [expedition().route[0]!] })])).toContain("route");
+  });
+
+  it("rejects an impossible month, hour or start altitude", () => {
+    expect(expeditionFields([expedition({ month: 13 })])).toContain("month");
+    expect(expeditionFields([expedition({ start_hour: 24 })])).toContain("start_hour");
+    expect(expeditionFields([expedition({ start_altitude_m: 9000 })])).toContain(
+      "start_altitude_m",
+    );
+  });
+
+  it("insists an expedition says what it is for", () => {
+    expect(expeditionFields([expedition({ contrast: "" })])).toContain("contrast");
+    expect(expeditionFields([expedition({ teaches: "" })])).toContain("teaches");
+  });
+
+  it("catches duplicate ids", () => {
+    expect(expeditionFields([expedition(), expedition()])).toContain("id");
   });
 });
