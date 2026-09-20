@@ -1,18 +1,18 @@
 /**
  * Load an authored expedition and turn it into something flyable.
  *
- * Test-only, like `corridorProfile.ts`: it reads YAML off disk. At phase 2
- * the runtime will read a bundle the content step builds rather than the
- * source files, but the thing being checked is the same either way - the
- * route as authored, projected into the world the simulation flies in.
+ * Node-only, like `corridor.ts`: it reads YAML off disk. At phase 2 the
+ * runtime will read a bundle the content step builds rather than the source
+ * files, but the thing being checked is the same either way - the route as
+ * authored, projected into the world the simulation flies in.
  */
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
-import type { Expedition } from "../../content/schema.ts";
-import { projectAlbers } from "../../engine/src/terrain/worldGrid.js";
-import type { Route } from "../../engine/src/sim/route.js";
-import type { SpeedMode } from "../../engine/src/sim/scale.js";
-import { profileAlong, type Corridor, type ProfiledRoute, type Waypoint } from "./corridorProfile.js";
+import type { Expedition } from "../content/schema.ts";
+import { projectAlbers } from "../engine/src/terrain/worldGrid.ts";
+import type { Route } from "../engine/src/sim/route.ts";
+import type { SpeedMode } from "../engine/src/sim/scale.ts";
+import { profileAlong, type Corridor, type ProfiledRoute, type Waypoint } from "./corridor.ts";
 
 export function loadExpedition(path: string): Expedition {
   return parse(readFileSync(path, "utf8")) as Expedition;

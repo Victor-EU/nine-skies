@@ -15,6 +15,7 @@ import {
   type Card,
   type Expedition,
 } from "./schema.ts";
+import { checkRoutes, describe } from "../tools/routeCheck.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cardsDir = join(here, "cards");
@@ -28,15 +29,41 @@ const expeditions: Expedition[] = expeditionFiles.map(
   (f) => parse(readFileSync(join(expeditionsDir, f), "utf8")) as Expedition,
 );
 
-// Schema only. Whether a route can actually be flown over the ground it
-// crosses is D17's question, and it needs a built corridor rather than a
-// parser - `test/route/seaToSkyClearance.test.ts` answers it.
 const issues = [...validateCards(cards), ...validateExpeditions(expeditions)];
 
 if (issues.length > 0) {
   console.error(`\n${issues.length} content issue(s):\n`);
   for (const i of issues) console.error(`  ${i.subject} · ${i.field}: ${i.message}`);
   console.error("");
+  process.exit(1);
+}
+
+// The half a parser cannot do (D19). A route is well-formed above and
+// flyable here, and the second is the one that has ever been wrong: every
+// route in this repo has passed the schema since the day it was written, and
+// all three findings against Expedition 1 are things the schema cannot see.
+//
+// Needs a built world and says so rather than passing when it has none, per
+// the risk register: "or is skipped because no corridor is built" is listed
+// as a way this check fails, not as a way it succeeds. `--require-world`
+// turns the warning into an error, which is what G2 will run.
+const routes = checkRoutes(expeditions, join(here, "..", "dist-world"));
+const requireWorld = process.argv.includes("--require-world");
+
+console.log("");
+for (const r of routes) for (const l of describe(r)) console.log(l);
+
+const brokenIssues = routes.reduce((n, r) => n + (r.check?.issues.length ?? 0), 0);
+const unchecked = routes.filter((r) => r.check === null);
+
+if (brokenIssues > 0) {
+  const broken = routes.filter((r) => (r.check?.issues.length ?? 0) > 0).length;
+  console.error(`\n${brokenIssues} route issue(s) across ${broken} expedition(s).`);
+  console.error("A route is not data until an autopilot has flown it (D17, D19).\n");
+  process.exit(1);
+}
+if (unchecked.length > 0 && requireWorld) {
+  console.error(`\n${unchecked.length} expedition(s) were never flown, and --require-world is set.\n`);
   process.exit(1);
 }
 

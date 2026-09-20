@@ -4,6 +4,7 @@
     "engine/src/**/*.ts",
     "app/src/**/*.ts",
     "content/**/*.ts",
+    "tools/**/*.ts",
     "test/**/*.ts",
     "*.config.ts",
     "app/src/**/*.d.ts"

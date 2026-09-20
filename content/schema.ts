@@ -169,6 +169,32 @@ export interface RoutePoint {
   speed?: SpeedName;
 }
 
+/**
+ * How high above its destination an expedition ends (D19).
+ *
+ * A claim the route has to be able to keep: the check flies the lowest
+ * trajectory that legally exists and fails if even that arrives higher.
+ * Authoring it is what turns "we hope it gets there" into something CI can
+ * hold the route to.
+ *
+ * Optional, because the honest arrival for a route is not known until it has
+ * been measured and a required field would be filled in with a guess. Absent
+ * means the check reports the measured height and passes - not a silent skip,
+ * a number printed where an author will see it every run.
+ *
+ * There is deliberately no `landing` here, and F22 is why: the altitude floor
+ * keeps its terrain margin all the way to the threshold, so the lowest legal
+ * trajectory over flat ground still arrives 300 m up. Until the floor tapers
+ * to the arrival height, a landing is a claim this check cannot evaluate, and
+ * a field that always fails is worse than one that does not exist yet.
+ */
+export interface Arrival {
+  /** Metres above the destination's ground. */
+  altitude_m: number;
+  /** Metres the route must keep above terrain. Defaults to 300 (F20). */
+  clearance_m?: number;
+}
+
 export interface Expedition {
   id: string;
   name: string;
@@ -180,6 +206,7 @@ export interface Expedition {
   start_hour: number;
   start_altitude_m: number;
   route: RoutePoint[];
+  arrival?: Arrival;
 }
 
 export const EXPEDITION_RULES = {
@@ -190,6 +217,12 @@ export const EXPEDITION_RULES = {
   minLegKm: 25,
   /** Above the aircraft's absolute ceiling nothing can start. */
   maxStartAltitudeM: 6000,
+  /**
+   * What an unstated arrival is checked against, and what an authored one is
+   * measured with. 300 m is Expedition 1's authored margin (F20) and the
+   * value every route check in the repo has used since.
+   */
+  defaultClearanceM: 300,
 } as const;
 
 export function validateExpeditions(expeditions: Expedition[]): Issue[] {
@@ -246,6 +279,32 @@ export function validateExpeditions(expeditions: Expedition[]): Issue[] {
           add(id, where, `only ${legKm.toFixed(1)} km from ${prev.id}; that is a corner, not a leg`);
       }
     });
+
+    // The arrival is schema-checked here and flown in `tools/routeCheck.ts`.
+    // Only the first can run without a built corridor, so it does what it
+    // can: the contradictions that are visible in the file itself.
+    const a = e.arrival;
+    if (a !== undefined) {
+      if (!(a.altitude_m >= 0))
+        add(id, "arrival.altitude_m", `must be metres above the destination, not ${a.altitude_m}`);
+      const clearance = a.clearance_m ?? EXPEDITION_RULES.defaultClearanceM;
+      if (!(clearance >= 0)) add(id, "arrival.clearance_m", `must be metres, not ${clearance}`);
+      // The identity from F21: a floor built with a margin keeps that margin
+      // to the last kilometre, so the band the route leaves at its own end is
+      // exactly `altitude_m - clearance_m`. Ask for an arrival at or below the
+      // margin and no altitude satisfies both - the question contradicts
+      // itself, and the flown check would report it as an unflyable route
+      // rather than as a file that cannot mean what it says. Catching it here
+      // costs a parse instead of a corridor. This is also the wall a landing
+      // runs into, which is F22 and not yet fixable in a YAML file.
+      if (a.altitude_m <= clearance)
+        add(
+          id,
+          "arrival.altitude_m",
+          `${a.altitude_m} m is not above the ${clearance} m clearance the route keeps, ` +
+            `so no altitude satisfies both (F22)`,
+        );
+    }
   }
 
   return issues;

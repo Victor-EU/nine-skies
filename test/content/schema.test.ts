@@ -188,3 +188,45 @@ describe("expedition validation", () => {
     expect(expeditionFields([expedition(), expedition()])).toContain("id");
   });
 });
+
+describe("an arrival is a claim, and the schema checks the ones a parser can", () => {
+  it("accepts an expedition with no arrival at all", () => {
+    // Absent is the honest state until somebody has measured one. The flown
+    // check prints the height it reaches; it does not invent a claim.
+    expect(validateExpeditions([expedition()])).toEqual([]);
+  });
+
+  it("accepts an arrival above the clearance the route keeps", () => {
+    expect(
+      validateExpeditions([expedition({ arrival: { altitude_m: 1600 } })]),
+    ).toEqual([]);
+  });
+
+  it("rejects an arrival at or below that clearance, which nothing satisfies", () => {
+    // F21's identity: at the destination the floor is ground + clearance and
+    // the target is ground + altitude, so the band the route leaves at its
+    // own end is exactly altitude - clearance. Ask for 100 m with a 300 m
+    // margin and there is no altitude that is both.
+    expect(expeditionFields([expedition({ arrival: { altitude_m: 100 } })])).toContain(
+      "arrival.altitude_m",
+    );
+    expect(
+      expeditionFields([expedition({ arrival: { altitude_m: 300 } })]),
+    ).toContain("arrival.altitude_m");
+  });
+
+  it("lets a route lower its own clearance and arrive under the default", () => {
+    expect(
+      validateExpeditions([expedition({ arrival: { altitude_m: 100, clearance_m: 50 } })]),
+    ).toEqual([]);
+  });
+
+  it("rejects a negative arrival or clearance", () => {
+    expect(expeditionFields([expedition({ arrival: { altitude_m: -1 } })])).toContain(
+      "arrival.altitude_m",
+    );
+    expect(
+      expeditionFields([expedition({ arrival: { altitude_m: 500, clearance_m: -1 } })]),
+    ).toContain("arrival.clearance_m");
+  });
+});

@@ -1,12 +1,16 @@
 /**
  * Read a built corridor from disk and turn a waypoint list into an elevation
- * profile. Test-only: it reaches for `node:fs`, which the browser bundle must
- * never see, and it exists so the clearance check (F17) runs against the real
- * pipeline output rather than a synthetic hill.
+ * profile. It exists so the route checks (F17, F21) run against real pipeline
+ * output rather than a synthetic hill.
  *
- * The suite that uses it skips when nothing is built, because a fresh
- * checkout has no `dist-world/` and a green tick for a check that silently
- * ran on nothing is worse than a skip that says so.
+ * It lives in `tools/` rather than `engine/` because it reaches for
+ * `node:fs`, which the browser bundle must never see, and rather than in
+ * `test/` because the content gate reads it too: D19 makes a route something
+ * validated at authoring time, and authoring is not a test run.
+ *
+ * Every caller skips when nothing is built, because a fresh checkout has no
+ * `dist-world/` and a green tick for a check that silently ran on nothing is
+ * worse than a skip that says so.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";

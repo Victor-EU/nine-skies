@@ -18,8 +18,8 @@
  * Skips without a built corridor, like its neighbour.
  */
 import { describe, expect, it } from "vitest";
-import { loadCorridor, type Corridor } from "./corridorProfile.js";
-import { flyable, loadExpedition, type FlyableExpedition } from "./expedition.js";
+import { loadCorridor, type Corridor } from "../../tools/corridor.ts";
+import { flyable, loadExpedition, type FlyableExpedition } from "../../tools/expedition.ts";
 import {
   altitudeFloorM,
   climbFloor,

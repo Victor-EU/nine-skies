@@ -18,6 +18,12 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
+      # Runs the schema checks and, where a world is built, flies every
+      # authored route over it (D17, D19). CI has no world, so the route half
+      # prints NOT CHECKED and the job stays green on the schema alone. That
+      # is deliberate and it is a gap: `make routes` passes --require-world
+      # and is what a machine with a built corridor runs. At G2 the corridor
+      # is a CI artefact and this step gets the flag too.
       - name: Content validation
         run: npm run content:validate
       - name: Build

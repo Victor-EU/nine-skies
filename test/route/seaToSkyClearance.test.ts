@@ -15,8 +15,8 @@
  * would be worse than the gap it is filling.
  */
 import { describe, expect, it } from "vitest";
-import { loadCorridor, profileAlong, type Corridor, type ProfiledRoute } from "./corridorProfile.js";
-import { flyable, loadExpedition, type FlyableExpedition } from "./expedition.js";
+import { loadCorridor, profileAlong, type Corridor, type ProfiledRoute } from "../../tools/corridor.ts";
+import { flyable, loadExpedition, type FlyableExpedition } from "../../tools/expedition.ts";
 import {
   climbDemandMs,
   flyRoute,

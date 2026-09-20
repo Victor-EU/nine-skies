@@ -46,8 +46,15 @@ shown.
 
 ```bash
 npm run check     # typecheck + tests + content validation
-make test         # 119 TypeScript tests and 40 Python tests
+make routes       # fly every authored route over the built world
+make test         # 279 TypeScript tests and 44 Python tests
 ```
+
+`make routes` is the half of content validation a parser cannot do: every
+expedition is flown over the terrain it crosses and fails if the aircraft
+meets the ground (D17) or cannot descend onto its destination (D19). It needs
+a built world, and says `NOT CHECKED` rather than passing when there is none —
+CI has no corridor until G2, so the route half runs here.
 
 ## Layout
 
@@ -56,11 +63,12 @@ make test         # 119 TypeScript tests and 40 Python tests
 | `engine/src/sim` | Atmosphere, aircraft performance, arcade flight model, world scale |
 | `engine/src/terrain` | Shared grid, heightmap texture array, shaders, streaming, horizon impostor |
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes |
-| `content` | Card schema and validator |
+| `content` | Card and expedition schema, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe |
+| `tools` | Node-only authoring tools: corridor reader, route check |
 | `test` | Unit tests, including the golden reference tables |
 | `docs` | Running findings for each gate, and the golden probe report |
-| `Makefile` | `make world`, `make probes`, `make test` |
+| `Makefile` | `make world`, `make probes`, `make routes`, `make test` |
 
 ## The two things worth knowing before reading the code
 

@@ -18,6 +18,7 @@ import {
   routeFrom,
   routeLengthKm,
   steepestRise,
+  validateRoute,
   type Route,
 } from "../../engine/src/sim/route.js";
 import {
@@ -597,5 +598,95 @@ describe("a probe that dives cannot be trusted with a floor alone", () => {
     const blind = arrivalShortfallM(route, cliff, { ...base, strideKm: 100, lookAheadKm: 0 });
     const seeing = arrivalShortfallM(route, cliff, { ...base, strideKm: 100, lookAheadKm: 25 });
     expect(seeing).toBeCloseTo(blind, -1);
+  });
+});
+
+describe("both halves of the question, which is what a gate has to ask", () => {
+  const roomy = mesa(100, 900, 1200, 2200, 1300, 1450, 200);
+  const walled = mesa(100, 1200, 1500, 3400, 1960, 1990, 200);
+  const route = oneLeg(2000);
+  const base = { strideKm: 100, toleranceM: 5, clearanceM: 300 } as const;
+
+  it("passes a route that clears and keeps the arrival it claims", () => {
+    const check = validateRoute(route, roomy, { ...base, arrivalM: 800 });
+    expect(check.clears).toBe(true);
+    expect(check.arrives).toBe(true);
+    expect(check.issues).toHaveLength(0);
+  });
+
+  it("fails the arrival half on a route that passes the clearance half", () => {
+    // The whole point of D19. `walled` clears - full up-elevator gets over
+    // everything - and still cannot be arrived at, because the brink is
+    // thirty kilometres from the destination and 3,200 m above it.
+    const check = validateRoute(route, walled, { ...base, arrivalM: 800 });
+    expect(check.clears).toBe(true);
+    expect(check.arrives).toBe(false);
+    expect(check.issues).toHaveLength(1);
+    expect(check.issues[0]!.check).toBe("arrival");
+    expect(check.issues[0]!.message).toMatch(/cannot be arrived at/);
+  });
+
+  it("does not report an arrival for a flight that never happened", () => {
+    // A route that flies into a mountain has no arrival to report, and a
+    // shortfall computed past the contact point is a number about fiction.
+    const cliff = escarpment(100, 100, 130, 6000);
+    const check = validateRoute(oneLeg(400), cliff, base);
+    expect(check.clears).toBe(false);
+    expect(check.issues.map((i) => i.check)).toEqual(["clearance"]);
+    expect(check.issues[0]!.message).toMatch(/flies into the ground/);
+  });
+
+  it("measures the arrival without an authored one, and does not fail on it", () => {
+    // No `arrivalM`: a route has not broken a promise it never made. The
+    // height is still measured, because that is the number somebody needs
+    // before they can write a promise down.
+    const check = validateRoute(route, walled, base);
+    expect(check.claimed).toBe(false);
+    expect(check.issues).toHaveLength(0);
+    expect(check.lowestArrivalM).toBeGreaterThan(1000);
+  });
+
+  it("holds the same route to a claim once it makes one", () => {
+    const measured = validateRoute(route, walled, base).lowestArrivalM;
+    const honest = validateRoute(route, walled, { ...base, arrivalM: measured + 1 });
+    const hopeful = validateRoute(route, walled, { ...base, arrivalM: measured - 100 });
+    expect(honest.issues).toHaveLength(0);
+    expect(hopeful.issues).toHaveLength(1);
+    expect(hopeful.shortfallM).toBeCloseTo(100, 0);
+  });
+});
+
+describe("a landing is a claim this check cannot evaluate yet (F22)", () => {
+  // Utterly flat ground at 100 m: nothing to clear, and a landing is
+  // trivially possible in the only sense that matters - the aircraft can
+  // obviously get down. The check says otherwise, and these pin why, so that
+  // the floor taper that fixes it has something to be measured against.
+  const flat = () => 100;
+  const route = oneLeg(600);
+  const base = { strideKm: 50, toleranceM: 5, startAltitudeM: 1200 } as const;
+
+  it("cannot arrive below the clearance it keeps en route, even over nothing", () => {
+    const check = validateRoute(route, flat, { ...base, clearanceM: 300, arrivalM: 0 });
+    expect(check.clears).toBe(true);
+    // The floor is ground + 300 to the last kilometre, so the lowest legal
+    // trajectory is 300 m up at the threshold and the shortfall is the
+    // margin itself. Not terrain: arithmetic.
+    expect(check.lowestArrivalM).toBeCloseTo(300, 0);
+    expect(check.arrives).toBe(false);
+  });
+
+  it("is not rescued by dropping the margin, which crashes the probe instead", () => {
+    // The other escape route, and it is closed too: with no margin the floor
+    // is bare interpolated ground, and a probe diving at full stick goes
+    // through it between samples. Infinity is `arrivalShortfallM` reporting
+    // that the flight it was asked about did not finish.
+    const check = validateRoute(route, flat, { ...base, clearanceM: 0, arrivalM: 0 });
+    expect(check.lowestArrivalM).toBe(Infinity);
+  });
+
+  it("works the moment the arrival is above the margin", () => {
+    const check = validateRoute(route, flat, { ...base, clearanceM: 300, arrivalM: 500 });
+    expect(check.arrives).toBe(true);
+    expect(check.issues).toHaveLength(0);
   });
 });

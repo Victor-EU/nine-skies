@@ -1605,3 +1605,119 @@ Gonggar; or keep Lhasa and accept seventy-four minutes. The GDD's band is
 fifteen to thirty-five. The comparison spread's automatic snapshot is taken
 from wherever this ends, so the choice is visible in the shipping artefact
 either way.
+
+## F22 — The route gate runs in CI, and the first thing it proves is that no route can land
+
+F21 ended by saying D17's clearance check was half a check and that the other
+half should run at content validation rather than at G2. This is that build,
+and the half it added found something before it had finished being wired up.
+
+### The gate
+
+`validateRoute` runs both questions and returns one verdict: the full-climb
+replay that D17 has always done, and the lowest legal trajectory F20 and F21
+built, measured against the height the route says it arrives at. Two flights
+and one floor, about three seconds on a 2,931 km route, which is the budget
+D19 asked for.
+
+It is not a test any more. `content/validate.ts` used to carry a comment
+saying the flyable question "needs a built corridor rather than a parser" and
+deferring it to the suite; it now calls the check directly. The corridor
+readers moved out of `test/route/` into `tools/`, because authoring is not a
+test run and the gate an author trips over should be the one they can run.
+
+```
+✓ sea-to-sky over sea-to-sky · 35.5 min · clears by 333 m at 2366 km
+  · lowest arrival 1588 m over it · NO ARRIVAL AUTHORED
+```
+
+One line, and every number in it is a finding: 35.5 minutes is F18's speed
+profile, 333 m is F17's worst ground, 1,588 m is F21's arrival. They used to
+need three suites and a built world to say. They still need the world — but
+now the absence of one is printed rather than assumed.
+
+### A gate that cannot run says so
+
+The risk register lists "or is skipped because no corridor is built" as a way
+the clearance check *fails*, not as a way it succeeds, and that distinction
+is the whole reason the gate is worth having. CI has no world, so the route
+half prints `⚠ NOT CHECKED` and names the command that would build one. A
+machine that does have a world runs `make routes`, which passes
+`--require-world` and turns that warning into an exit code.
+
+This is a real remaining gap and it is written down as one: until the corridor
+is a CI artefact at G2, the route half of the gate runs on the author's
+machine and the schema half runs on every commit. The alternative — a green
+tick for a check that ran on nothing — is the failure mode the whole thing
+exists to avoid.
+
+### What it found
+
+An arrival needs somewhere to be written down, so the expedition schema gained
+one: `arrival: { altitude_m, clearance_m }`, metres above the destination's own
+ground. The first draft had a `kind` beside it, `landing` or `flypast`, because
+the GDD's expeditions "take off at dawn and land at dusk" and eight of the nine
+are meant to end on the ground.
+
+No landing passes. Not on the Tibetan plateau — on **flat ground at 100 m**,
+over a route with nothing in it to clear:
+
+| authored | lowest arrival | verdict |
+| --- | ---: | --- |
+| land, 300 m clearance | 300.2 m | fails by 300 m |
+| land, 0 m clearance | ∞ | the probe flies into the ground |
+| flypast at 500 m, 300 m clearance | 300.2 m | passes |
+
+The cause is exact and it is the same shape as the bug F21 found in
+`climbFloor`. A floor built with a margin keeps that margin to the last
+kilometre, so at the threshold the floor is `ground + clearanceM` and nothing
+legal is below it. The lowest trajectory that exists arrives at 300 m over a
+runway at sea level, and the shortfall the gate reports *is the margin*. Not
+terrain. Arithmetic.
+
+The obvious escape is to drop the margin, and it is closed too. With
+`clearanceM: 0` the floor is bare interpolated ground, and a probe descending
+at full stick goes through it between samples — the `Infinity` in the table is
+`arrivalShortfallM` reporting that the flight it was asked about never
+finished. F21 hit this once already and fixed it by clamping the probe floor
+to `ground + clearanceM`; with a clearance of zero there is nothing to clamp
+to.
+
+So the two of them close the door from both sides. **The altitude floor treats
+the destination as terrain to be cleared rather than as the place the route is
+going**, and no value of either number makes it stop.
+
+`kind` was cut rather than shipped. A schema field that cannot pass on any
+ground is worse than one that does not exist yet, and the flypast height is
+the part the check can actually evaluate today. The contradiction is caught at
+parse time instead — `altitude_m` at or below `clearance_m` is unsatisfiable
+by F21's identity, costs a parse rather than a corridor to notice, and is
+exactly the wall a landing runs into.
+
+### What the fix is, and why it is not in this commit
+
+The clearance requirement has to taper: `clearanceM` over terrain the route
+crosses, `arrivalM` at the threshold, and in between whatever a descending
+aircraft can actually achieve. The taper length is not free to choose — at 18
+m/s and cruise, shedding 300 m takes 17 seconds and 36 km of ground, so a
+threshold shorter than that reports an impossible descent as a floor and a
+longer one gives away margin over real terrain.
+
+That is a model with a number in it that wants measuring, which is what F20
+and F21 each were, and folding it into the commit that built the gate would
+have meant shipping the interesting half unmeasured. The gate is honest about
+the gap in the meantime: it validates flypast heights, which is what
+Expedition 1 needs anyway, and refuses to pretend it can validate a landing.
+
+**Built.** `validateRoute` (engine, pure, both halves); `tools/corridor.ts`,
+`tools/expedition.ts` and `tools/routeCheck.ts`; the `arrival` block in the
+expedition schema with its unsatisfiability check; `make routes`; the route
+half of `content/validate.ts`. Eighteen tests, all synthetic except three
+guarded on a built corridor. 279 TypeScript tests in 16 files, 232 with 47
+skipped on a fresh checkout.
+
+**Action.** The floor taper is the next engineering item and it unblocks eight
+expeditions, because the arrival every one of them wants is a landing. Until
+it exists, an expedition either authors a flypast height or authors nothing
+and reads the measured one off the gate — which is where Expedition 1 sits,
+still waiting on the writing decision F21 priced.

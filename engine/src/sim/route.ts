@@ -840,3 +840,119 @@ export function arrivalShortfallM(
   if (!flight.clears) return Infinity;
   return flight.arrivalAltitudeM - (ground(lengthKm) + arrivalM);
 }
+
+/**
+ * A thing that is wrong with a route, in the terms the author can act on.
+ *
+ * `check` names which half found it, because the two have different fixes and
+ * saying so is most of the value. A clearance failure is usually a speed
+ * profile or a start altitude; an arrival failure is a waypoint, a
+ * destination, or a decision to stop calling it a landing (F21).
+ */
+export interface RouteIssue {
+  readonly check: "clearance" | "arrival";
+  readonly km: number;
+  readonly message: string;
+}
+
+export interface RouteCheck {
+  /** D17: the full-climb replay never met the ground. */
+  readonly clears: boolean;
+  readonly worstClearanceM: number;
+  readonly worstKm: number;
+  readonly contact: Contact | null;
+  /** Trip time of the clearance replay, minutes. */
+  readonly minutes: number;
+  /** Metres above the destination the route arrives at when it tries hardest. */
+  readonly lowestArrivalM: number;
+  /** What the route was asked to arrive at, metres above the destination. */
+  readonly arrivalM: number;
+  /** Whether that was authored or defaulted. Only a claim can be broken. */
+  readonly claimed: boolean;
+  /** `lowestArrivalM - arrivalM`. Zero or less means the route arrives. */
+  readonly shortfallM: number;
+  readonly arrives: boolean;
+  readonly issues: readonly RouteIssue[];
+}
+
+/**
+ * Both halves of the question, which is the whole question.
+ *
+ * D17 asks whether the aircraft can get over the ground. This also asks
+ * whether it can get back down onto the place the route ends, because those
+ * are different questions and Expedition 1 passes the first and fails the
+ * second by 1,588 m (F21). A route that clears and cannot arrive is not a
+ * route with a tuning problem; it is geography, and the fix is always the
+ * line rather than the flight.
+ *
+ * Two flights and one floor, which is about a second for a 3,000 km route.
+ * Deliberately no band scan: the shortfall is the verdict and `approachBand`
+ * is the diagnostic, so the passing case - the one that runs on every commit
+ * forever - pays for a verdict and nothing else.
+ */
+export function validateRoute(
+  route: Route,
+  ground: GroundProfile,
+  options: ArrivalOptions = {},
+): RouteCheck {
+  const { arrivalM = options.clearanceM ?? 0 } = options;
+  const issues: RouteIssue[] = [];
+  const lengthKm = routeLengthKm(route);
+
+  // D17. Full up-elevator, which is the most favourable simple policy: a
+  // route this does not clear is a route nothing clears.
+  const climb = flyRoute(route, ground, options);
+  if (!climb.clears) {
+    const at = climb.contact;
+    issues.push({
+      check: "clearance",
+      km: at?.km ?? climb.reachedKm,
+      message: at
+        ? `flies into the ground ${at.km.toFixed(0)} km out, ` +
+          `${Math.abs(at.shortfallM).toFixed(0)} m below it, ` +
+          `climbing as hard as the aircraft can`
+        : `never reaches the end; stops ${climb.reachedKm.toFixed(0)} km out`,
+    });
+  }
+
+  // D19. The mirror: the lowest trajectory anything could legally fly, and
+  // whether it gets low enough by the end. Only worth asking of a route that
+  // clears - the shortfall of a route that flies into a mountain is a report
+  // about a flight that never happened.
+  //
+  // Naming an `arrivalM` is what turns the measurement into a claim. Without
+  // one the lowest arrival is still computed and returned, because that is
+  // the number somebody needs in order to write a claim down, but it is not
+  // an issue: a route has not failed to keep a promise it never made.
+  const floor = climb.clears ? floorProfile(climbFloor(route, ground, options)) : null;
+  const lowestArrivalM = floor
+    ? arrivalShortfallM(route, ground, { ...options, floor, arrivalM: 0 })
+    : Infinity;
+  const shortfallM = lowestArrivalM - arrivalM;
+  const claimed = options.arrivalM !== undefined;
+  if (floor && claimed && shortfallM > 0) {
+    issues.push({
+      check: "arrival",
+      km: lengthKm,
+      message:
+        `cannot be arrived at: the lowest trajectory that exists arrives ` +
+        `${lowestArrivalM.toFixed(0)} m above the destination and the route asks ` +
+        `for ${arrivalM.toFixed(0)}, a shortfall of ${shortfallM.toFixed(0)} m. ` +
+        `No policy moves this; see approachBand for where the band closes`,
+    });
+  }
+
+  return {
+    clears: climb.clears,
+    worstClearanceM: climb.worstClearanceM,
+    worstKm: climb.worstKm,
+    contact: climb.contact,
+    minutes: climb.minutes,
+    lowestArrivalM,
+    arrivalM,
+    claimed,
+    shortfallM,
+    arrives: shortfallM <= 0,
+    issues,
+  };
+}

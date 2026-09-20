@@ -13,7 +13,7 @@
  * confirm nothing.
  */
 import { describe, expect, it } from "vitest";
-import { loadCorridor } from "./corridorProfile.js";
+import { loadCorridor } from "../../tools/corridor.ts";
 import { ORIGIN_X_M, ORIGIN_Y_M, projectAlbers } from "../../engine/src/terrain/worldGrid.js";
 
 const corridor = loadCorridor("dist-world/sea-to-sky");
