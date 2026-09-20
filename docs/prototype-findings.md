@@ -2317,3 +2317,119 @@ above it are the writing decisions on Expedition 1. Worth noting for phase 2:
 be a minute of HEADs and perhaps twenty of hashing, and the committed record
 grows to roughly 750 kB. Both fine; neither is fine if it is discovered
 during a build.
+
+## F28 — G1's twelve minutes end seventeen before the thing G1 is about
+
+With the provenance chain closed, the next item on the critical path into G1
+is the gate itself. `steepestRise` had already named the question, in its own
+docstring, and then nobody asked it:
+
+> the steepest sustained rise on a sampled profile — the wall, not a peak …
+> where it falls is the single fact that decides whether a route, **or a
+> twelve minute playtest session**, contains the thing the game is about.
+
+**It does not.** Expedition 1 crosses the wall at **minute 29.4 of 35.5**. The
+G1 protocol flies twelve.
+
+| G1 as written, twelve minutes from Shanghai | |
+| --- | --- |
+| reaches | km 600 of 2,931 |
+| climbs | 1,200 → 4,006 m |
+| ground below at the end | 69 m |
+| thinnest air | σ 0.67 |
+| crosses the wall | **no — 17.4 minutes short** |
+
+G1's second pass criterion is that *median boredom onset falls after the
+plateau edge rather than before*. The plateau edge is seventeen minutes past
+the end of the session, so **every participant's onset falls before it
+whatever they feel**. The criterion is not demanding, it is unpassable, and a
+gate scored on an event that cannot occur is the same failure as a check that
+silently skips — it returns a number, and the number is about nothing.
+
+**Why it reads as very nearly right.** The first criterion — *≥ 6 of 10 remark
+on the climb, the thin air or the plane going heavy* — is served by exactly
+the session that makes the second impossible. Twelve minutes contains 2,806 m
+of climb and takes the air to σ 0.67, which is past the threshold at which the
+HUD itself starts calling it thin. So the protocol is not measuring nothing.
+It is measuring the first half of a two-part claim and scoring it as though
+both halves were present. What that session has no answer for is *why* — F19
+already measured the ground underneath it, and nothing within sight of the
+aircraft explains a climb to 4,000 m over farmland 69 m above the sea. The
+thing that explains it arrives at minute 29.4.
+
+**The climb and the wall are in different twelve-minute sessions.** The
+earliest twelve-minute session that reaches the wall starts at km 900 — and by
+then the player begins at 4,747 m, already most of the way up. There is no
+twelve-minute window of this route containing both.
+
+| session length | earliest start containing the wall | starts at | wall at minute |
+| ---: | ---: | ---: | ---: |
+| 12 min | km 900 | 4,747 m | 11.8 |
+| 20 min | km 475 | 3,602 m | 19.8 |
+| 30 min | km 0 | 1,200 m | 29.4 |
+
+Thirty minutes from the start is the first session that holds the whole
+argument, and thirty minutes from the start is G2's session, not G1's.
+
+**The third criterion is weakened, not broken, and the difference is
+measured.** *One drama setting wins the preference ranking clearly* asks a
+cohort to rank `A` ∈ {4, 6, 9}, and `A` multiplies relief. The eastern window
+turned out less flat than it looks on a map:
+
+| | biggest shape per 50 km | apparent at A=4 | at A=9 | spread |
+| --- | ---: | ---: | ---: | ---: |
+| G1's twelve minutes | 1,094 m | 547 m | 1,230 m | 683 m |
+| across the wall | 2,804 m | 1,402 m | 3,155 m | 1,753 m |
+
+So the comparison is real in the eastern window and **2.6 times weaker** than
+it would be across the wall. That is a worse instrument, not a broken one —
+unlike F15's compression candidates, which were the same flight frame for
+frame. Worth saying plainly because the expectation going in was that the
+eastern plain would be flat enough to make the ranking noise, and it is not.
+
+**A session is flown, not sliced.** The obvious implementation — cut the
+expedition's track at twelve minutes — is wrong in a way that matters for
+every remedy below. A player dropped in partway starts at whatever altitude
+the operator sets, and 1,200 m in front of the Hengduan is not a shorter
+Expedition 1, it is a crash. So `session()` flies `routeFrom` over
+`groundFrom` and defaults the start to the altitude the full expedition would
+have there, which is what makes the result a *sample* of the expedition. The
+suite asserts the crash case, because a protocol needs to know that before a
+cohort is booked rather than after.
+
+**And minutes cannot be converted to kilometres by arithmetic.** True airspeed
+rises as the air thins, so twelve minutes from km 1,375 covers more than twice
+the ground that twelve minutes from Shanghai does. `TrackSample` now carries
+seconds — interpolated by the integrator that already had them, alongside the
+altitude it was already interpolating — because a narration beat, an ETA and a
+gate protocol are all scheduled in time and the track only ever spoke
+distance.
+
+**One unplanned corroboration.** `steepestRise` is handed a bare profile and
+no hint about where to look. It puts the wall at km 1,760–1,860, rising
+3,669 m at **36.7 m/km**. F17 measured that gradient by hand, from the other
+direction — the climb rate the aircraft would need at cruise — and called it
+37 m per kilometre. Two independent routes to one landform, and the suite now
+pins them to each other.
+
+| | F27 | F28 |
+| --- | ---: | ---: |
+| TypeScript tests | 311 | 319 |
+| running on a fresh checkout | 303 | 311 |
+| Python tests | 59 | 59 |
+
+**Built.** `tools/session.ts` (`session`, `startsContainingRim`, `trackOf`),
+`tools/sessionPlan.ts` and `npm run content:sessions`, `TrackSample.seconds`,
+and `test/route/session.test.ts` — eight tests, all of them running without a
+world, because a protocol has to be arguable about from anywhere.
+
+**Action.** Which twelve minutes G1 flies is a protocol decision and it is
+recorded in *Open questions* with four remedies priced: lengthen the session
+to thirty minutes (90 minutes of flying per participant against the current
+36), run two twelve-minute segments per drama setting (72 minutes, and a
+cohort that sees the reveal without earning it), move the boredom criterion to
+G2 (free, and G2 already flies the whole expedition), or move Expedition 1's
+climb, which is the writing decision already open. Recruiting the cohort is
+blocked on it: thirty-six minutes and ninety minutes are different
+recruitment problems. The same question now has to be asked of G2 and of every
+expedition after it, which is why the tool is committed and not the answer.

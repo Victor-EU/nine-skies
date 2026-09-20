@@ -88,6 +88,17 @@ export interface TrackSample {
   readonly km: number;
   readonly altitudeM: number;
   readonly clearanceM: number;
+  /**
+   * Seconds of flying to reach this kilometre.
+   *
+   * Carried because "how long until the aircraft is here" is a different
+   * question from "how far along is it", and nominal speed cannot answer it:
+   * true airspeed rises as the air thins, so the back half of a climbing
+   * route goes past far faster than its length suggests. Anything that
+   * schedules against position rather than distance needs this - a narration
+   * beat, an ETA, and the playtest protocols, which are written in minutes.
+   */
+  readonly seconds: number;
 }
 
 export interface RouteFlight {
@@ -556,7 +567,10 @@ export function flyRoute(
         worstKm = k;
       }
       if (track && k > recordedKm) {
-        samples.push({ km: k, altitudeM, clearanceM });
+        // `seconds` has already been advanced to the end of this step, so the
+        // time at a kilometre inside it interpolates back across the same
+        // fraction the altitude does.
+        samples.push({ km: k, altitudeM, clearanceM, seconds: seconds - dt + dt * t });
         recordedKm = k;
       }
       if (clearanceM <= 0 && contact === null) {

@@ -9,6 +9,7 @@
 #   make cut-key                    # generate this machine's cutting key
 #   make reference                  # re-cut the projection reference table
 #   make routes                     # every expedition flown over the world
+#   make sessions                   # what a playtest session of N minutes contains
 #   make test                       # every suite, TypeScript and Python
 #
 # Source rasters land in data/source/ and intermediates in data/work/, both
@@ -20,7 +21,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles probes sources sections cut-key reference routes test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles probes sources sections cut-key reference routes sessions test test-ts test-py typecheck dev clean-work help
 
 help:
 	@sed -n '1,10p' Makefile | sed 's/^# \{0,1\}//'
@@ -81,6 +82,13 @@ world: acquire sources grid tiles probes sections
 ## what makes it the same check here and in CI.
 routes:
 	npm run content:validate
+
+## What a cohort actually flies. MINUTES=12 is the G1 protocol; G2 flies the
+## whole expedition. Reads the committed sections, so it needs no world and
+## the answer is the same everywhere (D17, F28).
+MINUTES ?= 12
+sessions:
+	npm run content:sessions -- $(MINUTES)
 
 typecheck:
 	npm run typecheck

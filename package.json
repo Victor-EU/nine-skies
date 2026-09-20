@@ -19,6 +19,7 @@
     "content:validate": "vite-node content/validate.ts",
     "content:sections": "vite-node tools/cutSections.ts",
     "content:cut-key": "vite-node tools/cutKey.ts",
+    "content:sessions": "vite-node tools/sessionPlan.ts",
     "check": "npm run typecheck && npm test && npm run content:validate"
   },
   "devDependencies": {
