@@ -4,6 +4,7 @@
 #   make world                      # the phase 0 corridor, end to end
 #   make world CORRIDOR=china       # the full country (phase 2, ~70 GB)
 #   make probes                     # golden probes against what is built
+#   make sections                   # re-cut the committed route sections
 #   make routes                     # every expedition flown over the world
 #   make test                       # every suite, TypeScript and Python
 #
@@ -16,7 +17,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles probes routes test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles probes sections routes test test-ts test-py typecheck dev clean-work help
 
 help:
 	@sed -n '1,10p' Makefile | sed 's/^# \{0,1\}//'
@@ -44,14 +45,20 @@ probes: $(PY)
 	$(PIPELINE) -m nineskies.probe --corridor $(CORRIDOR) \
 		--report docs/probe-report.md
 
-world: acquire grid tiles probes
+## Stage 6 -- cut the committed route sections out of what was built (D21).
+## Part of `world` rather than a thing to remember, because a corridor rebuild
+## that leaves the sections behind is exactly the drift the gate then reports.
+sections:
+	npm run content:sections
+
+world: acquire grid tiles probes sections
 	@echo "world built: $(WORLD_OUT)"
 
-## The other gate: every authored route flown over the world that was built.
-## `--require-world` because a local machine has one, so a skip here is a
-## build that did not happen rather than a CI environment that cannot.
+## The other gate: every authored route flown over real ground. Needs no flag
+## and no world -- the ground is committed in content/sections/ -- which is
+## what makes it the same check here and in CI.
 routes:
-	npm run content:validate -- --require-world
+	npm run content:validate
 
 typecheck:
 	npm run typecheck

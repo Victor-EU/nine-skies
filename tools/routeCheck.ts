@@ -1,6 +1,6 @@
 /**
- * Fly every authored expedition over the built world and report what is
- * wrong with it (D17, D19).
+ * Fly every authored expedition over real ground and report what is wrong
+ * with it (D17, D19).
  *
  * This is the half of content validation a parser cannot do. `validate.ts`
  * checks that a route is well-formed: waypoints in China, legs long enough to
@@ -9,25 +9,31 @@
  * from any altitude until thirty-one kilometres out (F21). Those are
  * properties of the route *and the ground*, so the check needs the ground.
  *
- * It needs a built corridor, which CI does not have. That is why the result
- * distinguishes "checked and fine" from "not checked": a gate that silently
- * passes when it cannot run is worse than no gate, because it is the same
- * green tick.
+ * It gets it from one of two places. A machine that has built a world reads
+ * the world, which is authoritative and also re-checks the committed section
+ * against it. A machine that has not - CI, a writer's laptop, a fresh clone -
+ * reads the section, which is the same ground cut to this route and committed
+ * beside it (D21). Only an expedition with neither is unchecked, and that is
+ * reported as a failure rather than a pass: a gate that silently passes when
+ * it cannot run is worse than no gate, because it is the same green tick.
  */
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { validateRoute, type RouteCheck } from "../engine/src/sim/route.ts";
 import { EXPEDITION_RULES, type Expedition } from "../content/schema.ts";
-import { loadCorridor, type Corridor } from "./corridor.ts";
-import { flyable } from "./expedition.ts";
+import { corridorCache } from "./corridor.ts";
+import { flyableFrom } from "./expedition.ts";
+import { resolveGround, type GroundSource } from "./ground.ts";
 
 export interface RouteReport {
   readonly expedition: string;
-  /** Null when this expedition had no world to fly over, which is not a pass. */
+  /** Null when this expedition had no ground to fly over, which is not a pass. */
   readonly check: RouteCheck | null;
   /** True when the file authored an arrival, so the numbers are a claim. */
   readonly authored: boolean;
+  readonly source: GroundSource | null;
   readonly corridor: string | null;
+  /** Why the committed section cannot stand for this route, if it cannot. */
+  readonly sectionIssue: string | null;
   readonly skipReason: string | null;
 }
 
@@ -58,54 +64,23 @@ function optionsFor(e: Expedition): FlyOptions {
   };
 }
 
-/**
- * Which built world an expedition can be flown over.
- *
- * Its own corridor first, then the full country, because phase 0 builds one
- * corridor per expedition and phase 2 builds `china` and serves all nine from
- * it. Checked in that order rather than the other way round so that a
- * corridor rebuilt for the route being edited is the one the check reads.
- */
-const CORRIDOR_FALLBACK = "china";
-
-function corridorNamesFor(e: Expedition): string[] {
-  return [e.id, CORRIDOR_FALLBACK];
-}
-
 export function checkRoutes(
   expeditions: readonly Expedition[],
   worldRoot: string,
+  sectionRoot: string,
 ): readonly RouteReport[] {
-  // Nine expeditions over one country grid would otherwise read the same
-  // heightfield nine times, and at phase 2 that is ~70 GB of it.
-  const loaded = new Map<string, Corridor | null>();
-  const corridorNamed = (name: string): Corridor | null => {
-    if (!loaded.has(name)) {
-      const dir = join(worldRoot, name);
-      loaded.set(name, existsSync(join(dir, "manifest.json")) ? loadCorridor(dir) : null);
-    }
-    return loaded.get(name) ?? null;
-  };
-
+  const open = corridorCache(worldRoot);
   const reports: RouteReport[] = [];
+
   for (const e of expeditions) {
-    const options = optionsFor(e);
     const authored = e.arrival !== undefined;
-    const name = corridorNamesFor(e).find((n) => corridorNamed(n) !== null);
-    const corridor = name ? corridorNamed(name) : null;
-    if (!corridor || !name) {
-      reports.push({
-        expedition: e.id,
-        authored,
-        check: null,
-        corridor: null,
-        skipReason:
-          `no world to fly it over; run \`make world CORRIDOR=${e.id}\` ` +
-          `(looked for ${corridorNamesFor(e).join(", ")} under ${worldRoot})`,
-      });
+    const ground = resolveGround(e, worldRoot, sectionRoot, open);
+    const { groundM, source, corridor, sectionIssue, skipReason } = ground;
+    if (!groundM) {
+      reports.push({ expedition: e.id, authored, check: null, source, corridor, sectionIssue, skipReason });
       continue;
     }
-    const { route, ground } = flyable(e, corridor);
+    const { route, ground: profile } = flyableFrom(e, groundM);
     // The stride the corridor suite settled on. A sampled floor is concave,
     // so chords sag under it, and at the end of a route - where the floor
     // falls faster than any chord can follow - 100 km puts the floor 150 m
@@ -113,9 +88,11 @@ export function checkRoutes(
     reports.push({
       expedition: e.id,
       authored,
-      corridor: name,
+      source,
+      corridor,
+      sectionIssue,
       skipReason: null,
-      check: validateRoute(route, ground, { ...options, strideKm: 25, toleranceM: 5 }),
+      check: validateRoute(route, profile, { ...optionsFor(e), strideKm: 25, toleranceM: 5 }),
     });
   }
   return reports;
@@ -123,17 +100,29 @@ export function checkRoutes(
 
 /** One line per finding, in the terms the author can act on. */
 export function describe(report: RouteReport): string[] {
+  const lines: string[] = [];
+  if (report.sectionIssue)
+    lines.push(`  ✗ ${report.expedition} · section: ${report.sectionIssue}`);
+
   const { check } = report;
-  if (!check) return [`  ⚠ ${report.expedition} NOT CHECKED — ${report.skipReason}`];
-  if (check.issues.length > 0)
-    return check.issues.map((i) => `  ✗ ${report.expedition} · ${i.check}: ${i.message}`);
+  if (!check) {
+    lines.push(`  ⚠ ${report.expedition} NOT CHECKED — ${report.skipReason}`);
+    return lines;
+  }
+  if (check.issues.length > 0) {
+    for (const i of check.issues)
+      lines.push(`  ✗ ${report.expedition} · ${i.check}: ${i.message}`);
+    return lines;
+  }
+
   const arrival = report.authored
     ? `arrives ${check.lowestArrivalM.toFixed(0)} m up against an authored ${check.arrivalM.toFixed(0)}`
     : `lowest arrival ${check.lowestArrivalM.toFixed(0)} m over it · NO ARRIVAL AUTHORED`;
-  const lines = [
-    `  ✓ ${report.expedition} over ${report.corridor} · ${check.minutes.toFixed(1)} min · ` +
-      `clears by ${check.worstClearanceM.toFixed(0)} m at ${check.worstKm.toFixed(0)} km · ${arrival}`,
-  ];
+  lines.push(
+    `  ✓ ${report.expedition} over ${report.corridor} (${report.source}) · ` +
+      `${check.minutes.toFixed(1)} min · clears by ${check.worstClearanceM.toFixed(0)} m ` +
+      `at ${check.worstKm.toFixed(0)} km · ${arrival}`,
+  );
   // What a route that lands actually paid for it. Only worth a line when the
   // approach taper released margin, which is when the arrival is below the
   // clearance the rest of the route keeps (D20).
@@ -143,4 +132,9 @@ export function describe(report: RouteReport): string[] {
         `${check.approachMarginM.toFixed(0)} m over terrain at its closest`,
     );
   return lines;
+}
+
+/** Where sections live, relative to the content directory. */
+export function sectionsDir(contentDir: string): string {
+  return join(contentDir, "sections");
 }

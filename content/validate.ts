@@ -15,7 +15,8 @@ import {
   type Card,
   type Expedition,
 } from "./schema.ts";
-import { checkRoutes, describe } from "../tools/routeCheck.ts";
+import { checkRoutes, describe, sectionsDir } from "../tools/routeCheck.ts";
+import { loadExpeditions } from "../tools/expedition.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cardsDir = join(here, "cards");
@@ -23,11 +24,7 @@ const cardsDir = join(here, "cards");
 const files = readdirSync(cardsDir).filter((f) => f.endsWith(".yaml"));
 const cards: Card[] = files.map((f) => parse(readFileSync(join(cardsDir, f), "utf8")) as Card);
 
-const expeditionsDir = join(here, "expeditions");
-const expeditionFiles = readdirSync(expeditionsDir).filter((f) => f.endsWith(".yaml"));
-const expeditions: Expedition[] = expeditionFiles.map(
-  (f) => parse(readFileSync(join(expeditionsDir, f), "utf8")) as Expedition,
-);
+const expeditions: Expedition[] = loadExpeditions(join(here, "expeditions"));
 
 const issues = [...validateCards(cards), ...validateExpeditions(expeditions)];
 
@@ -41,29 +38,46 @@ if (issues.length > 0) {
 // The half a parser cannot do (D19). A route is well-formed above and
 // flyable here, and the second is the one that has ever been wrong: every
 // route in this repo has passed the schema since the day it was written, and
-// all three findings against Expedition 1 are things the schema cannot see.
+// all four findings against Expedition 1 are things the schema cannot see.
 //
-// Needs a built world and says so rather than passing when it has none, per
+// This runs everywhere, because the ground it needs is committed beside the
+// route (D21). An expedition it cannot check is an error, not a warning, per
 // the risk register: "or is skipped because no corridor is built" is listed
-// as a way this check fails, not as a way it succeeds. `--require-world`
-// turns the warning into an error, which is what G2 will run.
-const routes = checkRoutes(expeditions, join(here, "..", "dist-world"));
-const requireWorld = process.argv.includes("--require-world");
+// as a way this check fails rather than as a way it succeeds. The one escape
+// is `--allow-unchecked`, for drafting a route on a machine with no world -
+// it is in no Makefile target and in no CI step, and it cannot hide a route
+// that was checked and found wrong.
+const routes = checkRoutes(expeditions, join(here, "..", "dist-world"), sectionsDir(here));
+const allowUnchecked = process.argv.includes("--allow-unchecked");
 
 console.log("");
 for (const r of routes) for (const l of describe(r)) console.log(l);
 
 const brokenIssues = routes.reduce((n, r) => n + (r.check?.issues.length ?? 0), 0);
+const staleSections = routes.filter((r) => r.sectionIssue !== null);
 const unchecked = routes.filter((r) => r.check === null);
+let failed = false;
 
 if (brokenIssues > 0) {
   const broken = routes.filter((r) => (r.check?.issues.length ?? 0) > 0).length;
   console.error(`\n${brokenIssues} route issue(s) across ${broken} expedition(s).`);
-  console.error("A route is not data until an autopilot has flown it (D17, D19).\n");
-  process.exit(1);
+  console.error("A route is not data until an autopilot has flown it (D17, D19).");
+  failed = true;
 }
-if (unchecked.length > 0 && requireWorld) {
-  console.error(`\n${unchecked.length} expedition(s) were never flown, and --require-world is set.\n`);
+if (staleSections.length > 0) {
+  console.error(
+    `\n${staleSections.length} committed section(s) no longer describe their route.`,
+  );
+  console.error("Re-cut them with `npm run content:sections` on a machine with a world.");
+  failed = true;
+}
+if (unchecked.length > 0 && !allowUnchecked) {
+  console.error(`\n${unchecked.length} expedition(s) have no ground to be flown over.`);
+  console.error("Pass --allow-unchecked to draft one anyway; CI does not.");
+  failed = true;
+}
+if (failed) {
+  console.error("");
   process.exit(1);
 }
 

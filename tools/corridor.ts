@@ -20,16 +20,26 @@ const TILE_CELLS = TILE_SAMPLES - 1;
 
 export interface CorridorManifest {
   readonly corridor: string;
+  readonly resolutionM: number;
   readonly window: { tx0: number; ty0: number; tx1: number; ty1: number };
   readonly anchors: Record<string, { lat: number; lon: number; eastM: number; northM: number }>;
   readonly start: { eastM: number; northM: number; altitudeM: number; headingRad: number };
-  readonly heights: { tiles: number };
+  readonly heights: { tiles: number; sha256: string };
 }
 
 export interface Corridor {
   readonly manifest: CorridorManifest;
   /** Bilinear ground elevation in real metres, from the country origin. */
   groundAt(eastM: number, northM: number): number;
+  /**
+   * Whether this build has tiles under a point at all.
+   *
+   * `groundAt` answers 0 outside the built window, which is indistinguishable
+   * from the East China Sea. A corridor is a strip, so a route that leaves it
+   * reads as a flight over calm water and clears everything -- the worst
+   * possible failure for a gate, because it is silent and it is green.
+   */
+  covers(eastM: number, northM: number): boolean;
 }
 
 export function loadCorridor(dir: string): Corridor | null {
@@ -45,11 +55,17 @@ export function loadCorridor(dir: string): Corridor | null {
     bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
   );
 
-  // Tile-row-major, ty ascending then tx ascending; j runs south to north.
-  const sampleAt = (ci: number, cj: number): number => {
+  const inWindow = (ci: number, cj: number): boolean => {
     const tx = Math.floor(ci / TILE_CELLS);
     const ty = Math.floor(cj / TILE_CELLS);
-    if (tx < tx0 || tx >= tx1 || ty < ty0 || ty >= ty1) return 0;
+    return tx >= tx0 && tx < tx1 && ty >= ty0 && ty < ty1;
+  };
+
+  // Tile-row-major, ty ascending then tx ascending; j runs south to north.
+  const sampleAt = (ci: number, cj: number): number => {
+    if (!inWindow(ci, cj)) return 0;
+    const tx = Math.floor(ci / TILE_CELLS);
+    const ty = Math.floor(cj / TILE_CELLS);
     const tile = (ty - ty0) * tilesX + (tx - tx0);
     const i = ci - tx * TILE_CELLS;
     const j = cj - ty * TILE_CELLS;
@@ -58,6 +74,14 @@ export function loadCorridor(dir: string): Corridor | null {
 
   return {
     manifest,
+    // The window is a rectangle in tile space and the tile index rises with
+    // the cell index, so the two opposite corners of the bilinear stencil
+    // decide all four.
+    covers(eastM, northM) {
+      const i0 = Math.floor(eastM / 1000);
+      const j0 = Math.floor(northM / 1000);
+      return inWindow(i0, j0) && inWindow(i0 + 1, j0 + 1);
+    },
     groundAt(eastM, northM) {
       const ex = eastM / 1000;
       const ny = northM / 1000;
@@ -75,31 +99,45 @@ export function loadCorridor(dir: string): Corridor | null {
   };
 }
 
+/**
+ * Open corridors by name under a world root, at most once each.
+ *
+ * Nine expeditions over one country grid would otherwise read the same
+ * heightfield nine times, and at phase 2 that is ~70 GB of it.
+ */
+export function corridorCache(worldRoot: string): (name: string) => Corridor | null {
+  const loaded = new Map<string, Corridor | null>();
+  return (name) => {
+    if (!loaded.has(name)) loaded.set(name, loadCorridor(join(worldRoot, name)));
+    return loaded.get(name) ?? null;
+  };
+}
+
 export interface Waypoint {
   readonly eastM: number;
   readonly northM: number;
 }
 
-export interface ProfiledRoute {
-  /** Ground elevation at one-kilometre intervals from the start. */
-  readonly profileM: number[];
+export interface RouteMetrics {
   /** Distance from the start at which each leg ends, km. */
   readonly legEndKm: number[];
   readonly lengthKm: number;
 }
 
+export interface ProfiledRoute extends RouteMetrics {
+  /** Ground elevation at one-kilometre intervals from the start. */
+  readonly profileM: number[];
+}
+
 /**
- * Sample the ground under a polyline, one kilometre at a time.
+ * Leg lengths from the projected waypoints alone.
  *
- * Indexed by absolute distance from the start rather than per leg, because
- * rounding each leg separately lets the profile drift a kilometre per corner
- * away from the distance the flight is measuring against - six corners into
- * Sea to Sky that is enough to read the wrong side of a ridge.
+ * Split out from the sampling below because it is the half of a route a
+ * machine with no built world can still work out for itself, and that is
+ * exactly what lets a committed section be checked against the route it was
+ * cut from: the ground has to be read off disk, the geometry does not.
  */
-export function profileAlong(
-  corridor: Corridor,
-  waypoints: readonly Waypoint[],
-): ProfiledRoute {
+export function measureAlong(waypoints: readonly Waypoint[]): RouteMetrics {
   const legEndKm: number[] = [];
   let lengthKm = 0;
   for (let w = 0; w + 1 < waypoints.length; w++) {
@@ -108,22 +146,60 @@ export function profileAlong(
     lengthKm += Math.hypot(to.eastM - from.eastM, to.northM - from.northM) / 1000;
     legEndKm.push(lengthKm);
   }
+  return { legEndKm, lengthKm };
+}
 
-  const profileM: number[] = [];
+/**
+ * The point a given distance along the polyline.
+ *
+ * Indexed by absolute distance from the start rather than per leg, because
+ * rounding each leg separately lets the profile drift a kilometre per corner
+ * away from the distance the flight is measuring against - six corners into
+ * Sea to Sky that is enough to read the wrong side of a ridge.
+ */
+export function pointAtKm(
+  waypoints: readonly Waypoint[],
+  metrics: RouteMetrics,
+  km: number,
+): Waypoint {
+  const { legEndKm } = metrics;
   let leg = 0;
-  for (let km = 0; km <= Math.ceil(lengthKm); km++) {
-    while (leg + 1 < legEndKm.length && km > legEndKm[leg]!) leg++;
-    const from = waypoints[leg]!;
-    const to = waypoints[leg + 1]!;
-    const legStartKm = leg === 0 ? 0 : legEndKm[leg - 1]!;
-    const legKm = legEndKm[leg]! - legStartKm;
-    const t = Math.min(1, (km - legStartKm) / legKm);
-    profileM.push(
-      corridor.groundAt(
-        from.eastM + (to.eastM - from.eastM) * t,
-        from.northM + (to.northM - from.northM) * t,
-      ),
-    );
-  }
-  return { profileM, legEndKm, lengthKm };
+  while (leg + 1 < legEndKm.length && km > legEndKm[leg]!) leg++;
+  const from = waypoints[leg]!;
+  const to = waypoints[leg + 1]!;
+  const legStartKm = leg === 0 ? 0 : legEndKm[leg - 1]!;
+  const t = Math.min(1, (km - legStartKm) / (legEndKm[leg]! - legStartKm));
+  return {
+    eastM: from.eastM + (to.eastM - from.eastM) * t,
+    northM: from.northM + (to.northM - from.northM) * t,
+  };
+}
+
+/** Every kilometre station on a route, from 0 to its rounded-up length. */
+export function stationsAlong(waypoints: readonly Waypoint[]): Waypoint[] {
+  const metrics = measureAlong(waypoints);
+  const stations: Waypoint[] = [];
+  for (let km = 0; km <= Math.ceil(metrics.lengthKm); km++)
+    stations.push(pointAtKm(waypoints, metrics, km));
+  return stations;
+}
+
+/** Sample the ground under a polyline, one kilometre at a time. */
+export function profileAlong(
+  corridor: Corridor,
+  waypoints: readonly Waypoint[],
+): ProfiledRoute {
+  const metrics = measureAlong(waypoints);
+  return {
+    ...metrics,
+    profileM: stationsAlong(waypoints).map((p) => corridor.groundAt(p.eastM, p.northM)),
+  };
+}
+
+/** The first kilometre station this corridor has no tiles under, or -1. */
+export function firstUncoveredKm(
+  corridor: Corridor,
+  waypoints: readonly Waypoint[],
+): number {
+  return stationsAlong(waypoints).findIndex((p) => !corridor.covers(p.eastM, p.northM));
 }

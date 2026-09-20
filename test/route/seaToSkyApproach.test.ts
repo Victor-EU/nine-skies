@@ -8,11 +8,12 @@
  * route that ends at a city in a valley behind a wall, that is the half with
  * the answer in it.
  *
- * Skips without a built corridor, like its neighbours.
+ * Runs everywhere: the ground under this route is committed beside it
+ * (D21), so the findings below are checked on every commit rather than
+ * only on a machine with the rasters.
  */
 import { describe, expect, it } from "vitest";
-import { loadCorridor, type Corridor } from "../../tools/corridor.ts";
-import { flyable, loadExpedition, type FlyableExpedition } from "../../tools/expedition.ts";
+import { hasGround, sea } from "./fixture.ts";
 import {
   approachBand,
   arrivalCeilingM,
@@ -27,19 +28,6 @@ import {
 } from "../../engine/src/sim/route.js";
 import { MAX_DESCENT_MS } from "../../engine/src/sim/aircraft.js";
 import { MODE_GROUND_KM_PER_MIN } from "../../engine/src/sim/scale.js";
-
-const corridor = loadCorridor("dist-world/sea-to-sky");
-
-let cached: FlyableExpedition | null = null;
-function sea(): FlyableExpedition {
-  if (cached === null) {
-    cached = flyable(
-      loadExpedition("content/expeditions/sea-to-sky.yaml"),
-      corridor as Corridor,
-    );
-  }
-  return cached;
-}
 
 /**
  * Twenty-five kilometres and ten of look-ahead, which is where the answer
@@ -69,7 +57,7 @@ function withApproach(route: Route, splitKm: number): Route {
   };
 }
 
-describe.skipIf(corridor === null)("Expedition 1 does not arrive at Lhasa", () => {
+describe.skipIf(!hasGround)("Expedition 1 does not arrive at Lhasa", () => {
   it("cannot be landed, and the lowest trajectory that exists is a mile up", () => {
     const { route, ground } = sea();
     const shortfallM = arrivalShortfallM(route, ground, { ...opts(), arrivalM: 0 });
@@ -162,7 +150,7 @@ describe.skipIf(corridor === null)("Expedition 1 does not arrive at Lhasa", () =
   });
 });
 
-describe.skipIf(corridor === null)("and none of the cheap fixes close it", () => {
+describe.skipIf(!hasGround)("and none of the cheap fixes close it", () => {
   it("a slow final leg buys half of it, wherever it is put", () => {
     const { route, ground } = sea();
     const shipped = arrivalShortfallM(route, ground, opts());

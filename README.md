@@ -46,15 +46,22 @@ shown.
 
 ```bash
 npm run check     # typecheck + tests + content validation
-make routes       # fly every authored route over the built world
-make test         # 279 TypeScript tests and 44 Python tests
+make routes       # fly every authored route over real ground
+make test         # 299 TypeScript tests and 44 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
 expedition is flown over the terrain it crosses and fails if the aircraft
-meets the ground (D17) or cannot descend onto its destination (D19). It needs
-a built world, and says `NOT CHECKED` rather than passing when there is none —
-CI has no corridor until G2, so the route half runs here.
+meets the ground (D17) or cannot descend onto its destination (D19).
+
+It needs no world. The ground under each route is committed beside it in
+`content/sections/` — 22 kB cut out of 9.8 MB of heightfield, one elevation
+per kilometre — so the same check runs on a fresh clone, in CI and on the
+machine with the rasters, and prints the same metres (D21). A section carries
+the waypoints it was cut from, so editing a route invalidates it and says
+which waypoint moved; a machine that does have a world re-cuts and compares.
+289 of the 299 TypeScript tests run without the world; the ten that do not are
+the ones whose subject is the world itself.
 
 ## Layout
 
@@ -63,12 +70,12 @@ CI has no corridor until G2, so the route half runs here.
 | `engine/src/sim` | Atmosphere, aircraft performance, arcade flight model, world scale |
 | `engine/src/terrain` | Shared grid, heightmap texture array, shaders, streaming, horizon impostor |
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes |
-| `content` | Card and expedition schema, and the validation gate |
+| `content` | Card and expedition schema, the committed route sections, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe |
-| `tools` | Node-only authoring tools: corridor reader, route check |
+| `tools` | Node-only authoring tools: corridor reader, route sections, route check |
 | `test` | Unit tests, including the golden reference tables |
 | `docs` | Running findings for each gate, and the golden probe report |
-| `Makefile` | `make world`, `make probes`, `make routes`, `make test` |
+| `Makefile` | `make world`, `make probes`, `make sections`, `make routes`, `make test` |
 
 ## The two things worth knowing before reading the code
 

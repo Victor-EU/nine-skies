@@ -9,11 +9,12 @@
  *
  * Almost nothing changes, and that is the finding.
  *
- * Skips without a built corridor, like its neighbours.
+ * Runs everywhere: the ground under this route is committed beside it
+ * (D21), so the findings below are checked on every commit rather than
+ * only on a machine with the rasters.
  */
 import { describe, expect, it } from "vitest";
-import { loadCorridor, type Corridor } from "../../tools/corridor.ts";
-import { flyable, loadExpedition, type FlyableExpedition } from "../../tools/expedition.ts";
+import { hasGround, sea } from "./fixture.ts";
 import {
   altitudeFloorM,
   climbFloor,
@@ -26,19 +27,6 @@ import {
   type GroundProfile,
 } from "../../engine/src/sim/route.js";
 import { MAX_DESCENT_MS } from "../../engine/src/sim/aircraft.js";
-
-const corridor = loadCorridor("dist-world/sea-to-sky");
-
-let cached: FlyableExpedition | null = null;
-function sea(): FlyableExpedition {
-  if (cached === null) {
-    cached = flyable(
-      loadExpedition("content/expeditions/sea-to-sky.yaml"),
-      corridor as Corridor,
-    );
-  }
-  return cached;
-}
 
 const floors = new Map<number, GroundProfile>();
 /**
@@ -62,7 +50,7 @@ function floorFor(clearanceM: number): GroundProfile {
 }
 const autopilot = (clearanceM: number): ClimbPolicy => followFloor(floorFor(clearanceM));
 
-describe.skipIf(corridor === null)("Sea to Sky, flown by an autopilot", () => {
+describe.skipIf(!hasGround)("Sea to Sky, flown by an autopilot", () => {
   it("keeps very nearly the clearance the floor was built with", () => {
     // 300 asked for, 271 delivered. Twelve metres of that is the controller
     // lagging a rising target and seventeen is the 100 km stride chording

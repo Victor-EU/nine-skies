@@ -1608,6 +1608,10 @@ either way.
 
 ## F22 — The route gate runs in CI, and the first thing it proves is that no route can land
 
+> **The title was half true for two findings.** The gate's *step* ran in CI
+> from this commit; the route half of it printed `NOT CHECKED`, because CI has
+> no corridor. F24 committed the ground and made the sentence true.
+
 F21 ended by saying D17's clearance check was half a check and that the other
 half should run at content validation rather than at G2. This is that build,
 and the half it added found something before it had finished being wired up.
@@ -1841,3 +1845,132 @@ files, 236 with 48 skipped on a fresh checkout.
 actually want. Expedition 1 still cannot, and after three findings trying, the
 remaining question about it has not moved an inch: it is a writing decision,
 it has a price, and the price is the same as it was.
+
+## F24 — The gate never needed the corridor, and whole metres would have moved its answer
+
+F22 wired both halves of the route check into content validation and F23 made
+a route able to land. Both shipped with the same hole in them, written down
+each time and left open each time: CI has no built world, so the half of the
+gate that flies printed `NOT CHECKED` and the job went green on the schema
+alone. The risk register lists "or is skipped because no corridor is built" as
+a way the clearance check *fails*. For two findings it was a way it passed.
+
+The recorded plan was to make the corridor a CI artefact at G2. That plan
+cannot work, and it is worth saying why before saying what replaced it. Sea to
+Sky's heightfield is 9.8 MB for one expedition; phase 2's country grid is
+~70 GB and serves all nine; both are built from 14 GB of source rasters that
+CI has no business downloading on every push. There is no version of "commit
+the corridor" that survives contact with the second expedition.
+
+### What the check actually reads
+
+It never asks the world a question with two dimensions in it. `profileAlong`
+turns the corridor into ground-at-a-distance-along-a-line before the first
+flight starts, and for Expedition 1 that is 2,932 numbers. Every finding from
+F17 to F23 — the 333 m of clearance, the 35.5 minutes, the 1,588 m arrival,
+the 223 m approach margin — is a function of those 2,932 numbers and nothing
+else in the 9.8 MB.
+
+So the artefact is the section: the ground under one authored route, cut from
+a built world and committed beside the route in `content/sections/`. It is
+22 kB, under a quarter of one per cent of the corridor, and it does not grow
+when the corridor does — a country grid nine expeditions wide still cuts nine
+sections of a few thousand numbers each.
+
+### What stops a committed derived file from rotting
+
+A generated file checked in next to its source is a liability unless it can be
+caught being stale, so most of the work is the catching. A section carries the
+waypoints it was cut from, and a route edited without a re-cut fails by name:
+
+```
+✗ sea-to-sky · section: waypoint 3 (chengdu) has moved to 30.66, 104.07
+  since the section was cut at 31.10, 104.07
+```
+
+It carries the leg lengths too, which any machine can recompute from the
+projection without a world, so a projection change is caught as well as a
+waypoint move. And it carries the SHA of the heightfield it was read out of,
+so the build behind it is nameable. On a machine that *does* have a world the
+gate re-cuts and compares, which is the one check CI cannot run for itself,
+and `make world` ends by re-cutting so the committed copy cannot silently fall
+behind a rebuild.
+
+What a section does not prove is that its numbers are real elevations. A
+hand-edited array passes every check above. That provenance belongs to the
+pipeline and its golden probes and has not moved.
+
+### The rounding, which is the part that was measured
+
+The obvious storage is whole metres: ground is ±0.5 m, the floor search has a
+5 m tolerance and the arrival verdict an 18 m one, so half a metre cannot
+reach a verdict. It can.
+
+| ground stored as | worst clearance | lowest arrival | file |
+| --- | ---: | ---: | ---: |
+| the corridor itself | 332.85 m | 1587.67 m | 9,760 kB |
+| whole metres | 332.47 m | 1584.47 m | 16.6 kB |
+| decimetres | 332.87 m | 1587.65 m | 22.0 kB |
+
+Half a metre of rounding moves the arrival by 3.2 m — **six times the
+perturbation that caused it** — because the floor search and the arrival
+bisection each compound it. It is still far inside the 18 m the verdict is
+allowed, so nothing would have failed. It would have printed 1,584 where this
+repository's own documentation says 1,588, on the machines that have no world,
+which is now all of them except one. Decimetres cost 5.4 kB and move it by
+14 mm, and every number CI prints is the number the author's machine printed.
+
+That is the whole argument for the extra decimal place, and it is the reason
+the precision was measured rather than picked.
+
+### A corridor reads sea level outside itself
+
+Found while writing the cutter. `loadCorridor` answers 0 for any sample
+outside its built window, which is indistinguishable from the East China Sea,
+and a corridor is a strip cut to one expedition. So a route that left its
+strip — a half-built corridor, a waypoint moved west, the `china` fallback
+before the country grid exists — flew over calm water and cleared everything
+with room to spare. The worst failure a gate can have: silent, and green.
+
+`covers()` answers whether there are tiles under a point at all. The cutter
+refuses to write a section whose route leaves the corridor, naming the
+kilometre it leaves at, and corridor selection now requires coverage rather
+than existence.
+
+### What it unlocked
+
+The suites that assert F17 to F23 to the metre were all gated on a built
+corridor, which meant the findings this repository is built on were defended
+on exactly one machine on earth. They take their ground from the same
+`resolveGround` the gate uses, so a suite and the gate cannot quote different
+metres, and the gate is now unskippable by default: an expedition with neither
+world nor section is an error, and `--allow-unchecked` exists for drafting,
+is in no Makefile target and in no CI step, and cannot hide a route that was
+checked and found wrong.
+
+| | before | after |
+| --- | ---: | ---: |
+| TypeScript tests | 284 | 299 |
+| running on a fresh checkout | 236 | 289 |
+| skipped without a world | 48 | 10 |
+
+The ten that remain are the ones whose subject *is* the world: six comparing a
+section against the corridor it came from, three checking `projectAlbers`
+against PROJ's own anchors in the manifest, and one flying the straight
+Shanghai–Lhasa line, which is deliberately not the authored route and so is
+not in any section.
+
+**Built.** `tools/section.ts` (cut, verify, drift, render), `tools/ground.ts`
+(one resolution shared by the gate and the suites), `tools/cutSections.ts`,
+`covers`/`firstUncoveredKm` on the corridor reader, `make sections` folded
+into `make world`, `--require-world` retired for a strict default, and
+`content/sections/sea-to-sky.json`. 299 TypeScript tests in 17 files, 289 of
+them on a fresh clone.
+
+**Action.** The route gate is no longer skippable, so the G2 item that asked
+for it is closed. Two things it did not do: CI still trusts that a section's
+numbers came from the pipeline rather than from a text editor — only a machine
+with a world can re-derive them — and `projectAlbers` is still checked against
+PROJ only where a manifest exists, which is the one dependency of the section
+format that the section cannot defend. Committing the anchor table would close
+that, and is a smaller job than it sounds.

@@ -15,11 +15,12 @@
  * floor - and it is the same quantity as "how long may the autopilot give the
  * stick back", because a player who is not climbing is spending it.
  *
- * Skips without a built corridor, like its neighbour.
+ * Runs everywhere: the ground under this route is committed beside it
+ * (D21), so the findings below are checked on every commit rather than
+ * only on a machine with the rasters.
  */
 import { describe, expect, it } from "vitest";
-import { loadCorridor, type Corridor } from "../../tools/corridor.ts";
-import { flyable, loadExpedition, type FlyableExpedition } from "../../tools/expedition.ts";
+import { hasGround, sea } from "./fixture.ts";
 import {
   altitudeFloorM,
   climbFloor,
@@ -35,21 +36,7 @@ import {
   climbRecoveryRatio,
 } from "../../engine/src/sim/aircraft.js";
 
-const corridor = loadCorridor("dist-world/sea-to-sky");
-
-let cached: FlyableExpedition | null = null;
-/** Lazy for the same reason as the clearance suite: `skipIf` still collects. */
-function sea(): FlyableExpedition {
-  if (cached === null) {
-    cached = flyable(
-      loadExpedition("content/expeditions/sea-to-sky.yaml"),
-      corridor as Corridor,
-    );
-  }
-  return cached;
-}
-
-describe.skipIf(corridor === null)("what Expedition 1 has left over", () => {
+describe.skipIf(!hasGround)("what Expedition 1 has left over", () => {
   it("arrives over Lhasa in the wrong place entirely", () => {
     const { route, ground } = sea();
     const flight = flyRoute(route, ground);
