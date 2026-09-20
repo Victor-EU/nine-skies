@@ -18,8 +18,17 @@
  *
  * This is also the seed of the expedition runner (workstream D): a route is a
  * polyline with a speed mode per leg, which is exactly what `flyRoute` walks.
+ *
+ * The second half of the file answers the question the clearance check cannot.
+ * `flyRoute` flies full up-elevator, which proves a route is *possible* and
+ * describes a flight nobody would take - thirty-five minutes of unbroken climb
+ * ending two kilometres above the destination. What a route actually has to
+ * offer is the gap between that and the minimum: `altitudeFloorM` is the
+ * lowest altitude from which the rest of the route still works, and the gap
+ * above it is, to the second, how long the autopilot may hand the stick back
+ * (F19).
  */
-import { LIGHT_PISTON, type AircraftSpec } from "./aircraft.js";
+import { ceilingM, LIGHT_PISTON, type AircraftSpec } from "./aircraft.js";
 import {
   STILL_AIR,
   createFlightState,
@@ -68,6 +77,13 @@ export interface Contact {
   readonly shortfallM: number;
 }
 
+/** Where the aircraft was, one sample per kilometre of route. */
+export interface TrackSample {
+  readonly km: number;
+  readonly altitudeM: number;
+  readonly clearanceM: number;
+}
+
 export interface RouteFlight {
   readonly minutes: number;
   /** Smallest gap between aircraft and ground up to where the flight ended. */
@@ -85,6 +101,35 @@ export interface RouteFlight {
    */
   readonly contact: Contact | null;
   readonly clears: boolean;
+  /** Empty unless `track` was asked for. One sample per kilometre flown. */
+  readonly track: readonly TrackSample[];
+}
+
+/**
+ * What the aircraft is asked to do at a moment of the flight: elevator, -1 to
+ * +1, the same number `step` takes. `FULL_CLIMB` is the reference policy and
+ * everything else is measured against it.
+ */
+export type ClimbPolicy = (km: number, seconds: number) => number;
+
+export const FULL_CLIMB: ClimbPolicy = () => 1;
+
+/**
+ * The player has the stick for `durationS` seconds, holding `pitch`.
+ *
+ * Level flight (the default) is the neutral model of a hand-off: not a
+ * mistake, not a stunt, just somebody looking out of the window. It is the
+ * floor of the damage rather than the ceiling - a player in a sightseeing
+ * game noses down, and `pitch` is there because that costs several times as
+ * much (F19).
+ */
+export function handOff(
+  startS: number,
+  durationS: number,
+  pitch = 0,
+): ClimbPolicy {
+  return (_km, seconds) =>
+    seconds >= startS && seconds < startS + durationS ? pitch : 1;
 }
 
 export interface FlyRouteOptions {
@@ -95,6 +140,13 @@ export interface FlyRouteOptions {
   readonly dt?: number;
   /** Everything but the ground elevation, which comes from the profile. */
   readonly env?: Environment;
+  /** Defaults to `FULL_CLIMB`, the policy the clearance guarantee is about. */
+  readonly policy?: ClimbPolicy;
+  /**
+   * Record a sample per kilometre. Off by default because the floor search
+   * flies a route some hundreds of times and wants none of them.
+   */
+  readonly track?: boolean;
 }
 
 /**
@@ -133,6 +185,8 @@ export function flyRoute(
     startAltitudeM = 1_200,
     dt = 1,
     env = STILL_AIR,
+    policy = FULL_CLIMB,
+    track = false,
   } = options;
 
   const lengthKm = routeLengthKm(route);
@@ -147,6 +201,11 @@ export function flyRoute(
   let worstClearanceM = Infinity;
   let worstKm = 0;
   let peakAltitudeM = startAltitudeM;
+  const samples: TrackSample[] = [];
+  // Steps overlap at kilometre boundaries (a step from 10.2 to 10.6 spans the
+  // same two integers as the step after it), which is harmless for a minimum
+  // and would duplicate every sample of a track.
+  let recordedKm = -1;
 
   // Cap the walk so a tuning regression fails rather than hangs. Six hours of
   // simulated flying is an order of magnitude past the longest expedition.
@@ -158,7 +217,7 @@ export function flyRoute(
     const beforeM = state.northM;
     step(
       state,
-      { pitch: 1, roll: 0, mode: modeAtKm(route, km) },
+      { pitch: policy(km, seconds), roll: 0, mode: modeAtKm(route, km) },
       noBounce,
       dt,
       spec,
@@ -185,6 +244,10 @@ export function flyRoute(
         worstClearanceM = clearanceM;
         worstKm = k;
       }
+      if (track && k > recordedKm) {
+        samples.push({ km: k, altitudeM, clearanceM });
+        recordedKm = k;
+      }
       if (clearanceM <= 0 && contact === null) {
         contact = { km: k, shortfallM: clearanceM };
       }
@@ -204,6 +267,7 @@ export function flyRoute(
     peakAltitudeM,
     contact,
     clears: contact === null,
+    track: samples,
   };
 }
 
@@ -279,4 +343,148 @@ export function steepestRise(
     riseM,
     gradientMPerKm: riseM / windowKm,
   };
+}
+
+/**
+ * The route from `fromKm` onward, renumbered so it starts at zero.
+ *
+ * Pair it with `groundFrom` and the remainder of a route is just another
+ * route, which is what lets the floor search below reuse `flyRoute` instead
+ * of reimplementing the integrator backwards.
+ */
+export function routeFrom(route: Route, fromKm: number): Route {
+  return {
+    name: route.name,
+    legs: route.legs
+      .filter((leg) => leg.endKm > fromKm)
+      .map((leg) => ({ ...leg, endKm: leg.endKm - fromKm })),
+  };
+}
+
+export function groundFrom(ground: GroundProfile, fromKm: number): GroundProfile {
+  return (km) => ground(km + fromKm);
+}
+
+/**
+ * The lowest altitude at `km` from which the rest of the route still clears.
+ *
+ * This is the number the aircraft is really flying against, and it is not the
+ * ground. Eight hundred kilometres inland the Sea to Sky floor is 3,588 m
+ * over farmland 32 m above the sea: nothing within sight of the aircraft
+ * explains it, and it is binding all the same, because the wall is fourteen
+ * hundred kilometres ahead and the climb that clears it has to be bought
+ * here (F19).
+ *
+ * Bisected on the sim itself rather than derived, because the thing being
+ * asked about - climb rate falling with density, true airspeed rising with
+ * altitude, boost quietly lapsing - is the integrator's behaviour and not a
+ * formula anyone should write twice. Returns `Infinity` when no altitude at
+ * or below `maxM` saves the route.
+ */
+export interface FloorOptions extends FlyRouteOptions {
+  /**
+   * Highest altitude worth searching. Defaults to the *service* ceiling - the
+   * altitude where climb falls below half a metre a second - rather than the
+   * absolute one, because a floor up in that last 550 m is a floor the
+   * aircraft reaches by not climbing, which no route can be planned around.
+   */
+  readonly maxM?: number;
+  /** Bisection stops here. Metres. */
+  readonly toleranceM?: number;
+}
+
+export function altitudeFloorM(
+  route: Route,
+  ground: GroundProfile,
+  km: number,
+  options: FloorOptions = {},
+): number {
+  const { maxM = ceilingM(options.spec ?? LIGHT_PISTON), toleranceM = 1 } = options;
+  const rest = routeFrom(route, km);
+  const restGround = groundFrom(ground, km);
+  const clearsFrom = (altitudeM: number): boolean =>
+    flyRoute(rest, restGround, { ...options, startAltitudeM: altitudeM }).clears;
+
+  if (!clearsFrom(maxM)) return Infinity;
+  let low = Math.min(ground(km), maxM);
+  if (clearsFrom(low)) return low;
+  let high = maxM;
+  while (high - low > toleranceM) {
+    const mid = (low + high) / 2;
+    if (clearsFrom(mid)) high = mid;
+    else low = mid;
+  }
+  return high;
+}
+
+export interface FloorSample {
+  readonly km: number;
+  readonly groundM: number;
+  readonly floorM: number;
+}
+
+/**
+ * The floor sampled along a route: the climb path the route demands.
+ *
+ * A route's altitude plan, in other words, and the thing an expedition ought
+ * to ship beside its speed profile. The autopilot flies floor plus a chosen
+ * margin, and that margin is not decoration - it is exactly how long the
+ * player may hold the stick (F19).
+ */
+export function climbFloor(
+  route: Route,
+  ground: GroundProfile,
+  options: FloorOptions & { readonly strideKm?: number } = {},
+): readonly FloorSample[] {
+  const { strideKm = 50 } = options;
+  const lengthKm = routeLengthKm(route);
+  const out: FloorSample[] = [];
+  for (let km = 0; km < lengthKm; km += strideKm) {
+    out.push({ km, groundM: ground(km), floorM: altitudeFloorM(route, ground, km, options) });
+  }
+  return out;
+}
+
+/**
+ * The longest the player can hold `pitch` anywhere on the route and still
+ * arrive, in seconds.
+ *
+ * Scanned rather than solved. The worst moment to take the controls is not
+ * obvious and is not the start: an early loss is repaid by the climb rate the
+ * aircraft has down low, and a late one is not, so the binding hand-off is
+ * the last one before the route's tightest point (F19).
+ */
+export function longestHoldS(
+  route: Route,
+  ground: GroundProfile,
+  pitch = 0,
+  options: FlyRouteOptions & {
+    /** How finely start times are scanned. Seconds. */
+    readonly probeS?: number;
+    /** Longest hold worth considering. Seconds. */
+    readonly maxS?: number;
+  } = {},
+): number {
+  const { probeS = 15, maxS = 3_600 } = options;
+  const reference = flyRoute(route, ground, options);
+  if (!reference.clears) return 0;
+  const totalS = Math.ceil(reference.minutes * 60);
+
+  const survivesAnywhere = (durationS: number): boolean => {
+    for (let start = 0; start + durationS <= totalS; start += probeS) {
+      const policy = handOff(start, durationS, pitch);
+      if (!flyRoute(route, ground, { ...options, policy }).clears) return false;
+    }
+    return true;
+  };
+
+  let low = 0;
+  let high = Math.min(maxS, totalS);
+  if (survivesAnywhere(high)) return high;
+  while (high - low > 1) {
+    const mid = Math.round((low + high) / 2);
+    if (survivesAnywhere(mid)) low = mid;
+    else high = mid;
+  }
+  return low;
 }

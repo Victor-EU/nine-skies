@@ -6,6 +6,7 @@ import {
 } from "./atmosphere.js";
 import {
   LIGHT_PISTON,
+  MAX_DESCENT_MS,
   maxClimbRateMs,
   maxTurnRateRadS,
   trueAirspeedMs,
@@ -70,9 +71,6 @@ export const STILL_AIR: Environment = {
 
 /** Maximum bank the arcade model will roll to. */
 const MAX_BANK_RAD = (60 * Math.PI) / 180;
-
-/** Powered descent is not power-limited, so it is much faster than the climb. */
-const MAX_DESCENT_MS = 18;
 
 /** Terrain contact bounces rather than crashes; this is the clearance held. */
 const BOUNCE_CLEARANCE_M = 25;

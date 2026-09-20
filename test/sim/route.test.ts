@@ -1,14 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
+  altitudeFloorM,
   climbDemandMs,
+  climbFloor,
   flyRoute,
+  groundFrom,
   groundSpeedForGradient,
+  handOff,
+  longestHoldS,
   modeAtKm,
+  routeFrom,
   routeLengthKm,
   steepestRise,
   type Route,
 } from "../../engine/src/sim/route.js";
-import { LIGHT_PISTON, ceilingM, maxClimbRateMs } from "../../engine/src/sim/aircraft.js";
+import {
+  LIGHT_PISTON,
+  MAX_DESCENT_MS,
+  ceilingM,
+  climbRecoveryRatio,
+  maxClimbRateMs,
+} from "../../engine/src/sim/aircraft.js";
 
 /** A plain, a ramp, then a plateau - the corridor with everything else off. */
 function escarpment(
@@ -194,5 +206,135 @@ describe("flying a route over its own ground", () => {
     const flight = flyRoute(oneLeg(1300), () => 0, { pacing: { cruiseKmPerMin: 130 } });
     expect(flight.minutes).toBeCloseTo(8.9, 1);
     expect(1300 / 130 / flight.minutes - 1).toBeCloseTo(0.128, 2);
+  });
+});
+
+describe("the altitude a route demands before it demands anything else", () => {
+  /**
+   * A wall a long way off, over ground that gives no hint of it. This is the
+   * shape of every route from the Chinese coast to the plateau, and the whole
+   * point of the floor: the number the aircraft is flying against is not the
+   * ground under it.
+   */
+  const distantWall = escarpment(100, 1200, 1500, 3400);
+  const route = oneLeg(1600, "cruise");
+
+  it("renumbers the remainder of a route so it is just another route", () => {
+    const full: Route = {
+      name: "three legs",
+      legs: [
+        { name: "a", endKm: 300, mode: "low" },
+        { name: "b", endKm: 800, mode: "cruise" },
+        { name: "c", endKm: 1000, mode: "boost" },
+      ],
+    };
+    const rest = routeFrom(full, 500);
+    expect(rest.legs.map((l) => l.endKm)).toEqual([300, 500]);
+    expect(modeAtKm(rest, 0)).toBe("cruise");
+    expect(routeLengthKm(rest)).toBe(500);
+    expect(groundFrom((km) => km * 2, 500)(10)).toBe(1020);
+  });
+
+  it("records where the aircraft was, one sample per kilometre", () => {
+    const flight = flyRoute(oneLeg(40), () => 0, { track: true });
+    const kms = flight.track.map((t) => t.km);
+    expect(kms).toEqual([...new Set(kms)]); // no duplicates at step boundaries
+    expect(kms[0]).toBe(0);
+    expect(kms[kms.length - 1]).toBeGreaterThanOrEqual(40);
+    expect(flight.track[10]!.clearanceM).toBeCloseTo(flight.track[10]!.altitudeM, 6);
+  });
+
+  it("costs nothing when it is not asked for", () => {
+    expect(flyRoute(oneLeg(40), () => 0).track).toEqual([]);
+  });
+
+  it("is far above the ground where the ground is flat", () => {
+    // 800 km short of the wall, over a 100 m plain, the aircraft already has
+    // to be a kilometre and a half up or it will not make the rim in time.
+    // Nothing within sight of it says so, which is the whole finding.
+    const floor = altitudeFloorM(route, distantWall, 400);
+    expect(distantWall(400)).toBe(100);
+    expect(floor).toBeGreaterThan(1400);
+    // And by then it is above the altitude the route started at.
+    expect(floor).toBeGreaterThan(1200);
+  });
+
+  it("rises along the route even where the ground does not", () => {
+    const path = climbFloor(route, distantWall, { strideKm: 200 });
+    const onThePlain = path.filter((p) => p.km <= 1000);
+    expect(onThePlain.every((p) => p.groundM === 100)).toBe(true);
+    for (let i = 1; i < onThePlain.length; i++) {
+      expect(onThePlain[i]!.floorM).toBeGreaterThan(onThePlain[i - 1]!.floorM);
+    }
+  });
+
+  it("is the altitude the flight actually turns on, to the metre", () => {
+    const floor = altitudeFloorM(route, distantWall, 600);
+    const rest = routeFrom(route, 600);
+    const ground = groundFrom(distantWall, 600);
+    expect(flyRoute(rest, ground, { startAltitudeM: floor + 5 }).clears).toBe(true);
+    expect(flyRoute(rest, ground, { startAltitudeM: floor - 5 }).clears).toBe(false);
+  });
+
+  it("is infinite where even the ceiling does not save the route", () => {
+    const tooHigh = escarpment(100, 100, 200, 7000);
+    expect(altitudeFloorM(oneLeg(400), tooHigh, 0)).toBe(Infinity);
+  });
+});
+
+describe("how long the player may have the stick", () => {
+  const distantWall = escarpment(100, 1200, 1500, 3400);
+  const route = oneLeg(1600, "cruise");
+
+  it("hands the stick back at the end of the window", () => {
+    const policy = handOff(100, 50, -0.4);
+    expect(policy(0, 99)).toBe(1);
+    expect(policy(0, 100)).toBe(-0.4);
+    expect(policy(0, 149.9)).toBe(-0.4);
+    expect(policy(0, 150)).toBe(1);
+    expect(handOff(0, 10)(0, 5)).toBe(0); // level by default
+  });
+
+  it("is a real budget, and a smaller one the harder the player pushes", () => {
+    const level = longestHoldS(route, distantWall, 0, { probeS: 30 });
+    const noseDown = longestHoldS(route, distantWall, -1, { probeS: 30 });
+    expect(level).toBeGreaterThan(0);
+    expect(noseDown).toBeGreaterThan(0);
+    expect(noseDown).toBeLessThan(level);
+  });
+
+  it("is zero on a route that does not clear even untouched", () => {
+    const tooHigh = escarpment(100, 100, 200, 7000);
+    expect(longestHoldS(oneLeg(400), tooHigh, 0)).toBe(0);
+  });
+
+  it("is bounded by the altitude there is to spend when nothing is in the way", () => {
+    // A route over the sea asks nothing of the aircraft, so what limits a
+    // full nose-down is the 1,200 m it starts with at 18 m/s - about 67
+    // seconds - and not the terrain.
+    const budget = longestHoldS(oneLeg(200, "cruise"), () => 0, -1, { probeS: 30 });
+    expect(budget).toBeGreaterThan(60);
+    expect(budget).toBeLessThan(75);
+  });
+});
+
+describe("the price of altitude, which is what thin air actually means", () => {
+  it("is four seconds of climb per second of descent at the coast", () => {
+    expect(climbRecoveryRatio(LIGHT_PISTON, 1200)).toBeCloseTo(4.2, 1);
+  });
+
+  it("is twenty-four at plateau cruise, from the same two numbers", () => {
+    // Nothing here is a rule about the plateau. The descent rate is the same
+    // 18 m/s it is at sea level; the climb rate has fallen to 0.80 m/s.
+    expect(maxClimbRateMs(LIGHT_PISTON, 5868)).toBeCloseTo(0.8, 1);
+    expect(MAX_DESCENT_MS).toBe(18);
+    expect(climbRecoveryRatio(LIGHT_PISTON, 5868)).toBeCloseTo(23.4, 1);
+  });
+
+  it("rises monotonically with altitude and is unbounded at the ceiling", () => {
+    const at = (m: number) => climbRecoveryRatio(LIGHT_PISTON, m);
+    expect(at(0)).toBeLessThan(at(3000));
+    expect(at(3000)).toBeLessThan(at(5000));
+    expect(at(ceilingM(LIGHT_PISTON, 0) + 100)).toBe(Infinity);
   });
 });

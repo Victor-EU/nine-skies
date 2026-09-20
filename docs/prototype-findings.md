@@ -1097,3 +1097,194 @@ now optional rather than blocking: more climb rate, a reroute needing the
 unblocked — Expedition 1 can be flown end to end — but what it will measure is
 a thirty-five minute trip, not a twenty-five minute one, and the gate's second
 criterion should be read with that in mind.
+
+## F19 — Expedition 1 has no room in it, and the tightest moment is over flat ground
+
+F17 asked whether the route clears the ground. F18 authored the speed profile
+that makes it clear. Both flew the same autopilot: full up-elevator from
+Shanghai to Lhasa. That is the correct policy for a clearance proof — best
+rate of climb at every instant is the highest the aircraft can be at every
+instant, so a route it cannot clear is a route nobody clears — and it is the
+one thing it is not, which is a flight.
+
+Nobody would take that flight. It climbs without pause for thirty-five
+minutes and arrives over Lhasa at **6,010 m**, which is **2,342 m above the
+city** and **187 m below the aircraft's own service ceiling**. The expedition
+whose thesis is that you feel the ground come up to meet you ends with the
+ground two and a third kilometres down and the aeroplane out of aeroplane.
+
+So the question F17 and F18 could not ask: what does the route have *left
+over*? Not "does it clear" but "by how much, where, and what can be done with
+it".
+
+### The floor
+
+The number an aircraft on a route is really flying against is not the ground
+under it. It is the lowest altitude from which the rest of the route still
+works — the **floor** — and on Sea to Sky the two have almost nothing to do
+with each other:
+
+| km | where | ground | floor | slack |
+| ---: | --- | ---: | ---: | ---: |
+| 0 | Shanghai | 10 m | 11 m | 1,189 m |
+| 200 | the delta | 114 m | 289 m | **2,128 m** |
+| 400 | inland | 38 m | **1,641 m** | 1,685 m |
+| 800 | Hubei farmland | 32 m | **3,588 m** | 943 m |
+| 1,427 | Chongqing | 254 m | 5,110 m | 450 m |
+| 1,692 | Chengdu | 507 m | 5,247 m | 412 m |
+| 2,366 | the rim | 5,535 m | 5,535 m | **332 m** |
+| 2,900 | Lhasa | 3,717 m | 3,765 m | 2,238 m |
+
+Eight hundred kilometres inland, over wet flat farmland thirty-two metres
+above the sea, **the aircraft must already be at 3,588 m**. The floor rises
+3,577 m across 800 km of ground that rises 22 m. It stands furthest above the
+land — 4,854 m — at km 1,500, in the middle of the eastern plain, and it comes
+down onto the ground at the rim, which is what being the binding constraint
+looks like.
+
+Nothing the player can see explains any of it. The wall that makes it binding
+is fourteen hundred kilometres ahead and below the horizon. This is F3 and
+F18 again — the climb has to be bought over the plain — but as a curve rather
+than a total, and the curve is the thing an autopilot and a HUD can both read.
+
+### The slack narrows the whole way, which is backwards
+
+Slack peaks at **2,128 m two hundred kilometres out**, while the aircraft is
+still over the delta and the wall is a rumour, and falls
+monotonically from there to **332 m at the rim** — every hundred-kilometre
+step of the way, without one exception. **The player has the most freedom
+where there is nothing to look at and the least where the game's entire
+subject is.** A sightseeing game wants the opposite shape.
+
+### What the slack is worth, in seconds
+
+The slack is not an abstraction: it is exactly how long the autopilot can hand
+the stick back. A player who is not climbing is spending it, at a rate the
+air sets.
+
+| what the player does | longest hold that still arrives |
+| --- | ---: |
+| flies level | **352 s** (5.9 min) |
+| noses down 10 % | 127 s |
+| noses down 20 % | 76 s |
+| noses down 50 % | 34 s |
+| full forward stick | **18 s** |
+
+One number, 332 m, divided by the rate at which each policy burns it. The
+whole margin of a thirty-five minute expedition is **eighteen seconds** of the
+stick forward.
+
+The ratio behind that is the plateau mechanic stated as arithmetic, and it is
+worth its own function:
+
+```
+climbRecoveryRatio(h) = (climbRate(h) + descentRate) / climbRate(h)
+```
+
+Descent is gravity-assisted and does not care about altitude: 18 m/s at sea
+level and 18 m/s over Tibet. Climb is power-limited and has lost 86 % of
+itself by plateau cruise: 5.66 m/s at 1,200 m, **0.80 m/s at 5,868 m**. So a
+second of looking down costs **4 seconds** to undo at the coast and **23** on
+the plateau. Neither number knows where it is. The ratio between them is what
+thin air actually feels like once the aircraft has somewhere to be, and it is
+now on the HUD beside the climb rate, because the density bar shows the cause
+and could never show the consequence.
+
+### It is one budget, and it is spendable almost anywhere
+
+The obvious guess — that an early hand-off is cheap because there is time to
+recover, and a late one is fatal — is wrong, and the measurement is worth
+having because the guess would have produced the wrong design. A sixty-second
+level hold costs:
+
+| taken at | cost in final margin |
+| --- | ---: |
+| 0 min, leaving Shanghai | 39 m |
+| 10 min | 44 m |
+| 20 min | 47 m |
+| 30 min | 50 m |
+| 32 min, past the rim | 10 m |
+| 34 min | 0 m |
+
+**Thirty-nine metres against fifty: the cost barely depends on when it is
+taken.** The power lapse does discount an early loss — the aircraft that is
+340 m lower climbs faster than the one it is chasing, so the gap closes a
+little — but the discount is 22 %, not the order of magnitude the intuition
+promises. Before the rim the budget is effectively one global allowance;
+after it, spending is free.
+
+Which is why the binding hand-off is the one it is. The tightest 352-second
+hold starts at **t = 26.1 minutes, km 1,381, five kilometres above
+Chongqing** — not because anything is special about Chongqing, but because
+that is exactly 352 seconds before the rim. **The worst moment to take the
+controls is whichever one is still being paid for when the wall arrives**, and
+on this route the ground beneath it is 254 m of riverside city with nothing in
+the view at stake.
+
+### Where the budget may be spent, and what it costs to have more
+
+A short hand-off has no forbidden region. A long one does, and it is exactly
+the approach to the wall:
+
+| hand-off | fails if started |
+| --- | --- |
+| 2 min | nowhere on the route |
+| 6 min | between 21.0 and 26.3 minutes |
+| 6.7 min | between 7.3 and 26.3 minutes |
+| 8.3 min | anywhere before the rim |
+
+Which is directly authorable: beats may give the player two minutes anywhere,
+and the long "you have control" stretch the GDD wants goes before Wuhan or
+after the rim, never on the approach.
+
+The other lever is where the expedition starts, and it is the same line of
+YAML the trip-length question turns on:
+
+| start | trip | worst clearance | level hold | nose-down |
+| ---: | ---: | ---: | ---: | ---: |
+| **1,200 m** *(authored)* | 35.5 min | 333 m | **352 s** | **18 s** |
+| 2,500 m | 34.6 min | 489 m | 570 s | 27 s |
+| 3,000 m | 34.3 min | 556 m | 680 s | 30 s |
+| 4,000 m | 33.5 min | 704 m | **968 s** | 39 s |
+
+A 4,000 m start nearly triples the player's freedom — 5.9 minutes to 16.1 —
+on the same speed profile. F18 measured the same start altitude as worth ten
+minutes off the trip instead, by re-optimising the profile around it. It is
+the same gain spent two ways, and it cannot be spent twice.
+
+### What this changes
+
+1. **A route's altitude plan is not a number, it is a floor plus a chosen
+   margin — and that margin *is* the hand-off budget.** They are the same
+   quantity in different units. Choosing how long the player may fly is
+   choosing how much altitude the autopilot banks, and there is no third
+   option where they both come out well.
+2. **Expedition 1 can afford 5.9 minutes of hands-off flying, once, out of
+   35.** Workstream D specifies "autopilot with hand-off and rejoin" as though
+   a hand-off were free. It is the most expensive thing in the expedition.
+3. **The rejoin needs the floor at runtime.** An autopilot taking control back
+   has to answer "can I still make it from here?", which is `altitudeFloorM`
+   evaluated at the current position — the in-game form of D17. Shipping the
+   floor beside the speed profile makes that a table lookup.
+4. **D17's replay proves a property of a policy nothing implements.** The
+   guarantee is about full up-elevator; the game will fly something else. The
+   replay should fly the policy the runner uses, with the hand-off budget the
+   route affords, or it is checking a flight that never happens.
+
+**Built:** `altitudeFloorM` and `climbFloor` (bisected on the simulator
+itself, so density lapse, true-airspeed gain and boost lockout are counted
+rather than re-derived), `routeFrom`/`groundFrom`, `longestHoldS`, per-km
+track recording on `flyRoute`, a `ClimbPolicy` so the check can fly something
+other than the ideal, and `climbRecoveryRatio` in `aircraft.ts` with
+`MAX_DESCENT_MS` promoted out of the flight model to sit beside it.
+
+**Action.** The engineering is done and in CI: 14 corridor-backed tests pin
+every number above, and the synthetic half runs without a build. What is left
+is a decision, and it is the same one F18 left open, now with a second price
+on it. Expedition 1 as authored gives the player 5.9 minutes of the
+thirty-five. The 4,000 m start F18 costed at ten minutes off the trip is worth
+16.1 minutes of freedom instead — the climb it deletes is the climb that
+consumes the margin — and the gain cannot be taken twice. If the answer is
+that Expedition 1 keeps its climb, that is a real answer and the narration is
+simply written to it: two minutes of "you have control" anywhere, the long
+free stretch before Wuhan or after the rim, and never on the approach.

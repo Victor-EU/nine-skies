@@ -197,7 +197,7 @@ Everything feeds the journal; the journal is the progression.
 
 **Free flight.** Pick any start point, month, hour and vehicle (plane or balloon; glider once unlocked). Fly. Discoveries fill the journal as you find them. Waypoints can be set on the map for a lazy autopilot that still lets you look around.
 
-**Expeditions.** Nine curated journeys of 15–35 minutes, each built on one contrast. Light narration as text cards (voice is in the backlog) at six to ten beats per trip. Autopilot is on by default so players can look; taking the stick at any time is allowed. Finishing one unlocks a journal chapter and a postcard.
+**Expeditions.** Nine curated journeys of 15–35 minutes, each built on one contrast. Light narration as text cards (voice is in the backlog) at six to ten beats per trip. Autopilot is on by default so players can look; taking the stick at any time is allowed — but on a climbing route it is not free, and the route says how much of it there is (F19): the expedition ships an altitude floor, and the gap above it is the whole of the player's freedom. Finishing one unlocks a journal chapter and a postcard.
 
 **Challenges.** Twelve short optional skill tests that reuse geography as the obstacle: land at a 4,411 m airport, thread a gorge at low speed, cross a dust storm on instruments, race the sunset along the Great Wall. These are for players who want a little bite; they are never required.
 
@@ -233,7 +233,7 @@ Each expedition is one contrast made physical. Listed in the suggested order; th
 
 Expedition 9 is the capstone and unlocks only after any three other expeditions are finished; it should only feel meaningful once the player knows what the dark side of the line holds.
 
-Run time target is 15–35 minutes each with autopilot: long routes fly at cruise, short ones (Three Gorges, Karst Country) mostly at low speed. A player who takes the stick and detours can double it. Narration budget: six to ten cards per expedition, each under 40 words, plus one longer "read more" per card.
+Run time target is 15–35 minutes each with autopilot: long routes fly at cruise, short ones (Three Gorges, Karst Country) mostly at low speed. A player who takes the stick and detours can double it. **On a climbing route they cannot** — Expedition 1's entire altitude margin is 5.9 minutes of level flight or 18 seconds of nose-down, spent once (F19), because the climb over the eastern plain is what clears the wall 1,400 km later and every minute not climbing is a minute of it unbought. Narration budget: six to ten cards per expedition, each under 40 words, plus one longer "read more" per card.
 
 ## Discoveries & content
 
@@ -341,7 +341,7 @@ Walking the game end to end as a first-time player turned up the gaps below. Sma
 
 **Getting around.** In free flight the player can jump to any map pin with a three-second fade rather than fly back across the country; a return-to-map button is always one press away. The edge of the world is soft: beyond the coast or a land border the terrain fades into haze, autopilot banks gently back, and a single card names what lies beyond ("Mongolia begins here"). No walls, and no border lines drawn in the 3D world.
 
-**When an expedition goes off-script.** Narration beats trigger by location, not by timer, so detours cannot break the story. Taking the stick pauses autopilot; "resume" flies back to the route from wherever the player is. Quitting mid-expedition saves at the last beat and resumes there. Any card can be dismissed; every expedition can be replayed, and after the first completion in any month.
+**When an expedition goes off-script.** Narration beats trigger by location, not by timer, so detours cannot break the story. Taking the stick pauses autopilot; "resume" flies back to the route from wherever the player is — **and has to be able to say it cannot**, because a detour that spends altitude on a climbing route cannot always be repaid (F19). The honest resume offers the route from here when the floor still allows it and a lift back to the line when it does not; silently rejoining a route the aircraft can no longer clear would end the expedition inside a mountain twenty minutes later. Quitting mid-expedition saves at the last beat and resumes there. Any card can be dismissed; every expedition can be replayed, and after the first completion in any month.
 
 **Finding what was missed.** The journal shows per-region counts ("Xinjiang 6 of 14") and a soft hint for each missing entry ("somewhere along the Tian Shan"), never an exact pin. Discovered points are pinned on the map.
 

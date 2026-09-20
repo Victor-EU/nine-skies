@@ -28,7 +28,7 @@ import {
   type Environment,
   type FlightInput,
 } from "../../engine/src/sim/flight.js";
-import { LIGHT_PISTON } from "../../engine/src/sim/aircraft.js";
+import { LIGHT_PISTON, climbRecoveryRatio } from "../../engine/src/sim/aircraft.js";
 import { createProbe } from "./probe.js";
 import {
   CAMERA_AIM_AHEAD,
@@ -479,7 +479,15 @@ function frame(now: number): void {
   const boost = el("boostState");
   boost.textContent = tm.boostAvailable ? "boost ready" : "air too thin for boost";
   boost.classList.toggle("dead", !tm.boostAvailable);
-  el("ground").textContent = `${((tm.groundSpeedMs * 60) / 1000).toFixed(0)} km/min · max climb ${tm.maxClimbRateMs.toFixed(1)} m/s`;
+  // The price of altitude, beside the climb rate that sets it. Descent is
+  // gravity-assisted and unchanged by height; climb is power-limited and has
+  // lost most of itself by plateau cruise, so a second of looking down costs
+  // four seconds at the coast and two dozen over Tibet (F19). It is the
+  // density bar's consequence, which the bar itself cannot show.
+  const recovery = climbRecoveryRatio(LIGHT_PISTON, flight.altitudeM);
+  el("ground").textContent =
+    `${((tm.groundSpeedMs * 60) / 1000).toFixed(0)} km/min · max climb ${tm.maxClimbRateMs.toFixed(1)} m/s` +
+    ` · 1 s down = ${Number.isFinite(recovery) ? `${recovery.toFixed(0)} s` : "∞"} up`;
 
   // The pacing condition, and what it means for the route being flown. An
   // operator logging a G2 session needs the trip length, not the speed - and

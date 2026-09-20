@@ -110,6 +110,35 @@ export function maxClimbRateMs(spec: AircraftSpec, altitudeM: number): number {
  * or the mass moves the ceiling automatically and the tests catch it.
  * Service ceiling is conventionally quoted at 0.5 m/s (100 ft/min).
  */
+/**
+ * Powered descent rate at full forward stick, m/s.
+ *
+ * Lives here rather than in the flight model because it is half of the most
+ * important ratio the aircraft has. Climb is power-limited and so it collapses
+ * with density; descent is gravity-assisted and so it does not change at all.
+ * The gap between them is the whole of `climbRecoveryRatio`.
+ */
+export const MAX_DESCENT_MS = 18;
+
+/**
+ * How many seconds of climbing one second of descent costs, at this altitude.
+ *
+ * The plateau mechanic expressed as a single number, and the one the GDD's
+ * "thin air" promise actually cashes out as once an aircraft has somewhere to
+ * be. At the coast a look down the valley costs four times its length; at
+ * 5,900 m it costs twenty-four, because the climb that buys the altitude back
+ * has lost 86 % of its rate while the descent that spent it has lost none
+ * (F19). Infinite at and above the ceiling, where there is no buying it back.
+ */
+export function climbRecoveryRatio(
+  spec: AircraftSpec,
+  altitudeM: number,
+  descentRateMs = MAX_DESCENT_MS,
+): number {
+  const climb = maxClimbRateMs(spec, altitudeM);
+  return climb <= 0 ? Infinity : (climb + descentRateMs) / climb;
+}
+
 export function ceilingM(spec: AircraftSpec, rocMs = 0.5): number {
   let lo = 0;
   let hi = 11_000;
