@@ -162,6 +162,15 @@ describe("Sea to Sky climb budget", () => {
    * ground goes under the aircraft before it arrives - and past a point it
    * arrives too low. These are characterisations, not wishes: two of the
    * three candidates the GDD's trip-length spread implies do not close.
+   *
+   * Every assertion below is still true and none of them is the constraint
+   * that matters. They compare one altitude at the destination against the
+   * plateau rim, over still air with no ground in it; the route crosses
+   * terrain a kilometre higher than Lhasa, and at the shipped pacing the
+   * aircraft is inside the Hengduan long before the arithmetic here gets to
+   * have an opinion. See `test/route/seaToSkyClearance.test.ts` and F17. They
+   * are kept rather than deleted because "the climb costs 18.6 minutes
+   * whatever the pacing" is the reason F17 comes out the way it does.
    */
   describe("the climb budget bounds the pacing candidates", () => {
     it("costs the same minutes of flying whatever the pacing", () => {

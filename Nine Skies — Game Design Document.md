@@ -68,7 +68,7 @@ The 2D strengths come back as an overlay: a toggleable minimap and full-screen m
 
 ## The world
 
-The map is all of mainland China plus Hainan and Taiwan's coastline as a horizon, built from real elevation data at roughly 1 km resolution and rendered as one continuous streamed world. Horizontal scale is compressed 1:8 so a Shanghai–Lhasa crossing takes about 25 minutes at cruise; vertical scale is 0.75x, which with the horizontal compression leaves relief reading about six times real. Proportions between regions stay true.
+The map is all of mainland China plus Hainan and Taiwan's coastline as a horizon, built from real elevation data at roughly 1 km resolution and rendered as one continuous streamed world. Horizontal scale is compressed 1:8; vertical scale is 0.75x, which with the horizontal compression leaves relief reading about six times real. Trip length is a cruise-speed question rather than a compression one (F15), and an unsettled one: see the crossing times below. Proportions between regions stay true.
 
 The country is organised as the three great steps of Chinese physical geography, which is also how the difficulty and mood of the game rise from east to west.
 
@@ -137,7 +137,15 @@ At the starting 1:8 compression, cruise covers about 130 real kilometres a minut
 | Full east–west crossing (coast to Pamirs) | \~5,200 km | \~40 min | \~20 min |
 | Full north–south (Mohe → Sanya) | \~5,500 km | \~42 min | \~21 min |
 
-These times are set by cruise speed, not by the compression — 130 real kilometres a minute over a 3,220 km route is 25 minutes however hard the world is compressed, and a compression change moves nothing a player can see (prototype finding F15). The spread this paragraph used to attribute to compression is a speed test: at 80 km/min Sea to Sky is 40 minutes, at 190 about 17. Working bounds: 25 minutes is the ceiling for a narrated trip, 15 the floor below which the plateau stops feeling vast — but the climb budget caps cruise at about 135 km/min, or roughly 24 minutes, because reaching the plateau costs a fixed 18.6 minutes of flying however fast the aircraft crosses the ground. Below 15 minutes is not a trip anyone can fly to Lhasa without a per-leg speed profile or a faster climb (F16).
+*Every figure in this table is distance divided by cruise speed, and both of
+those are now known to be wrong in the same direction: ground speed is pinned
+to indicated airspeed, so a climbing aircraft crosses the ground about a fifth
+faster than the nominal figure, and the cruise speed the table assumes does
+not clear the terrain at all (F17). They are left as written until the pacing
+decision below is made, because rewriting them first would bake in a number
+nobody has chosen.*
+
+These times are set by cruise speed, not by the compression: a compression change moves nothing a player can see (prototype finding F15). The spread this paragraph used to attribute to compression is a speed test. Working bounds: 25 minutes is the ceiling for a narrated trip, 15 the floor below which the plateau stops feeling vast — **and no cruise speed satisfies both those bounds and the ground.** Reaching plateau height costs a fixed 18.6 minutes of flying however fast the aircraft crosses the ground (F16), and measured against the terrain rather than against Lhasa's own elevation, Sea to Sky clears at 92 km/min and not above: at the 130 km/min this table assumes the aircraft flies into the Hengduan west of Chengdu thirteen minutes out, at 92 it arrives in 28.5 minutes, and there is no number in between (F17). Expedition 1 is flyable today only with a per-leg speed profile — the last two legs at low, a thirty-eight minute trip — and choosing between that, a faster climb, a reroute and a longer narrated trip is the open pacing decision.
 
 Whole game: nine expeditions total roughly 4.5 hours, the twelve challenges about one hour, and filling the atlas in free flight another 6 to 10 hours, so 12 to 15 hours to see everything, with the core thesis delivered inside the first 30 minutes.
 
@@ -301,7 +309,7 @@ Build in three stages, each one playable and each one testing the thesis before 
 | Stage | Goal | Contents | Proves |
 | --- | --- | --- | --- |
 | Prototype | Does flying over real terrain feel like anything? | Real elevation for the Sea to Sky corridor only (Shanghai–Lhasa strip), arcade flight, air-density effect, HUD, one biome palette gradient, no cards | That elevation and thin air are felt, not just seen |
-| Vertical slice | Is one expedition a good half hour? | Full China terrain at low LOD, Expedition 1 complete with cards, three regions polished (East coast, Sichuan, Plateau), journal skeleton, map overlay, weather for those regions | The loop: fly, discover, read, compare |
+| Vertical slice | Is one expedition a good half hour? *(and the half hour is not yet chosen — F17)* | Full China terrain at low LOD, Expedition 1 complete with cards, three regions polished (East coast, Sichuan, Plateau), journal skeleton, map overlay, weather for those regions | The loop: fly, discover, read, compare |
 | Full game | Ship | All nine regions, nine expeditions, 12 challenges, \~230 discoveries, 12 comparison spreads, seasons, audio, localisation, Steam build | The atlas |
 
 **Milestones**

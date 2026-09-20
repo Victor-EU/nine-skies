@@ -836,3 +836,133 @@ candidates are characterised in `test/sim/flight.test.ts` rather than
 asserted-as-wished, and `CRUISE_CANDIDATES` still contains 190 because it is
 the GDD's own figure and removing it would hide the finding. Whether 190 stays
 in the A/B is a design decision: it needs option 1 or 2 first.
+
+---
+
+## F17 — Expedition 1 does not clear the ground, and F16 was checking the wrong rim
+
+F16 asked whether the aircraft **arrives** at Lhasa above plateau cruise
+height, and answered yes at the shipped pacing, by 84 m. That is a good
+question about Lhasa and the wrong question about the route to it. The plateau
+is not a table. Sea to Sky crosses ground at **5,595 m** (29.33 °N, 92.41 °E)
+a hundred and thirty-one kilometres short of Lhasa — 1,095 m *above* the rim
+F16 was checking against. An expedition can clear its destination and fly into
+a ridge, and this one does.
+
+Flown at cruise from end to end, from the corridor's own 1,200 m start, full
+up-elevator the whole way — which is the most favourable policy any player
+could manage:
+
+| cruise | outcome | got to | flown |
+| ---: | --- | ---: | ---: |
+| 80 km/min | clears, by 289 m | 3,220 km — all of it | 32.4 min |
+| **92 km/min** | clears, by **73 m** | 3,220 km — all of it | 28.5 min |
+| 93 km/min | hits, 19 m in, at 3,089 km | 96 % | 27.1 min |
+| **130 km/min** *(shipped)* | **hits, 86 m in, at 1,954 km** | **61 %** | **13.0 min** |
+| 190 km/min | hits, 535 m in, at 1,950 km | 61 % | 9.1 min |
+
+At the shipped pacing the aircraft flies into the Hengduan west of Chengdu
+(28.86 °N, 102.44 °E, ground 4,247 m) thirteen minutes after leaving Shanghai.
+Not a near miss at the destination: a mountain, at the midpoint, a fifth of
+the way through what the GDD calls a twenty-five minute journey.
+
+**Why the wall cannot be climbed at the wall.** The steepest hundred
+kilometres of the route is the Yarlung Tsangpo gorge wall at 2,829–2,929 km,
+which climbs from 744 m to 4,701 m — **39.6 m of rise per kilometre of
+ground**. Gradient belongs to the terrain; the *climb rate* it demands belongs
+to how fast you cross it, and at 130 km/min this one asks for **86 m/s from an
+aircraft that gives 6.2** at that altitude. Fourteen times over. To climb it in
+place the aircraft would have to cross it at 9.4 km/min — a fifth of `low`
+mode at the shipped pacing. A wall like this is never climbed at the wall. It is climbed over the thousand kilometres
+before it, or it is flown into, and which of those happens is decided by the
+cruise speed a thousand kilometres earlier. That arithmetic is now
+`climbDemandMs` and `groundSpeedForGradient` in `route.ts` rather than prose.
+
+**The window F16 found is empty.** F16 put the feasible band at 129–135 km/min:
+above 135 the aircraft arrives below the rim, below 129 the trip runs past the
+GDD's twenty-five minute narrative ceiling. Measured against the ground, the
+fastest pacing that clears is **92**, and at 92 the flight takes **28.5
+minutes**. There is no cruise speed at which Expedition 1 both clears the
+terrain and fits the trip length — the two constraints miss each other by
+three and a half minutes, and the shipped 130 satisfies neither.
+
+**Per-leg speed stops being a lever and becomes the requirement.** F3 proposed
+dropping the western legs to low as a way of buying altitude, and F16 treated
+it as one of three ways to open the *top* of the range. It is now the only
+thing that makes the route flyable at all:
+
+| at 130 km/min | outcome | flown |
+| --- | --- | ---: |
+| every leg at cruise | hits at 1,954 km | 13.0 min |
+| last leg at low | hits at 1,954 km — the aircraft never reaches that leg | 13.0 min |
+| **last two legs at low** | **clears, by 202 m** | **38.1 min** |
+| every leg at low | clears, by 896 m | 57.0 min |
+
+Note the second row. Dropping only the final leg changes nothing, because the
+contact is on the leg before it: a speed profile has to be designed against
+the profile of the ground, not against where the route ends.
+
+**Why this was not noticed sooner** — three things the check had to get right,
+each of which silently produces the wrong answer:
+
+1. **The terrain bounce had to be switched off.** `step` lifts an aircraft
+   that touches down to 25 m above the ground, which is the right kindness to
+   a player (GDD, "calm, not punishing") and a lie to a clearance check. On
+   any slope gentle enough that the ground gains less than 25 m per step, the
+   bounce carries the aircraft up the escarpment a bounce at a time. The first
+   version of `flyRoute` did exactly this and reported a clean flight over
+   7,150 m of Tibet, on an aircraft whose absolute ceiling is 6,750 m.
+2. **The walk has to stop at the first contact.** Keep going and the check
+   reports clearances for an aircraft that is inside a mountain, and the
+   deepest one it finds is likely to be somewhere the flight never reached.
+3. **Distance has to come from the aircraft, not from the pacing.** Ground
+   speed is pinned to *indicated* airspeed, so true airspeed rising with
+   altitude carries a climbing aircraft over the ground faster than the pacing
+   claims — 13 % over a short leg and **23 % over a full expedition**. Sea to
+   Sky flown entirely at low speed takes 57.0 minutes, not the 74.3 that
+   `minutesForKm` predicts. Every trip length in the GDD, in F15 and in the
+   HUD is this arithmetic, and all of them are about a fifth long.
+
+**What cannot be answered on the 1 km grid.** The obvious fix — route round
+the high ground, up the Yarlung Tsangpo instead of over the range — cannot be
+evaluated with the data we have. Three valley variants through Nyingchi all
+read *worse* than the straight line (peaks 5,565–5,812 m, and more kilometres
+above 5,000 m), because a 1 km cell laid across a gorge averages the floor
+with the walls and a valley route comes back looking like a ridge route. This
+is F12's problem wearing different clothes, and it means the western legs of
+Expedition 1 cannot be *designed* until the 90 m hero grid exists. Stating
+that now is cheaper than discovering it in phase 2 with the route authored.
+
+**Action.** The check is built: `flyRoute` in `engine/src/sim/route.ts`, and
+`test/route/seaToSkyClearance.test.ts` flies the real corridor and pins every
+number above. It skips where no corridor is built — a green tick for a check
+that ran on nothing would be worse than the gap it fills — so
+`TERRAIN_LIMITED_CRUISE_KM_PER_MIN = 92` carries the answer into a fresh
+checkout. The HUD now warns on terrain clearance rather than arrival altitude,
+which means it warns at the default condition, because the default condition
+is one Expedition 1 cannot be completed in.
+
+Nothing has been changed to *fix* it, because each remedy is a design decision
+and they are not interchangeable:
+
+1. **Author the speed profile** — the last two legs at low. Works today, and
+   makes Expedition 1 a thirty-eight minute trip.
+2. **More climb rate.** `maxClimbRateMs` is tuning (F4), not physics. It moves
+   every bound at once, and it moves the thesis with them: the plateau is
+   meant to be expensive, and the service ceiling of 6,197 m is set where it
+   is so the player looks *up* at Everest.
+3. **Reroute the western legs**, which needs the hero grid first.
+4. **Widen the twenty-five minute ceiling**, a writing question rather than an
+   engineering one.
+
+**G1 is not blocked, but it is not untouched either.** The gate flies twelve
+minutes of corridor rather than a whole expedition, and along the waypoints
+twelve minutes ends a minute short of the Hengduan. But a G1 tester does not
+fly the waypoints: the corridor's start heading points straight at Lhasa, and
+on that line the ground wins at **1,705 km, eleven minutes and twenty-seven
+seconds in** — inside the session. In the game they bounce rather than crash,
+so what the protocol actually asks ten people to rank is three drama settings
+over eleven minutes of flying and one of scraping a mountainside. Worth
+knowing before the cohort is booked; it does not invalidate the drama
+question, which is answered long before minute eleven. G2, which flies
+Expedition 1 end to end, is blocked until one of the four remedies lands.

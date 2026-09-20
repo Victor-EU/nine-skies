@@ -37,12 +37,12 @@ import {
   CAMERA_FAR_REAL_M,
   CAMERA_NEAR_REAL_M,
   CAMERA_UP_REAL_M,
-  CLIMB_LIMITED_CRUISE_KM_PER_MIN,
   COMPRESSION_CANDIDATES,
   CRUISE_CANDIDATES,
   DEFAULT_PACING,
   DEFAULT_SCALE,
   DRAMA_CANDIDATES,
+  TERRAIN_LIMITED_CRUISE_KM_PER_MIN,
   apparentExaggeration,
   hazeDensityPerWorldUnit,
   hazeFalloffPerWorldUnit,
@@ -484,17 +484,28 @@ function frame(now: number): void {
   // The pacing condition, and what it means for the route being flown. An
   // operator logging a G2 session needs the trip length, not the speed - and
   // needs telling when the condition on screen is one Expedition 1 cannot be
-  // completed in (F16), because that is not visible from the cockpit until
-  // the aircraft arrives under the plateau rim twenty minutes later.
-  const climbLimited = pacing.cruiseKmPerMin > CLIMB_LIMITED_CRUISE_KM_PER_MIN;
+  // completed in, because that is not visible from the cockpit until the
+  // aircraft is inside a mountain thirteen minutes later.
+  //
+  // The test is terrain clearance, not arrival altitude. F16 warned above 135
+  // because that is where the aircraft stops arriving over the plateau rim;
+  // F17 found the tighter constraint a thousand kilometres earlier, and the
+  // shipped 130 fails it. Warning on the looser one left the default
+  // condition unmarked, which is the one case a warning had to cover.
+  const grounded = pacing.cruiseKmPerMin > TERRAIN_LIMITED_CRUISE_KM_PER_MIN;
   const pace = el("pace");
   pace.textContent =
     `cruise ${pacing.cruiseKmPerMin} km/min` +
     (routeKm > 0
-      ? ` · ${world!.manifest.corridor} ${minutesForKm(routeKm, "cruise", pacing).toFixed(1)} min`
+      ? // Nominal: distance over cruise speed. Say so, because it is about a
+        // fifth long - ground speed is pinned to indicated airspeed and true
+        // airspeed rises with altitude, so a climbing aircraft covers the
+        // route faster than the arithmetic (F17). An operator who writes
+        // this number down for a G2 session would be five minutes out.
+        ` · ${world!.manifest.corridor} ${minutesForKm(routeKm, "cruise", pacing).toFixed(1)} min nominal`
       : "") +
-    (climbLimited ? " ◂ climb budget does not close" : "");
-  pace.classList.toggle("warn", climbLimited);
+    (grounded ? " ◂ flown at cruise throughout, this route hits the ground" : "");
+  pace.classList.toggle("warn", grounded);
 
   el("fps").textContent = `${fpsShown.toFixed(0)} fps`;
   el("draws").textContent =

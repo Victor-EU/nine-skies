@@ -196,8 +196,44 @@ export const CRUISE_CANDIDATES = [80, 130, 190] as const;
  * `test/sim/flight.test.ts` re-measures it through the sim, so it cannot go
  * stale behind a tuning change to the aircraft. Note how little room is left
  * at the shipped 130: the rim is cleared by 84 metres.
+ *
+ * **This is not the binding constraint, and was never the tightest one.** It
+ * compares one altitude at the destination against the plateau rim, and the
+ * route crosses ground a kilometre higher than Lhasa a hundred and thirty
+ * kilometres short of it. See `TERRAIN_LIMITED_CRUISE_KM_PER_MIN` and F17.
  */
 export const CLIMB_LIMITED_CRUISE_KM_PER_MIN = 135;
+
+/**
+ * The fastest cruise at which Expedition 1 reliably clears the ground it
+ * crosses, flown at cruise from end to end.
+ *
+ * The same climb budget, asked the question that actually decides whether the
+ * expedition can be flown: not "how high is the aircraft when it arrives" but
+ * "is it ever lower than the terrain". At the shipped 130 the aircraft flies
+ * into the Hengduan at 1,954 km, thirteen minutes in and 61 % of the way
+ * (F17).
+ *
+ * "Reliably" is doing real work here. Between 93 and 102 km/min the answer
+ * alternates - 95 clears, 96 does not - because the deciding crossing is the
+ * Nyenchen Tanglha at 3,089 km, where the whole margin is a few tens of
+ * metres over a 5,595 m ridge and which kilometre sample the integrator reads
+ * at which altitude settles it. So this is the last pacing below which *every*
+ * pacing clears, and even there the margin is 73 m. A route with a hundred
+ * metres of headroom is not a route with headroom.
+ *
+ * Two consequences worth stating plainly. The GDD's twenty-five minute
+ * narrative ceiling needs 129 km/min, so **the window where both hold is
+ * empty** - the pacing question cannot be settled by picking a number. And
+ * per-leg speed stops being F3's optional lever and becomes the thing that
+ * makes the route flyable at all: dropping the last two legs to low clears by
+ * 202 m, at the cost of a thirty-eight minute trip.
+ *
+ * Measured in `test/route/seaToSkyClearance.test.ts` against the built
+ * corridor. That suite skips where no corridor is built, so this constant is
+ * the one place the number survives a fresh checkout.
+ */
+export const TERRAIN_LIMITED_CRUISE_KM_PER_MIN = 92;
 
 /** Ground covered per minute in a mode, real kilometres. */
 export function groundKmPerMin(mode: SpeedMode, pacing: Pacing = DEFAULT_PACING): number {
