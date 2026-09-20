@@ -1974,3 +1974,96 @@ with a world can re-derive them — and `projectAlbers` is still checked against
 PROJ only where a manifest exists, which is the one dependency of the section
 format that the section cannot defend. Committing the anchor table would close
 that, and is a smaller job than it sounds.
+
+## F25 — Neither side could run the projection check alone, so the file runs half of it each
+
+F24 closed the route gate and left a list of what it had not closed. First on
+it: `projectAlbers` is a second implementation of the projection the pipeline
+owns, `test/route/albers.test.ts` is what stops the two drifting, and it was
+three of the ten tests a fresh clone still skipped. Every committed section
+depends on that projection — the leg lengths in a section's stamp are computed
+with it — and a section cannot defend it. A projection change reads as a
+*stale section*, which sends the author to re-cut a file that was never the
+problem.
+
+### Why it could not run anywhere
+
+The check needs two things that are never in the same place. PROJ's answer
+lives in Python, behind rasterio; `projectAlbers` lives in TypeScript, because
+content is authored in degrees and a browser has no PROJ in it. CI runs them
+as separate jobs with separate toolchains. The one place both had ever met was
+a built manifest, which exists only where somebody has 14 GB of rasters.
+
+So the artefact is the handshake. The pipeline writes a table of points PROJ
+has answered for, and commits it. `pipeline/tests/test_reference.py`
+regenerates it and fails if the committed copy has drifted, which verifies the
+file *where PROJ exists*. `test/route/albers.test.ts` reads it with no Python
+and no world, which verifies the engine *where PROJ does not*. Each job checks
+the half it can reach, and between them the comparison runs on every commit
+for the first time.
+
+Reading a file out of `pipeline/` from a TypeScript test looks wrong for about
+a second. It is the point: the pipeline is the only thing in the repository
+that owns a projection, so it publishes one, and the engine checks itself
+against what was published rather than against a copy of it.
+
+### What the table is, and what widening it actually bought
+
+Forty-two points, 5.8 kB, chosen for where a projection goes wrong rather than
+for where the game goes: both standard parallels, where the cone touches and
+the scale error changes sign; the central meridian, where easting depends on
+nothing but the origin; the corners of the country box, where convergence is
+largest; and the seven authored anchors, which are the coordinates content is
+actually written in.
+
+It would be tidy to say the old seven-anchor table was blind. It was not. A
+`+lat_2=47` mistyped as `45` moves Tiger Leaping Gorge by 5,481 m, and the
+tolerance is a decimetre, so the old table caught that class of error with
+room to spare. What it bought is margin — the same typo moves the north-west
+corner of the country by 28,131 m — and coverage of latitudes the corridor
+never visits: the old anchors span 26.9 N to 31.2 N of a country that runs
+from 18 N to 54 N.
+
+The reason the check could not run was never what it covered. It was where the
+answers lived.
+
+### Two of the three were never gated on anything
+
+The central-meridian and the ellipsoidal-versus-spherical tests assert against
+hard-coded PROJ values and need no manifest at all. They had been sitting
+inside a `describe.skipIf` written for the anchor test beside them, and so had
+not run on a fresh clone either. A guard at the wrong granularity costs
+exactly as much as a missing test and looks like nothing.
+
+### One projection call site
+
+`anchor_positions()` in `tiles.py` and the new table were two paths into
+rasterio with two copies of the constants. They are one now: `grid.project`,
+in the module that owns `ALBERS_PROJ4`. Two tables computed with different
+constants would agree with each other and with nothing else, which is the
+failure a reference table is supposed to make impossible.
+
+| | F24 | F25 |
+| --- | ---: | ---: |
+| TypeScript tests | 299 | 302 |
+| running on a fresh checkout | 289 | 294 |
+| skipped without a world | 10 | 8 |
+| Python tests | 44 | 49 |
+
+The eight that remain are all tests whose subject is the world itself: six
+comparing a section against the corridor it was cut from, one comparing the
+reference table against a built manifest, and one flying the straight
+Shanghai–Lhasa line, which is deliberately not the authored route.
+
+**Built.** `pipeline/nineskies/reference.py`, `pipeline/reference/albers.json`,
+`grid.project` as the single call into PROJ, `pipeline/tests/test_reference.py`
+(5 tests, 2 of them needing rasterio), `test/route/albers.test.ts` rewritten
+against the committed table, and `make reference`.
+
+**Action.** The reference table has a property the route section cannot have:
+CI re-derives it from source on every commit, because PROJ is a wheel and a
+corridor is 14 GB of rasters. So the one provenance gap left is still the
+section's — CI verifies that a section matches its route, never that its
+elevations came from the pipeline. That was not urgent when one person
+authored routes and it is still not, but it is now the only place in the
+repository where a committed number is taken on trust.

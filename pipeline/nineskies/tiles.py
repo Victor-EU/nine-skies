@@ -122,15 +122,10 @@ def reduce_to_field(array: np.ndarray, window: grid.TileWindow) -> np.ndarray:
 
 def anchor_positions() -> dict[str, dict[str, float]]:
     """Each anchor in east/north metres from the country grid's south-west corner."""
-    from rasterio.crs import CRS
-    from rasterio.warp import transform as transform_points
-
     names = list(ANCHORS)
     lats = [ANCHORS[n][0] for n in names]
     lons = [ANCHORS[n][1] for n in names]
-    xs, ys = transform_points(
-        CRS.from_epsg(4326), CRS.from_proj4(grid.ALBERS_PROJ4), lons, lats
-    )
+    xs, ys = grid.project(lats, lons)
     out: dict[str, dict[str, float]] = {}
     for name, lat, lon, x, y in zip(names, lats, lons, xs, ys):
         out[name] = {

@@ -187,3 +187,23 @@ def sample_index(window: TileWindow, tx: int, ty: int, i: int, j: int) -> tuple[
 def row_for_tile_y(window: TileWindow, ty: int) -> int:
     """Raster row of a tile's *north* edge inside a window's array."""
     return (window.ty1 - ty - 1) * TILE_CELLS
+
+
+def project(lats: list[float], lons: list[float]) -> tuple[list[float], list[float]]:
+    """Degrees to projected metres, through PROJ.
+
+    The one place in the repository that calls a projection library. Both the
+    manifest's anchors and the committed reference table come through here, so
+    they cannot be computed with different constants - which is the whole
+    value of having a reference table at all.
+
+    rasterio is imported inside the function because most of this package is
+    arithmetic that a bare interpreter can run and test.
+    """
+    from rasterio.crs import CRS
+    from rasterio.warp import transform as transform_points
+
+    xs, ys = transform_points(
+        CRS.from_epsg(4326), CRS.from_proj4(ALBERS_PROJ4), lons, lats
+    )
+    return list(xs), list(ys)

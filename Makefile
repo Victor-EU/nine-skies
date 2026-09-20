@@ -5,6 +5,7 @@
 #   make world CORRIDOR=china       # the full country (phase 2, ~70 GB)
 #   make probes                     # golden probes against what is built
 #   make sections                   # re-cut the committed route sections
+#   make reference                  # re-cut the projection reference table
 #   make routes                     # every expedition flown over the world
 #   make test                       # every suite, TypeScript and Python
 #
@@ -17,7 +18,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles probes sections routes test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles probes sections reference routes test test-ts test-py typecheck dev clean-work help
 
 help:
 	@sed -n '1,10p' Makefile | sed 's/^# \{0,1\}//'
@@ -44,6 +45,12 @@ tiles: $(PY)
 probes: $(PY)
 	$(PIPELINE) -m nineskies.probe --corridor $(CORRIDOR) \
 		--report docs/probe-report.md
+
+## The projection table the engine checks itself against (D22). Needs PROJ
+## rather than a built world: it is the pipeline publishing the one thing only
+## it owns, so that `projectAlbers` can be checked without either.
+reference: $(PY)
+	$(PIPELINE) -m nineskies.reference
 
 ## Stage 6 -- cut the committed route sections out of what was built (D21).
 ## Part of `world` rather than a thing to remember, because a corridor rebuild

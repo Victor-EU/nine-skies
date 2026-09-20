@@ -1,0 +1,303 @@
+{
+  "version": 1,
+  "proj4": "+proj=aea +lat_1=25 +lat_2=47 +lat_0=0 +lon_0=105 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs",
+  "originXM": -3456000,
+  "originYM": 1792000,
+  "toleranceM": 0.1,
+  "points": [
+    {
+      "name": "grid-18N-073E",
+      "lat": 18.0,
+      "lon": 73.0,
+      "eastM": 38655.6,
+      "northM": 611709.7
+    },
+    {
+      "name": "grid-18N-089E",
+      "lat": 18.0,
+      "lon": 89.0,
+      "eastM": 1724896.0,
+      "northM": 195949.4
+    },
+    {
+      "name": "grid-18N-105E",
+      "lat": 18.0,
+      "lon": 105.0,
+      "eastM": 3456000.0,
+      "northM": 56155.1
+    },
+    {
+      "name": "grid-18N-121E",
+      "lat": 18.0,
+      "lon": 121.0,
+      "eastM": 5187104.0,
+      "northM": 195949.4
+    },
+    {
+      "name": "grid-18N-135E",
+      "lat": 18.0,
+      "lon": 135.0,
+      "eastM": 6666529.0,
+      "northM": 544948.5
+    },
+    {
+      "name": "grid-25N-073E",
+      "lat": 25.0,
+      "lon": 73.0,
+      "eastM": 281241.3,
+      "northM": 1338091.4
+    },
+    {
+      "name": "grid-25N-089E",
+      "lat": 25.0,
+      "lon": 89.0,
+      "eastM": 1847781.2,
+      "northM": 951844.5
+    },
+    {
+      "name": "grid-25N-105E",
+      "lat": 25.0,
+      "lon": 105.0,
+      "eastM": 3456000.0,
+      "northM": 821973.7
+    },
+    {
+      "name": "grid-25N-121E",
+      "lat": 25.0,
+      "lon": 121.0,
+      "eastM": 5064218.8,
+      "northM": 951844.5
+    },
+    {
+      "name": "grid-25N-135E",
+      "lat": 25.0,
+      "lon": 135.0,
+      "eastM": 6438624.5,
+      "northM": 1276069.3
+    },
+    {
+      "name": "grid-30N-073E",
+      "lat": 30.0,
+      "lon": 73.0,
+      "eastM": 457891.4,
+      "northM": 1867040.2
+    },
+    {
+      "name": "grid-30N-089E",
+      "lat": 30.0,
+      "lon": 89.0,
+      "eastM": 1937265.8,
+      "northM": 1502284.9
+    },
+    {
+      "name": "grid-30N-105E",
+      "lat": 30.0,
+      "lon": 105.0,
+      "eastM": 3456000.0,
+      "northM": 1379640.3
+    },
+    {
+      "name": "grid-30N-121E",
+      "lat": 30.0,
+      "lon": 121.0,
+      "eastM": 4974734.2,
+      "northM": 1502284.9
+    },
+    {
+      "name": "grid-30N-135E",
+      "lat": 30.0,
+      "lon": 135.0,
+      "eastM": 6272665.1,
+      "northM": 1808469.2
+    },
+    {
+      "name": "grid-36N-073E",
+      "lat": 36.0,
+      "lon": 73.0,
+      "eastM": 672075.8,
+      "northM": 2508379.0
+    },
+    {
+      "name": "grid-36N-089E",
+      "lat": 36.0,
+      "lon": 89.0,
+      "eastM": 2045763.9,
+      "northM": 2169681.8
+    },
+    {
+      "name": "grid-36N-105E",
+      "lat": 36.0,
+      "lon": 105.0,
+      "eastM": 3456000.0,
+      "northM": 2055798.9
+    },
+    {
+      "name": "grid-36N-121E",
+      "lat": 36.0,
+      "lon": 121.0,
+      "eastM": 4866236.1,
+      "northM": 2169681.8
+    },
+    {
+      "name": "grid-36N-135E",
+      "lat": 36.0,
+      "lon": 135.0,
+      "eastM": 6071443.0,
+      "northM": 2453992.3
+    },
+    {
+      "name": "grid-40N-073E",
+      "lat": 40.0,
+      "lon": 73.0,
+      "eastM": 815273.5,
+      "northM": 2937160.5
+    },
+    {
+      "name": "grid-40N-089E",
+      "lat": 40.0,
+      "lon": 89.0,
+      "eastM": 2118302.8,
+      "northM": 2615885.0
+    },
+    {
+      "name": "grid-40N-105E",
+      "lat": 40.0,
+      "lon": 105.0,
+      "eastM": 3456000.0,
+      "northM": 2507859.9
+    },
+    {
+      "name": "grid-40N-121E",
+      "lat": 40.0,
+      "lon": 121.0,
+      "eastM": 4793697.2,
+      "northM": 2615885.0
+    },
+    {
+      "name": "grid-40N-135E",
+      "lat": 40.0,
+      "lon": 135.0,
+      "eastM": 5936911.5,
+      "northM": 2885571.3
+    },
+    {
+      "name": "grid-47N-073E",
+      "lat": 47.0,
+      "lon": 73.0,
+      "eastM": 1064130.5,
+      "northM": 3682320.4
+    },
+    {
+      "name": "grid-47N-089E",
+      "lat": 47.0,
+      "lon": 89.0,
+      "eastM": 2244364.8,
+      "northM": 3391321.2
+    },
+    {
+      "name": "grid-47N-105E",
+      "lat": 47.0,
+      "lon": 105.0,
+      "eastM": 3456000.0,
+      "northM": 3293476.3
+    },
+    {
+      "name": "grid-47N-121E",
+      "lat": 47.0,
+      "lon": 121.0,
+      "eastM": 4667635.2,
+      "northM": 3391321.2
+    },
+    {
+      "name": "grid-47N-135E",
+      "lat": 47.0,
+      "lon": 135.0,
+      "eastM": 5703115.2,
+      "northM": 3635592.8
+    },
+    {
+      "name": "grid-54N-073E",
+      "lat": 54.0,
+      "lon": 73.0,
+      "eastM": 1306341.6,
+      "northM": 4407580.5
+    },
+    {
+      "name": "grid-54N-089E",
+      "lat": 54.0,
+      "lon": 89.0,
+      "eastM": 2367060.2,
+      "northM": 4146049.2
+    },
+    {
+      "name": "grid-54N-105E",
+      "lat": 54.0,
+      "lon": 105.0,
+      "eastM": 3456000.0,
+      "northM": 4058112.4
+    },
+    {
+      "name": "grid-54N-121E",
+      "lat": 54.0,
+      "lon": 121.0,
+      "eastM": 4544939.8,
+      "northM": 4146049.2
+    },
+    {
+      "name": "grid-54N-135E",
+      "lat": 54.0,
+      "lon": 135.0,
+      "eastM": 5475562.5,
+      "northM": 4365584.8
+    },
+    {
+      "name": "shanghai",
+      "lat": 31.23,
+      "lon": 121.47,
+      "eastM": 4996128.4,
+      "northM": 1645840.3
+    },
+    {
+      "name": "wuhan",
+      "lat": 30.59,
+      "lon": 114.31,
+      "eastM": 4336048.4,
+      "northM": 1487165.6
+    },
+    {
+      "name": "yichang",
+      "lat": 30.7,
+      "lon": 111.29,
+      "eastM": 4050267.9,
+      "northM": 1477060.1
+    },
+    {
+      "name": "chongqing",
+      "lat": 29.57,
+      "lon": 106.55,
+      "eastM": 3604513.0,
+      "northM": 1332577.4
+    },
+    {
+      "name": "chengdu",
+      "lat": 30.66,
+      "lon": 104.07,
+      "eastM": 3368035.7,
+      "northM": 1454147.1
+    },
+    {
+      "name": "tiger-leaping-gorge",
+      "lat": 26.87,
+      "lon": 100.75,
+      "eastM": 3035982.5,
+      "northM": 1038685.0
+    },
+    {
+      "name": "lhasa",
+      "lat": 29.65,
+      "lon": 91.1,
+      "eastM": 2129718.1,
+      "northM": 1433382.8
+    }
+  ]
+}
