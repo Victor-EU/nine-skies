@@ -1,0 +1,25 @@
+id: qinghai-tibet-plateau
+type: region
+region: Qinghai-Tibet Plateau
+names:
+  zh: 青藏高原
+  en: Qinghai-Tibet Plateau
+  pinyin: Qīngzàng Gāoyuán
+trigger: { lat: 33.0, lon: 88.0, radius_km: 120 }
+one_liner: >-
+  Flat ground at four and a half thousand metres, for hours in every direction
+  - a plateau, not a mountain range.
+read_more: >-
+  Most people picture Tibet as mountains. It is mostly not: it is a plain that
+  happens to sit at the height of the summits of the Alps, and it goes on for
+  two thousand kilometres. The average elevation is about 4,500 metres, and the
+  flat parts stay flat for hours of flying. The mountains, Kunlun to the north
+  and Himalaya to the south, are the rim rather than the interior. Air pressure
+  here is around sixty per cent of sea level, which is why your engine has lost
+  nearly half its power, and why the horizon looks so unnaturally sharp: there
+  is much less air between you and it.
+figure: { value: 4500, unit: m, label: average elevation }
+illustration_id: plateau-horizon
+sources:
+  - Encyclopaedia Britannica, "Plateau of Tibet"
+  - Elevation from the simulation's Copernicus DEM grid

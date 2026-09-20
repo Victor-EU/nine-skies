@@ -1,0 +1,152 @@
+import { DataArrayTexture, NearestFilter, RedIntegerFormat, ShortType } from "three";
+
+/**
+ * Heightmap residency (build plan D4).
+ *
+ * Every resident tile's heightmap lives in one R16I texture array, so drawing
+ * the terrain is a handful of instanced draws rather than one per tile. A tile
+ * becoming resident is a write into a typed array plus an upload; it never
+ * touches geometry.
+ *
+ * Int16 metres (D2) spans Ayding Lake at -154 m to Everest at 8,849 m exactly,
+ * and needs no decode step at all - the bytes off the wire are the bytes the
+ * GPU reads.
+ *
+ * Integer textures cannot be hardware-filtered. That costs nothing here:
+ * vertices land exactly on texels, and the ground elevation the HUD and the
+ * collision check need is interpolated on the CPU from the same Int16 buffer.
+ */
+
+/** WebGL2 guarantees at least 256 array layers. */
+export const MAX_LAYERS = 256;
+
+/** Heightmap texels per side. 64 km tiles at 1 km, sharing an edge row. */
+export const TILE_SAMPLES = 65;
+
+export interface TileKey {
+  x: number;
+  y: number;
+}
+
+export function tileId(x: number, y: number): string {
+  return `${x},${y}`;
+}
+
+export class HeightTileArray {
+  readonly texture: DataArrayTexture;
+  private readonly data: Int16Array;
+  private readonly layerOf = new Map<string, number>();
+  /** Layer -> tile id, for eviction. */
+  private readonly occupant: (string | null)[];
+  /** Monotonic clock for LRU. */
+  private readonly lastUsed: number[];
+  private clock = 0;
+  private dirty = false;
+
+  constructor(readonly layers: number = MAX_LAYERS) {
+    const stride = TILE_SAMPLES * TILE_SAMPLES;
+    this.data = new Int16Array(stride * layers);
+    this.occupant = new Array<string | null>(layers).fill(null);
+    this.lastUsed = new Array<number>(layers).fill(-1);
+
+    this.texture = new DataArrayTexture(
+      this.data,
+      TILE_SAMPLES,
+      TILE_SAMPLES,
+      layers,
+    );
+    this.texture.format = RedIntegerFormat;
+    this.texture.type = ShortType;
+    this.texture.internalFormat = "R16I";
+    this.texture.minFilter = NearestFilter;
+    this.texture.magFilter = NearestFilter;
+    this.texture.generateMipmaps = false;
+    this.texture.needsUpdate = true;
+  }
+
+  has(x: number, y: number): boolean {
+    return this.layerOf.has(tileId(x, y));
+  }
+
+  /** Layer holding this tile, or -1. Marks it used. */
+  layerFor(x: number, y: number): number {
+    const layer = this.layerOf.get(tileId(x, y));
+    if (layer === undefined) return -1;
+    this.lastUsed[layer] = ++this.clock;
+    return layer;
+  }
+
+  /**
+   * Make a tile resident, evicting the least recently used layer if the array
+   * is full. `heights` is Int16 metres, TILE_SAMPLES^2, row-major.
+   */
+  insert(x: number, y: number, heights: Int16Array): number {
+    const id = tileId(x, y);
+    const existing = this.layerOf.get(id);
+    const layer = existing ?? this.claimLayer();
+    if (existing === undefined) {
+      const evicted = this.occupant[layer];
+      if (evicted != null) this.layerOf.delete(evicted);
+      this.occupant[layer] = id;
+      this.layerOf.set(id, layer);
+    }
+    this.data.set(heights, layer * TILE_SAMPLES * TILE_SAMPLES);
+    this.lastUsed[layer] = ++this.clock;
+    this.dirty = true;
+    return layer;
+  }
+
+  /**
+   * Read a height back on the CPU, bilinearly interpolated.
+   * `u` and `v` are tile-local in [0,1]. Returns metres, or null if the tile
+   * is not resident.
+   */
+  sample(x: number, y: number, u: number, v: number): number | null {
+    const layer = this.layerOf.get(tileId(x, y));
+    if (layer === undefined) return null;
+    const base = layer * TILE_SAMPLES * TILE_SAMPLES;
+    const max = TILE_SAMPLES - 1;
+    const fx = Math.min(max, Math.max(0, u * max));
+    const fy = Math.min(max, Math.max(0, v * max));
+    const x0 = Math.floor(fx);
+    const y0 = Math.floor(fy);
+    const x1 = Math.min(max, x0 + 1);
+    const y1 = Math.min(max, y0 + 1);
+    const tx = fx - x0;
+    const ty = fy - y0;
+    const h00 = this.data[base + y0 * TILE_SAMPLES + x0] ?? 0;
+    const h10 = this.data[base + y0 * TILE_SAMPLES + x1] ?? 0;
+    const h01 = this.data[base + y1 * TILE_SAMPLES + x0] ?? 0;
+    const h11 = this.data[base + y1 * TILE_SAMPLES + x1] ?? 0;
+    const top = h00 + (h10 - h00) * tx;
+    const bottom = h01 + (h11 - h01) * tx;
+    return top + (bottom - top) * ty;
+  }
+
+  /** Call once per frame before rendering. */
+  flush(): void {
+    if (!this.dirty) return;
+    // Spike-level: re-upload the whole array (2.2 MB) when anything changes.
+    // Production wants texSubImage3D per layer; tracked as a phase 2 task.
+    this.texture.needsUpdate = true;
+    this.dirty = false;
+  }
+
+  get residentCount(): number {
+    return this.layerOf.size;
+  }
+
+  private claimLayer(): number {
+    let oldest = 0;
+    let oldestUse = Infinity;
+    for (let i = 0; i < this.layers; i++) {
+      if (this.occupant[i] == null) return i;
+      const used = this.lastUsed[i] ?? -1;
+      if (used < oldestUse) {
+        oldestUse = used;
+        oldest = i;
+      }
+    }
+    return oldest;
+  }
+}

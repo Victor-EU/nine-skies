@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-world/
+.cache/
+*.tsbuildinfo
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+/data/source/
+/data/work/
+dist-content/

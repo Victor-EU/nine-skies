@@ -1,0 +1,26 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1117; }
+#view { display: block; width: 100vw; height: 100vh; }
+
+#hud {
+  position: fixed; inset: 0; pointer-events: none;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #f2ede4; text-shadow: 0 1px 3px rgba(0,0,0,.65);
+}
+.block { position: absolute; }
+.primary { left: 24px; top: 24px; min-width: 190px; }
+.row { display: flex; align-items: center; gap: 8px; height: 20px; }
+.label { width: 46px; opacity: .62; letter-spacing: .08em; font-size: 10px; }
+.value { min-width: 62px; text-align: right; font-size: 16px; font-variant-numeric: tabular-nums; }
+.unit { opacity: .55; font-size: 10px; }
+.bar { width: 62px; height: 5px; background: rgba(255,255,255,.18); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: #e8d9a0; transition: width .18s linear, background .3s; }
+.bar i.thin { background: #8fb7e8; }
+
+.mode { left: 24px; bottom: 28px; display: flex; flex-direction: column; gap: 3px; }
+#mode { font-size: 18px; letter-spacing: .18em; }
+.muted { opacity: .55; font-size: 10px; letter-spacing: .05em; }
+.muted.dead { color: #e8a08f; opacity: .85; }
+
+.debug { right: 24px; top: 24px; text-align: right; opacity: .55; font-size: 10px; line-height: 1.7; }
+.help { right: 24px; bottom: 24px; text-align: right; opacity: .42; font-size: 10px; line-height: 1.7; }

@@ -1,0 +1,24 @@
+id: wulingyuan
+type: hero-landmark
+region: Yunnan-Guizhou
+names:
+  zh: 武陵源
+  en: Wulingyuan (Zhangjiajie)
+  pinyin: Wǔlíngyuán
+trigger: { lat: 29.33, lon: 110.48, radius_km: 15 }
+one_liner: >-
+  Three thousand sandstone pillars standing in the mist, like a forest that
+  forgot to be a mountain.
+read_more: >-
+  Wulingyuan holds more than three thousand quartz-sandstone pillars, some of
+  them rising two hundred metres from the valley floor. They are what is left
+  of a plateau that water has been taking apart for millions of years: rain
+  worked down through vertical joints in the rock and widened them into chasms,
+  until only the columns between were still standing. The sandstone is hard
+  enough to hold itself up and jointed enough to split, which is the whole
+  trick. Mist collects between the pillars most mornings, which is why
+  photographs of the place always look as though the tops are floating free.
+figure: { value: 3000, unit: pillars, label: quartz-sandstone pillars }
+illustration_id: zhangjiajie-pillars
+sources:
+  - UNESCO World Heritage Centre, Wulingyuan Scenic and Historic Interest Area

@@ -1,0 +1,25 @@
+id: ayding-lake
+type: hero-landmark
+region: Xinjiang
+names:
+  zh: 艾丁湖
+  en: Ayding Lake
+  pinyin: Àidīng Hú
+trigger: { lat: 42.68, lon: 89.26, radius_km: 15 }
+one_liner: >-
+  The lowest ground in China, a dry salt pan a hundred and fifty metres below
+  the sea.
+read_more: >-
+  Ayding Lake lies at the bottom of the Turpan Depression, 154 metres below sea
+  level: the lowest exposed land in China, and after the Dead Sea the second
+  lowest on Earth. It is a lake in name only. What is left is a crust of salt
+  and mud that shimmers in the summer heat, fed by water that evaporates faster
+  than it arrives. Turpan regularly passes forty degrees, and the air down here
+  is about two per cent denser than at sea level, so the engine runs a little
+  eager. Mountains ring the depression and wring the rain out of every wind
+  that reaches it.
+figure: { value: -154, unit: m, label: lowest point in China }
+illustration_id: turpan-salt
+sources:
+  - China National Bureau of Statistics, physical geography series
+  - Elevation from the simulation's Copernicus DEM grid

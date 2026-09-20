@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nine Skies — prototype</title>
+    <link rel="stylesheet" href="./src/hud.css" />
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="hud">
+      <div class="block primary">
+        <div class="row"><span class="label">ALT</span><span class="value" id="alt">—</span><span class="unit">m</span></div>
+        <div class="row"><span class="label">GND</span><span class="value" id="gnd">—</span><span class="unit">m</span></div>
+        <div class="row"><span class="label">TEMP</span><span class="value" id="temp">—</span><span class="unit">°C</span></div>
+        <div class="row"><span class="label">HUM</span><span class="value" id="hum">—</span><span class="unit">%</span></div>
+        <div class="row density">
+          <span class="label">AIR</span>
+          <span class="bar"><i id="densityBar"></i></span>
+          <span class="unit" id="densityText">—</span>
+        </div>
+        <div class="row"><span class="label">CLIMB</span><span class="value" id="climb">—</span><span class="unit">m/s</span></div>
+      </div>
+      <div class="block mode">
+        <span id="mode">CRUISE</span>
+        <span id="boostState" class="muted">boost ready</span>
+        <span id="ground" class="muted">—</span>
+      </div>
+      <div class="block debug">
+        <div id="fps">— fps</div>
+        <div id="draws">—</div>
+        <div id="tris">—</div>
+        <div id="horizon">—</div>
+        <div id="scaleText">—</div>
+      </div>
+      <div class="block help">
+        <b>W/S</b> pitch &nbsp; <b>A/D</b> roll &nbsp; <b>1/2/3</b> low / cruise / boost<br />
+        <b>C</b> cycle compression (G1 A/B) &nbsp; <b>H</b> horizon impostor on/off &nbsp; <b>R</b> reset to the coast
+      </div>
+    </div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
