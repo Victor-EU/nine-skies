@@ -65,21 +65,23 @@ describe("the committed section, which is the ground CI flies over", () => {
     const check = report!.check!;
     expect(report!.source).toBe("section");
     expect(report!.sectionIssue).toBeNull();
-    // F18: the authored speed profile is 35.5 minutes.
-    expect(check.minutes).toBeCloseTo(35.5, 0);
+    // F18: the authored speed profile, plus F31's 45 km of approach.
+    expect(check.minutes).toBeCloseTo(36.7, 0);
     // F17/F18: it clears, by 333 m at its worst.
     expect(check.clears).toBe(true);
     expect(check.worstClearanceM).toBeGreaterThan(300);
-    // F21: and it still arrives 1,588 m over Lhasa at its lowest.
-    expect(check.lowestArrivalM).toBeGreaterThan(1500);
-    expect(check.lowestArrivalM).toBeLessThan(1700);
+    // F31: and it now arrives, 264 m over Lhasa against an authored 300.
+    expect(check.lowestArrivalM).toBeLessThan(300);
+    expect(check.arrives).toBe(true);
+    expect(check.issues).toHaveLength(0);
   }, 30_000);
 
   it("does not fail an expedition that never claimed an arrival", () => {
-    // Sea to Sky authors no `arrival:` today, because which ending it has is
-    // a writing decision F21 priced and did not make. The gate prints the
-    // measured height and stays green; it does not invent a claim to fail.
-    const [report] = checkRoutes([seaToSky()], NO_WORLD, SECTIONS);
+    // Sea to Sky authors one now (F31), so the case needs a route that does
+    // not. The gate prints the measured height and stays green; it does not
+    // invent a claim in order to fail it.
+    const { arrival: _none, ...unclaimed } = seaToSky();
+    const [report] = checkRoutes([unclaimed], NO_WORLD, SECTIONS);
     expect(report!.authored).toBe(false);
     expect(report!.check!.issues).toHaveLength(0);
     expect(describeReport(report!).join("\n")).toMatch(/NO ARRIVAL AUTHORED/);

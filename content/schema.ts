@@ -193,6 +193,20 @@ export interface Arrival {
   altitude_m: number;
   /** Metres the route must keep above terrain. Defaults to 300 (F20). */
   clearance_m?: number;
+  /**
+   * How far out the destination is approached at `approach` pace, kilometres.
+   *
+   * Deliberately not a leg speed. `approach` is the one mode that changes the
+   * horizontal compression rather than the airspeed, so letting it be written
+   * on any waypoint would scatter changes of scale through a route and make
+   * two stretches of the same flight not comparable by eye. Here it can only
+   * ever be the last few tens of kilometres into somewhere, which is the one
+   * case that needed it: a destination in a valley behind a ridge cannot be
+   * descended onto at any constant pace (F31).
+   *
+   * Absent means the final leg is flown at its authored speed to the end.
+   */
+  approach_km?: number;
 }
 
 export interface Expedition {
@@ -234,6 +248,14 @@ export const EXPEDITION_RULES = {
    * rather than a restriction on what an expedition may do.
    */
   minArrivalM: 20,
+  /**
+   * The shortest approach worth authoring, kilometres.
+   *
+   * Below this the pace change lasts a few seconds and buys almost no
+   * descent, so it would be a change of scale the player can see and cannot
+   * benefit from - the worst of both.
+   */
+  minApproachKm: 10,
 } as const;
 
 export function validateExpeditions(expeditions: Expedition[]): Issue[] {
@@ -290,6 +312,23 @@ export function validateExpeditions(expeditions: Expedition[]): Issue[] {
           add(id, where, `only ${legKm.toFixed(1)} km from ${prev.id}; that is a corner, not a leg`);
       }
     });
+
+    const approachKm = e.arrival?.approach_km;
+    if (approachKm !== undefined) {
+      const last = route[route.length - 1];
+      const penultimate = route[route.length - 2];
+      const lastLegKm =
+        last && penultimate ? haversineKm(penultimate.lat, penultimate.lon, last.lat, last.lon) : 0;
+      if (!(approachKm >= EXPEDITION_RULES.minApproachKm))
+        add(id, "arrival.approach_km", `must be at least ${EXPEDITION_RULES.minApproachKm} km`);
+      else if (approachKm >= lastLegKm)
+        add(
+          id,
+          "arrival.approach_km",
+          `${approachKm} km is the whole last leg (${lastLegKm.toFixed(0)} km); ` +
+            "an approach is the end of a leg, not a replacement for one",
+        );
+    }
 
     // The arrival is schema-checked here and flown in `tools/routeCheck.ts`.
     // Only the first can run without a built corridor, so it does what it

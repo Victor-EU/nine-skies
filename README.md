@@ -47,7 +47,7 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 327 TypeScript tests and 59 Python tests
+make test         # 347 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -60,7 +60,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-319 of the 327 TypeScript tests run without the world; the eight that do not
+339 of the 347 TypeScript tests run without the world; the eight that do not
 are the ones whose subject is the world itself.
 
 A section is also signed by the machine that cut it, and one that does not
@@ -83,13 +83,40 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | --- | --- |
 | `engine/src/sim` | Atmosphere, aircraft performance, arcade flight model, world scale |
 | `engine/src/terrain` | Shared grid, heightmap texture array, shaders, streaming, horizon impostor |
-| `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes |
+| `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them |
+| `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes, frame-cost capture |
 | `content` | Card and expedition schema, the committed route sections, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, the committed projection reference and the source raster digests |
-| `tools` | Node-only authoring tools: corridor reader, route sections and their signatures, route check, playtest session planner, lesson report |
+| `tools` | Node-only authoring tools: corridor reader, route sections and their signatures, route check, playtest session planner, lesson report, frame-budget stations |
 | `test` | Unit tests, including the golden reference tables |
 | `docs` | Running findings for each gate, and the golden probe report |
-| `Makefile` | `make world`, `make probes`, `make sources`, `make sections`, `make cut-key`, `make reference`, `make routes`, `make sessions`, `make teaches`, `make test` |
+| `Makefile` | `make world`, `make probes`, `make sources`, `make sections`, `make cut-key`, `make reference`, `make routes`, `make sessions`, `make teaches`, `make stations`, `make test` |
+
+## What a frame costs
+
+The frame budget is written in milliseconds per pass against 33.3 ms, so it is
+measured that way rather than in frames per second — an fps counter is capped
+by vsync and cannot tell 1 ms of terrain from 7.9 (D25).
+
+```bash
+make dev
+# then, in the browser console:
+__ns.frameCost().then((r) => console.log(__ns.frameCostTable(r)))
+```
+
+It flies nothing. The camera is placed at seven stations cut from the route
+and committed in `app/public/capture-stations.json` — the named waypoints plus
+the foot and rim of the wall — at a forced 1920×1080, and each pass is timed
+with GPU timer queries. Every capture begins by checking the instrument and
+prints its own resolution, because a number below that floor has not been
+measured however many decimal places it has.
+
+On an Apple M3 the whole visible scene costs 0.98 ms of the 33.3 ms frame and
+the L0 displaced grid 0.10–0.13 ms against a 4 ms trip-wire. The named floor
+device is an Intel Iris Xe and has not been captured yet; `make stations`
+re-cuts the stations, which is a deliberate act rather than part of `make
+world`, because two captures are only comparable if they stood in the same
+places.
 
 ## The two things worth knowing before reading the code
 

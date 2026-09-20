@@ -8,7 +8,12 @@
 # fifteen-to-thirty-five minute band, and the shipped 130 is not close.
 #
 # What flies is `low / low / cruise / cruise`: 35.5 minutes, clearing the
-# worst ground by 333 m, arriving over Lhasa at 6,010 m.
+# worst ground by 333 m — and, flown like that, never arriving. It passes over
+# Lhasa 1,588 m up and cannot get lower, because the Nyainqentanglha's last
+# spur stands at 5,220 m forty-five kilometres out and the valley floor is
+# 1,500 m below it. At cruise those forty-five kilometres last seventeen
+# seconds. The `arrival.approach_km` below is what fixes that, and F31 is why
+# nothing cheaper does.
 #
 # Two things about it are counter-intuitive enough to be worth writing down,
 # because both look like mistakes to anyone tidying this file later.
@@ -32,7 +37,11 @@
 id: sea-to-sky
 name: Sea to Sky
 contrast: Low, wet and crowded to high, dry and empty
-teaches: The three steps, and why the west is sparse
+# Not a lesson to be recalled afterwards — F29 measured this route against the
+# one it used to claim and found it teaches something else. What it does is
+# show you this part of China from the air, continuously, at a scale where the
+# ground is real. Whether that lands is what G2 asks.
+teaches: What this part of China looks like from the air, end to end
 
 # Late autumn: thick Sichuan fog at the start, a clear plateau at the end.
 month: 11
@@ -48,3 +57,16 @@ route:
   - { id: chongqing, name: Chongqing, zh: 重庆, lat: 29.57, lon: 106.55, speed: low }
   - { id: chengdu, name: Chengdu, zh: 成都, lat: 30.66, lon: 104.07, speed: cruise }
   - { id: lhasa, name: Lhasa, zh: 拉萨, lat: 29.65, lon: 91.10, speed: cruise }
+
+# It arrives. 300 m over the city is a low pass rather than a landing - there
+# is deliberately no `landing:` in the schema, and F22 says why - but it is the
+# difference between ending the expedition over Lhasa and ending it a
+# kilometre and a half above Lhasa.
+#
+# The last 45 km are flown at `approach` pace, which is the same airspeed as
+# `low` and half the ground per minute: the aeroplane cannot fly slower than
+# `low`, so what changes is the compression, not the aircraft. It costs 1.2
+# minutes and it is the only thing measured that gets the aircraft down.
+arrival:
+  altitude_m: 300
+  approach_km: 45

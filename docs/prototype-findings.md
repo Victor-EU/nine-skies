@@ -496,7 +496,10 @@ Two things the build should not forget:
 
 - The floor device measurement is still outstanding and is the one that decides
   whether the 4 ms L0 trip-wire in the risk register is hit. Everything above
-  is a development machine.
+  is a development machine. **Taken in F30**, on the development machine and
+  with an instrument: L0 costs 0.10–0.13 ms and the whole visible scene 0.98 ms
+  of the 33.3 ms frame. The Iris Xe is still outstanding; the "65–120 fps" in
+  the table above turns out to have been a measure of vsync.
 - The world is a flat plane. On a sphere, ground 560 km away sits 25 km below
   the tangent plane and the horizon from 1,200 m is 138 km, so none of the
   approach above would be visible at all. Every flight game at this scale makes
@@ -546,7 +549,8 @@ Three things the build should not forget:
 
 - The floor device measurement is still outstanding and is the one that decides
   whether the 4 ms L0 trip-wire in the risk register is hit. Everything here is
-  a development machine.
+  a development machine. **Taken in F30** — see the note on the spike result
+  above.
 - The world is a flat plane. On a sphere, ground 560 km away sits 25 km below
   the tangent plane and the horizon from 1,200 m is 138 km, so none of the
   approach in F1 would be visible at all. Every flight game at this scale makes
@@ -2537,3 +2541,264 @@ expeditions crosses the Changtang, which costs nothing and has to be decided
 before G2's protocol is written rather than after. The other half of the
 file's claim — `Low, wet and crowded to high, dry and empty` — the route
 delivers exactly as authored.
+
+## F30 — The frame budget is written in milliseconds and nothing measured one, so the first thing built was an instrument that argues with itself
+
+Everything in workstream B is costed in milliseconds against a 33.3 ms frame:
+terrain 8, sky and post 6, cities 3, weather 2, UI 2, CPU 4, headroom 8. The
+prototype recorded **65–120 fps (vsync-capped)** and stopped there, and that
+number cannot decide anything, because it is equally consistent with terrain
+spending 1 ms of its eight and with it spending 7.9. The risk register's
+trip-wire for D3 — *displaced grid under 4 ms at L0* — is a quantity of
+exactly the kind an fps counter cannot see, and it has been open since week 2.
+
+So: `EXT_disjoint_timer_query_webgl2`, which asks the GPU what it actually
+spent, at seven stations cut from the route, at exactly 1920×1080.
+
+**Three things the instrument found wrong with the measurement, in order.**
+
+*The game loop was still running.* The capture switches parts of the scene off
+one at a time and times what is left. Underneath it, `frame()` kept calling
+`terrain.update`, which restores every bucket's visibility, and `placeAt`,
+which puts the camera back on the aircraft. What was timed was the ordinary
+frame with extra steps. It reported **6.21 ms to clear an empty screen** and
+**−2.21 ms to draw terrain**, and a capture that does not own the frame
+measures nothing.
+
+*The median was the wrong statistic.* Everything that can go wrong during a
+timing — the compositor taking the GPU, another tab, a clock change — makes a
+reading longer. Nothing makes one shorter than the work takes. The samples are
+therefore the true cost plus a one-sided tail, and the floor is the estimate
+while the middle is a measure of how busy the machine was:
+
+| an empty 1080p frame, fifteen timings | |
+| --- | ---: |
+| median | 3.51 ms |
+| minimum | **0.50 ms** |
+
+The median of *nothing at all* was a tenth of the entire frame budget.
+
+*"Four times the work costs four times as much" is false here.* The instrument
+check scaled the load by drawing the same full-screen pass 1, 2, 4, 8 and 16
+times, and the fit failed — r² **−1.30**, then **−3.48**, then **0.90**. That
+is not the timer. On a tile-based deferred GPU, consecutive passes that begin
+by clearing let the hardware skip storing the one before, so sixteen passes
+came back at under three times the cost of one. The timer was being blamed for
+reporting something true. **Pixels are the honest axis**: a pass over four
+times the area does four times the fragment work on any architecture. Swept
+that way the same timer fits at **r² 0.985**.
+
+**The capture.** Apple M3, ANGLE Metal, 1920×1080, lowest of 40 timings,
+`terrain` and `horizon` net of `clear`:
+
+| station | km | alt m | tiles | tris | clear | terrain | horizon | all |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| shanghai | 0 | 1,200 | 123 | 252k | 0.58 | 0.24 | −0.04 | 0.94 |
+| wuhan | 679 | 4,229 | 137 | 261k | 0.52 | 0.31 | 0.02 | 0.97 |
+| chongqing | 1,427 | 5,560 | 137 | 261k | 0.56 | 0.22 | 0.01 | 1.61 |
+| chengdu | 1,693 | 5,659 | 137 | 261k | 0.84 | 0.28 | −0.22 | 0.95 |
+| wall-foot | 1,760 | 5,682 | 137 | 261k | 0.53 | 0.40 | 0.02 | 0.90 |
+| wall-rim | 1,860 | 5,715 | 137 | 261k | 0.53 | 0.43 | 0.07 | 0.81 |
+| lhasa | 2,931 | 6,010 | 132 | 258k | 0.54 | 0.19 | 0.01 | 0.82 |
+
+Instrument: **0.347 ms per megapixel + 0.259 ms per pass**, r² 0.985. The
+capture's own resolution is **±0.32 ms**, taken as the spread of `clear` —
+which is the same work at every station, so any spread in it is the instrument
+and not the world. The negative entries are saying precisely that, and should
+be read as *below the floor*, not as a defect.
+
+**The trip-wire, at last.** L0 — the 64×64 displaced grid, nine instances, the
+draw D3 was a bet on:
+
+| | |
+| --- | ---: |
+| L0 at six of seven stations | 0.10–0.13 ms |
+| the trip-wire | 4 ms |
+| terrain, every LOD | 0.19–0.43 ms against its 8 ms line |
+| everything currently drawn, from the fit at 1080p | **0.98 ms** of 33.3 |
+
+Vertex texture fetch is not slow here. It is about **36× inside** the number
+that was going to trigger a fallback to worker-built CPU meshes and three
+engineer-weeks.
+
+**What this does not settle, stated plainly.** This is an Apple M3, and the
+floor is an Intel Iris Xe. What the capture converts is the *shape* of the
+open question: not "will it hold 30 fps", which nothing here can answer, but
+**"is the floor device more than twenty-seven times the cost per pixel of this
+one, at this workload?"** — 27× for terrain to fill its own 8 ms line, 34× for
+everything currently drawn to fill the whole frame. That is a sharp question
+with a measurable answer, and the machine that answers it runs one command.
+
+Two caveats that belong next to those multiples. A single per-pixel ratio is a
+one-number summary of a difference that is really several — vertex throughput,
+texture units, bandwidth, driver overhead — and a workload can be inside the
+ratio on average and outside it on one axis. And **only one of the six GPU
+budget lines has been built**: terrain and the horizon impostor. Sky and post
+(6 ms), cities (3 ms) and weather (2 ms) do not exist, so 0.98 of 33.3 is not
+32 ms of headroom for a finished game. It is the two things that exist costing
+1 ms between them.
+
+It also retires a loose end: the recorded "65–120 fps" was never a measure of
+this renderer. At 1 ms of GPU work per frame the rate was bounded by vsync and
+by the CPU, and would have read much the same with the terrain switched off.
+
+**Two more things the window did, after the numbers were in.** A capture that
+starts at 98 frames a second does not stay there: this shell puts the page to
+about 1.2 Hz once nobody is looking at it, and a run that began fine then
+crawled for twenty minutes looking exactly like a hang. The rate is now
+checked before the capture *and before every station*, and a collapse aborts
+naming the station it reached. It is measured rather than read off
+`document.hidden`, which reported `hidden` throughout several captures running
+at 98 Hz and is simply not the same question.
+
+And the app resizes its renderer on every `resize` event, which would have
+moved every remaining station off 1080p mid-capture while the report went on
+claiming 1080p — the one kind of wrong this whole exercise is about. The
+handler now stands down while a measurement owns the frame, and the report
+states the drawing buffer read back from the renderer at the end rather than
+the size it asked for, with a warning in the table if those differ.
+
+The frame-rate check is a diagnosis; the backstop is a five-minute deadline,
+because the check only looks between stations and a station that takes six
+seconds takes ten minutes at 1.5 Hz — so the diagnosis can be slow to arrive,
+and it covers only one of the reasons a capture can stop making progress.
+Verified by running one in a throttled window: it stopped after ten seconds
+with *"animation frames are arriving at 7.7 Hz, so this capture would take
+about 313 seconds per station instead of six"*, and — the half that matters —
+gave the frame back. A capture that aborts while it owns the loop and the
+canvas must hand both back, or the operator's only way out is a reload and the
+error that caused it is the least of their problems.
+
+| | F29 | F30 |
+| --- | ---: | ---: |
+| TypeScript tests | 327 | 344 |
+| running on a fresh checkout | 319 | 336 |
+| Python tests | 59 | 59 |
+
+**Built.** `engine/src/gfx/gpuTimer.ts` (the timer, `linearity`, `lowest`),
+`app/src/frameCost.ts` (the capture and its table), `tools/stations.ts` and
+`tools/cutStations.ts` with `npm run content:stations` and `make stations`,
+`app/public/capture-stations.json`, `TerrainStats.perLod`, and a `suspended`
+flag in `main.ts` so a measurement can own the frame and the canvas. `placeAt`
+was lifted out of `frame()` so the capture measures the picture the game draws
+rather than a second arrangement that resembles it. Seventeen tests: seven on
+the fit and the estimator against synthetic timings, five on the stations and
+five on the two rules that can be checked without a GPU — the frame-rate
+refusal and the resolution figure — all of which run with no GPU and no world.
+
+The stations are committed rather than chosen in the browser, and that is the
+one decision here worth defending. A capture is only worth taking if it can be
+compared to the last one; stations that move when somebody re-authors a leg
+make a regression and an improvement look identical.
+
+**Action.** Closes the measurement half of *Spike D3/D4* and answers the
+trip-wire on this machine. The spike stays open on the floor device, where it
+is now one command rather than a project. Recorded in *Open questions*: the
+floor-device confirmation is the blocking one, because if Apple Silicon is in
+scope as a floor rather than only as a ceiling, this capture has already
+passed it.
+
+## F31 — Lhasa is behind a ridge forty-five kilometres out, and no constant pace gets down it
+
+F21 found that Expedition 1 passes over Lhasa 1,588 m up and cannot get
+lower, and priced three endings without choosing one. The choice has now been
+made — **arrive at Lhasa**, with speed free to vary — so the question became
+which of the available levers actually closes 1,588 m.
+
+**Speed alone does not.** Flying the whole last leg at `low` — a third of
+cruise, thirteen extra minutes — gets to 1,095 m and stops:
+
+| final leg | extra minutes | lowest arrival |
+| --- | ---: | ---: |
+| cruise, as shipped | — | 1,588 m |
+| `low` for the last 100 km | +1.1 | 1,081 m |
+| `low` for the last 300 km | +3.3 | 1,091 m |
+| `low` for the whole 1,238 km leg | +13.8 | 1,095 m |
+
+The improvement saturates at 100 km and then buys nothing, which is the shape
+of a constraint that is not about speed. **Nor does routing.** Coming in down
+the Yarlung Tsangpo instead of over the range — via Nyingchi, via Nyingchi and
+Tsetang, via Qamdo — costs four to fourteen minutes and lands between 1,224 m
+and 1,662 m. Every one of them is worse than the cheapest speed change.
+
+**What binds is one ridge and the arithmetic after it.** Every kilometre of
+the approach, read off the committed section:
+
+```
+  48 km out  5,220 m      33 km out  4,083 m
+  47 km out  5,217 m      32 km out  3,818 m
+  46 km out  5,106 m      31 km out  3,717 m   ← the valley floor
+  45 km out  5,215 m      30 km out  3,708 m
+```
+
+The aircraft must be at 5,520 m with 45 km to run, and Lhasa is 3,652 m. That
+is **1,870 m to lose in 45 km**. At plateau cruise those 45 km last seventeen
+seconds; at `low`, fifty. Eighteen metres a second — full forward stick, which
+is not an arrival — gives 900 m of the 1,870. The gap was never the descent
+rate and never the route. It was that there is no ground left to descend over.
+
+**What closes it.** A fourth pace, `approach`, flown over the last 45 km:
+
+| pace over the last 45 km | ground per minute | total | arrives |
+| --- | ---: | ---: | ---: |
+| cruise (shipped) | 130 | 35.5 | 1,588 m — no |
+| `low` (1/3) | 43 | 36.0 | 1,111 m — no |
+| 1/4 | 33 | 36.2 | 823 m — no |
+| 1/5 | 26 | 36.4 | 535 m — no |
+| **`approach` (1/6)** | **22** | **36.7** | **264 m — yes** |
+| 1/8 | 16 | 37.2 | 303 m — no better |
+
+It floors out around 250–300 m because the taper releases margin to exactly
+the authored arrival and no further, so 1/6 is not a tuned number, it is the
+first one that reaches the floor. **The cost is 1.2 minutes.**
+
+**What `approach` actually is, said plainly.** It flies at the same indicated
+airspeed as `low` — 38 m/s, a little above stall, and there is no slower way
+to fly a light single — and takes half the ground per minute. So what changes
+is not the aeroplane. It is the horizontal compression, locally halved. A
+route that does that is a route where two stretches of itself are not
+comparable by eye, and that is a genuine cost against the GDD's scale pillar.
+It is paid in one place, over 45 km, at the end, and the alternative measured
+above was not a faster descent — it was not arriving.
+
+Three things were built to keep it honest. `approach` is **not in
+`SPEED_MODES`**, so it cannot be written on a waypoint; the only way to reach
+it is `arrival.approach_km`, which can only ever be the last few tens of
+kilometres into a destination. It **splits the final leg rather than adding a
+waypoint** — there is no place forty-five kilometres east of Lhasa this route
+is about, and a waypoint would change the route's geometry and invalidate the
+committed section and its signature (D21, D23) for a change that moves no
+elevation at all. And the route gate now prints `arrives 264 m up against an
+authored 300` where it printed `NO ARRIVAL AUTHORED` on every run since F22.
+
+**Sixteen tests failed, and none of them was a bug.** They were the record of
+the old truth: a whole file titled *"Expedition 1 does not arrive at Lhasa"*,
+an autopilot test asserting it *"cannot descend into Lhasa, whatever it
+does"*, and a dozen pinned numbers. Deleting them would have deleted the
+argument for the change; leaving them pointed at the shipped file would have
+made them assert the opposite of what they say. They now fly
+`seaBeforeApproach()` — the same expedition with the approach taken away —
+which keeps F21's findings checkable as what they are: the reason `approach`
+exists. The autopilot test earned a better claim in the process. It used to
+say the fix would be a fifth waypoint; it was not, and the aircraft it
+describes now falls short for a different reason — its own 200 m capture band,
+not the aeroplane's 18 m/s.
+
+| | F30 | F31 |
+| --- | ---: | ---: |
+| TypeScript tests | 344 | 347 |
+| running on a fresh checkout | 336 | 339 |
+| Python tests | 59 | 59 |
+
+**Built.** `approach` in `MODE_IAS_MS`, `MODE_SPEED_RATIO` and
+`MODE_GROUND_KM_PER_MIN`; `Arrival.approach_km` and `minApproachKm` in the
+schema, with both failure modes validated; the leg split in `flyableFrom`;
+`arrival:` and a new `teaches:` on Expedition 1; `seaBeforeApproach()` in the
+route fixture; and the sixteen assertions above, rewritten rather than
+deleted.
+
+**Action.** Closes F21. Expedition 1 is now 36.7 minutes against the GDD's
+fifteen-to-thirty-five band — 1.7 over, where it was 0.5 over — and that is
+the deliberate consequence of two decisions taken together: keep the climb,
+and arrive. Recorded in *Open questions* as the band being the thing that
+should move, since it is the only one of the three that was never measured.

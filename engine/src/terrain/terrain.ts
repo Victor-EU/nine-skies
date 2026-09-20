@@ -45,6 +45,14 @@ export interface TerrainStats {
   generatedThisFrame: number;
   /** Tiles the view wanted and the source could not supply. */
   missing: number;
+  /**
+   * Instances in each LOD bucket, nearest first; sums to `instances`.
+   *
+   * Kept because the totals hide the number the frame budget is about: 8,192
+   * triangles of L0 and 128 of L3 are the same triangle to `triangles` and
+   * are not the same draw.
+   */
+  perLod: number[];
 }
 
 interface LodBucket {
@@ -80,6 +88,7 @@ export class Terrain {
     resident: 0,
     generatedThisFrame: 0,
     missing: 0,
+    perLod: LOD_SEGMENTS.map(() => 0),
   };
 
   constructor(private readonly options: TerrainOptions) {
@@ -186,7 +195,8 @@ export class Terrain {
     let instances = 0;
     let triangles = 0;
     let drawCalls = 0;
-    for (const b of this.buckets) {
+    for (const [lod, b] of this.buckets.entries()) {
+      this.stats.perLod[lod] = b.count;
       b.geometry.instanceCount = b.count;
       b.mesh.visible = b.count > 0;
       if (b.count > 0) {

@@ -28,11 +28,16 @@ describe.skipIf(!hasGround)("the wall Expedition 1 is about", () => {
     expect(wall.riseM).toBeGreaterThan(3500);
   });
 
-  it("is crossed at minute 29.4 of 35.5", () => {
+  it("is crossed at minute 29.4 of 36.65", () => {
+    // The wall is 1,071 km before the destination, so the 45 km approach the
+    // arrival authors (F31) lands entirely after it: the crossing does not
+    // move, the total does.
     const { whole, wall } = flown();
     const rim = whole.find((s) => s.km >= wall.rimKm)!;
     expect(rim.seconds / 60).toBeCloseTo(29.4, 1);
-    expect(whole[whole.length - 1]!.seconds / 60).toBeCloseTo(35.5, 1);
+    // 36.65 by the track's own per-kilometre sampling; the gate's integrator
+    // prints 36.7. The difference is the sampling, not the flight.
+    expect(whole[whole.length - 1]!.seconds / 60).toBeCloseTo(36.65, 1);
   });
 });
 

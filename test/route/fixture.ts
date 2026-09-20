@@ -34,3 +34,26 @@ export function sea(): FlyableExpedition {
     cached = flyableFrom(loadExpedition(SEA_TO_SKY_PATH), seaToSkyGround.groundM!);
   return cached;
 }
+
+let withoutApproach: FlyableExpedition | null = null;
+/**
+ * The same route with its authored approach taken away.
+ *
+ * F21's findings - that this route cannot be descended onto, and that none of
+ * the cheap fixes close the gap - are about the route *before* an approach
+ * pace existed, and they are the entire reason it does exist. Asserting them
+ * against the shipped file would now assert the opposite of what they say, so
+ * they are asserted against this instead. Delete it only when the argument
+ * for `approach` no longer needs to be checkable.
+ */
+export function seaBeforeApproach(): FlyableExpedition {
+  if (withoutApproach === null) {
+    const e = loadExpedition(SEA_TO_SKY_PATH);
+    const { approach_km: _dropped, ...arrival } = e.arrival ?? { altitude_m: 0 };
+    withoutApproach = flyableFrom(
+      { ...e, ...(e.arrival ? { arrival } : {}) },
+      seaToSkyGround.groundM!,
+    );
+  }
+  return withoutApproach;
+}

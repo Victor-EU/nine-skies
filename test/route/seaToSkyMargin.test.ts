@@ -37,12 +37,16 @@ import {
 } from "../../engine/src/sim/aircraft.js";
 
 describe.skipIf(!hasGround)("what Expedition 1 has left over", () => {
-  it("arrives over Lhasa in the wrong place entirely", () => {
+  it("ends the proof flight over Lhasa in the wrong place entirely", () => {
+    // `flyRoute` with no policy is full up-elevator - the proof, not the
+    // flight (F20). What ships descends: the lowest legal line arrives 264 m
+    // over the city (F31). This is about how much height the *proof* is
+    // carrying when it gets there, which is the margin the route has spare.
     const { route, ground } = sea();
     const flight = flyRoute(route, ground);
     const lhasaGroundM = ground(Math.floor(routeLengthKm(route)));
 
-    expect(flight.arrivalAltitudeM).toBeCloseTo(6010, -1);
+    expect(flight.arrivalAltitudeM).toBeCloseTo(6056, -1);
     expect(lhasaGroundM).toBeCloseTo(3668, -1);
     // Two and a third kilometres above the city the expedition is about.
     expect(flight.arrivalAltitudeM - lhasaGroundM).toBeGreaterThan(2300);

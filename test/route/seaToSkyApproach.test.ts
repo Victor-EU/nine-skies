@@ -11,9 +11,16 @@
  * Runs everywhere: the ground under this route is committed beside it
  * (D21), so the findings below are checked on every commit rather than
  * only on a machine with the rasters.
+ *
+ * Every assertion here except the last block flies `seaBeforeApproach()` -
+ * the shipped route with its authored approach taken away. That is not a
+ * dodge. F21's findings are the argument for the approach existing, so
+ * checking them against a file that now has one would assert the opposite of
+ * what they say, and deleting them would leave the argument unchecked. The
+ * last block flies what actually ships.
  */
 import { describe, expect, it } from "vitest";
-import { hasGround, sea } from "./fixture.ts";
+import { hasGround, sea, seaBeforeApproach } from "./fixture.ts";
 import {
   approachBand,
   arrivalCeilingM,
@@ -39,7 +46,8 @@ const BASE = { strideKm: 25, toleranceM: 5, clearanceM: 300, arrivalM: 500 } as 
 let floorCache: GroundProfile | null = null;
 function floor(): GroundProfile {
   if (floorCache === null) {
-    floorCache = floorProfile(climbFloor(sea().route, sea().ground, BASE));
+    const before = seaBeforeApproach();
+    floorCache = floorProfile(climbFloor(before.route, before.ground, BASE));
   }
   return floorCache;
 }
@@ -57,9 +65,9 @@ function withApproach(route: Route, splitKm: number): Route {
   };
 }
 
-describe.skipIf(!hasGround)("Expedition 1 does not arrive at Lhasa", () => {
+describe.skipIf(!hasGround)("Expedition 1, flown without an approach, does not arrive", () => {
   it("cannot be landed, and the lowest trajectory that exists is a mile up", () => {
-    const { route, ground } = sea();
+    const { route, ground } = seaBeforeApproach();
     const shortfallM = arrivalShortfallM(route, ground, { ...opts(), arrivalM: 0 });
     // Not the autopilot being cautious. This is full forward stick wherever
     // the aircraft is above the floor, which is the lowest line any policy
@@ -69,7 +77,7 @@ describe.skipIf(!hasGround)("Expedition 1 does not arrive at Lhasa", () => {
   });
 
   it("offers the policy knob about a fifth of what is missing", () => {
-    const { route, ground } = sea();
+    const { route, ground } = seaBeforeApproach();
     const lengthKm = routeLengthKm(route);
     const gentle = flyRoute(route, ground, {
       policy: followFloor(floor(), { maxDescent: 0.25, bandM: 200 }),
@@ -84,7 +92,7 @@ describe.skipIf(!hasGround)("Expedition 1 does not arrive at Lhasa", () => {
   });
 
   it("can arrive at sixteen hundred metres over the city and nothing lower", () => {
-    const { route, ground } = sea();
+    const { route, ground } = seaBeforeApproach();
     const short = (arrivalM: number) => arrivalShortfallM(route, ground, { ...opts(), arrivalM });
     expect(short(1600)).toBeLessThanOrEqual(0);
     expect(short(1000)).toBeGreaterThan(400);
@@ -92,7 +100,7 @@ describe.skipIf(!hasGround)("Expedition 1 does not arrive at Lhasa", () => {
   });
 
   it("leaves no altitude open at all until thirty-one kilometres out", () => {
-    const { route, ground } = sea();
+    const { route, ground } = seaBeforeApproach();
     const lengthKm = routeLengthKm(route);
     // Every 250 km of a 2,931 km route: twelve samples, none of them landable.
     const band = approachBand(route, ground, { ...opts(), strideKm: 250 });
@@ -112,7 +120,7 @@ describe.skipIf(!hasGround)("Expedition 1 does not arrive at Lhasa", () => {
   });
 
   it("is too high to enter the band by the time the band exists", () => {
-    const { route, ground } = sea();
+    const { route, ground } = seaBeforeApproach();
     const ceiling = arrivalCeilingM(route, ground, 2_900, opts());
     const gentle = flyRoute(route, ground, {
       track: true,
@@ -123,7 +131,7 @@ describe.skipIf(!hasGround)("Expedition 1 does not arrive at Lhasa", () => {
   });
 
   it("is one ridge, ninety-three kilometres from a city in a hole", () => {
-    const { route, ground } = sea();
+    const { route, ground } = seaBeforeApproach();
     const lengthKm = routeLengthKm(route);
     const lhasaM = ground(lengthKm);
     let peakM = 0;
@@ -152,7 +160,7 @@ describe.skipIf(!hasGround)("Expedition 1 does not arrive at Lhasa", () => {
 
 describe.skipIf(!hasGround)("and none of the cheap fixes close it", () => {
   it("a slow final leg buys half of it, wherever it is put", () => {
-    const { route, ground } = sea();
+    const { route, ground } = seaBeforeApproach();
     const shipped = arrivalShortfallM(route, ground, opts());
     expect(shipped).toBeCloseTo(1_088, -2);
     for (const splitKm of [2_800, 2_850]) {
@@ -163,7 +171,7 @@ describe.skipIf(!hasGround)("and none of the cheap fixes close it", () => {
   });
 
   it("slowing the whole route instead buys almost nothing", () => {
-    const { route, ground } = sea();
+    const { route, ground } = seaBeforeApproach();
     // Thirty-three extra minutes of trip - 73 km/min is F17's clear-at-cruise
     // number - for a seventh of the deficit. What binds is ninety-three
     // kilometres long, and slowing everything slows those ninety-three too.
@@ -173,7 +181,7 @@ describe.skipIf(!hasGround)("and none of the cheap fixes close it", () => {
   });
 
   it("what does land it is an hour and a quarter", () => {
-    const { route, ground } = sea();
+    const { route, ground } = seaBeforeApproach();
     const approach = withApproach(route, 2_850);
     const pacing = { cruiseKmPerMin: 70 };
     const short = arrivalShortfallM(approach, ground, { ...BASE, pacing });
@@ -188,5 +196,47 @@ describe.skipIf(!hasGround)("and none of the cheap fixes close it", () => {
     expect(flown.clears).toBe(true);
     // The GDD's band is fifteen to thirty-five minutes. This is not in it.
     expect(flown.minutes).toBeGreaterThan(70);
+  });
+});
+
+describe.skipIf(!hasGround)("and with the approach it authors, it does", () => {
+  it("arrives over Lhasa rather than a mile above it", () => {
+    const { route, ground } = sea();
+    // Against the authored 300 m: a shortfall at or below zero is an arrival.
+    const shortfallM = arrivalShortfallM(route, ground, { ...BASE, arrivalM: 300 });
+    expect(shortfallM).toBeLessThanOrEqual(0);
+
+    const lowestM = arrivalShortfallM(route, ground, { ...BASE, arrivalM: 0 });
+    expect(lowestM).toBeCloseTo(264, -2);
+    // The number that matters is the comparison, not either alone: the same
+    // route, same ground, same aircraft, one pace change over the last 45 km.
+    const withoutIt = arrivalShortfallM(
+      seaBeforeApproach().route,
+      ground,
+      { ...BASE, arrivalM: 0 },
+    );
+    expect(withoutIt - lowestM).toBeGreaterThan(1_200);
+  });
+
+  it("splits the last leg instead of inventing a place to fly to", () => {
+    const { route } = sea();
+    const before = seaBeforeApproach().route;
+    // One more leg, same waypoints, same length - which is what leaves the
+    // committed section and its signature untouched (D21, D23).
+    expect(route.legs).toHaveLength(before.legs.length + 1);
+    expect(routeLengthKm(route)).toBeCloseTo(routeLengthKm(before), 6);
+    expect(route.legs[route.legs.length - 1]!.mode).toBe("approach");
+  });
+
+  it("costs a minute and a fifth, and nothing else moves", () => {
+    const { route, ground } = sea();
+    const before = seaBeforeApproach();
+    const flown = flyRoute(route, ground, {});
+    const was = flyRoute(before.route, before.ground, {});
+    expect(flown.minutes - was.minutes).toBeCloseTo(1.2, 1);
+    // The approach is 45 km at the very end, so it cannot touch the clearance
+    // the route keeps over the Hengduan 565 km earlier.
+    expect(flown.worstClearanceM).toBeCloseTo(was.worstClearanceM, 6);
+    expect(flown.worstKm).toBe(was.worstKm);
   });
 });

@@ -69,7 +69,11 @@ describe.skipIf(!hasGround)("Sea to Sky, flown over its own ground", () => {
       "lhasa",
     ]);
     expect(sea().profiled.lengthKm).toBeCloseTo(2931, 0);
-    expect(sea().route.legs).toHaveLength(4);
+    // Four authored legs, and a fifth the file does not write: the arrival's
+    // `approach_km` splits the last one so the final 45 km into Lhasa are
+    // flown at approach pace (F31). Same waypoints, same length.
+    expect(sea().route.legs).toHaveLength(5);
+    expect(sea().route.legs[4]!.mode).toBe("approach");
   });
 
   /**
@@ -182,23 +186,30 @@ describe.skipIf(!hasGround)("Sea to Sky, flown over its own ground", () => {
       expect(flight.arrivalAltitudeM).toBeCloseTo(6010, -2);
     });
 
-    it("is the fastest profile that does, and it is still half a minute too long", () => {
-      // 35.5 against the GDD's own fifteen-to-thirty-five minute band. Kept
+    it("is the fastest profile that does, and it is now well past the band", () => {
+      // 36.7 against the GDD's own fifteen-to-thirty-five minute band. Two
+      // decisions put it there and both were taken deliberately: the climb
+      // was kept rather than the twenty-five minutes, and the route was made
+      // to arrive at Lhasa, which costs 1.2 minutes of approach (F31). Kept
       // as an assertion rather than quietly rounded, because the next person
-      // to trim thirty seconds off this will do it by making the route
-      // unflyable, and this is where that gets caught.
+      // to trim a minute off this will do it by making the route unflyable,
+      // and this is where that gets caught.
       const flight = flyAuthored();
-      expect(flight.minutes).toBeCloseTo(35.5, 1);
+      expect(flight.minutes).toBeCloseTo(36.7, 1);
       expect(flight.minutes).toBeGreaterThan(EXPEDITION_RULES.maxMinutes);
-      expect(flight.minutes).toBeLessThan(EXPEDITION_RULES.maxMinutes + 1);
+      expect(flight.minutes).toBeLessThan(EXPEDITION_RULES.maxMinutes + 2);
     });
 
     it("is slow where the ground is flat, which is the counter-intuitive part", () => {
       // The two low legs are the eastern plain. Climbing costs minutes, not
       // kilometres, and the only place to buy them is where nothing is in the
       // way. Anyone reading this file will want to swap these round.
-        expect(sea().route.legs.slice(0, 2).map((l) => l.mode)).toEqual(["low", "low"]);
-      expect(sea().route.legs.slice(2).map((l) => l.mode)).toEqual(["cruise", "cruise"]);
+      expect(sea().route.legs.slice(0, 2).map((l) => l.mode)).toEqual(["low", "low"]);
+      expect(sea().route.legs.slice(2).map((l) => l.mode)).toEqual([
+        "cruise",
+        "cruise",
+        "approach",
+      ]);
 
       // Reversing them is not slower. It is a crash.
       const reversed: Route = {
@@ -228,9 +239,15 @@ describe.skipIf(!hasGround)("Sea to Sky, flown over its own ground", () => {
       // Boost is gated on air density and cuts out at 3,564 m, which by the
       // third leg is below the aircraft. An author writing `boost` there
       // would get cruise and no warning, so the equality is pinned here.
-        const boosted: Route = {
+      // Only the cruise legs. The approach leg is left alone: swapping it for
+      // boost would not be testing a no-op, it would be deleting the pace
+      // change the arrival depends on, and the equality below would fail for
+      // a reason that has nothing to do with air density.
+      const boosted: Route = {
         ...sea().route,
-        legs: sea().route.legs.map((l, i) => (i < 2 ? l : { ...l, mode: "boost" as SpeedMode })),
+        legs: sea().route.legs.map((l) =>
+          l.mode === "cruise" ? { ...l, mode: "boost" as SpeedMode } : l,
+        ),
       };
       const a = flyAuthored();
       const b = flyRoute(boosted, sea().ground, {

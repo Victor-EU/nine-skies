@@ -99,17 +99,35 @@ export interface FlyableExpedition {
 export function flyableFrom(expedition: Expedition, groundM: readonly number[]): FlyableExpedition {
   const metrics = measureAlong(projectedWaypoints(expedition));
   const profiled: ProfiledRoute = { ...metrics, profileM: [...groundM] };
+  const legs = metrics.legEndKm.map((endKm, i) => ({
+    name: `to ${expedition.route[i + 1]!.name}`,
+    endKm,
+    mode: expedition.route[i + 1]!.speed as SpeedMode,
+  }));
+
+  // An authored approach splits the last leg rather than adding a waypoint.
+  // Two reasons, and the second is the one that matters: a waypoint would be
+  // a place, and there is no place forty-five kilometres east of Lhasa that
+  // this route is about - and a waypoint changes the route's geometry, which
+  // invalidates the committed section and its signature (D21, D23) for a
+  // change that moves no elevation at all.
+  const approachKm = expedition.arrival?.approach_km;
+  const last = legs[legs.length - 1];
+  if (approachKm !== undefined && last) {
+    const legStartKm = legs.length > 1 ? legs[legs.length - 2]!.endKm : 0;
+    const from = last.endKm - approachKm;
+    if (from > legStartKm) {
+      legs.splice(legs.length - 1, 1,
+        { ...last, name: `${last.name} (cruise)`, endKm: from },
+        { ...last, name: `${last.name} (approach)`, mode: "approach" as SpeedMode },
+      );
+    }
+  }
+
   return {
     expedition,
     profiled,
-    route: {
-      name: expedition.name,
-      legs: metrics.legEndKm.map((endKm, i) => ({
-        name: `to ${expedition.route[i + 1]!.name}`,
-        endKm,
-        mode: expedition.route[i + 1]!.speed as SpeedMode,
-      })),
-    },
+    route: { name: expedition.name, legs },
     ground: (km) =>
       profiled.profileM[Math.min(Math.max(0, Math.round(km)), profiled.profileM.length - 1)]!,
   };

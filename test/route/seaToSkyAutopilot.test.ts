@@ -14,7 +14,7 @@
  * only on a machine with the rasters.
  */
 import { describe, expect, it } from "vitest";
-import { hasGround, sea } from "./fixture.ts";
+import { hasGround, sea, seaBeforeApproach } from "./fixture.ts";
 import {
   altitudeFloorM,
   climbFloor,
@@ -119,20 +119,29 @@ describe.skipIf(!hasGround)("Sea to Sky, flown by an autopilot", () => {
     expect(at(73)).toBeLessThan(100); // the ground, and no constraint at all
   });
 
-  it("cannot descend into Lhasa, whatever it does", () => {
-    // The plateau falls 1,350 m in the last hundred kilometres and the last
-    // leg is authored at cruise, which crosses them in well under a minute.
-    // Arriving over the city needs 30 m/s of descent; the aircraft has 18 at
-    // full forward stick, and a descent at full forward stick is not an
-    // arrival. This is a route problem - a fifth waypoint - not a policy one.
+  it("still does not descend into Lhasa, but now that is the policy's doing", () => {
+    // This test used to read "cannot descend into Lhasa, whatever it does",
+    // and predicted the fix would be a fifth waypoint. Both halves were
+    // wrong. The route now authors an approach pace over its last 45 km and
+    // the *lowest legal* line arrives 264 m over the city (F31) - so the wall
+    // this autopilot hits is its own 200 m capture band, not the aeroplane's
+    // 18 m/s. The distinction is the whole point of flying the shipped policy
+    // separately from the proof.
     const { ground, route } = sea();
     const lhasaM = ground(Math.floor(routeLengthKm(route)));
     expect(ground(2800) - ground(2900)).toBeGreaterThan(1300);
 
     const flight = flyRoute(route, ground, { policy: autopilot(300) });
-    expect(flight.arrivalAltitudeM - lhasaM).toBeGreaterThan(1800);
+    expect(flight.arrivalAltitudeM - lhasaM).toBeGreaterThan(1400);
 
-    const dropM = flight.peakAltitudeM - (lhasaM + 300);
+    // The approach bought this policy real height even so: the same autopilot
+    // over the same ground, without it, ends up higher.
+    const before = seaBeforeApproach();
+    const was = flyRoute(before.route, before.ground, { policy: autopilot(300) });
+    expect(was.arrivalAltitudeM).toBeGreaterThan(flight.arrivalAltitudeM);
+
+    // And the arithmetic that made it impossible before still holds at cruise.
+    const dropM = was.peakAltitudeM - (lhasaM + 300);
     const secondsAvailable = (100 / (130 * 1.25)) * 60; // 100 km at plateau cruise
     expect(dropM / secondsAvailable).toBeGreaterThan(MAX_DESCENT_MS);
   });

@@ -29,7 +29,9 @@ import {
   type FlightInput,
 } from "../../engine/src/sim/flight.js";
 import { LIGHT_PISTON, climbRecoveryRatio } from "../../engine/src/sim/aircraft.js";
+import { densityRatio } from "../../engine/src/sim/atmosphere.js";
 import { createProbe } from "./probe.js";
+import { captureFrameCost, frameCostTable } from "./frameCost.js";
 import {
   CAMERA_AIM_AHEAD,
   CAMERA_AIM_UP_REAL_M,
@@ -235,7 +237,26 @@ function cyclePacing(): void {
   pacing = { cruiseKmPerMin: CRUISE_CANDIDATES[cruiseIndex]! };
 }
 
+/**
+ * Set while a measurement owns the frame.
+ *
+ * The frame-cost capture places the camera itself, switches parts of the scene
+ * off one at a time and asks the GPU what each part cost. If the animation
+ * loop keeps running underneath it, every one of those is undone before the
+ * query resolves: `terrain.update` restores each bucket's visibility, the
+ * camera goes back to the aircraft, and what gets timed is the ordinary frame
+ * with extra steps. The first capture taken without this reported 6 ms to
+ * clear an empty screen and a negative cost for drawing terrain, which is how
+ * it was found.
+ */
+let suspended = false;
+
 function resize(): void {
+  // A measurement owns the canvas as well as the frame. Without this, a window
+  // resized during a frame-cost capture silently moves every remaining station
+  // off 1080p while the report goes on claiming 1080p - which is the one kind
+  // of wrong this whole exercise is about.
+  if (suspended) return;
   const w = innerWidth;
   const h = innerHeight;
   renderer.setSize(w, h, false);
@@ -358,6 +379,32 @@ if (import.meta.env.DEV) {
      *   requestAnimationFrame(() => console.log(__ns.probe.horizonAB()))
      */
     probe: createProbe(renderer, scene, camera, ring),
+    /**
+     * Ask the GPU what a frame costs, per pass, at 1080p, at every station on
+     * the route - the frame budget's own units. From the console:
+     *   __ns.frameCost().then((r) => console.log(__ns.frameCostTable(r)))
+     */
+    frameCost: (samples?: number) =>
+      captureFrameCost({
+        renderer,
+        scene,
+        camera,
+        terrain,
+        ring,
+        placeAt: (s) => placeAt(s.eastM, s.northM, s.altitudeM, s.headingRad),
+        suspend: () => {
+          suspended = true;
+          return () => {
+            suspended = false;
+            // The capture puts back the size it found. If the window changed
+            // while it was ignoring resize events, that size is stale, so the
+            // window gets the last word.
+            resize();
+          };
+        },
+        samples,
+      }),
+    frameCostTable,
     world,
     /** The fiction, kept reachable so the two worlds can be compared. */
     standIn,
@@ -386,12 +433,77 @@ if (import.meta.env.DEV) {
   };
 }
 
+/**
+ * Put the world and the camera where a frame at this point would put them.
+ *
+ * Lifted out of the frame so that the frame-cost capture measures the picture
+ * the game draws rather than a second arrangement that resembles it. A pass
+ * budget taken against a near-copy of the camera rig is a measurement of the
+ * copy, and nothing would ever show that it had drifted.
+ *
+ * Everything here is a function of position, altitude and heading alone - no
+ * dt, no input, no wall clock - which is also what makes a capture repeatable.
+ */
+function placeAt(eastM: number, northM: number, altitudeM: number, headingRad: number): void {
+  const cameraWorld = terrain.update(eastM, northM, altitudeM);
+
+  // Horizon after the terrain, so it sees this frame's rebase.
+  if (horizon.update(eastM, northM, altitudeM)) ring.rebuild(scale);
+  ring.update(
+    terrain.toWorld(horizon.front.eastM, horizon.front.northM, horizon.front.altitudeM),
+    cameraWorld,
+  );
+
+  // Chase camera: behind and above, looking a little ahead of the aircraft.
+  // Every offset goes through `toWorldH`, including the two vertical ones -
+  // see the note on the constants. That is what makes the compression A/B a
+  // comparison of worlds rather than of camera rigs.
+  const fwd = new Vector3(Math.sin(headingRad), 0, Math.cos(headingRad));
+  const back = toWorldH(CAMERA_BACK_REAL_M, scale);
+  const up = toWorldH(CAMERA_UP_REAL_M, scale);
+  camera.position.copy(cameraWorld).addScaledVector(fwd, -back).add(new Vector3(0, up, 0));
+  camera.lookAt(
+    cameraWorld
+      .clone()
+      .addScaledVector(fwd, back * CAMERA_AIM_AHEAD)
+      .add(new Vector3(0, toWorldH(CAMERA_AIM_UP_REAL_M, scale), 0)),
+  );
+
+  // Sky deepens as the air thins - the GDD's first visual cue for altitude -
+  // over whatever the region underneath is doing. The ground is read back from
+  // the terrain rather than passed in, so the haze is keyed to the elevation
+  // that is actually on screen.
+  const thin = Math.min(1, Math.max(0, (1 - densityRatio(altitudeM)) / 0.45));
+  const density = blendAtmosphere(
+    eastM / 1000,
+    terrain.groundElevationM(eastM, northM) ?? 0,
+    thin,
+  );
+  renderer.setClearColor(sky, 1);
+  // The region table and the scale height are real quantities; the shaders
+  // integrate in world units. Convert here, once, for both materials.
+  const hazeDensityWorld = hazeDensityPerWorldUnit(density, scale);
+  const hazeFalloffWorld = hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, scale);
+  for (const m of [terrain.material, ring.material]) {
+    (m.uniforms.uHazeColor!.value as Color).copy(sky);
+    (m.uniforms.uSunColor!.value as Color).copy(regionSun);
+    m.uniforms.uHazeDensity!.value = hazeDensityWorld;
+    m.uniforms.uHazeHeightFalloff!.value = hazeFalloffWorld;
+  }
+}
+
 let last = performance.now();
 let fpsAccum = 0;
 let fpsFrames = 0;
 let fpsShown = 0;
 
 function frame(now: number): void {
+  if (suspended) {
+    // Swallow the gap, so the aircraft does not leap forward on resume.
+    last = now;
+    requestAnimationFrame(frame);
+    return;
+  }
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
 
@@ -414,46 +526,7 @@ function frame(now: number): void {
   step(flight, input, env, dt, LIGHT_PISTON, pacing);
   const tm = telemetry(flight, env, input, LIGHT_PISTON, pacing);
 
-  const cameraWorld = terrain.update(flight.eastM, flight.northM, flight.altitudeM);
-
-  // Horizon after the terrain, so it sees this frame's rebase.
-  if (horizon.update(flight.eastM, flight.northM, flight.altitudeM)) ring.rebuild(scale);
-  ring.update(
-    terrain.toWorld(horizon.front.eastM, horizon.front.northM, horizon.front.altitudeM),
-    cameraWorld,
-  );
-
-  // Chase camera: behind and above, looking a little ahead of the aircraft.
-  // Every offset goes through `toWorldH`, including the two vertical ones -
-  // see the note on the constants. That is what makes the compression A/B a
-  // comparison of worlds rather than of camera rigs.
-  const fwd = new Vector3(Math.sin(flight.headingRad), 0, Math.cos(flight.headingRad));
-  const back = toWorldH(CAMERA_BACK_REAL_M, scale);
-  const up = toWorldH(CAMERA_UP_REAL_M, scale);
-  camera.position.copy(cameraWorld).addScaledVector(fwd, -back).add(new Vector3(0, up, 0));
-  camera.lookAt(
-    cameraWorld
-      .clone()
-      .addScaledVector(fwd, back * CAMERA_AIM_AHEAD)
-      .add(new Vector3(0, toWorldH(CAMERA_AIM_UP_REAL_M, scale), 0)),
-  );
-
-  // Sky deepens as the air thins - the GDD's first visual cue for altitude -
-  // over whatever the region underneath is doing.
-  const thin = Math.min(1, Math.max(0, (1 - tm.densityRatio) / 0.45));
-  const density = blendAtmosphere(inlandKm, groundM, thin);
-  renderer.setClearColor(sky, 1);
-  // The region table and the scale height are real quantities; the shaders
-  // integrate in world units. Convert here, once, for both materials.
-  const hazeDensityWorld = hazeDensityPerWorldUnit(density, scale);
-  const hazeFalloffWorld = hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, scale);
-  for (const m of [terrain.material, ring.material]) {
-    (m.uniforms.uHazeColor!.value as Color).copy(sky);
-    (m.uniforms.uSunColor!.value as Color).copy(regionSun);
-    m.uniforms.uHazeDensity!.value = hazeDensityWorld;
-    m.uniforms.uHazeHeightFalloff!.value = hazeFalloffWorld;
-  }
-
+  placeAt(flight.eastM, flight.northM, flight.altitudeM, flight.headingRad);
   renderer.render(scene, camera);
 
   fpsAccum += dt;

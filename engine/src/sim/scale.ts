@@ -130,13 +130,17 @@ export const CAMERA_NEAR_REAL_M = 160;
 /** The impostor ring reaches 1,200 km (F1); this clears it with room over. */
 export const CAMERA_FAR_REAL_M = 3_200_000;
 
-export type SpeedMode = "low" | "cruise" | "boost";
+export type SpeedMode = "approach" | "low" | "cruise" | "boost";
 
 /**
  * Indicated airspeed per mode, m/s. Real numbers for a light piston single:
  * a little above stall, a normal cruise, and the top of the green arc.
  */
 export const MODE_IAS_MS: Record<SpeedMode, number> = {
+  // The same airspeed as `low`, and that is the point: `low` is already a
+  // little above stall, so there is no slower way to fly this aeroplane. See
+  // the ratio table below for what `approach` actually changes.
+  approach: 38,
   low: 38,
   cruise: 52,
   boost: 70,
@@ -146,8 +150,24 @@ export const MODE_IAS_MS: Record<SpeedMode, number> = {
  * What each mode is worth relative to cruise. The GDD's own relationships:
  * low is about a third of cruise and is for a few minutes in a gorge, boost
  * doubles it. Fixed, so the pacing question below moves one number.
+ *
+ * `approach` is the odd one and deserves saying out loud, because it is not a
+ * speed. It flies at the same indicated airspeed as `low` - there is no slower
+ * way to fly a light single - and takes half the ground per minute, which
+ * means the horizontal compression is locally halved. The world stops going
+ * past so fast; the aeroplane does not slow down.
+ *
+ * That is a real cost. Compression is uniform everywhere else, and a route
+ * that changes it partway makes two stretches of itself not comparable by
+ * eye. It buys the one thing nothing else could: Lhasa sits at 3,650 m behind
+ * a 5,220 m ridge forty-five kilometres out, and at any constant pace this
+ * aeroplane crosses that ridge with more height to lose than it has ground to
+ * lose it in. At cruise the last forty-five kilometres last seventeen
+ * seconds. The alternative was never a faster descent - it was not arriving
+ * (F31).
  */
 export const MODE_SPEED_RATIO: Record<SpeedMode, number> = {
+  approach: 1 / 6,
   low: 1 / 3,
   cruise: 1,
   boost: 2,
@@ -235,6 +255,7 @@ export function groundKmPerMin(mode: SpeedMode, pacing: Pacing = DEFAULT_PACING)
 
 /** The default pacing as a table. Derived, so it cannot drift from it. */
 export const MODE_GROUND_KM_PER_MIN: Record<SpeedMode, number> = {
+  approach: groundKmPerMin("approach"),
   low: groundKmPerMin("low"),
   cruise: groundKmPerMin("cruise"),
   boost: groundKmPerMin("boost"),

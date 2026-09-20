@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "expedition": "sea-to-sky",
+  "lengthKm": 2931,
+  "stations": [
+    {
+      "id": "shanghai",
+      "km": 0,
+      "eastM": 4996128,
+      "northM": 1645840,
+      "altitudeM": 1200,
+      "headingRad": -1.806707,
+      "groundM": 10,
+      "why": "a named waypoint on the route"
+    },
+    {
+      "id": "wuhan",
+      "km": 678.9,
+      "eastM": 4336048,
+      "northM": 1487166,
+      "altitudeM": 4229,
+      "headingRad": -1.779053,
+      "groundM": 20,
+      "why": "a named waypoint on the route"
+    },
+    {
+      "id": "chongqing",
+      "km": 1426.6,
+      "eastM": 3604513,
+      "northM": 1332577,
+      "altitudeM": 5560,
+      "headingRad": -1.095943,
+      "groundM": 254,
+      "why": "a named waypoint on the route"
+    },
+    {
+      "id": "chengdu",
+      "km": 1692.5,
+      "eastM": 3368036,
+      "northM": 1454147,
+      "altitudeM": 5659,
+      "headingRad": -1.587563,
+      "groundM": 507,
+      "why": "a named waypoint on the route"
+    },
+    {
+      "id": "wall-foot",
+      "km": 1760,
+      "eastM": 3300516,
+      "northM": 1453015,
+      "altitudeM": 5682,
+      "headingRad": -1.587563,
+      "groundM": 1208,
+      "why": "the foot of the steepest rise on the route"
+    },
+    {
+      "id": "wall-rim",
+      "km": 1860,
+      "eastM": 3200530,
+      "northM": 1451338,
+      "altitudeM": 5715,
+      "headingRad": -1.587563,
+      "groundM": 4708,
+      "why": "its rim - the most relief in one view"
+    },
+    {
+      "id": "lhasa",
+      "km": 2931,
+      "eastM": 2129718,
+      "northM": 1433383,
+      "altitudeM": 6054,
+      "headingRad": -1.587563,
+      "groundM": 3652,
+      "why": "a named waypoint on the route"
+    }
+  ]
+}
