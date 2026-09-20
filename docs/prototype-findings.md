@@ -2976,3 +2976,16 @@ Also: a one-station capture printed its resolution as `±NaN ms`. `resolutionMs`
 returns NaN on purpose — the spread of one number is not zero, it is
 undefined, and a test says so — but the table printed the NaN rather than
 saying why. It now says why.
+
+**Addendum — F30 reproduced in a real window.** The same M3 then ran the full
+seven-station capture at 1080p from its own Chrome window, at the display's
+128 Hz, where F30's had been taken in the tool's browser pane. Whole scene
+0.69–1.21 ms against F30's 0.81–1.61; terrain net 0.14–0.78 against
+0.19–0.43; clear 0.47–0.85 against 0.52–0.84; resolution ±0.39 ms against
+±0.32. Every cell agrees with F30 inside the capture's own resolution except
+Wuhan's terrain, 0.78 against 0.31, which is one station's worth of
+contention and sits beside a clear of 0.59 and an L0 of 0.46 that are both
+that station's highest. The instrument re-fitted at 0.440 ms per megapixel
+plus 0.226 per pass, r² 0.96. The conclusion does not move: on this machine
+everything drawn is about a millisecond of the 33.3 ms frame, at every
+station. It is still not the M1.
