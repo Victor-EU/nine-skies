@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MIN_FRAME_RATE_HZ,
+  frameCostTable,
   resolutionMs,
   tooSlowToMeasure,
   type FrameCostReport,
@@ -71,5 +72,13 @@ describe("what a capture can resolve", () => {
 
   it("says nothing rather than zero when there is only one station", () => {
     expect(resolutionMs(report([0.52]))).toBeNaN();
+  });
+
+  it("prints why, rather than NaN, in the table for one station", () => {
+    // A hand capture at one station printed `±NaN ms` (F34).
+    const table = frameCostTable(report([1.7]));
+    expect(table).not.toContain("NaN");
+    expect(table).toContain("NOT MEASURED");
+    expect(frameCostTable(report([0.52, 0.84]))).toContain("±0.32 ms");
   });
 });

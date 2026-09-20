@@ -26,3 +26,4 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1117; }
 /* A condition that is selectable but known not to fly - see F16. */
 .debug .warn { color: #e8a08f; opacity: .9; }
 .help { right: 24px; bottom: 24px; text-align: right; opacity: .42; font-size: 10px; line-height: 1.7; }
+.help .pad { opacity: .7; }

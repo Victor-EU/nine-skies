@@ -31,6 +31,9 @@ import {
 import { LIGHT_PISTON, climbRecoveryRatio } from "../../engine/src/sim/aircraft.js";
 import { densityRatio } from "../../engine/src/sim/atmosphere.js";
 import { createProbe } from "./probe.js";
+import { Input } from "../../engine/src/input/input.js";
+import { helpLines, type Action } from "../../engine/src/input/bindings.js";
+import type { PadSnapshot } from "../../engine/src/input/gamepad.js";
 import { captureFrameCost, frameCostTable } from "./frameCost.js";
 import {
   CAMERA_AIM_AHEAD,
@@ -77,11 +80,13 @@ const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "
  * the pixels the budget was costed against, and fragment cost is close to
  * linear in them (F30).
  *
- * Capping it lower is the obvious lever and is deliberately not pulled here,
- * because what it costs in sharpness has not been looked at and what it buys
- * has not been measured - the fit that would price it stops at 2.76
- * megapixels and 5.94 is well outside it (F32). The measurement is one
- * command: `__ns.frameCost(20, [3024, 1964], ["wall-rim"])`.
+ * Capping it lower is the obvious lever and is deliberately not pulled:
+ * measured at 5.94 megapixels the whole current frame is 2.13 ms of 33.3, and
+ * the pass a cap would shrink is the 1.70 ms empty-frame clear, not the
+ * terrain, which did not move between 2.07 and 5.94 megapixels. A cap at 1.5
+ * buys about a millisecond and costs every edge (D27, F34). Look again when
+ * the atmosphere lands - that is the full-screen pass the pixels land on.
+ * The measurement is one command: `__ns.frameCost(20, [3024, 1964], ["wall-rim"])`.
  */
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 
@@ -187,25 +192,73 @@ const START = world?.manifest.start ?? {
 };
 const flight = createFlightState({ ...START });
 
-const input: FlightInput = { pitch: 0, roll: 0, mode: "cruise" };
-const keys = new Set<string>();
+const el = (id: string) => document.getElementById(id)!;
 
+const input: FlightInput = { pitch: 0, roll: 0, mode: "cruise" };
+
+/**
+ * Keyboard and gamepad behind one table (workstream D, "from day one"). The
+ * browser events feed the keyboard source; the pad is polled in the frame,
+ * because the Gamepad API has no events for sticks or buttons. Which device is
+ * saying what is the source's business, and the frame asks for one intent.
+ */
+const player = new Input();
 addEventListener("keydown", (e) => {
-  const k = e.key.toLowerCase();
-  keys.add(k);
-  if (k === "1") input.mode = "low";
-  if (k === "2") input.mode = "cruise";
-  if (k === "3") input.mode = "boost";
-  if (k === "c") cycleCompression();
-  if (k === "v") cycleDrama();
-  if (k === "p") cyclePacing();
-  // The A/B for F1 itself: with the impostor off, the plateau is not drawn.
-  if (k === "h") ring.mesh.visible = !ring.mesh.visible;
-  if (k === "r") Object.assign(flight, createFlightState({ ...START, headingRad: Math.PI / 2 }));
-  if (["w", "a", "s", "d", "1", "2", "3", "c", "v", "p", "h", "r"].includes(k))
-    e.preventDefault();
+  // Bound keys are ours and the page never sees them; everything else - the
+  // dev tools shortcut, reload - goes through untouched.
+  if (player.keyboard.keyDown(e.key.toLowerCase())) e.preventDefault();
 });
-addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+addEventListener("keyup", (e) => player.keyboard.keyUp(e.key.toLowerCase()));
+// A key held when the window loses focus never sends its keyup here.
+addEventListener("blur", () => player.keyboard.releaseAll());
+let padId: string | null = null;
+addEventListener("gamepadconnected", (e) => (padId = e.gamepad.id));
+addEventListener("gamepaddisconnected", () => (padId = null));
+
+/** The first connected pad, or none. Chrome hands back a sparse array. */
+function connectedPad(): PadSnapshot | null {
+  if (typeof navigator.getGamepads !== "function") return null;
+  for (const p of navigator.getGamepads()) if (p?.connected) return p;
+  return null;
+}
+
+/** What a press does. The table says which press; this says what. */
+function act(action: Action): void {
+  switch (action) {
+    case "low":
+    case "cruise":
+    case "boost":
+      input.mode = action;
+      break;
+    case "cycleCompression":
+      cycleCompression();
+      break;
+    case "cycleDrama":
+      cycleDrama();
+      break;
+    case "cyclePacing":
+      cyclePacing();
+      break;
+    case "toggleHorizon":
+      // The A/B for F1 itself: with the impostor off, the plateau is not drawn.
+      ring.mesh.visible = !ring.mesh.visible;
+      break;
+    case "reset":
+      Object.assign(flight, createFlightState({ ...START, headingRad: Math.PI / 2 }));
+      break;
+  }
+}
+
+// The help block is the table, so it cannot name a key the handler does not
+// have. Notes are the operator's, and stay in the table with the binding.
+el("help").innerHTML = helpLines()
+  .map(
+    (l) =>
+      `<b>${l.keys}</b>${l.pad ? ` <span class="pad">${l.pad}</span>` : ""} ${l.label}` +
+      (l.note ? ` <i>(${l.note})</i>` : ""),
+  )
+  .join("<br />") +
+  `<br /><i>&ldquo;1 s down = N s up&rdquo; is the climb the air still gives against the descent it always gives (F19)</i>`;
 
 /**
  * The G1 A/B, both axes (build plan D6, finding F14).
@@ -281,8 +334,6 @@ function resize(): void {
 }
 addEventListener("resize", resize);
 resize();
-
-const el = (id: string) => document.getElementById(id)!;
 
 /**
  * Which world is actually on screen. Worth a permanent HUD line rather than a
@@ -538,8 +589,10 @@ function frame(now: number): void {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
 
-  input.pitch = (keys.has("w") ? 1 : 0) - (keys.has("s") ? 1 : 0);
-  input.roll = (keys.has("d") ? 1 : 0) - (keys.has("a") ? 1 : 0);
+  const intent = player.poll(connectedPad());
+  input.pitch = intent.pitch;
+  input.roll = intent.roll;
+  for (const action of intent.actions) act(action);
 
   // Environment under the aircraft. Ground elevation is read back from the
   // same Int16 buffer the GPU is drawing, so HUD and picture always agree.
@@ -635,6 +688,10 @@ function frame(now: number): void {
     `horizon ${ring.mesh.visible ? "on" : "OFF"} · ${ring.triangleCount / 1000}k tris · ` +
     `${horizon.lastSliceMs.toFixed(2)} ms${horizon.marching ? " ◂ marching" : ""}`;
   el("world").textContent = worldLabel;
+  // What the participant is holding. A G1 note that says "found the climb
+  // hard" means something different on a stick than on a key.
+  el("device").textContent =
+    player.lastDevice === "gamepad" ? `gamepad · ${padId ?? "connected"}` : "keyboard";
   // Both axes, always, and the product they make. An operator's notes on a
   // G1 session are worthless if they record only one of the two.
   el("scaleText").textContent =

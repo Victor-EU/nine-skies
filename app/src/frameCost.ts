@@ -469,8 +469,13 @@ export function frameCostTable(report: FrameCostReport): string {
   const floor = resolutionMs(report);
   lines.push(
     `  terrain budget ${TERRAIN_BUDGET_MS.toFixed(2)} ms · whole frame ` +
-      `${FRAME_BUDGET_MS.toFixed(2)} ms · resolution ±${floor.toFixed(2)} ms ` +
-      `(the spread of \`clear\`, which is the same work at every station)`,
+      `${FRAME_BUDGET_MS.toFixed(2)} ms · ` +
+      (Number.isNaN(floor)
+        ? // The spread of one number is undefined, not zero: a one-station
+          // capture cannot say what it resolved, only that it did not check.
+          `resolution NOT MEASURED (one station — the spread of \`clear\` needs two)`
+        : `resolution ±${floor.toFixed(2)} ms ` +
+          `(the spread of \`clear\`, which is the same work at every station)`),
   );
   lines.push("");
   lines.push("  the D3 trip-wire — displaced grid at L0, against 4 ms");

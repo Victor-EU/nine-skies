@@ -18,8 +18,12 @@ npm run dev
 ```
 
 Then open the URL Vite prints. Controls: `W`/`S` pitch, `A`/`D` roll, `1`/`2`/`3`
-for low / cruise / boost, `C` to cycle the horizontal compression (the gate G1
-A/B), `H` to toggle the horizon impostor, `R` to reset to the start.
+for low / cruise / boost, `V` to cycle the drama (the gate G1 A/B), `C` the
+compression, `P` the cruise pace, `H` to toggle the horizon impostor, `R` to
+reset to the start. A gamepad works alongside: left stick for pitch and roll,
+forward climbs, face buttons for the modes, d-pad for the toggles. The help
+block on screen is generated from the one binding table
+(`engine/src/input/bindings.ts`), so it is always right.
 
 Out of the box you fly **stand-in terrain** — fiction shaped like China's three
 great steps, so the prototype can answer G1's question without 14 GB on disk.
@@ -47,7 +51,7 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 347 TypeScript tests and 59 Python tests
+make test         # 368 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -60,7 +64,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-339 of the 347 TypeScript tests run without the world; the eight that do not
+360 of the 368 TypeScript tests run without the world; the eight that do not
 are the ones whose subject is the world itself.
 
 A section is also signed by the machine that cut it, and one that does not
@@ -84,6 +88,7 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | `engine/src/sim` | Atmosphere, aircraft performance, arcade flight model, world scale |
 | `engine/src/terrain` | Shared grid, heightmap texture array, shaders, streaming, horizon impostor |
 | `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them |
+| `engine/src/input` | The binding table, keyboard and gamepad sources, and the intent the frame polls |
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes, frame-cost capture |
 | `content` | Card and expedition schema, the committed route sections, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, the committed projection reference and the source raster digests |
@@ -111,12 +116,16 @@ with GPU timer queries. Every capture begins by checking the instrument and
 prints its own resolution, because a number below that floor has not been
 measured however many decimal places it has.
 
-On an Apple M3 the whole visible scene costs 0.98 ms of the 33.3 ms frame and
-the L0 displaced grid 0.10–0.13 ms against a 4 ms trip-wire. The named floor
-device is an Intel Iris Xe and has not been captured yet; `make stations`
-re-cuts the stations, which is a deliberate act rather than part of `make
-world`, because two captures are only comparable if they stood in the same
-places.
+On an Apple M3 the whole visible scene costs 0.98 ms of the 33.3 ms frame at
+1080p and 2.13 ms at the display's native 5.94 megapixels, with the L0
+displaced grid at 0.10 ms against a 4 ms trip-wire either way — the extra
+pixels land on the clear and the sky, not the terrain (F34). The budget is
+costed at the floor device's native pixel count, a 13-inch M1 at 4.10
+megapixels (D27), and that machine has not been captured yet; pass a size to
+capture at any resolution, `__ns.frameCost(20, [3024, 1964], ["wall-rim"])`.
+`make stations` re-cuts the stations, which is a deliberate act rather than
+part of `make world`, because two captures are only comparable if they stood
+in the same places.
 
 ## The two things worth knowing before reading the code
 

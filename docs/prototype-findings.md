@@ -2857,3 +2857,122 @@ first attempt at one here was killed partway through and left the canvas at
 the wrong size, which is exactly what the harness's `finally` prevents. And a
 comment on `setPixelRatio` naming what it costs, because the next person to
 read that line should not have to rediscover it.
+
+## F33 — The controls were written down three times, and a key needs no ramp
+
+The prototype's controls were a `keydown` handler with a key per `if`, a
+hand-typed list of the same keys for `preventDefault`, and a help block in the
+HTML naming them a third time. Three copies of one fact, none checked against
+the others, and the GDD asks for a gamepad from day one — which would have been
+a fourth. Workstream D lists the input abstraction at two weeks and the
+critical path says to build it before G1 rather than after, so this is it.
+
+**Built.** `engine/src/input/` — a binding table as data (`bindings.ts`: each
+control's keys, its standard-mapping gamepad button or stick axis, its label
+and the operator's note), a keyboard source and a gamepad source that read
+it, and one `Input` the frame polls for a single intent. The help block is
+generated from the table at boot, the `preventDefault` set is derived from it,
+and a test asserts that every bound key and button appears in the help and
+nothing else does. Both devices are live at once — the axes sum and saturate,
+so a stick nudge on top of a held key is heard — and the HUD names which
+device spoke last, because a G1 note that says "found the climb hard" means
+something different on a stick than on a key.
+
+**What a key does, measured.** The obvious thing to add to a digital key is a
+ramp, so a press does not slam the axis to one. It is not built, and the
+reason is a number rather than a taste. The flight model already lags every
+command by its own time constant — four seconds on pitch, one and a half on
+bank, both stretched by the density ratio — and a ramp of any length a hand
+would tolerate disappears underneath it. Holding `W` for three seconds
+through `step`, at 120 Hz, in still air:
+
+| | from 500 m | from 4,500 m |
+| --- | ---: | ---: |
+| max climb rate | 6.49 m/s | 2.11 m/s |
+| altitude gained, key stepped to 1 | 5.6 m | 1.3 m |
+| …with a 0.1 s ramp | 0.18 m less | 0.04 m less |
+| …with a 0.3 s ramp | 0.50 m less | 0.12 m less |
+| …with a 0.5 s ramp | 0.81 m less | 0.19 m less |
+
+Half a second of ramp is worth eight-tenths of a metre, below anything the
+HUD rounds to. What a stick adds is not smoothness but *partial* deflection,
+and that is the gamepad's job, not a filter's. The same run says something
+about the heaviness the G1 protocol asks the cohort to notice: a one-second
+tap of `W`, left to settle, gains 6.5 m at 500 m and 2.0 m at 4,500 m; a
+half-second tap of `D` turns the heading 5.0° down low and 4.0° up high. The
+lag the model calls "feels heavy" is a factor of three on the vertical and a
+fifth on the turn, which is consistent with the density ratio's 0.63 and the
+plateau's climb rate of a third — and it says the roll lag is the one the
+cohort will feel least, since the camera never banks and the HUD has no bank
+readout. That is an observation for the comfort pass, not a change here.
+
+**A default, flagged.** The stick is not inverted: pushing it forward climbs,
+because `W` climbs and the G1 cohort has no flight-sim habits to honour. It is
+a default and not a finding — `invertPitch` on the gamepad source flips it,
+and it is worth a line on the G1 questionnaire rather than a guess.
+
+**What this does not verify.** No gamepad was attached to this machine. The
+pad path is tested against a literal shaped like a `Gamepad` — dead zone,
+mapping, one press per button-down, forgetting held buttons on disconnect —
+and the app's polling of `navigator.getGamepads()` typechecks against the
+real interface. It has not been driven by a thumb. That is the first thing
+to do with a pad in the room, and it costs a minute.
+
+Test count 367, from 347; 359 of them run without a world (368 and 360 after F34).
+
+## F34 — At native Retina the frame costs 2.13 ms, and the pixels land on the clear and the sky rather than the terrain
+
+F32 priced a fullscreen Retina frame by extrapolating a fit that stopped at
+2.76 megapixels, called the result an estimate, and named the command that
+would replace it. The command was run on the M3, with the game window in
+front, at 3,024×1,964 — the display's native 5.94 megapixels — at the wall-rim
+station, twenty samples, the display's own 120 Hz.
+
+| wall-rim, ms | 1080p, 2.07 Mpx (F30) | native, 5.94 Mpx | ratio |
+| --- | ---: | ---: | ---: |
+| clear | 0.53 | 1.70 | 3.2× |
+| terrain, net of clear | 0.43 | 0.44 | 1.0× |
+| horizon, net of clear | 0.07 | 0.22 | 3.1× |
+| whole scene | 0.81 | 2.13 | 2.6× |
+| L0 displaced grid, net | 0.10 | 0.10 | 1.0× |
+
+The instrument re-fitted itself at the new size — 0.272 ms per megapixel plus
+0.521 ms per pass, r² 0.96, over 1.48 to 7.92 megapixels — so 5.94 is inside
+the sweep this time rather than twice beyond it. F32's extrapolation was 2.3
+ms for the whole frame; the measurement is 2.13. Close enough to say the
+extrapolation was honest, and different enough to be glad it was labelled one.
+
+**Where the pixels go.** 2.9× the pixels cost 2.6× the frame, and the table
+says which passes paid: the empty-frame clear and present tripled, the horizon
+ring — a full-screen fragment job, sky and haze — tripled, and the terrain did
+not move. Terrain at this station is 261k triangles across 137 instances and
+is bound by vertices, not pixels; its fragment shader is cheap enough that
+tripling its pixels is invisible under the instrument's floor. So the
+resolution question is a question about the passes that are not built yet —
+sky, atmosphere, post and weather, the budget's 8 ms of full-screen work —
+and not about the terrain that is.
+
+**Decided: `setPixelRatio` stays at 2.** The whole current frame is 2.13 ms of
+33.3 at native resolution on an M3, and the pass a cap would actually shrink is
+the 1.70 ms clear. Capping to 1.5 would save about a millisecond and cost the
+sharpness of every edge in a game whose art direction is faceted terrain. It is
+a knob worth keeping named — the comment on the line stays — and not one worth
+turning on this evidence. It gets looked at again when the atmosphere lands,
+because that is the pass the pixels will land on.
+
+**Decided: the budget is costed at the floor device's native pixel count.**
+"1080p" was a Windows laptop's panel and the floor is now a Mac. A budget
+denominated in a resolution the floor never draws is not a budget. The
+reference floor is a 13-inch M1 at 2,560×1,600 at 2× — 4.10 megapixels — and
+the plan's frame table now says so (D27). The capture's default stays 1080p,
+because captures are only comparable to each other at a fixed size and every
+capture already states its own; the native number is one argument away.
+
+**What this does not verify.** The M1 has still not been captured. This is an
+M3's frame at an M3's display; the floor's frame at the floor's display is the
+same one-line command on that machine.
+
+Also: a one-station capture printed its resolution as `±NaN ms`. `resolutionMs`
+returns NaN on purpose — the spread of one number is not zero, it is
+undefined, and a test says so — but the table printed the NaN rather than
+saying why. It now says why.
