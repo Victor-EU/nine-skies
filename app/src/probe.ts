@@ -1,4 +1,4 @@
-import type { Camera, Scene, WebGLRenderer } from "three";
+import { PerspectiveCamera, type Camera, type Scene, type WebGLRenderer } from "three";
 import type { HorizonRing } from "../../engine/src/terrain/horizonRing.js";
 
 /**
@@ -43,6 +43,9 @@ export function createProbe(
   camera: Camera,
   ring: HorizonRing,
 ) {
+  /** The live vertical field of view, or the prototype's if this is not one. */
+  const fovDeg = (): number => (camera instanceof PerspectiveCamera ? camera.fov : 62);
+
   const readColumn = (): { px: Uint8Array; height: number } => {
     const gl = renderer.getContext();
     const { width, height } = renderer.domElement;
@@ -114,8 +117,14 @@ export function createProbe(
       const mid = first < 0 ? -1 : height - 1 - Math.floor((first + last) / 2);
       return {
         rows,
-        // The prototype camera's vertical field of view.
-        degrees: +((rows / height) * 62).toFixed(2),
+        // Read off the camera, never written down. It was written down - 62,
+        // the value the prototype was built with - until the comfort pass made
+        // the field of view a setting, at which point a constant here would
+        // have gone on reporting degrees for a frustum nobody was looking
+        // through (F35). Assumes a level camera: the column read is vertical,
+        // so a rolled one crosses the band at an angle and reads it 1/cos
+        // thicker. Probe with the horizon locked, or divide it out.
+        degrees: +((rows / height) * fovDeg()).toFixed(2),
         contrast,
         band: mid < 0 ? null : rgbAt(on.px, height, mid),
         sky: mid < 0 ? null : rgbAt(off.px, height, mid),

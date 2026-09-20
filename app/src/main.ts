@@ -36,6 +36,14 @@ import { helpLines, type Action } from "../../engine/src/input/bindings.js";
 import type { PadSnapshot } from "../../engine/src/input/gamepad.js";
 import { captureFrameCost, frameCostTable } from "./frameCost.js";
 import {
+  BANK_FOLLOW_CANDIDATES,
+  DEFAULT_COMFORT,
+  FOV_CANDIDATES,
+  bankFollowLabel,
+  cameraRollRad,
+  type ComfortSettings,
+} from "../../engine/src/gfx/comfort.js";
+import {
   CAMERA_AIM_AHEAD,
   CAMERA_AIM_UP_REAL_M,
   CAMERA_BACK_REAL_M,
@@ -93,7 +101,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene = new Scene();
 // The clip planes are real distances divided by the compression, so they are
 // set by `applyScale` once the terrain exists rather than written here.
-const camera = new PerspectiveCamera(62, 1, 1, 1);
+const camera = new PerspectiveCamera(DEFAULT_COMFORT.fovDeg, 1, 1, 1);
 
 let scale: WorldScale = { ...DEFAULT_SCALE };
 // Widening lookup: the candidate lists are `as const` so the tests can assert
@@ -114,6 +122,18 @@ let dramaIndex = indexIn(DRAMA_CANDIDATES, apparentExaggeration(DEFAULT_SCALE));
  */
 let pacing: Pacing = { ...DEFAULT_PACING };
 let cruiseIndex = indexIn(CRUISE_CANDIDATES, DEFAULT_PACING.cruiseKmPerMin);
+
+/**
+ * The comfort settings - on the critical path's "can start early and should"
+ * list, because they are cheap and sickness found at G2 is a redesign.
+ *
+ * Two of the GDD's three. The horizon lock turned out to be the behaviour
+ * rather than an option, so what is here is the camera that banks; camera
+ * smoothing is not here at all, and F35 says why in numbers (D28).
+ */
+let comfort: ComfortSettings = { ...DEFAULT_COMFORT };
+let fovIndex = indexIn(FOV_CANDIDATES, DEFAULT_COMFORT.fovDeg);
+let bankIndex = indexIn(BANK_FOLLOW_CANDIDATES, DEFAULT_COMFORT.bankFollow);
 
 /**
  * Real elevation if the pipeline has published a corridor, otherwise the
@@ -242,6 +262,18 @@ function act(action: Action): void {
     case "toggleHorizon":
       // The A/B for F1 itself: with the impostor off, the plateau is not drawn.
       ring.mesh.visible = !ring.mesh.visible;
+      break;
+    case "cycleFov":
+      fovIndex = (fovIndex + 1) % FOV_CANDIDATES.length;
+      comfort = { ...comfort, fovDeg: FOV_CANDIDATES[fovIndex]! };
+      camera.fov = comfort.fovDeg;
+      camera.updateProjectionMatrix();
+      break;
+    case "cycleBankFollow":
+      bankIndex = (bankIndex + 1) % BANK_FOLLOW_CANDIDATES.length;
+      // Nothing to rebuild: `placeAt` reads the roll every frame, and at 0 it
+      // sets the level up-vector rather than leaving the last one on.
+      comfort = { ...comfort, bankFollow: BANK_FOLLOW_CANDIDATES[bankIndex]! };
       break;
     case "reset":
       Object.assign(flight, createFlightState({ ...START, headingRad: Math.PI / 2 }));
@@ -471,7 +503,10 @@ if (import.meta.env.DEV) {
         camera,
         terrain,
         ring,
-        placeAt: (s) => placeAt(s.eastM, s.northM, s.altitudeM, s.headingRad),
+        // Level, whatever the player has the camera set to. A rolled frame is
+        // not a cheaper or dearer frame, but it is a different one, and a
+        // capture is only worth taking if it compares to the last (D25).
+        placeAt: (s) => placeAt(s.eastM, s.northM, s.altitudeM, s.headingRad, 0),
         ...(size ? { width: size[0], height: size[1] } : {}),
         ...(only ? { only } : {}),
         suspend: () => {
@@ -523,10 +558,19 @@ if (import.meta.env.DEV) {
  * budget taken against a near-copy of the camera rig is a measurement of the
  * copy, and nothing would ever show that it had drifted.
  *
- * Everything here is a function of position, altitude and heading alone - no
- * dt, no input, no wall clock - which is also what makes a capture repeatable.
+ * Everything here is a function of position, altitude, heading and roll alone
+ * - no dt, no input, no wall clock - which is also what makes a capture
+ * repeatable. The roll arrived with the comfort pass and did not cost that:
+ * it is handed in beside the heading rather than remembered, so a capture
+ * passes zero and measures the level frame it always measured (F35).
  */
-function placeAt(eastM: number, northM: number, altitudeM: number, headingRad: number): void {
+function placeAt(
+  eastM: number,
+  northM: number,
+  altitudeM: number,
+  headingRad: number,
+  rollRad: number,
+): void {
   const cameraWorld = terrain.update(eastM, northM, altitudeM);
 
   // Horizon after the terrain, so it sees this frame's rebase.
@@ -544,6 +588,11 @@ function placeAt(eastM: number, northM: number, altitudeM: number, headingRad: n
   const back = toWorldH(CAMERA_BACK_REAL_M, scale);
   const up = toWorldH(CAMERA_UP_REAL_M, scale);
   camera.position.copy(cameraWorld).addScaledVector(fwd, -back).add(new Vector3(0, up, 0));
+  // The horizon roll, which `lookAt` reads off `camera.up`. Set every frame
+  // including at zero, so turning the horizon lock back on levels the camera
+  // rather than leaving the last tilt baked into the basis.
+  camera.up.set(0, 1, 0);
+  if (rollRad !== 0) camera.up.applyAxisAngle(fwd, -rollRad);
   camera.lookAt(
     cameraWorld
       .clone()
@@ -610,7 +659,13 @@ function frame(now: number): void {
   step(flight, input, env, dt, LIGHT_PISTON, pacing);
   const tm = telemetry(flight, env, input, LIGHT_PISTON, pacing);
 
-  placeAt(flight.eastM, flight.northM, flight.altitudeM, flight.headingRad);
+  placeAt(
+    flight.eastM,
+    flight.northM,
+    flight.altitudeM,
+    flight.headingRad,
+    cameraRollRad(flight.bankRad, comfort),
+  );
   renderer.render(scene, camera);
 
   fpsAccum += dt;
@@ -692,6 +747,14 @@ function frame(now: number): void {
   // hard" means something different on a stick than on a key.
   el("device").textContent =
     player.lastDevice === "gamepad" ? `gamepad · ${padId ?? "connected"}` : "keyboard";
+  // What the camera is doing, beside what the player is holding, and for the
+  // same reason: a G1 note that says "felt sick after ten minutes" means
+  // something different with the horizon locked than with it on the wing.
+  // The bank is here too because it is the cue F33 found the cohort could not
+  // see, and with the camera locked it is still the only place it shows.
+  el("comfort").textContent =
+    `fov ${comfort.fovDeg}° · ${bankFollowLabel(comfort.bankFollow)} · ` +
+    `bank ${((flight.bankRad * 180) / Math.PI).toFixed(0)}°`;
   // Both axes, always, and the product they make. An operator's notes on a
   // G1 session are worthless if they record only one of the two.
   el("scaleText").textContent =

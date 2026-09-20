@@ -24,6 +24,8 @@ export type Action =
   | "cycleDrama"
   | "cyclePacing"
   | "toggleHorizon"
+  | "cycleFov"
+  | "cycleBankFollow"
   | "reset";
 
 export interface AxisBinding {
@@ -93,6 +95,20 @@ export const ACTION_BINDINGS: readonly ActionBinding[] = [
     note: "a change of units — it should look identical, F15",
   },
   { action: "toggleHorizon", key: "h", padButton: 14, label: "horizon impostor on/off" },
+  {
+    action: "cycleFov",
+    key: "f",
+    padButton: 4,
+    label: "field of view 50 / 62 / 75 / 90",
+    note: "comfort — how much peripheral flow there is, and free (F35)",
+  },
+  {
+    action: "cycleBankFollow",
+    key: "l",
+    padButton: 5,
+    label: "camera bank locked / eased / with the wing",
+    note: "comfort — 0 is the GDD's horizon lock, and what the prototype did (F35)",
+  },
   { action: "reset", key: "r", padButton: 9, label: "reset to the start" },
 ];
 

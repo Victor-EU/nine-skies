@@ -45,6 +45,14 @@ export const BUDGET_WIDTH = 1920;
 export const BUDGET_HEIGHT = 1080;
 
 /**
+ * The field of view every capture is taken through - the prototype's own, and
+ * the middle of the comfort cycle (F35). Held here rather than imported from
+ * the comfort settings on purpose: this is a reference the budget is written
+ * against, and it must not move when a default moves.
+ */
+export const BUDGET_FOV_DEG = 62;
+
+/**
  * How many times each variant is timed. The reported cost is the cheapest of
  * them - see `lowest`, which is also where the number 20 is argued for.
  */
@@ -242,6 +250,16 @@ export async function captureFrameCost(options: FrameCostOptions): Promise<Frame
   const tooSlow = tooSlowToMeasure(frameRateHz);
   if (tooSlow) throw new Error(tooSlow);
   const resume = options.suspend();
+  // The field of view is pinned for the same reason as the resolution, and for
+  // one weaker one. Nothing in the scene is frustum-culled today - the terrain
+  // is a circular disc of tiles around the aircraft and the impostor is a ring
+  // - so a wider camera cannot cost more, and this is belt and braces rather
+  // than a correction. It means a comfort setting can never quietly make two
+  // captures incomparable (F35, D25). It sits out here rather than beside the
+  // canvas size because `resume` puts the canvas back and knows nothing about
+  // this, so an aborted capture would otherwise keep the player's camera.
+  const beforeFov = options.camera.fov;
+  options.camera.fov = BUDGET_FOV_DEG;
   try {
     return await capture(options, frameRateHz);
   } finally {
@@ -249,6 +267,8 @@ export async function captureFrameCost(options: FrameCostOptions): Promise<Frame
     // throws leaves the game suspended at whatever resolution it was using,
     // with no way out but a reload, and the error that caused it is then the
     // least of the operator's problems.
+    options.camera.fov = beforeFov;
+    options.camera.updateProjectionMatrix();
     resume();
   }
 }

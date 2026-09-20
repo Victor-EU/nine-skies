@@ -19,11 +19,20 @@ npm run dev
 
 Then open the URL Vite prints. Controls: `W`/`S` pitch, `A`/`D` roll, `1`/`2`/`3`
 for low / cruise / boost, `V` to cycle the drama (the gate G1 A/B), `C` the
-compression, `P` the cruise pace, `H` to toggle the horizon impostor, `R` to
-reset to the start. A gamepad works alongside: left stick for pitch and roll,
-forward climbs, face buttons for the modes, d-pad for the toggles. The help
-block on screen is generated from the one binding table
+compression, `P` the cruise pace, `H` to toggle the horizon impostor, `F` the
+field of view, `L` the camera's bank, `R` to reset to the start. A gamepad
+works alongside: left stick for pitch and roll, forward climbs, face buttons
+for the modes, d-pad for the toggles, shoulders for the two comfort settings.
+The help block on screen is generated from the one binding table
 (`engine/src/input/bindings.ts`), so it is always right.
+
+`F` and `L` are the comfort pass. `L` at its zero end is the GDD's
+horizon-locked camera, which is what this prototype did before the setting
+existed — the chase camera was built out of heading alone and never rolled, so
+the flight model's bank reached the turn rate and nothing else. There is no
+camera-smoothing setting: nothing in the rig steps except the terrain clamp,
+and the clamp lifts the aeroplane 20.8 m in a single frame, which is out of a
+filter's reach (D28, F35).
 
 Out of the box you fly **stand-in terrain** — fiction shaped like China's three
 great steps, so the prototype can answer G1's question without 14 GB on disk.
@@ -51,7 +60,7 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 368 TypeScript tests and 59 Python tests
+make test         # 375 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -64,7 +73,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-360 of the 368 TypeScript tests run without the world; the eight that do not
+367 of the 375 TypeScript tests run without the world; the eight that do not
 are the ones whose subject is the world itself.
 
 A section is also signed by the machine that cut it, and one that does not
@@ -87,7 +96,7 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | --- | --- |
 | `engine/src/sim` | Atmosphere, aircraft performance, arcade flight model, world scale |
 | `engine/src/terrain` | Shared grid, heightmap texture array, shaders, streaming, horizon impostor |
-| `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them |
+| `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them, and the camera's comfort settings |
 | `engine/src/input` | The binding table, keyboard and gamepad sources, and the intent the frame polls |
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes, frame-cost capture |
 | `content` | Card and expedition schema, the committed route sections, and the validation gate |

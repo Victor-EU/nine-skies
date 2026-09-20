@@ -8,6 +8,7 @@ import {
   type PadSnapshot,
 } from "../../engine/src/input/gamepad.js";
 import { mergeAxes } from "../../engine/src/input/axes.js";
+import { boundKeys } from "../../engine/src/input/bindings.js";
 import { Input } from "../../engine/src/input/input.js";
 import { createFlightState, step, STILL_AIR } from "../../engine/src/sim/flight.js";
 import { LIGHT_PISTON } from "../../engine/src/sim/aircraft.js";
@@ -27,8 +28,14 @@ describe("keyboard", () => {
   it("claims its own keys and no others", () => {
     const kb = new KeyboardSource();
     expect(kb.keyDown("w")).toBe(true);
-    expect(kb.keyDown("f")).toBe(false);
     expect(kb.keyDown("arrowup")).toBe(false);
+    // Taken from the table rather than written down: this assertion was
+    // spelled `f` until the comfort pass bound `f`, and then it was asserting
+    // that a real binding did not exist. A key nobody has claimed is the
+    // thing being tested, so let the table say which one that is.
+    const unbound = [..."qwertyuiopasdfghjklzxcvbnm0123456789"].find((k) => !boundKeys().has(k));
+    expect(unbound).toBeDefined();
+    expect(kb.keyDown(unbound!)).toBe(false);
   });
 
   it("fires an action once per press, however many keydowns auto-repeat sends", () => {

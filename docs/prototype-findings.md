@@ -3037,3 +3037,146 @@ written down.
 
 So the pane is closed as a route, not deferred: frame measurements are taken
 in a real window on the machine being measured, and nowhere else.
+
+## F35 — The horizon lock was already on, and the thing smoothing was meant to absorb is the aeroplane being thrown upward by the terrain
+
+The comfort pass is on the critical path's "can start early and should" list —
+cheap, and motion sickness discovered at G2 is a redesign — and the risk
+register moves it up on the first G1 participant who stops for discomfort. F33
+added a reason of its own: the roll lag is the one heaviness cue the cohort
+cannot feel, because the camera never banks. The GDD names three settings: a
+horizon-locked camera option, a field-of-view slider, and camera smoothing.
+
+Two of the three are built. The third could not be, and the measurement that
+removed it is the finding.
+
+**Horizon lock was not the option, it was the behaviour.** `placeAt` built its
+chase camera out of heading alone —
+
+```ts
+const fwd = new Vector3(Math.sin(headingRad), 0, Math.cos(headingRad));
+```
+
+— so `bankRad` reached the flight model, the turn rate and nothing else. The
+horizon has been locked since the first frame this prototype drew, and there
+was nothing to lock. So the work is the *unlocked* camera, and the GDD's
+comfort setting is the zero at one end of it: `camera.up` is world-up rotated
+about the view axis by `bankFollow × bankRad`, set every frame including at
+zero so that turning the lock back on levels the camera rather than leaving
+the last tilt baked into the basis.
+
+What the setting is worth, six seconds of full stick at cruise, sea level:
+
+| `bankFollow` | steady horizon tilt | peak roll rate |
+| --- | ---: | ---: |
+| 0 — horizon locked | 0° | 0°/s |
+| 0.35 — eased | 20.5° | 13.3°/s |
+| 1 — with the wing | 58.7° | 37.9°/s |
+
+0.35 is a default and not a finding, in the sense F33 used for the stick's
+pitch sign: it puts the roll where the cohort can see it at a third of the
+rate the wing would. It is a G1 question and belongs on the questionnaire.
+
+**The sign is asserted on screen, not in the number.** It passes through
+`applyAxisAngle`, `lookAt` and a projection matrix before it becomes a pixel,
+and a flipped one is a camera that rolls the wrong way in every turn — wrong
+in a way that looks deliberate, reads as "this felt bad" in a G1 note, and
+cannot be found by reading the constant. So the test projects two horizon
+points through a real `PerspectiveCamera` and asserts that in a right bank the
+right-hand one lands higher, which is what a right turn looks like out of a
+windscreen. Confirmed in the browser as well: at `bankFollow` 1 and 36.6° of
+bank the camera's up-vector sits 36.6° off world-up, and at 0.35 with 25° of
+bank it sits 8.8° off.
+
+**The field of view is free.** Nothing in the scene is frustum-culled.
+`Terrain.update` makes a circular disc of tiles resident around the aircraft
+and the impostor is a ring; neither reads the camera, so the field of view
+cannot move the frame budget. It is also the only one of the three settings
+with a mechanism this rig can act on — peripheral optical flow is what drives
+vection, and the field of view decides how much of it there is. Cycled rather
+than slid, because the prototype's other settings are cycles and a
+participant can say "the second one".
+
+It did leave one thing behind it. `probe.ts` converted scanlines to degrees
+through a written-down `62`, and a written-down field of view in a build that
+has a setting for it is a probe reporting degrees for a frustum nobody is
+looking through. It reads the camera now. The capture pins the field of view
+the way it pins the resolution — belt and braces, given that nothing is culled,
+but three lines that mean a comfort setting can never quietly make two
+captures incomparable (D25).
+
+### Camera smoothing had nothing to smooth, and finding out why found something worse
+
+A first-order lag has unity gain at DC. It delays a sustained motion without
+reducing it. So before building one it is worth asking what in this rig can
+actually *step*, and the answer is almost nothing: heading, bank, airspeed and
+vertical rate are all lagged by the flight model already, and horizontal
+position is their integral.
+
+Altitude can. `step()` ends with
+
+```ts
+const floor = env.groundElevationM + BOUNCE_CLEARANCE_M;
+if (state.altitudeM < floor) state.altitudeM = floor;
+```
+
+which reads as a safety net. It is not a net. Horizontal motion is multiplied
+by the mode's ground gain and vertical motion is not — the asymmetry `scale.ts`
+exists to defend, and the whole of F15 and F19 — so at cruise the aeroplane
+covers 2,167 m of ground a second while climbing at best 7.1, and **cannot
+out-climb a gradient of 0.0033**. Flown over the committed Sea to Sky section:
+
+| | |
+| --- | ---: |
+| steepest kilometre of the route, uphill | 0.628 — 32.1°, 2,271 → 2,899 m |
+| gradient the aeroplane can out-climb at cruise, sea level | 0.0033 — 0.19° |
+| ratio | 191× |
+| worst single frame the clamp adds, autopilot at 600 m AGL | 20.8 m |
+| frames the clamp is lifting the aeroplane | 2.2 % of the route |
+| longest unbroken run of them | 60 frames — a full second |
+
+Twenty metres of altitude in a sixtieth of a second is 1,250 m/s of camera,
+and it is not one event: one frame in forty-five over a twenty-minute flight,
+and a whole second without a break at its worst. In the mountains the clamp is
+not catching the aeroplane, it is flying it.
+
+**No filter on the camera can take that out**, and the measurement says so
+rather than the argument. Flying the same route with a first-order lag of
+tau 0.25 s on the camera's altitude — clamped to 60 m, because an unbounded
+lag ends up inside the hill — moved the peak vertical acceleration of the
+camera by less than a factor of two, and in one of three policies moved it the
+**wrong way**: 4,957 g rigid against 5,607 g smoothed for level flight at
+cruise. What a lag has to work on is corners, and the corners here are one
+frame wide and arrive sixty times a second. A camera that genuinely filtered
+this would be underground.
+
+So there is no camera-smoothing setting, and the reason is not that it was
+skipped. The rejected filter is kept as a test rather than as code, so the
+claim stays checkable.
+
+**An instrument note, because it nearly became the finding.** The first pass
+measured 462 m in a single frame and 170,000 g. Both were the fixture: the
+route fixture's ground sampler is `profileM[Math.round(km)]`, a 1 km staircase,
+and a staircase read at 36 m a frame reports its own sampling. The renderer
+samples its heights bilinearly, so the measurement does too, and every number
+above is from the interpolated profile. The staircase numbers were wrong by a
+factor of twenty-two.
+
+**What this leaves open, and it is not a camera question.** The GDD promises
+"flying into terrain bounces you up with a soft camera shake" and the shove is
+neither soft nor a shake. Three ways out, and choosing between them is a
+design decision rather than an engineering one:
+
+- **Leave it.** It is one frame in forty-five and no participant has yet
+  reported it. The comfort pass now has the settings that might matter more.
+- **Soften the clamp in `flight.ts`** — push the aircraft up over a few frames
+  instead of assigning the floor outright. Cheaper than it sounds and it is
+  the only fix that makes the aeroplane's own altitude continuous, which is
+  what every other consumer of it would prefer too.
+- **Drive the camera from a smoothed ground profile** rather than from the
+  aircraft, which is the standard terrain-following chase camera. It works,
+  and it trades the judder for the aircraft bobbing in frame — invisible today
+  because no aircraft is drawn, and not invisible the moment one is.
+
+The G1 protocol asks participants to fly low through a gorge. That is exactly
+where this fires, so it is worth deciding before the cohort rather than after.
