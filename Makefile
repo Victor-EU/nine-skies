@@ -5,6 +5,7 @@
 #   make world CORRIDOR=china       # the full country (phase 2, ~70 GB)
 #   make probes                     # golden probes against what is built
 #   make sections                   # re-cut the committed route sections
+#   make cut-key                    # generate this machine's cutting key
 #   make reference                  # re-cut the projection reference table
 #   make routes                     # every expedition flown over the world
 #   make test                       # every suite, TypeScript and Python
@@ -18,7 +19,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles probes sections reference routes test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles probes sections cut-key reference routes test test-ts test-py typecheck dev clean-work help
 
 help:
 	@sed -n '1,10p' Makefile | sed 's/^# \{0,1\}//'
@@ -57,6 +58,12 @@ reference: $(PY)
 ## that leaves the sections behind is exactly the drift the gate then reports.
 sections:
 	npm run content:sections
+
+## The key a section is signed with (D23). Run once per machine that builds
+## worlds; the public half is committed and the private half never is. A
+## machine that only reads sections -- CI, a writer's laptop -- needs neither.
+cut-key:
+	npm run content:cut-key
 
 world: acquire grid tiles probes sections
 	@echo "world built: $(WORLD_OUT)"

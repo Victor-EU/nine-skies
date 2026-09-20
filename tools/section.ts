@@ -28,9 +28,14 @@
  * came from is nameable. A machine that does have a world re-cuts and
  * compares (`maxDriftM`), which is the check CI cannot do for itself.
  *
- * What a section does NOT prove is that its numbers are real elevations. A
- * hand-edited array passes every check here. That provenance belongs to the
- * pipeline and its golden probes, which is where it already lives.
+ * None of that asks where the elevations came from, and for one release it
+ * had no answer: a hand-edited array passed every check in this file. D23
+ * gives it one. The cut is signed by the machine that made it and the section
+ * carries the signature, so the only way to change the ground under a route
+ * is to cut it from a world again (`attest.ts`, which is blunt about what a
+ * signature does and does not buy). The other half of that answer is not
+ * cryptographic: `pipeline/tests/test_section_probe.py` runs a golden probe
+ * against this file, which is the first time one has run without a world.
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -44,8 +49,14 @@ import {
   type ProfiledRoute,
 } from "./corridor.ts";
 import { projectedWaypoints } from "./expedition.ts";
+import { PUBLIC_KEY_FILE, type Signer, type Verifier } from "./attest.ts";
 
-export const SECTION_VERSION = 1;
+/**
+ * Bumped to 2 by D23, which added the signature. A v1 section is not read
+ * rather than read unsigned: the whole value of the signature is that there
+ * is no unsigned path to fall back to.
+ */
+export const SECTION_VERSION = 2;
 
 /**
  * How far the recomputed leg lengths may sit from the stored ones, km.
@@ -76,6 +87,29 @@ export interface RouteSection {
   readonly lengthKm: number;
   /** Ground elevation at one-kilometre stations, metres to one decimal. */
   readonly groundM: readonly number[];
+  /** Ed25519 over `attestation(section)`, base64. See `attest.ts` (D23). */
+  readonly signature: string;
+}
+
+/**
+ * The bytes a signature covers: every field of a section except the
+ * signature itself.
+ *
+ * Spelled out field by field rather than taken from the rendered file, so
+ * that the signed thing is the section's *values*. A file whose keys have
+ * been reordered, reindented or reflowed still verifies; a file with one
+ * digit changed anywhere does not, which is the distinction that matters.
+ */
+export function attestation(section: Omit<RouteSection, "signature">): string {
+  const { cutFrom } = section;
+  return [
+    `nineskies/section v${section.version}`,
+    section.expedition,
+    `${cutFrom.corridor} ${cutFrom.resolutionM} m ${cutFrom.heightsSha256}`,
+    section.waypoints.map((w) => `${w.id} ${w.lat} ${w.lon}`).join(" | "),
+    `${section.legEndKm.join(" ")} of ${section.lengthKm}`,
+    section.groundM.join(" "),
+  ].join("\n");
 }
 
 export function waypointsOf(expedition: Expedition): SectionWaypoint[] {
@@ -87,14 +121,27 @@ const round = (x: number, places: number): number => Number(x.toFixed(places));
 /**
  * Cut a section, or say why this corridor cannot cut one.
  *
- * A corridor is a strip, and `groundAt` reads zero outside it. Cutting a
- * section from a corridor the route leaves would commit sea level under a
- * mountain range, so coverage is checked at every station before anything is
- * written.
+ * Three ways it refuses, and all three exist because the alternative is a
+ * committed file that looks right.
+ *
+ * A corridor is a strip, and `groundAt` reads zero outside it, so cutting
+ * from a corridor the route leaves would commit sea level under a mountain
+ * range: coverage is checked at every station first.
+ *
+ * The heightfield is checked against its own manifest. The stamp a section
+ * carries used to be copied from the manifest, which made it a claim about a
+ * claim -- nothing in the repository had ever compared that SHA to the bytes
+ * it names. It is now measured on the way past, and a corridor whose
+ * heightfield does not match its manifest cuts nothing at all.
+ *
+ * And the cut is signed. A machine that can reach a world but not the cutting
+ * key does not write an unsigned section (D23); `sign` throws, and the
+ * message says where a key comes from.
  */
 export function cutSection(
   expedition: Expedition,
   corridor: Corridor,
+  sign: Signer,
 ): { section: RouteSection } | { problem: string } {
   const projected = projectedWaypoints(expedition);
   const outside = firstUncoveredKm(corridor, projected);
@@ -105,22 +152,31 @@ export function cutSection(
         `ground there would read as sea level`,
     };
 
+  const claimed = corridor.manifest.heights.sha256;
+  if (corridor.heightsSha256 !== claimed)
+    return {
+      problem:
+        `corridor ${corridor.manifest.corridor} does not match its own manifest — ` +
+        `heights.bin hashes to ${corridor.heightsSha256.slice(0, 12)}…, the manifest ` +
+        `says ${claimed.slice(0, 12)}…. Rebuild it with \`make world CORRIDOR=` +
+        `${corridor.manifest.corridor}\` rather than cutting from it`,
+    };
+
   const profiled = profileAlong(corridor, projected);
-  return {
-    section: {
-      version: SECTION_VERSION,
-      expedition: expedition.id,
-      cutFrom: {
-        corridor: corridor.manifest.corridor,
-        resolutionM: corridor.manifest.resolutionM,
-        heightsSha256: corridor.manifest.heights.sha256,
-      },
-      waypoints: waypointsOf(expedition),
-      legEndKm: profiled.legEndKm.map((km) => round(km, 3)),
-      lengthKm: round(profiled.lengthKm, 3),
-      groundM: profiled.profileM.map((m) => Math.round(m * 10) / 10),
+  const unsigned = {
+    version: SECTION_VERSION,
+    expedition: expedition.id,
+    cutFrom: {
+      corridor: corridor.manifest.corridor,
+      resolutionM: corridor.manifest.resolutionM,
+      heightsSha256: corridor.heightsSha256,
     },
+    waypoints: waypointsOf(expedition),
+    legEndKm: profiled.legEndKm.map((km) => round(km, 3)),
+    lengthKm: round(profiled.lengthKm, 3),
+    groundM: profiled.profileM.map((m) => Math.round(m * 10) / 10),
   };
+  return { section: { ...unsigned, signature: sign(attestation(unsigned)) } };
 }
 
 /**
@@ -129,11 +185,32 @@ export function cutSection(
  * The message names the thing to fix, because the only useful form of "your
  * committed artefact is stale" is one that says which edit made it so.
  */
-export function verifySection(section: RouteSection, expedition: Expedition): string | null {
+export function verifySection(
+  section: RouteSection,
+  expedition: Expedition,
+  verify: Verifier | null,
+): string | null {
   if (section.version !== SECTION_VERSION)
     return `section format v${section.version}, this build reads v${SECTION_VERSION}`;
   if (section.expedition !== expedition.id)
     return `section is for ${section.expedition}, not ${expedition.id}`;
+
+  // Before anything else, because every check below reads numbers out of this
+  // file and none of them means anything if the file has been edited. The
+  // remedy is the only legitimate way to change ground: cut it again (D23).
+  if (!verify)
+    return (
+      `no cutting key committed, so no section can be attested — expected one ` +
+      `at content/sections/${PUBLIC_KEY_FILE}`
+    );
+  if (!section.signature) return `section is unsigned; re-cut it with \`npm run content:sections\``;
+  const { signature, ...unsigned } = section;
+  if (!verify(attestation(unsigned), signature))
+    return (
+      `the signature does not match the file — its ground was edited after it ` +
+      `was cut, or it was cut with a different key. Ground comes from a world: ` +
+      `re-cut it with \`npm run content:sections\``
+    );
 
   const authored = waypointsOf(expedition);
   if (section.waypoints.length !== authored.length)
@@ -184,7 +261,7 @@ export function readSection(dir: string, id: string): RouteSection | null {
 }
 
 /**
- * Written with the ground wrapped sixteen stations to a line.
+ * Written with the ground wrapped twelve stations to a line.
  *
  * One number per line would make a three-thousand-line diff out of a rebuild;
  * one line would make an unreadable one. Twelve keeps a changed ridge to the

@@ -24,6 +24,11 @@ jobs:
       # built corridor and checked against the route it was cut from, so this
       # prints the same metres the author's machine printed. An expedition
       # with no section fails here rather than printing NOT CHECKED.
+      #
+      # It also checks the section's signature (D23). CI cannot re-derive one
+      # elevation of it -- that needs 14 GB of rasters -- so what it can check
+      # is that the file came out of a cut rather than out of an editor. A
+      # section that does not verify is refused, never flown.
       - name: Content validation
         run: npm run content:validate
       - name: Build

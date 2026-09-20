@@ -19,6 +19,7 @@ import {
 } from "./corridor.ts";
 import { corridorFor, projectedWaypoints } from "./expedition.ts";
 import { maxDriftM, readSection, sectionPath, verifySection } from "./section.ts";
+import { committedVerifier } from "./attest.ts";
 import type { Expedition } from "../content/schema.ts";
 
 export type GroundSource = "world" | "section";
@@ -51,7 +52,12 @@ export function resolveGround(
   open: (name: string) => Corridor | null = corridorCache(worldRoot),
 ): GroundResolution {
   const section = readSection(sectionRoot, expedition.id);
-  const stale = section ? verifySection(section, expedition) : null;
+  // `stale` covers the signature too (D23), so a section whose ground was
+  // edited is refused on both paths below: it is never flown, and on a
+  // machine with a world it is reported *and* overridden by the world.
+  const stale = section
+    ? verifySection(section, expedition, committedVerifier())
+    : null;
   const { chosen, looked, leaves } = corridorFor(expedition, open);
 
   if (chosen) {
@@ -87,7 +93,7 @@ export function resolveGround(
     ? leaves.map((l) => `${l.name} stops covering it at km ${l.km}`).join("; ")
     : `no world among ${looked.join(", ")} under ${worldRoot}`;
   const cut = stale
-    ? `the section at ${sectionPath(sectionRoot, expedition.id)} is stale`
+    ? `the section at ${sectionPath(sectionRoot, expedition.id)} is refused — see the line above`
     : `no section at ${sectionPath(sectionRoot, expedition.id)}`;
   return {
     groundM: null,

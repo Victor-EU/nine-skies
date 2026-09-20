@@ -47,7 +47,7 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 302 TypeScript tests and 49 Python tests
+make test         # 310 TypeScript tests and 52 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -60,11 +60,19 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-294 of the 302 TypeScript tests run without the world; the eight that do not
-are the ones whose subject is the world itself. The projection the sections
-depend on is checked the same way: the pipeline commits a table of points PROJ
-has answered for, Python re-derives it where PROJ exists and the engine checks
-`projectAlbers` against it where PROJ does not (D22).
+302 of the 310 TypeScript tests run without the world; the eight that do not
+are the ones whose subject is the world itself.
+
+A section is also signed by the machine that cut it, and one that does not
+verify against the committed public key is refused rather than flown — so the
+only way to change the ground under a route is to cut it from a world again
+(D23). The signature says where the numbers came from and cannot say they are
+real: that is the probes' job, and where a route flies over a probe's
+coordinates, that probe now runs against the committed file with no world
+(Lhasa, 3,651.8 m against a published 3,650). The projection the sections
+depend on is checked the same way, from both ends: the pipeline commits a
+table of points PROJ has answered for, Python re-derives it where PROJ exists
+and the engine checks `projectAlbers` against it where PROJ does not (D22).
 
 ## Layout
 
@@ -75,10 +83,10 @@ has answered for, Python re-derives it where PROJ exists and the engine checks
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes |
 | `content` | Card and expedition schema, the committed route sections, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, and the committed projection reference |
-| `tools` | Node-only authoring tools: corridor reader, route sections, route check |
+| `tools` | Node-only authoring tools: corridor reader, route sections and their signatures, route check |
 | `test` | Unit tests, including the golden reference tables |
 | `docs` | Running findings for each gate, and the golden probe report |
-| `Makefile` | `make world`, `make probes`, `make sections`, `make reference`, `make routes`, `make test` |
+| `Makefile` | `make world`, `make probes`, `make sections`, `make cut-key`, `make reference`, `make routes`, `make test` |
 
 ## The two things worth knowing before reading the code
 

@@ -12,6 +12,7 @@
  * `dist-world/` and a green tick for a check that silently ran on nothing is
  * worse than a skip that says so.
  */
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -29,6 +30,15 @@ export interface CorridorManifest {
 
 export interface Corridor {
   readonly manifest: CorridorManifest;
+  /**
+   * The heightfield's digest as measured, not as the manifest claims it.
+   *
+   * The manifest records a SHA and until D23 nothing ever compared it to the
+   * bytes beside it, so every section was stamped with a number it had taken
+   * on the manifest's word. Measuring it costs nothing here: the whole file
+   * is already in memory by the time this is computed.
+   */
+  readonly heightsSha256: string;
   /** Bilinear ground elevation in real metres, from the country origin. */
   groundAt(eastM: number, northM: number): number;
   /**
@@ -74,6 +84,7 @@ export function loadCorridor(dir: string): Corridor | null {
 
   return {
     manifest,
+    heightsSha256: createHash("sha256").update(bytes).digest("hex"),
     // The window is a rectangle in tile space and the tile index rises with
     // the cell index, so the two opposite corners of the bilinear stencil
     // decide all four.

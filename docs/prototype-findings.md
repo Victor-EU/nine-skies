@@ -2067,3 +2067,133 @@ section's — CI verifies that a section matches its route, never that its
 elevations came from the pipeline. That was not urgent when one person
 authored routes and it is still not, but it is now the only place in the
 repository where a committed number is taken on trust.
+
+## F26 — The ground could not be proved real, so it was made impossible to change without a world
+
+F24 committed 2,932 elevations next to the route they belong to, and F25
+closed with the one thing that was still taken on trust: CI verified that a
+section matched its *route* and never that its ground came from the pipeline.
+The plan's guess at the fix was "probably a signature over the cut". That
+turned out to be right, half-sufficient, and to be sitting on top of a second
+gap nobody had written down.
+
+**A signature cannot say the elevations are real, and saying so is the whole
+point of building it carefully.** Re-deriving one number of a section needs
+14 GB of rasters, so there is no arrangement of files in which CI recomputes
+this. What a signature supports is one sentence:
+
+> These elevations came out of a corridor cut on a machine holding the
+> cutting key.
+
+Not that the corridor was built from real rasters. Not that the key holder is
+honest. And because the public half is committed in the same repository,
+anyone who can write to the repository can swap both — the guarantee is
+against accident and inattention, not against an adversary with commit
+rights. What it does buy is worth the fifty-six lines of it: **the only way to change
+the ground under a route is to cut it from a world again.** A number nudged
+until a clearance test passes, a merge resolved badly across 229 lines of
+digits, a plausible patch from anywhere at all — all of those stop being a
+silent pass. Ed25519 through `node:crypto`, no dependency added.
+
+The signed form is the section's *values*, spelled out field by field, not the
+rendered file. Reindenting JSON is something tooling does unasked, and a
+signature that broke on a reflow would train its first reader to re-cut a file
+nobody had touched.
+
+**The gap underneath.** A section records the SHA of the heightfield it came
+from, and it recorded it by copying the corridor manifest's own claim.
+Nothing in the repository had ever compared that SHA to `heights.bin`. The
+stamp was a claim about a claim — it would have survived a truncated write, a
+half-finished rebuild, a file swapped between builds, and named the wrong
+9.8 MB with perfect confidence. `loadCorridor` now measures the digest of the
+bytes it has just read into memory, which costs nothing it was not already
+paying, and `cutSection` refuses a corridor that disagrees with its own
+manifest rather than stamping a section with a wish. On this corridor the two
+matched, which is the expected result and not the reason to check.
+
+**The other half is not cryptographic.** A signature is a statement about
+provenance; whether the numbers are *true* is a different question and the
+probes have always been the ones that answer it. They just could never run
+without a built grid, so they ran on one machine and CI took their word.
+Sea to Sky ends at Lhasa, and Lhasa is a golden probe: Britannica's 3,650 m
+±30. The committed section reads **3,651.8 m** at km 2,931, so the probe can
+be run against the file. It is the first golden probe that has ever run
+without a world.
+
+It is also deliberately thin, and the finding is more useful than the check.
+One station out of 2,932 is checked against something that is not us. The
+limit is not test-writing effort — it is that widening it needs places whose
+elevation is published independently *and* that a route happens to fly over,
+and Sea to Sky touches five cities of which the probe table knows one. The
+signature covers the other 2,931 numbers and covers them only in the sense of
+saying where they came from.
+
+| the route's named places | section | commonly cited |
+| --- | ---: | ---: |
+| Shanghai, km 0 | 9.9 m | ~4 m — a 1 km DSM cell over downtown reads roofs |
+| Wuhan, km 679 | 19.9 m | ~23 m |
+| Chongqing, km 1,427 | 253.9 m | ~244 m |
+| Chengdu, km 1,692 | 506.8 m | ~500 m |
+| **Lhasa, km 2,931** | **3,651.8 m** | **3,650 m ±30 — Britannica, and the only sourced row** |
+
+The four unchecked rows are within about 10 m of the figures a reader would
+look up, which is reassuring and is not a test — those are recollected
+municipal elevations, not citations, and that is exactly why they are not in
+the probe table. Every probe in that file names a source. Shanghai is the
+interesting one anyway: 9.9 m against a city that averages about 4 m, because
+GLO-30 is a surface model and a 1 km cell over downtown Shanghai contains
+rooftops.
+
+**Two tests changed meaning rather than breaking, which is the part worth
+recording.** Both had been written against a doctored section file, and after
+the signature both failed — because the signature fires first, and a tampered
+file now means something different from a stale one.
+
+* *"catches ground that has lost stations"* had been a tamper check. A
+  truncated file is now refused on its signature long before anyone counts
+  stations, so the station count is no longer about tampering at all: it is a
+  check on the *cutter*, and it only fires on a `profileAlong` that returns
+  the wrong number of samples and gets that signed. It is now written that
+  way, against a validly signed short section.
+* *"catches a section whose ground has drifted"* had also edited the section,
+  and drift is the opposite situation — a perfect file that the world moved
+  underneath, from a rebuild with no re-cut. So the world moves now, through
+  an injected corridor reading 40 m high, and the committed file is left
+  alone. The old version would have passed for the wrong reason forever.
+
+**And one bug, caught only by simulating the machine that matters.** The
+suite reads the real key for the byte-identity test, behind
+`describe.skipIf(!built && !key)`. `describe.skipIf` evaluates suite bodies at
+collection even when the guard is false — the same trap as F24 — so reading
+the key eagerly threw on the one machine guaranteed not to have one, which is
+CI. It failed loudly rather than silently, and it still would have been red on
+a commit that was correct. Fixtures behind a `skipIf` have to be lazy, without
+exception.
+
+| | F24 | F25 | F26 |
+| --- | ---: | ---: | ---: |
+| TypeScript tests | 299 | 302 | 310 |
+| running on a fresh checkout | 289 | 294 | 302 |
+| skipped without a world | 10 | 8 | 8 |
+| Python tests | 44 | 49 | 52 |
+
+Every one of the eight new TypeScript tests runs with no world, which is where
+the tampering they describe would be committed from.
+
+**Built.** `tools/attest.ts` (Ed25519, and blunt in its own docstring about
+what a signature does not buy), `attestation()` and the signature check in
+`verifySection`, `cutSection` measuring the heightfield instead of copying its
+manifest's claim, `Corridor.heightsSha256`, `tools/cutKey.ts` and `make
+cut-key`, `pipeline/tests/test_section_probe.py`, and an injectable corridor
+opener on `checkRoutes` so a suite can move the world.
+
+**Action.** The chain from published raster to committed elevation is now
+attestable at every link but the first. `acquire.py` verifies a download by
+its byte count and records nothing about its content, so "the corridor was
+built from the tiles the mirror served" is a sentence nobody can check after
+the fact — and a tile that arrives intact but wrong is indistinguishable from
+one that arrives right. Recording a digest per tile at fetch time is cheap and
+worth doing before phase 2 turns 331 tiles into several thousand. Whether it
+can be checked against something the mirror publishes, rather than only
+against what we ourselves first downloaded, is the part that needs looking
+up.

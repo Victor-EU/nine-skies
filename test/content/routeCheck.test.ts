@@ -8,12 +8,11 @@
  * section still agrees with the corridor it was cut from.
  */
 import { describe, expect, it } from "vitest";
-import { existsSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { checkRoutes, describe as describeReport } from "../../tools/routeCheck.ts";
+import { loadCorridor, type Corridor } from "../../tools/corridor.ts";
 import { loadExpedition } from "../../tools/expedition.ts";
-import { readSection, writeSection } from "../../tools/section.ts";
 import type { Expedition } from "../../content/schema.ts";
 
 const WORLD = "dist-world";
@@ -122,20 +121,20 @@ describe.skipIf(!built)("the section against the world it was cut from", () => {
   }, 30_000);
 
   it("catches a section whose ground has drifted from the corridor", () => {
-    // A stale section survives `verifySection` - the route did not change,
-    // the ground did - so the only thing that can catch it is the corridor.
-    // This is the check CI cannot run for itself, which is why it has to run
-    // here, on the machine that can fix it.
-    const section = readSection(SECTIONS, "sea-to-sky")!;
-    const dir = mkdtempSync(join(tmpdir(), "nineskies-section-"));
-    writeSection(dir, {
-      ...section,
-      groundM: section.groundM.map((m, i) => (i === 1500 ? m + 40 : m)),
-    });
-    const [report] = checkRoutes([seaToSky()], WORLD, dir);
+    // Staleness is the world moving under a section that is otherwise
+    // perfect: a corridor rebuilt from better rasters, or a pipeline fix,
+    // with no re-cut afterwards. So the world is what moves here. Editing
+    // the section instead would test D23's signature, which fires first and
+    // means something else entirely — that the file was tampered with rather
+    // than left behind.
+    const risen = (name: string): Corridor | null => {
+      const real = loadCorridor(join(WORLD, name));
+      return real && { ...real, groundAt: (e, n) => real.groundAt(e, n) + 40 };
+    };
+    const [report] = checkRoutes([seaToSky()], WORLD, SECTIONS, risen);
     expect(report!.sectionIssue).toMatch(/40 m from sea-to-sky/);
     // And it still flies, because the world is right there and is the one
-    // that counts. The section is reported broken, not obeyed.
+    // that counts. The section is reported behind, not obeyed.
     expect(report!.source).toBe("world");
     expect(report!.check!.clears).toBe(true);
   }, 30_000);

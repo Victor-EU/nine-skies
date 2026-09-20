@@ -18,6 +18,7 @@
     "build": "npm -w app run build",
     "content:validate": "vite-node content/validate.ts",
     "content:sections": "vite-node tools/cutSections.ts",
+    "content:cut-key": "vite-node tools/cutKey.ts",
     "check": "npm run typecheck && npm test && npm run content:validate"
   },
   "devDependencies": {

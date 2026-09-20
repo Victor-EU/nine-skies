@@ -15,10 +15,15 @@ import { fileURLToPath } from "node:url";
 import { corridorCache } from "./corridor.ts";
 import { corridorFor, loadExpeditions } from "./expedition.ts";
 import { cutSection, writeSection } from "./section.ts";
+import { committedSigner } from "./attest.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const sectionsDir = join(root, "content", "sections");
 const open = corridorCache(join(root, "dist-world"));
+// Read before the loop: a missing cutting key is a property of the machine,
+// not of any one expedition, and finding out after the first cut has been
+// written would leave half the sections signed (D23).
+const sign = committedSigner(root);
 
 let cut = 0;
 let changed = 0;
@@ -32,7 +37,7 @@ for (const expedition of loadExpeditions(join(root, "content", "expeditions"))) 
     console.log(`  – ${expedition.id} not cut — ${why}`);
     continue;
   }
-  const result = cutSection(expedition, chosen.corridor);
+  const result = cutSection(expedition, chosen.corridor, sign);
   if ("problem" in result) {
     console.log(`  – ${expedition.id} not cut — ${result.problem}`);
     continue;

@@ -20,7 +20,7 @@
 import { join } from "node:path";
 import { validateRoute, type RouteCheck } from "../engine/src/sim/route.ts";
 import { EXPEDITION_RULES, type Expedition } from "../content/schema.ts";
-import { corridorCache } from "./corridor.ts";
+import { corridorCache, type Corridor } from "./corridor.ts";
 import { flyableFrom } from "./expedition.ts";
 import { resolveGround, type GroundSource } from "./ground.ts";
 
@@ -68,8 +68,9 @@ export function checkRoutes(
   expeditions: readonly Expedition[],
   worldRoot: string,
   sectionRoot: string,
+  /** Injectable so a suite can move the world and see the section notice. */
+  open: (name: string) => Corridor | null = corridorCache(worldRoot),
 ): readonly RouteReport[] {
-  const open = corridorCache(worldRoot);
   const reports: RouteReport[] = [];
 
   for (const e of expeditions) {
