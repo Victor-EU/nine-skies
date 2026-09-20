@@ -106,6 +106,56 @@ float aerialFog(vec3 eye, vec3 target, float density, float falloff) {
 `;
 
 /**
+ * The same five lines in TypeScript, in real metres.
+ *
+ * A second copy, deliberately, and worth saying why rather than hiding. The
+ * question "how far can you see in the Sichuan Basin" is answered by a
+ * constant in `SPIKE_REGIONS` and nothing could reach it: the only
+ * implementation ran on a GPU, and CI has none. That left the region table -
+ * which is most of what D12 is - unguarded, and F36 found one of its claims
+ * only cashes out past a hundred kilometres.
+ *
+ * It is safe as copies go: the GLSL is directly above, it is two expressions
+ * with one guard, and there is no state. It is in real metres because the
+ * world-unit conversions cancel exactly - `hazeDensityPerWorldUnit` multiplies
+ * by the compression and the distance is divided by it; `hazeFalloffPerWorldUnit`
+ * divides by the exaggeration and the height is multiplied by it - so this is
+ * the shader's own arithmetic rather than an approximation of it, at any scale.
+ */
+export function airMassReal(eyeM: number, targetM: number, scaleHeightM: number): number {
+  const falloff = 1 / scaleHeightM;
+  const y0 = Math.max(Math.min(eyeM, targetM), 0);
+  const y1 = Math.max(Math.max(eyeM, targetM), 0);
+  const d = (y1 - y0) * falloff;
+  if (d < 1e-4) return Math.exp(-y0 * falloff);
+  return (Math.exp(-y0 * falloff) - Math.exp(-y1 * falloff)) / d;
+}
+
+/** Fraction of a target's own colour that the air has replaced, 0 to 1. */
+export function aerialFogReal(
+  distanceM: number,
+  eyeM: number,
+  targetM: number,
+  densityPerM: number,
+  scaleHeightM: number = HAZE_SCALE_HEIGHT_M,
+): number {
+  const fog = 1 - Math.exp(-distanceM * densityPerM * airMassReal(eyeM, targetM, scaleHeightM));
+  return Math.min(1, Math.max(0, fog));
+}
+
+/** Distance at which a target level with the eye is half hidden, km. */
+export function halfVisibleKm(eyeM: number, densityPerM: number): number {
+  let lo = 0;
+  let hi = 4_000_000;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (aerialFogReal(mid, eyeM, eyeM, densityPerM) < 0.5) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2000;
+}
+
+/**
  * Ground lighting, in one place, for the same reason the ramp is.
  *
  * The horizon band has no normals to light - a silhouette does not have a

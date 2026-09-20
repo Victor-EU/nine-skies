@@ -3180,3 +3180,152 @@ design decision rather than an engineering one:
 
 The G1 protocol asks participants to fly low through a gorge. That is exactly
 where this fires, so it is worth deciding before the cohort rather than after.
+
+## F36 — The sky is an altimeter and not a map, it is already as strong a cue as a physical sky would be, and the milk the basin is named for only appears at a hundred kilometres
+
+The atmosphere sits on the critical path into G1 because the GDD calls the
+deepening sky the first visual cue for altitude, and G1's first pass criterion
+is that **six of ten remark on the climb, the thin air or the plane going
+heavy without being prompted**. So the atmosphere's job at that gate is one
+specific thing, and nothing in the repository had measured whether it does it.
+What is built is D12: three region sets — coast, basin, plateau — blended once
+per frame at the aircraft, a flat clear colour lerped toward a deep blue as the
+air thins, and exponential height haze in the terrain and impostor shaders.
+
+Colour differences below are CIE dE76, where about **2.3** is a just-noticeable
+difference and about **10** reads as a different colour at a glance. RGB
+distance answers none of these questions: the same step near black and near
+white is the same number and nothing like the same sight.
+
+### The cue is real, and it is all altitude
+
+| | dE |
+| --- | ---: |
+| sea level → 4,500 m, over the eastern plain | 32.1 |
+| sea level → 4,500 m, over the Sichuan Basin | 34.7 |
+| sea level → 4,500 m, over the plateau | 22.6 |
+| the whole country, plain → plateau, at a held 4,000 m | **5.1** |
+
+Where you are is worth a fifth of how high you are. That is not a defect — it
+is the GDD's own claim, confirmed — but it does mean the region blend is
+almost invisible *in the sky*, and everything D12 buys is in the haze instead.
+The plateau's climb cue is the weakest of the three for a reason worth keeping:
+its own haze colour is already a blue close to the thin-air colour, so there is
+less of the curve left to run by the time you get there.
+
+### It arrives too slowly to be seen arriving
+
+G1's session is twelve minutes from the start: 1,200 m to 3,863 m, and every
+kilometre of it over the eastern plain, so the region weights never move and
+the whole of the change is the climb.
+
+| minute | altitude | dE since two minutes ago |
+| ---: | ---: | ---: |
+| 0 | 1,200 m | — |
+| 2 | 1,549 m | 2.4 |
+| 4 | 2,137 m | 4.1 |
+| 6 | 2,655 m | 3.7 |
+| 8 | 3,109 m | 3.3 |
+| 10 | 3,510 m | 3.0 |
+| 12 | 3,863 m | 2.7 |
+
+Nineteen dE end to end, which is plainly visible as a *difference*. Spread over
+twelve minutes it is **1.6 dE a minute** — under the threshold at which a
+change can be noticed happening at all. So the cue is real and it is not an
+event: a player who compared minute 0 with minute 12 side by side would see it
+immediately, and a player living through it will not see it move. That is worth
+knowing before a cohort is asked to remark on it unprompted, because it is the
+difference between a criterion about the sky and a criterion about memory.
+
+### A physical sky would not make it stronger
+
+The obvious response is that the flat clear colour is the problem and the plan's
+analytic Rayleigh + Mie sky is the answer. Measured, it is not. A single-
+scattering Nishita model on the CPU — Rayleigh at 5.8/13.5/33.1e-6 m⁻¹, Mie at
+21e-6 with g = 0.76, scale heights 8,000 m and 1,200 m, sun 45° up, looking away
+from it — gives this for the same climb:
+
+| exposure | horizon | 10° up | 30° up | zenith | mean over 0–35°, the band the camera sees |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 8 | 17.3 | 18.5 | 31.6 | 9.9 | 24.0 |
+| 12 | 17.6 | 19.6 | 34.0 | 11.2 | 25.5 |
+| 18 | 16.9 | 19.9 | 35.6 | 12.5 | 26.2 |
+| 26 | 15.1 | 19.2 | 35.8 | 13.8 | 25.7 |
+| 40 | 11.5 | 17.1 | 33.8 | 15.3 | 23.5 |
+
+**The shipped flat sky is worth 32.1 over the same climb, across the whole
+screen at once.** A physical sky beats it in one narrow band — 30° up, which a
+chase camera aimed slightly above the aircraft barely sees — and is worth two
+thirds as much everywhere else. The band the camera actually looks through
+averages 23.5 to 26.2 dE, and that range is flat across a fivefold sweep of
+exposure, so the conclusion is not an artefact of a tone curve I chose.
+
+Two things this does not say. It is a single-scattering model: multiple
+scattering fills in the dark zenith and would *narrow* the gap between
+altitudes further, so the figures above are, if anything, generous to the
+physical sky. And it is one sun angle. A physical sky's real payoff is a low
+sun — sunrise, sunset, the hour either side — which is phase 3's *seasons and
+time of day*, not G1's altitude cue.
+
+So the analytic sky is a looks item and not a gate item, and it belongs where
+its payoff is.
+
+### Milk and glass is a long-range effect
+
+The other half of D12 is the claim that the basin reads as milk and the plateau
+as glass. That is a haze-density claim — coast 3.5e-6, basin 7.0e-6, plateau
+8.5e-7 per real metre, an 8.2× spread — and it had also never been measured.
+
+| | half-visible at 1,000 m | at 4,000 m |
+| --- | ---: | ---: |
+| Yangtze & East coast | 234 km | 386 km |
+| Sichuan Basin | 117 km | 193 km |
+| Qinghai-Tibet Plateau | 963 km | 1,588 km |
+
+How much more of a ridge the plateau's air leaves than the basin's, at 4,000 m:
+
+| distance | 40 km | 100 km | 200 km | 400 km |
+| --- | ---: | ---: | ---: | ---: |
+| the ridge keeps | 1.13× | 1.4× | 1.88× | 3.5× |
+
+At forty kilometres — eighteen seconds of cruise, which is *near field* in a
+game that crosses 2,167 real metres a second — the basin is 13 % hazed and the
+plateau 2 %, and both read as clear. **The basin does not read as milk while
+you are in it. It reads as milk when you look across it**, and by then you are
+looking at the horizon impostor rather than at streamed terrain. That is not
+wrong, and it is not what the sentence in the plan implies.
+
+### One thing that fell out of it: the world's outer edge
+
+The impostor stops at 1,200 km (D15). How visible its last ridge line is
+depends entirely on whose air you are in — eye at 5,000 m, ridge at 6,000 m:
+
+- coast: **81 % hazed**, and the world ending there is nothing to see
+- plateau: **34 % hazed**, so the outermost skyline is a real line with clear
+  sky behind it and no terrain behind that
+
+This is F1's 1,312 km reveal seen from the other end: the same clean plateau
+air that makes the wall worth showing from far away is the air that makes the
+edge of the drawn world legible. Not acted on here — it is a reach question and
+F1 already owns it — but it is now a number rather than an intuition.
+
+### Instrument notes
+
+Two, and both mattered. The first pass at the physical sky used a linear
+exposure and clipped four of its twenty cells to white, which compresses
+exactly the differences being measured and made the zenith look like the
+strongest cue; `1 - exp(-L·k)` fixed it and moved the answer. And the whole
+comparison is in Lab rather than RGB, which is why the region blend comes out
+at 5.1 rather than looking respectable.
+
+### What moves
+
+The atmosphere comes off the critical path into G1. Not because it is
+unimportant — because the criterion it was there to serve is already served as
+well as a physical sky would serve it, and what a physical sky adds is a low
+sun, which is phase 3. What was built here instead is the measurement's own
+scaffolding, so none of this can quietly rot: the blend moved out of `main.ts`
+into `engine/src/gfx/aerial.ts`, a perceptual-difference helper went in beside
+it, and nine tests pin the numbers above — including the no-seam rule, that the
+clear colour and the colour terrain fades into are the same value, which is now
+checked rather than asserted in a comment.

@@ -60,7 +60,7 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 375 TypeScript tests and 59 Python tests
+make test         # 384 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -73,7 +73,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-367 of the 375 TypeScript tests run without the world; the eight that do not
+376 of the 384 TypeScript tests run without the world; the eight that do not
 are the ones whose subject is the world itself.
 
 A section is also signed by the machine that cut it, and one that does not
@@ -96,7 +96,7 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | --- | --- |
 | `engine/src/sim` | Atmosphere, aircraft performance, arcade flight model, world scale |
 | `engine/src/terrain` | Shared grid, heightmap texture array, shaders, streaming, horizon impostor |
-| `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them, and the camera's comfort settings |
+| `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them, the camera's comfort settings, and the air at the aircraft |
 | `engine/src/input` | The binding table, keyboard and gamepad sources, and the intent the frame polls |
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes, frame-cost capture |
 | `content` | Card and expedition schema, the committed route sections, and the validation gate |

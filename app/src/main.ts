@@ -3,9 +3,7 @@ import { Terrain } from "../../engine/src/terrain/terrain.js";
 import {
   standInGroundTempC,
   standInPrecipMm,
-  standInRegionWeights,
 } from "../../engine/src/terrain/syntheticTiles.js";
-import { SPIKE_REGIONS } from "../../engine/src/terrain/terrainMaterial.js";
 import {
   HorizonField,
   buildSyntheticHorizonField,
@@ -29,12 +27,12 @@ import {
   type FlightInput,
 } from "../../engine/src/sim/flight.js";
 import { LIGHT_PISTON, climbRecoveryRatio } from "../../engine/src/sim/aircraft.js";
-import { densityRatio } from "../../engine/src/sim/atmosphere.js";
 import { createProbe } from "./probe.js";
 import { Input } from "../../engine/src/input/input.js";
 import { helpLines, type Action } from "../../engine/src/input/bindings.js";
 import type { PadSnapshot } from "../../engine/src/input/gamepad.js";
 import { captureFrameCost, frameCostTable } from "./frameCost.js";
+import { Aerial } from "../../engine/src/gfx/aerial.js";
 import {
   BANK_FOLLOW_CANDIDATES,
   DEFAULT_COMFORT,
@@ -393,42 +391,12 @@ const routeKm = (() => {
   return km;
 })();
 
-const skyHigh = new Color(0.16, 0.34, 0.68);
-const sky = new Color();
-const regionHaze = new Color();
-const regionSun = new Color();
-
 /**
- * Blend the region atmosphere table at the aircraft (build plan D12).
- *
- * Not D14 - that blends nine sets by per-pixel region weight. This is three
- * sets blended once per frame, which is what it takes for the basin to read
- * as milk and the plateau as glass. With one global density the horizon band
- * makes every region look the same, and the plateau's clean air is the first
- * thing the GDD promises about it.
- *
- * The invariant worth keeping: the haze colour and the clear colour are the
- * same value, so terrain fading into the distance lands exactly on the sky
- * rather than near it.
+ * The air, blended at the aircraft once a frame (D12). It used to be written
+ * out here; it is in the engine now so the two numbers G1 is partly scored on
+ * can be measured, which they had never been (F36).
  */
-function blendAtmosphere(inlandKm: number, groundM: number, thin: number): number {
-  const w = standInRegionWeights(inlandKm, groundM);
-  regionHaze.setRGB(0, 0, 0);
-  regionSun.setRGB(0, 0, 0);
-  let density = 0;
-  for (let i = 0; i < SPIKE_REGIONS.length; i++) {
-    const r = SPIKE_REGIONS[i]!;
-    regionHaze.r += r.hazeColor.r * w[i]!;
-    regionHaze.g += r.hazeColor.g * w[i]!;
-    regionHaze.b += r.hazeColor.b * w[i]!;
-    regionSun.r += r.sunColor.r * w[i]!;
-    regionSun.g += r.sunColor.g * w[i]!;
-    regionSun.b += r.sunColor.b * w[i]!;
-    density += r.hazeDensity * w[i]!;
-  }
-  sky.copy(regionHaze).lerp(skyHigh, thin);
-  return density;
-}
+const air = new Aerial();
 
 /**
  * Dev hook. Playtest operators need to drop a player onto the plateau without
@@ -604,20 +572,15 @@ function placeAt(
   // over whatever the region underneath is doing. The ground is read back from
   // the terrain rather than passed in, so the haze is keyed to the elevation
   // that is actually on screen.
-  const thin = Math.min(1, Math.max(0, (1 - densityRatio(altitudeM)) / 0.45));
-  const density = blendAtmosphere(
-    eastM / 1000,
-    terrain.groundElevationM(eastM, northM) ?? 0,
-    thin,
-  );
-  renderer.setClearColor(sky, 1);
+  air.update(eastM / 1000, terrain.groundElevationM(eastM, northM) ?? 0, altitudeM);
+  renderer.setClearColor(air.sky, 1);
   // The region table and the scale height are real quantities; the shaders
   // integrate in world units. Convert here, once, for both materials.
-  const hazeDensityWorld = hazeDensityPerWorldUnit(density, scale);
+  const hazeDensityWorld = hazeDensityPerWorldUnit(air.hazeDensityPerM, scale);
   const hazeFalloffWorld = hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, scale);
   for (const m of [terrain.material, ring.material]) {
-    (m.uniforms.uHazeColor!.value as Color).copy(sky);
-    (m.uniforms.uSunColor!.value as Color).copy(regionSun);
+    (m.uniforms.uHazeColor!.value as Color).copy(air.sky);
+    (m.uniforms.uSunColor!.value as Color).copy(air.sun);
     m.uniforms.uHazeDensity!.value = hazeDensityWorld;
     m.uniforms.uHazeHeightFalloff!.value = hazeFalloffWorld;
   }
