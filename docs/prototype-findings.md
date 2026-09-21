@@ -5316,3 +5316,120 @@ than a readout and is the journal's, as it was before — but the measurement
 above changes what that clause is worth: the reader is not waiting on content
 alone. Four beats in thirty-seven minutes is what the game currently says with
 its display working.
+
+## F48 — The golden probe that guards "rivers are carved, not painted" passes at every search radius including none, and the stage it guards has never run
+
+**Question.** Workstream D is built and the next unblocked engineering is in
+the pipeline, so: what is actually built of workstream A, and what are its
+gates worth? Stage 3 — *hydro-condition: burn HydroSHEDS centrelines, enforce
+monotonic non-increasing elevation downstream, flatten named lakes* — is the
+stage where the GDD's *"rivers are carved, not painted"* stops being a
+sentence. It sits between two stages that are built. It is not built. And
+phase 0's exit gate is *"the two corridor golden probes pass"*, one of which
+is the Yangtze monotonic probe, whose source note read **"HydroSHEDS
+centreline, monotonicity enforced in stage 3"**.
+
+### The probe passes, and nothing it does is why
+
+Against the built corridor, the probe reads seven waypoints, takes the lowest
+cell within 2 km of each, and checks the seven numbers descend. `probe.py`
+justifies that 2 km search at length: a waypoint is quoted to two decimals,
+which is ±550 m, and a 1 km cell straddling a gorge reports the wall as
+readily as the water. Taking the same verdict at other radii:
+
+| search radius | verdict |
+| --- | --- |
+| point sample, no search at all | pass |
+| 2 km (what is shipped) | pass |
+| 5 km | pass |
+| 10 km | pass |
+| 25 km | pass |
+
+**The verdict never moves.** The machinery with the careful justification
+changes nothing, because seven numbers 500 km apart descend whatever you do
+to them at the metre scale. Shanghai is 7 m and the Tuotuo He is 5,722 m;
+there is no radius at which that stops being downhill.
+
+### Walked any more finely it stops being a river
+
+The other half of the same question is what happens between the waypoints,
+because a clipped meander between two of them is the exact failure stage 3
+exists to prevent. Re-walking the same polyline in the projected plane:
+
+| spacing | samples | uphill steps | total uphill | verdict |
+| --- | ---: | ---: | ---: | --- |
+| 500 km (what it is written at) | 7 | 0 | 0 m | pass |
+| 100 km | 35 | 14 | 4,193 m | would fail |
+| 25 km | 137 | 61 | 11,961 m | would fail |
+| 5 km | 677 | 303 | 38,191 m | would fail |
+| 1 km, the grid's own resolution | 3,382 | 942 | 56,988 m | would fail |
+
+The obvious reading of that table is wrong and worth saying out loud, because
+it is the trap: **those 942 uphill steps are not the Yangtze running uphill.**
+The probe's waypoints are a hand-placed chord, and a straight reach from Tiger
+Leaping Gorge to Chongqing crosses mountains the river goes around. The chord
+is **3,380 km against the Yangtze's published 6,300** — 54 % of the river's
+length, which is what a shortcut looks like. Walk it finely and you are
+measuring the ground under a shortcut.
+
+So the two halves meet: the probe passes at the only spacing it can honestly
+be checked at, and it cannot be made stricter without failing for a reason
+that has nothing to do with hydrology. **A probe that cannot be made stricter
+is not a strict probe.** It reads **175 cells of the corridor's 4,735,745** —
+0.0037 % of the built grid.
+
+### The channel search is a proxy, and it fails where a river is interesting
+
+One column of the report already showed the damage resampling does, and its
+size is worth naming. At Tiger Leaping Gorge the answer depends entirely on
+how far you look:
+
+| search radius at 26.87 N, 100.75 E | reads |
+| --- | ---: |
+| point sample | 3,028 m |
+| 2 km | 2,712 m |
+| 5 km | 2,312 m |
+| 10 km | 1,711 m |
+| 25 km | 1,572 m |
+
+The Jinsha through that gorge is commonly published at about 1,800 m, so the
+shipped 2 km search reads roughly **900 m above the water** and you have to
+look 10 km to find it — by which point you are not measuring a gorge, you are
+measuring the lowest thing within ten kilometres. The same widening at
+Shanghai reads 0 m at 25 km, which is the sea. A proxy whose answer moves by a
+kilometre with a radius nobody derived is not finding a channel; it is finding
+a minimum. The centreline that would end the argument is stage 3's.
+
+### What changed
+
+Nothing about the verdict: the probe passes, phase 0's gate stands, and this
+is not a regression in the world. What changed is that a pass no longer
+arrives without its own limits beside it.
+
+- The source note stops describing a stage that has never run. It says what
+  is true — hand-placed waypoints, no centreline data, no hydro-conditioning
+  in the build — because provenance for a number that has none is worse than
+  no note.
+- `MonotonicProbe` carries `stride_km`, which is `None` and means *this may
+  not be densified*. Stage 3 turns it into a number, and that is the day the
+  probe becomes the check it has always claimed to be.
+- `GridSampler.walk` samples a polyline at a fixed spacing in the projected
+  plane, so a spacing is kilometres of ground rather than however far apart
+  somebody put the waypoints.
+- `probe.py` prints both sweeps and the coverage figure under every monotonic
+  verdict — on a pass as readily as on a failure. A probe that only explains
+  itself when it fails has already been believed.
+- Four tests state the limits in the suite that runs with no elevation at
+  all, including the one that matters: a true profile that climbs 500 m
+  between Chongqing and Yichang and comes back down is handed to the probe as
+  seven descending numbers and **passes**.
+
+**Built.** The probe's own declaration of what it covers, the polyline walk,
+the two sensitivity sweeps in the report, and the regenerated
+`docs/probe-report.md`. **66 Python tests, up from 59.**
+
+**Action.** One, and it is the stage itself: **stage 3 needs the HydroSHEDS
+river network and nobody has downloaded it.** That is a fetch of a public
+dataset rather than a decision, so it is engineering — but it is a download,
+and the acquire step for it does not exist. Until it does, this probe covers
+what the table above says it covers and the report says so on every run.

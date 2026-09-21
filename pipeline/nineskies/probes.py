@@ -66,13 +66,39 @@ class FlatnessProbe:
 
 @dataclass(frozen=True)
 class MonotonicProbe:
-    """A river must not run uphill after resampling and carving."""
+    """A river must not run uphill after resampling and carving.
+
+    What this probe can see is bounded by what it walks, and what it walks is
+    a chord through a handful of waypoints rather than a centreline. Finding
+    F48 measured both halves of that on the built corridor: at the spacing it
+    is written at it passes, at 100 km spacing it finds fourteen uphill steps
+    and at 1 km it finds 942 -- and none of those is evidence about the river,
+    because a straight line from Tiger Leaping Gorge to Chongqing crosses
+    mountains the Yangtze goes around. It also passes at every channel search
+    radius from a bare point sample to 25 km, so the machinery that looks for
+    the channel changes the verdict not at all.
+
+    A probe that cannot be made stricter is not a strict probe. This one reads
+    175 cells of the corridor's 4.7 million, and the claim it can support is
+    the narrow one in `stride_km` below. The wide claim needs stage 3, which
+    is where the centreline comes from and which has never run.
+    """
 
     name: str
     # Ordered source -> mouth, as (lat, lon).
     waypoints: Sequence[tuple[float, float]] = field(default_factory=tuple)
     phase: Phase = "full"
     source: str = ""
+    #: How finely the polyline may honestly be walked, kilometres. `None`
+    #: means "at the waypoints and nowhere else", which is the only honest
+    #: setting for a chord: densifying it would fail on terrain the river is
+    #: not in, and would read as a pipeline bug. Stage 3 replaces the chord
+    #: with a HydroSHEDS centreline, and this becomes a number that turns the
+    #: probe into the check it has always claimed to be.
+    stride_km: float | None = None
+    #: What the probe is known not to cover, printed in the report beside the
+    #: verdict so a pass is never read as more than it is.
+    note: str = ""
 
     def check(self, elevations: Sequence[float]) -> str | None:
         violations = [
@@ -189,7 +215,17 @@ MONOTONIC_PROBES: tuple[MonotonicProbe, ...] = (
             (31.23, 121.47),  # Shanghai
         ),
         phase="corridor",
-        source="HydroSHEDS centreline, monotonicity enforced in stage 3",
+        # Not "monotonicity enforced in stage 3": stage 3 has never run, and
+        # a source note that describes a stage nobody has built reads as
+        # provenance for a number that has none (F48). What these seven
+        # coordinates are is a hand-placed chord along the river's course.
+        source="Waypoints placed by hand along the river's course; no "
+        "centreline data and no hydro-conditioning in the build yet",
+        stride_km=None,
+        note="Seven waypoints 500 km apart, 175 cells of 4.7 M. It cannot "
+        "see a clipped meander between two of them, which is the failure "
+        "stage 3 exists to prevent, and it passes at every channel search "
+        "radius including none.",
     ),
 )
 

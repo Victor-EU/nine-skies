@@ -107,7 +107,7 @@ shown.
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
 make challenges   # fly every authored challenge, and price what it asks for
-make test         # 686 TypeScript tests and 59 Python tests
+make test         # 686 TypeScript tests and 66 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every

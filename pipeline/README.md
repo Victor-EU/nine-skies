@@ -77,6 +77,13 @@ attach to shipped assets.
    frozen rather than computed.
 3. **Hydro-condition** — burn HydroSHEDS centrelines, enforce monotonic
    downstream elevation, flatten named lakes to their real surface heights.
+   **Not built, and the probe that guards it does not fail without it** (F48).
+   The Yangtze golden probe is seven hand-placed waypoints 500 km apart, 175
+   cells of the corridor's 4.7 million; it passes at every channel search
+   radius including a bare point sample, and it cannot be walked more finely
+   because the polyline is a chord across country rather than a centreline.
+   The centreline is what stage 3 brings, and nobody has downloaded
+   HydroSHEDS yet. Until then the probe report prints what its pass covers.
 4. **Tile** — 64 km tiles, 65 x 65 Int16 metres, shared edge row and column.
 5. **Horizon field** — one 8 km country raster, 841 x 553 Int16 (930 kB),
    reduced from the 1 km grid with the silhouette bias (mean + 0.6 x
@@ -95,7 +102,9 @@ attach to shipped assets.
 
 ## Golden probes
 
-Six checks that stand between "the pipeline ran" and "the world is right".
+Six checks that stand between "the pipeline ran" and "the world is right" —
+and one of them is weaker than it reads, which the report now says on every
+run rather than only when somebody goes looking (F48).
 
 ```bash
 make test-py      # or: python3 -m unittest discover -s pipeline/tests

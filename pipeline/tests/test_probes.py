@@ -4,6 +4,14 @@ import sys
 import unittest
 from pathlib import Path
 
+try:
+    import numpy  # noqa: F401
+    import rasterio  # noqa: F401
+
+    HAVE_RASTERIO = True
+except ImportError:  # pragma: no cover - a bare interpreter
+    HAVE_RASTERIO = False
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from nineskies.probes import (  # noqa: E402
@@ -123,6 +131,102 @@ class TestMonotonicProbe(unittest.TestCase):
         self.assertGreater(first[1], 90)      # headwaters on the plateau
         self.assertGreater(last[1], 121)      # mouth at Shanghai
         self.assertGreater(last[1], first[1])  # west to east
+
+
+class TestWhatTheMonotonicProbeCannotSee(unittest.TestCase):
+    """The probe's own limits, asserted so a pass is never read as more.
+
+    F48 measured this against the built corridor: the probe passes at the
+    spacing it is written at, would fail at every finer spacing because the
+    polyline is a chord rather than a centreline, and passes at every channel
+    search radius including none. What follows states those limits here, in
+    the suite that runs without any elevation at all, so they cannot quietly
+    stop being true.
+    """
+
+    def setUp(self):
+        self.yangtze = MONOTONIC_PROBES[0]
+
+    def test_a_clipped_meander_between_two_waypoints_is_invisible(self):
+        # The exact failure stage 3 exists to prevent. Between Chongqing and
+        # Yichang the true profile climbs 500 m and comes back down; the probe
+        # is handed one number per waypoint and never sees it.
+        true_profile = [5100, 3200, 1800, 200, 700, 210, 60, 20, 3]
+        self.assertTrue(
+            any(
+                true_profile[i + 1] > true_profile[i]
+                for i in range(len(true_profile) - 1)
+            ),
+            "the fixture must actually run uphill somewhere",
+        )
+        at_waypoints = [5100, 3200, 1800, 200, 60, 20, 3]
+        self.assertEqual(len(at_waypoints), len(self.yangtze.waypoints))
+        self.assertIsNone(self.yangtze.check(at_waypoints))
+
+    def test_the_probe_declares_that_it_may_not_be_densified(self):
+        # None is the honest setting for a chord: walked finely it measures
+        # the ground under a straight line, which the river is not in. Stage 3
+        # turns this into a number, and that is the day the probe becomes the
+        # check it has always claimed to be.
+        self.assertIsNone(self.yangtze.stride_km)
+        self.assertIn("meander", self.yangtze.note)
+
+    def test_the_source_note_does_not_claim_a_stage_that_has_not_run(self):
+        # It used to read "monotonicity enforced in stage 3". There is no
+        # stage 3 in the Makefile, in `nineskies/`, or in any built artefact,
+        # so that sentence was provenance for a number that had none.
+        self.assertNotIn("stage 3", self.yangtze.source)
+        self.assertIn("no centreline data", self.yangtze.source)
+
+
+@unittest.skipUnless(HAVE_RASTERIO, "needs numpy and rasterio (pipeline/.venv)")
+class TestWalkingAPolyline(unittest.TestCase):
+    """The stepping `probe.py` re-walks a chord with.
+
+    Driven through a stub rather than a raster: what is being tested is that
+    the spacing is real kilometres in the projected plane and that both ends
+    are included, not that GeoTIFFs can be opened.
+    """
+
+    def walker(self, pixels):
+        from nineskies import grid
+        from nineskies.sample import GridSampler
+
+        class Stub:
+            def to_pixel(self, lat, lon):
+                return pixels[int(lat)]
+
+            def elevation_at(self, col, row):
+                return col
+
+            def channel_at(self, col, row, radius_km):
+                return col - radius_km
+
+        stub = Stub()
+        self.resolution_m = grid.RESOLUTION_M
+        return GridSampler.walk.__get__(stub, Stub)
+
+    def test_the_spacing_is_kilometres_of_ground(self):
+        # Two points 100 cells apart on a 1 km grid, walked at 25 km: four
+        # steps and the far end, so five samples.
+        walk = self.walker([(0.0, 0.0), (100.0, 0.0)])
+        self.assertEqual(self.resolution_m, 1000)
+        self.assertEqual(walk([(0, 0), (1, 0)], 25.0), [0.0, 25.0, 50.0, 75.0, 100.0])
+
+    def test_both_ends_are_sampled(self):
+        walk = self.walker([(0.0, 0.0), (10.0, 0.0)])
+        out = walk([(0, 0), (1, 0)], 10.0)
+        self.assertEqual(out[0], 0.0)
+        self.assertEqual(out[-1], 10.0)
+
+    def test_a_radius_switches_to_the_channel_reader(self):
+        walk = self.walker([(0.0, 0.0), (10.0, 0.0)])
+        self.assertEqual(walk([(0, 0), (1, 0)], 10.0, 2.0), [-2.0, 8.0])
+
+    def test_a_stride_longer_than_the_leg_still_takes_one_step(self):
+        # 500 km between waypoints 100 km apart must not collapse to nothing.
+        walk = self.walker([(0.0, 0.0), (100.0, 0.0)])
+        self.assertEqual(walk([(0, 0), (1, 0)], 500.0), [0.0, 100.0])
 
 
 class TestAreaProbe(unittest.TestCase):

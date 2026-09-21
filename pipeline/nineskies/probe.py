@@ -15,10 +15,20 @@ from pathlib import Path
 
 from . import probes
 from .acquire import data_root
+from .grid import RESOLUTION_M
 from .sample import GridSampler
 
 #: How far a river waypoint may be from the cell that holds its channel.
 CHANNEL_RADIUS_KM = 2.0
+
+#: Spacings the monotonic chord is re-walked at, to show what the verdict at
+#: the waypoints is worth. Not a gate: see `monotonic_sensitivity`.
+STRIDE_SWEEP_KM = (500.0, 100.0, 25.0, 5.0, 1.0)
+
+#: Channel search radii the same verdict is re-taken at. Zero is a bare point
+#: sample, which is the control: if the verdict never moves, the search is not
+#: what is producing it.
+RADIUS_SWEEP_KM = (0.0, 2.0, 5.0, 10.0, 25.0)
 
 
 def run(
@@ -78,13 +88,16 @@ def run(
         )
         lines.append("")
         lines.append(
-            f"The channel minimum decides. A waypoint's coordinates are quoted to "
-            f"two decimals, which is ±550 m, and a 1 km cell straddling a gorge "
-            f"reports the wall as readily as the water — so a point sample would "
-            f"be testing the waypoint list rather than the terrain. The search "
-            f"radius is {CHANNEL_RADIUS_KM:.0f} km. The point sample is shown "
-            f"beside it because the gap between the two columns *is* the damage "
-            f"resampling does to a river, and stage 3 exists to carve it back."
+            f"The channel minimum is what is checked. A waypoint's coordinates "
+            f"are quoted to two decimals, which is ±550 m, and a 1 km cell "
+            f"straddling a gorge reports the wall as readily as the water — so "
+            f"a point sample would be testing the waypoint list rather than the "
+            f"terrain. The search radius is {CHANNEL_RADIUS_KM:.0f} km. The "
+            f"point sample is shown beside it because the gap between the two "
+            f"columns *is* the damage resampling does to a river, and stage 3 "
+            f"exists to carve it back. It is not, however, what decides the "
+            f"verdict: the sweep below takes the same verdict at every radius "
+            f"from none to 25 km and it never moves."
         )
         lines.append("")
         lines.append("| Waypoint | Point sample | Channel minimum | Drop |")
@@ -97,6 +110,7 @@ def run(
                 f"| {lat:.2f} N, {lon:.2f} E | {r:,.0f} m | {c:,.0f} m | {drop} |"
             )
         lines.append("")
+        lines.extend(monotonic_sensitivity(sampler, probe))
 
     deferred = probes.deferred_on(phase, grid)
     if deferred:
@@ -121,6 +135,74 @@ def run(
         lines.append("")
 
     return failures, lines
+
+
+def monotonic_sensitivity(sampler: GridSampler, probe) -> list[str]:
+    """What the pass above is worth, as two sweeps and a coverage figure.
+
+    A verdict with no sensitivity beside it reads as a fact about the world.
+    These two tables say which parts of it are facts about the probe, and
+    they are printed on a pass as readily as on a failure -- a probe that
+    only explains itself when it fails has already been believed (F48).
+    """
+    lines: list[str] = ["#### What this verdict covers", ""]
+
+    cells = sampler.array.size
+    reach = 2 * int(CHANNEL_RADIUS_KM * 1000 / RESOLUTION_M) + 1
+    read = len(probe.waypoints) * reach * reach
+    lines.append(
+        f"The check above reads **{read:,} cells of {cells:,}** — "
+        f"{read / cells * 100:.4f} % of the built grid — at {len(probe.waypoints)} "
+        f"waypoints with a {CHANNEL_RADIUS_KM:.0f} km search around each. "
+        f"{probe.note}"
+    )
+    lines.append("")
+
+    lines.append(
+        "**Walked more finely, along the same chord.** The waypoints are a "
+        "hand-placed line across country, not a centreline, so a straight "
+        "reach from Tiger Leaping Gorge to Chongqing crosses mountains the "
+        "river goes around. Read this as the resolution at which the chord "
+        "stops being a river, and not as a hydrology result: it is why the "
+        "probe cannot simply be densified, and why stage 3 is the fix."
+    )
+    lines.append("")
+    lines.append("| Spacing | Samples | Uphill steps | Total uphill | Verdict |")
+    lines.append("| --- | ---: | ---: | ---: | --- |")
+    for stride in STRIDE_SWEEP_KM:
+        profile = sampler.walk(probe.waypoints, stride, CHANNEL_RADIUS_KM)
+        rises = [
+            profile[i + 1] - profile[i]
+            for i in range(len(profile) - 1)
+            if profile[i + 1] > profile[i] + 1e-6
+        ]
+        lines.append(
+            f"| {stride:,.0f} km | {len(profile):,} | {len(rises):,} | "
+            f"{sum(rises):,.0f} m | {'pass' if not rises else 'would fail'} |"
+        )
+    lines.append("")
+
+    lines.append(
+        "**The same verdict at other search radii.** Zero is a bare point "
+        "sample. If the verdict does not move, the channel search is not "
+        "what produces it and its justification above is describing "
+        "machinery that changes nothing."
+    )
+    lines.append("")
+    lines.append("| Search radius | Verdict |")
+    lines.append("| --- | --- |")
+    for radius in RADIUS_SWEEP_KM:
+        profile = [
+            sampler.elevation_m(lat, lon)
+            if radius <= 0
+            else sampler.channel_m(lat, lon, radius)
+            for lat, lon in probe.waypoints
+        ]
+        problem = probe.check(profile)
+        label = "point sample" if radius <= 0 else f"{radius:,.0f} km"
+        lines.append(f"| {label} | {'FAIL' if problem else 'pass'} |")
+    lines.append("")
+    return lines
 
 
 def probes_by_type(

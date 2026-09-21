@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 import rasterio
@@ -42,7 +43,10 @@ class GridSampler:
         return self.elevation_m(lat, lon)
 
     def elevation_m(self, lat: float, lon: float) -> float:
-        col, row = self.to_pixel(lat, lon)
+        return self.elevation_at(*self.to_pixel(lat, lon))
+
+    def elevation_at(self, col: float, row: float) -> float:
+        """Bilinear, in pixel coordinates. One pixel is `grid.RESOLUTION_M`."""
         height, width = self.array.shape
         if not (0 <= col <= width - 1 and 0 <= row <= height - 1):
             return float("nan")
@@ -62,7 +66,10 @@ class GridSampler:
         waypoint finds its own channel; it is a measurement aid, not a fix, and
         `probe.py` reports both numbers so the difference stays visible.
         """
-        col, row = self.to_pixel(lat, lon)
+        return self.channel_at(*self.to_pixel(lat, lon), radius_km)
+
+    def channel_at(self, col: float, row: float, radius_km: float) -> float:
+        """The lowest cell within a radius, in pixel coordinates."""
         height, width = self.array.shape
         reach = int(math.ceil(radius_km * 1000 / grid.RESOLUTION_M))
         c0, c1 = max(0, int(col) - reach), min(width, int(col) + reach + 1)
@@ -86,3 +93,39 @@ class GridSampler:
         if values.size == 0:
             return float("nan"), float("nan")
         return float(values.mean()), float(values.std())
+
+    def walk(
+        self,
+        waypoints: Sequence[tuple[float, float]],
+        stride_km: float,
+        radius_km: float = 0.0,
+    ) -> list[float]:
+        """Sample a polyline at a fixed spacing, in the projected plane.
+
+        The spacing is real kilometres because the projection is equal-area
+        and one pixel is one grid cell, so this is the resolution the check
+        is actually made at rather than whatever the waypoint list happens to
+        be spaced at. `radius_km` of zero reads the cell; anything else reads
+        the lowest cell within that radius.
+
+        What it cannot do is follow a river. A polyline through a handful of
+        waypoints is a chord across country, so walking it finely measures
+        the ground under the chord -- see `probes.MonotonicProbe` for why
+        that matters and finding F48 for what it measured.
+        """
+        read = (
+            (lambda c, r: self.elevation_at(c, r))
+            if radius_km <= 0
+            else (lambda c, r: self.channel_at(c, r, radius_km))
+        )
+        pixels = [self.to_pixel(lat, lon) for lat, lon in waypoints]
+        step_px = max(1e-6, stride_km * 1000 / grid.RESOLUTION_M)
+        out: list[float] = []
+        for (c0, r0), (c1, r1) in zip(pixels, pixels[1:]):
+            steps = max(1, round(math.hypot(c1 - c0, r1 - r0) / step_px))
+            for i in range(steps):
+                t = i / steps
+                out.append(read(c0 + (c1 - c0) * t, r0 + (r1 - r0) * t))
+        if pixels:
+            out.append(read(*pixels[-1]))
+        return out
