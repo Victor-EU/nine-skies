@@ -1,47 +1,125 @@
+/* Every size on the HUD is a multiple of --hud-scale (F45).
+ *
+ * The comfort row asks for text scaling, and the block that most needs it -
+ * the debug column - is the one a per-block font size would have missed: it
+ * was fourteen hand-set sizes across five blocks, so a new readout arrived at
+ * whatever size its neighbour happened to be. One property at the root, sizes
+ * in em under it, and a block added tomorrow scales without being told to.
+ *
+ * The map is the exception and it is not one: a canvas is pixels, so the
+ * scale is handed to `drawMap` instead and applied to its labels there.
+ *
+ * What does not scale is the prototype's own furniture - the debug column and
+ * the generated help block. That is the line the units toggle draws as well:
+ * the player's readouts move and the operator's do not. It is also the only
+ * arrangement that survives being measured. Scaled with everything else, the
+ * help block at 150 % wraps across the whole window and lands on top of the
+ * altimeter, because it is thirteen bindings with their notes and it is
+ * already the largest thing on screen at 100 %. Neither block is in the
+ * shipped HUD.
+ *
+ * Since F46 neither is on screen either, unless an operator asks for it with
+ * O. Measured at 1280 x 800 the two of them were 473,779 px2 against the
+ * player's 43,621 - 92 % of the HUD's ink and 46 % of the whole screen, and
+ * 2,282 characters against 150. The GDD's word for its HUD is "minimal".
+ *
+ * What F46 got wrong was how, and the fix is in `hudBlocks.ts` rather than
+ * here (F47). The two blocks were hidden by nesting them in a wrapper, and a
+ * wrapper hides what is inside it rather than what was measured: the map and
+ * the narration beat were in there too. With the operator column off, M
+ * opened a 522,000 px2 panel - half the screen, and larger on its own than
+ * the column the key exists to hide - into a box that measured 0 x 0, and the
+ * four things the game says over Expedition 1 were written to a node with no
+ * geometry. Both are the player's, and both are now outside the list. */
 * { box-sizing: border-box; }
+/* `hidden` must actually hide. The attribute's `display: none` comes from the
+   user agent, so any author rule that sets `display` beats it - and `.map`
+   sets `display: flex`, which means the map panel has been on screen since it
+   was built: 780 x 656 of it, over the middle of the view, whatever `mapOpen`
+   said. Toggling M changed only whether `drawMap` ran (F45). */
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1117; }
 #view { display: block; width: 100vw; height: 100vh; }
 
+/* The ink is cream and the sky it is drawn over is pale at low altitude:
+   7.1 dE at the coast and 6.1 over the basin, which is no contrast at all,
+   and it is worst through the twelve minutes G1 flies. A drop shadow does not
+   fix that - the glyph's own body is still the same lightness as what is
+   behind it - so the text is haloed instead, which is the map route's casing
+   by another name: 87 dE from ink to halo and 66 to 86 from halo to sky, at
+   every altitude and over every region (F45). */
 #hud {
+  --hud-scale: 1;
   position: fixed; inset: 0; pointer-events: none;
-  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #f2ede4; text-shadow: 0 1px 3px rgba(0,0,0,.65);
+  font: calc(12px * var(--hud-scale))/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #f2ede4;
+  text-shadow: 0 0 2px rgba(6,10,16,.95), 0 0 6px rgba(6,10,16,.7), 0 1px 3px rgba(0,0,0,.65);
 }
 .block { position: absolute; }
-.primary { left: 24px; top: 24px; min-width: 190px; }
-.row { display: flex; align-items: center; gap: 8px; height: 20px; }
-.label { width: 46px; opacity: .62; letter-spacing: .08em; font-size: 10px; }
-.value { min-width: 62px; text-align: right; font-size: 16px; font-variant-numeric: tabular-nums; }
-.unit { opacity: .55; font-size: 10px; }
-.bar { width: 62px; height: 5px; background: rgba(255,255,255,.18); border-radius: 3px; overflow: hidden; }
+.primary { left: 24px; top: 24px; min-width: 15.8em; }
+.row { display: flex; align-items: center; gap: .67em; height: 1.67em; }
+.label { width: 4.62em; opacity: .62; letter-spacing: .08em; font-size: .83em; }
+.value { min-width: 3.875em; text-align: right; font-size: 1.33em; font-variant-numeric: tabular-nums; }
+.unit { opacity: .55; font-size: .83em; }
+/* The track was white at 18 %, which is 1.3 dE from the sky at sea level -
+   an invisible frame around a floating stripe. Dark, it reads against every
+   sky at 47 dE or better, and it is also what rescues the thin-air blue:
+   that colour is 5.2 dE from the sky at 5 km, which is exactly the altitude
+   it exists to report (F45). */
+.bar { width: 5.17em; height: .42em; background: rgba(6,10,16,.7); border-radius: 3px; overflow: hidden;
+       box-shadow: 0 0 0 1px rgba(6,10,16,.55); }
 .bar i { display: block; height: 100%; background: #e8d9a0; transition: width .18s linear, background .3s; }
 .bar i.thin { background: #8fb7e8; }
 
 .mode { left: 24px; bottom: 28px; display: flex; flex-direction: column; gap: 3px; }
-#mode { font-size: 18px; letter-spacing: .18em; }
-.muted { opacity: .55; font-size: 10px; letter-spacing: .05em; }
+#modeText { font-size: 1.5em; letter-spacing: .18em; }
+.muted { opacity: .55; font-size: .83em; letter-spacing: .05em; }
 .muted.dead { color: #e8a08f; opacity: .85; }
 
+/* Beijing time, under the five readouts and inside the same block, because
+   the GDD has a section called "Time on the HUD" and because a block of its
+   own at the top right would collide with the operator column the moment O
+   is pressed. The rule above it is the join between the GDD's HUD paragraph
+   and the GDD's clock sentence - two lists, one corner. */
+.clock { margin-top: .5em; padding-top: .5em; border-top: 1px solid rgba(242,237,228,.18); }
+
 .debug { right: 24px; top: 24px; text-align: right; opacity: .55; font-size: 10px; line-height: 1.7; }
-/* A condition that is selectable but known not to fly - see F16. */
+/* A condition that is selectable but known not to fly - see F16. The colour
+   is never the only sign of it: every line that takes this class also gains a
+   clause saying what is wrong, which is what makes it readable to a player
+   who cannot see the colour at all (F45). */
 .debug .warn { color: #e8a08f; opacity: .9; }
-.beat {
-  left: 50%; bottom: 76px; transform: translateX(-50%);
-  font-size: 15px; letter-spacing: .06em; opacity: .9;
+/* What the game is saying: the challenge's objectives above the narration
+   beat, in one centred column.
+
+   Two placements were measured first and both failed the way F45's help block
+   failed. A banner across the top centre lands on the altimeter at 125 % text
+   on a 1024-wide window (-5 px) and at 150 % (-52 px), and on the operator
+   column at every scale the moment O is pressed. A column cannot do that to
+   itself, and its distance from the bottom is in em so the stack lifts with
+   the text rather than climbing into the mode block (F47). */
+.messages {
+  left: 50%; bottom: 6.3em; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: .5em;
+  max-width: 72%; text-align: center;
 }
+.challenge { letter-spacing: .04em; opacity: .92; }
+.beat { font-size: 1.25em; letter-spacing: .06em; opacity: .9; }
 .beat:empty { display: none; }
 .help { right: 24px; bottom: 24px; text-align: right; opacity: .42; font-size: 10px; line-height: 1.7; }
 .help .pad { opacity: .7; }
 
 /* The map overlay. Centred, letterboxed by the view itself (never stretched,
    because the projection is equal-area and the map must stay honest), and on
-   a ground dark enough that the horizon field's own palette carries. */
+   a ground dark enough that the horizon field's own palette carries. Opaque
+   rather than translucent: at 88 % over a pale sky the panel lightens to
+   within 3 dE of the map's own no-data tone, so the frame stops framing. */
 .map {
   position: absolute; inset: 0; margin: auto;
   width: max-content; height: max-content;
   display: flex; flex-direction: column; gap: 6px;
   padding: 10px; border-radius: 4px;
-  background: rgba(8, 12, 18, .88);
+  background: #080c12;
   box-shadow: 0 8px 40px rgba(0, 0, 0, .55);
 }
 .map canvas { display: block; border-radius: 2px; background: #0d1b2a; }

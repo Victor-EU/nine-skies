@@ -20,25 +20,65 @@ npm run dev
 Then open the URL Vite prints. Controls: `W`/`S` pitch, `A`/`D` roll, `1`/`2`/`3`
 for low / cruise / boost, `V` to cycle the drama (the gate G1 A/B), `C` the
 compression, `P` the cruise pace, `H` to toggle the horizon impostor, `F` the
-field of view, `L` the camera's bank, `X` to fly the authored expedition
-rather than free-fly over it, `R` to reset to the start. A gamepad
-works alongside: left stick for pitch and roll, forward climbs, face buttons
-for the modes, d-pad for the toggles, shoulders for the two comfort settings.
-The help block on screen is generated from the one binding table
-(`engine/src/input/bindings.ts`), so it is always right.
+field of view, `L` the camera's bank, `Z` the text size, `U` metric or
+imperial, `O` the operator's column, `M` the map, `X` to fly the authored
+expedition rather than free-fly over it, `R` to reset to the start. A gamepad works alongside: left
+stick for pitch and roll, forward climbs, face buttons for the modes, d-pad
+for the toggles, shoulders for the two camera settings. The help block is generated
+from the one binding table (`engine/src/input/bindings.ts`), so it is always
+right — and it is behind `O` with the debug column, because the two of them
+were 92 % of the ink on screen and none of it is in the GDD's HUD (F46).
+
+`O` hides exactly those two blocks and nothing else, and which two is a list
+in `app/src/hudBlocks.ts` rather than a wrapper in the markup. It was a
+wrapper for one change, and a wrapper hides whatever is nested inside it: the
+map and the narration beat were, so `M` drew every frame into an element
+measuring 0 × 0 and all four of the things the game says over Expedition 1
+went to a node with no box. `test/hud/blocks.test.ts` parses `index.html` and
+fails if a player-facing id is ever a descendant of a block `O` hides (D44,
+F47).
 
 `X` is off by default, which is free flight and what a G1 session is. On, the
 route sets the speed of each leg and the pacing is held at what that route's
 clearance was actually checked at — 190 km/min flies Expedition 1 into the
 Nyainqêntanglha (F38).
 
-`F` and `L` are the comfort pass. `L` at its zero end is the GDD's
+`F`, `L`, `Z` and `U` are the comfort pass. `L` at its zero end is the GDD's
 horizon-locked camera, which is what this prototype did before the setting
 existed — the chase camera was built out of heading alone and never rolled, so
 the flight model's bank reached the turn rate and nothing else. There is no
 camera-smoothing setting: nothing in the rig steps except the terrain clamp,
 and the clamp lifts the aeroplane 20.8 m in a single frame, which is out of a
 filter's reach (D28, F35).
+
+`Z` scales the player's readouts and leaves the debug column and the help
+block alone, which is the same line `U` draws: the toggle moves what the world
+is doing where the player is, and leaves the numbers an operator set the build
+to in the units the findings are written in (D41, F45). The rest of that row
+is not a setting. Every colour the map and the HUD draw is held to 10 dE
+against every background it can land on, through normal vision and all three
+dichromacies — which is what found a route that faded out over high ground and
+a HUD that had been measured against a background it never has. And nothing on
+screen can flash more than once a second, because the one state that could
+chatter managed eight flashes in a second before it was rate-limited (D40,
+F45).
+
+The five readouts are the GDD's list and nothing else, and each is shown at a
+step measured off the authored route rather than at whatever precision the
+number happens to carry. Flown at sixty frames a second, the ground readout
+used to change on **every frame** of its worst second and the altimeter in
+feet was over this HUD's own two-a-second ceiling in 97 % of the flight; now
+nothing changes more than twice in any second, in either unit system, and the
+suite asserts it by flying the route rather than by saying so. `U` no longer
+costs legibility: 20 ft is a coarser step than 5 m, so the imperial altimeter
+is the steadier of the two (D42, D43, F46).
+
+Beside them is the clock, which the GDD gives a section of its own: *"The
+clock shows Beijing time, which is the point; the map overlay adds local solar
+time beside it."* So the HUD says `TIME 07:02 Beijing` and the map says
+`05:41 by the sun`, which is the pair that teaches the one time zone — and the
+half that needs a country under it is drawn on the one place that has one
+(F47).
 
 Out of the box you fly **stand-in terrain** — fiction shaped like China's three
 great steps, so the prototype can answer G1's question without 14 GB on disk.
@@ -67,7 +107,7 @@ shown.
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
 make challenges   # fly every authored challenge, and price what it asks for
-make test         # 603 TypeScript tests and 59 Python tests
+make test         # 686 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -80,8 +120,10 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-586 of the 603 TypeScript tests run without the world; the seventeen that do
-not are the ones whose subject is the world itself.
+669 of the 686 TypeScript tests run without the world; the seventeen that do
+not are the ones whose subject is the world itself. The HUD's own suite is in
+the first group: it flies Expedition 1 at sixty frames a second over the
+committed section and counts what each readout says (F46).
 
 `make challenges` is the same rule one level down, and it needs no world
 either. A challenge is a set of points rather than a route, so what is
@@ -117,15 +159,16 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | --- | --- |
 | `engine/src/sim` | Atmosphere, aircraft performance, arcade flight model, world scale, and where the sun is over one time zone |
 | `engine/src/terrain` | Shared grid, heightmap texture array, shaders, streaming, horizon impostor |
-| `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them, the camera's comfort settings, and the air at the aircraft |
+| `engine/src/gfx` | GPU timer queries and the check that decides whether to believe them, the comfort and accessibility settings, the air at the aircraft, and how different two colours look — to a trichromat and to the three dichromats |
 | `engine/src/input` | The binding table, keyboard and gamepad sources, and the intent the frame polls |
 | `engine/src/discovery` | Which card catchments the aircraft has flown into, and the one-card queue |
 | `engine/src/expedition` | Where along an authored route the aircraft has got to, what fires when, and whether there is room to finish |
+| `engine/src/hud` | Metric and imperial, the step each readout is shown at and the measurement behind it, and the rate limit that stops anything on screen changing faster than it reads |
 | `engine/src/save` | What survives quitting, and when it is written |
 | `engine/src/journal` | The collection: per-region counts, what to say about an entry nobody has found, and when a comparison spread opens |
-| `engine/src/map` | Where the aircraft has been, and the transform that puts it on a map without stretching it |
+| `engine/src/map` | Where the aircraft has been, the transform that puts it on a map without stretching it, and every colour it draws with the contrast threshold each one is held to |
 | `engine/src/challenge` | What a skill test asks for, how an attempt is scored and retried, and an autopilot that proves it can be done |
-| `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes, frame-cost capture |
+| `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes, frame-cost capture — and which blocks of that HUD are the player's and which two are the operator's, as a list a test can check against the markup |
 | `content` | Card, expedition, comparison-spread and challenge schema, the nine regions, the committed route sections and challenge ground patches, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, the committed projection reference and the source raster digests |
 | `tools` | Node-only authoring tools: corridor reader, route sections and challenge ground patches with their signatures, route check, playtest session planner, lesson report, atlas report, challenge check, frame-budget stations |

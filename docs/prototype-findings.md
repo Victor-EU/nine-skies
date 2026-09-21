@@ -4653,3 +4653,666 @@ three that F43 blocked are blocked on the same things as before. What this does
 retire is the gap F43 recorded, and what it adds is a smaller one: a challenge
 authored outside the corridor still cannot be cut, which is the same
 full-country build that D14's region raster and the Great Wall are waiting on.
+
+## F45 — The comfort row asked whether a colour-blind reader can use the map, and the first honest answer was that nobody had ever measured the map at all
+
+**Question.** The comfort and accessibility row of workstream D is half built
+(D28): the camera settings are there and the measurement that removed camera
+smoothing is written down. The other half is *text scaling, colour-blind-safe
+map, no strobing, metric default with imperial toggle*, and the critical path
+says do it before the cohort rather than after. What does it cost, and what
+does asking the question find?
+
+### The instrument existed and the question had never been asked
+
+`perceptual.ts` has been in the engine since F36, and its own docstring says
+what it is for: *"does the sky change enough for a player to notice they have
+climbed, **are two elevation steps distinguishable to a colour-blind
+reader**"*. The second half had no way to be asked, because `deltaE` compares
+two colours as a trichromat sees them.
+
+So `gfx/cvd.ts` is the missing half — Viénot, Brettel and Mollon's projection
+onto the plane a missing cone leaves behind, in linear light, which is the
+space `deltaE` and a `three` Color already work in. It is checked before it is
+believed, the way F30's GPU timer was, because a simulation that returned its
+input would pass every palette test ever written:
+
+| property | asserted | measured |
+| --- | --- | --- |
+| a grey is unchanged | < 0.01 dE | 0.003 |
+| the projection is idempotent | < 0.01 dE | 0.007 |
+| red against green, normal vision | > 100 dE | 116.8 |
+| the same pair, deuteranopia | < 15 dE | 12.6 |
+| blue against yellow, either deficiency | > 140 dE | 152.9 / 158.3 |
+| protanopia darkens red | nothing asked for it | L\* 46.5 → 36.2 |
+
+The last row is the one that makes it an instrument rather than a filter.
+Protanopic luminous efficiency really is reduced at long wavelengths, and these
+matrices were not fitted to that — a deuteranope's red comes back within 6 L\*
+of where it started, a protanope's does not.
+
+It models **dichromacy**, which is the severe end: perhaps 8 % of men and 0.5 %
+of women have some red-green deficiency but most of it is anomalous
+trichromacy. Designing against the severe end is the only version of this test
+worth writing. A ten-person cohort contains at least one person with some
+red-green deficiency about a third of the time, which is a protocol question
+rather than an engineering one and is recorded as one.
+
+### G1's own cue is safe, and by luck rather than by design
+
+The gate's first pass criterion is that six of ten remark on the climb, the
+thin air or the plane going heavy without being prompted, and the cue that
+carries it is the sky: F36 measured dE 32.1 across a climb to 4,500 m.
+
+| seen by | sky, sea level → 4,500 m | ground colour, same climb |
+| --- | --- | --- |
+| trichromat | 32.1 | 32.7 |
+| protanopia | 31.5 | 25.5 |
+| deuteranopia | **34.9** | 24.3 |
+| tritanopia | 51.3 | 63.2 |
+
+The sky's cue survives intact, and a deuteranope sees slightly *more* of it,
+because a deep blue against a pale haze is a blue-yellow difference and
+blue-yellow is the axis a red-green dichromat keeps. Nothing was designed that
+way; it is worth recording precisely because the opposite would have been a
+gate scored on a cue a twelfth of the cohort could not see.
+
+The ground is a different story, and it is a local one. How much climb it takes
+before the ground under you is a different colour:
+
+| from | trichromat | protanopia | deuteranopia |
+| --- | --- | --- | --- |
+| 200 m | 70 m | **354 m** | 162 m |
+| 500 m | 68 m | **455 m** | 145 m |
+| 1,000 m | 161 m | 164 m | 154 m |
+| 2,000 m | 435 m | 469 m | 436 m |
+| 3,000 m | 448 m | 475 m | 443 m |
+
+Between 200 m and 800 m the ramp turns green to tan, which is a move along the
+axis protanopia loses, and that band is the eastern plain — **58 % of
+Expedition 1's flying time** (F29). Above a thousand metres the ramp is a
+lightness ramp and all three readers get the same answer to within a tenth.
+
+The ramp survives as a whole: its worst pair of stops anywhere is farmland
+against loess at **4.1 dE** for a protanope, which is above the threshold at
+which a difference exists and below the one at which it is noticed at a glance
+— and 20.3 for everyone else. The palette is low-saturation earth tones, which
+is what saves it. **It loses little to dichromacy because it was never carrying
+much colour to begin with.**
+
+### The map had two faults and neither of them was a colour-blindness fault
+
+This is the finding. Checking the map for colour-vision safety was the first
+time anything had computed its contrast at all, and what the threshold caught
+was broken for every reader.
+
+**The route fades out as the ground rises.** It was pale ink at 30 % alpha, and
+the base got paler with elevation:
+
+| ground under it | route against it, dE |
+| --- | --- |
+| sea | 28.7 |
+| 1,000 m | 17.7 |
+| 2,000 m | 14.5 |
+| **3,650 m — Lhasa, where Expedition 1 ends** | **9.8** |
+| 6,000 m | 3.9 |
+
+Within 0.3 dE for every vision type: not a colour-vision failure, a structural
+one. Any translucent mark over a base whose lightness changes has a contrast
+that changes with it. So the route is a cased line now — a dark stroke wide
+enough to show at the edges and a near-opaque core on top — and it measures
+**43.4 to 76.2 dE against every ground**, with 72 to 80 between its own two
+strokes. Pins and the aircraft needed the same treatment for the same reason: a
+pale pin on snow is **2.7 dE**, which is no difference at all.
+
+**The map painted three different things as the sea.** It tested `m <= 0`, and
+zero is what the DEM writes for the ocean, for a cell no source raster was ever
+fetched for, and for everything outside the built window.
+
+| in the frame the map draws | cells | share |
+| --- | --- | --- |
+| land | 54,150 | 60.8 % |
+| zero, east of Shanghai — plausibly sea | 5,882 | 6.6 % |
+| zero, inside the window but west of it | 13,888 | 15.6 % |
+| zero, outside the window entirely | 15,168 | 17.0 % |
+
+**Five of every six blue cells were not water.** Nothing published separates
+them — GLO-30 writes the ocean as zero and absent data as zero, and the
+corridor manifest records how many of its tiles have land but not which — so
+the map now says the only thing it knows: no elevation here. The coastline
+still reads, because it is the edge of the land. A real coastline needs a water
+mask, which is phase 2's rivers and lakes.
+
+Below sea level is land again, too. `m <= 0` drew **Ayding Lake at −154 m**,
+China's lowest exposed land, as ocean — a place with a written card and a
+golden probe in the pipeline aimed at it.
+
+### The shader had the same bug from the other end, and nothing could have caught it
+
+Moving the map onto the shared elevation ramp meant reading the ramp, and the
+ramp could only be executed by a GPU. `palette.ts` states one rule — the ramp
+is never duplicated, because a second copy is a second set of stops waiting to
+drift — and that was the one rule it could not enforce. The map had gone and
+written a second ramp (F42).
+
+The stops are data now and the GLSL is generated from them. The first thing a
+test found once it could read the ramp was in the sub-sea-level branch:
+
+```glsl
+if (m < 0.0) return mix(saltPan, plain, clamp(m / -160.0, 0.0, 1.0));
+```
+
+The two ends are the wrong way round. The floor of a depression comes out plain
+green and its shoreline comes out salt pan, with a **40.6 dE step** across the
+shore between the shoreline and the sea-level cell beside it.
+
+It has been on screen the whole time, and the reason nobody saw it is
+arithmetic: the corridor holds **25 samples below sea level out of 4,879,875**
+— one at −4 m, five at −2 m, nineteen at −1 m, all of them on the coastal
+plain. One cell in 195,000, each painted salt-pan pale against green farmland.
+The place where it would be a landscape rather than a speck is Ayding Lake's
+basin, which the renderer has never drawn and which the same bug drew as ocean
+on the map.
+
+### The HUD's contrast had been measured against a background it never has
+
+The first pass of this check measured every HUD ink against the page's
+background colour and found 72 to 89 dE, which is a comfortable pass and the
+wrong question. `#0d1117` is visible for one frame at boot. What the HUD is
+drawn over is the sky.
+
+| ink | sky at sea level | sky at 5 km |
+| --- | --- | --- |
+| the HUD's cream, `#f2ede4` | **6.1–7.1** | 41.7 |
+| the density bar's track, white at 18 % | **1.3–1.6** | 7.9 |
+| the density bar's thin-air blue | 31.6 | **5.2** |
+
+Three failures, and each one is worst exactly where it matters. The ink is
+unreadable at low altitude, which is where G1's twelve minutes are spent. The
+bar's track is invisible against a pale sky, so the bar is a stripe with no
+frame. And the bar turns blue to say the air is thin at an altitude where the
+sky is the same blue — **the cue is camouflaged by the other cue for the same
+fact.**
+
+All three are the route's fault in different clothes: something drawn over a
+background that changes, with no casing. The text is haloed (87 dE from ink to
+halo, 66 to 86 from halo to sky, at every altitude over every region) and the
+bar is given a dark ground (47 to 60 dE against every sky, with both fills 48
+or better against it).
+
+### And the panel that was never hidden
+
+Making the map's panel opaque — it had been 88 % over the sky, which is dark
+enough to read as part of the picture — showed something that had been true
+since F42. `[hidden]`'s `display: none` comes from the user agent, and `.map`
+sets `display: flex`, which beats it. **The map panel has been on screen the
+whole time: 780 × 656 of it, over the middle of the view.** Pressing `M`
+toggled only whether `drawMap` ran. One line of stylesheet.
+
+### No strobing, measured rather than promised
+
+Two ways a screen flashes. The first is an input repeating, and the build was
+already safe: both sources edge-detect, so a key held through a hundred
+auto-repeats fires one action and a pad button held for sixty frames fires one.
+
+The second is a state derived by comparing a continuous quantity against a
+threshold, and that one was not safe. The density bar changes colour at
+σ = 0.70, which is 3,564 m; an aeroplane holding altitude there — which is what
+a player testing boost does — pins the value to the line.
+
+| flown against the threshold | colour changes | worst one second |
+| --- | --- | --- |
+| as built | 508 in 120 s | 16 changes = **8 full flashes** |
+| through `SteadyFlag` | 193 | 2 changes = 1 flash |
+
+WCAG 2.3.1's limit is three flashes in any one second, and the average was
+never the number to look at: the limit cycle is uneven, so the mean is two a
+second and its worst second is eight. **The aeroplane moves seven centimetres
+while it happens.**
+
+The fix is not hysteresis on the threshold — boost's lockout is meant to come
+out of the density formula rather than out of a pair of altitudes — but a rate
+limit on the *showing* of it. A change commits immediately if the flag has been
+still and otherwise waits its turn, so a real transition is never delayed and
+chatter cannot flash. It also makes a guarantee the HUD had been relying on by
+coincidence: the bar's colour and the words "air too thin for boost" are one
+fact shown twice, and they now come from one flag and one constant rather than
+from two copies of `0.7`.
+
+### Text size and units, and the line between a reading and a setting
+
+Text scales from one custom property, so a readout added later scales without
+being told to. It scales the player's HUD only: the debug column and the
+generated help block are the prototype's own furniture, are not in the shipped
+HUD, and are already the largest things on screen — scaled with everything
+else, the help block at 150 % wraps across the window and lands on the
+altimeter.
+
+Units draw the same line, and it is worth stating because it is not the obvious
+one. The toggle moves **what the world is doing where the player is** —
+altitude, ground, temperature, climb, map distances. It leaves **what the
+operator has set the build to** — the pacing cycle's 80 / 130 / 190 km/min, the
+trip length in minutes, the warning that no speed above 73 flies Expedition 1.
+Those are the numbers F16 to F19 are written in, and a G2 session log that
+converted them could not be read against the plan that scheduled it.
+
+Imperial here is the domestic one — feet, miles, Fahrenheit, feet per minute —
+rather than aviation's feet, knots and nautical miles, because the cohort is
+people with no flight-sim experience and knots would be a third system neither
+half of the audience reads. That is a default and not a finding, in the sense
+F33 used the word. The scale bar picks its own round number in whichever system
+is on, because 500 km is 311 miles and a bar labelled 311 is not a scale bar —
+and the old bar was a hard-coded 500 km that happened to suit one canvas width.
+
+**Built.** `gfx/cvd.ts` and `map/palette.ts` (every map colour, with the
+threshold on it), `hud/units.ts`, `hud/steady.ts`, the elevation stops as data
+with the GLSL generated from them, a cased route and cased pins, haloed HUD
+text and a framed density bar, `Z` and `U` on the binding table, and
+`[hidden] { display: none !important }`. **656 tests, up from 603, and 639 of
+them run without a world.**
+
+**Action.** Two, both somebody else's. Whether the G1 cohort is screened for
+colour vision is a protocol question — the instrument now exists to say what a
+participant with a deficiency would and would not see, and the answer is that
+the gate's own cue is safe and the ground's altitude colour is not. And the
+elevation ramp itself is the world's look: a protanope gets a fifth of its
+altitude information across the eastern plain, and whether that is worth
+changing the hypsometric palette for is a design decision rather than an
+engineering one. Nothing else here is outstanding.
+
+## F46 — The HUD's one sentence asks the numbers to confirm what the player feels, and not one of them could be read; asking why found a humidity readout that called Shanghai a desert
+
+**Question.** Workstream D's HUD row is built except for one clause: *what is
+left in this row is a player-facing treatment of the five readouts the debug
+HUD has carried since phase 0*. The GDD's whole HUD paragraph is two
+sentences, and the second is the specification — *"Numbers are there to
+confirm what the player already feels, not to be read first."* What does it
+take to meet that, and what does asking find?
+
+### Nobody had ever asked whether the numbers could be read
+
+There is no test anywhere in the repository on what the six readouts say. So
+the first thing to do was fly the authored route at sixty frames a second —
+the rate the screen actually asks — and count how often each one changed what
+it said. Expedition 1, thirty-seven minutes, 133,079 frames, over the ground
+committed beside the route:
+
+| readout | metric mean /s | worst second | seconds over 2/s | imperial mean /s | worst second | seconds over 2/s |
+| --- | --- | --- | --- | --- | --- | --- |
+| ALT | 2.5 | 6 | 956 of 2,219 | 8.2 | 19 | **2,162 of 2,219** |
+| GND | 27.2 | **60** | 1,619 of 2,219 | 36.2 | **60** | 1,911 of 2,219 |
+| TEMP | 0.2 | 1 | 0 | 0.3 | 1 | 0 |
+| HUM | 0.0 | 1 | 0 | 0.0 | 1 | 0 |
+| AIR | 0.0 | 1 | 0 | 0.0 | 1 | 0 |
+| CLIMB | 0.2 | 15 | 41 of 2,219 | 2.3 | **61** | 131 of 2,219 |
+
+Sixty in a second is every frame. The longest the altimeter ever held still
+was five seconds in metres and **two in feet**.
+
+The ceiling those columns are counted against is not borrowed from anywhere:
+it is this HUD's own. F45 put the density flag behind `HUD_HOLD_S`, half a
+second, and wrote the reason beside the constant — *"two changes a second at
+the very most, from any input"*. That sentence was true of the one boolean it
+was written for and false of the six numbers beside it. **F45 rate-limited the
+smaller half of "no strobing" and left the larger half changing sixty times a
+second.**
+
+### The imperial toggle was the thing that made the altimeter unreadable
+
+43 % of the flight's seconds in metres against **97 % in feet**, for the same
+aeroplane on the same flight. A foot is 0.3048 m, so a display that steps in
+whole feet turns its last digit over 3.28 times as often as one that steps in
+whole metres, and feet per minute is worse again: one metre per second is
+196.9 ft/min, which is why the climb readout managed sixty-one changes in a
+second. The comfort row asked for an imperial toggle and F45 built one; what
+it did not do was ask what the toggle costs the thing it is toggling.
+
+### Two mechanisms, because there are two questions
+
+**How often may a number change?** `HUD_HOLD_S`, the answer already in the
+file. A change is committed at once if the value has been still and otherwise
+waits its turn, exactly as the flag does — so `SteadyFlag` became
+`Steady<T>` and the numbers are the same class with a different `T`. That is
+also the half that survives a player: everything measured here is an
+autopilot's flight, and a hand on the stick is jumpier than that, not
+smoother.
+
+**How much may it change by?** The step. Between two updates the quantity
+moves by `rate × HUD_HOLD_S`, so anything finer than that turns over at every
+single update and carries nothing a reader can use. The step is that distance
+at the 95th percentile of the route's own measured rate, rounded up the same
+1-2-5 ladder the map's scale bar picks from — one step per update rather than
+several. The ladder is now one function with two directions, because a scale
+bar wants the longest step that fits and a readout the shortest that is
+legible.
+
+| readout | rate p50 | p95 | max | p95 × hold | step | was |
+| --- | --- | --- | --- | --- | --- | --- |
+| altitude | 2.15 m/s | 5.08 | 5.66 | 2.54 m | **5 m** | 1 m |
+| ground | 17.85 m/s | 536.36 | 1,862.78 | 268 m | **10 m**, clamped | 1 m |
+| temperature | 0.01 °C/s | 0.03 | 0.04 | 0.015 °C | 0.1 °C | 0.1 °C |
+| humidity | 0.00 %/s | 0.02 | 0.03 | 0.01 % | 1 % | 1 % |
+| density | 0.00 /s | 0.00 | 0.00 | 0.000 | 0.01 | 0.01 |
+| climb | 0.00 (m/s)/s | 0.03 | 1.89 | 0.015 m/s | 0.1 m/s | 0.1 m/s |
+
+Three rows were already coarser than the rule asks and are left alone — the
+measurement condemns nothing there, and changing them would be taste. One row
+is clamped, and it is the interesting one.
+
+### Ground elevation is the readout the compression defeats
+
+Its rate is not set by the aeroplane. It is set by how fast the world goes
+underneath: at 130 km/min the aircraft crosses a kilometre of the 1 km grid
+every 0.46 s, and the corridor steps **33 m between adjacent kilometres at the
+median, 291 at the 95th percentile and 639 at its worst**, over 2,931 km. The
+rule's own answer is a 500 m step — and the GDD's *"this is a hole"* row is
+written against Turpan's −154 m, which a 500 m step rounds to zero.
+
+So this one is clamped to the median step instead, 10 m, and the honest
+statement is the one the clamp admits: **twice a second GND is a true reading
+of the ground under the aircraft, and in the mountains consecutive readings
+differ by hundreds of metres, because the ground under a 1:8 aircraft really
+is moving at up to 1.9 km/s.** What is deliberately not done is smoothing it.
+A held sample is the true value at the moment it was taken; an average is a
+number the world never had, and the ground under a wing is exactly where that
+matters.
+
+### Imperial follows metric rather than being measured again
+
+F45's line is that the toggle changes the units and not the reading. Measured
+separately, the imperial altimeter's own answer is 10 ft — 3.05 m, *finer*
+than the metric step — and the player would be told the world is known more
+precisely in one system than in the other. So the metric step comes from the
+measurement and the imperial one is the smallest ladder step that is not
+finer:
+
+| readout | metric | imperial | its own measurement would have given |
+| --- | --- | --- | --- |
+| altitude | 5 m | 20 ft | 10 ft |
+| ground | 10 m | 50 ft | 1,000 ft |
+| climb | 0.1 m/s | 20 ft/min | 5 ft/min |
+| temperature | 0.1 °C | 0.2 °F | 0.05 °F |
+
+### What it reads like now
+
+The same flight, the same counting:
+
+| readout | metric mean /s | worst second | imperial mean /s | worst second | longest still, m → ft |
+| --- | --- | --- | --- | --- | --- |
+| ALT | 0.5 | 2 | 0.4 | 1 | 10 s → 13 s |
+| GND | 1.2 | 2 | 1.1 | 2 | 83 s → 94 s |
+| TEMP | 0.2 | 1 | 0.1 | 1 | 31 s → 24 s |
+| HUM | 0.0 | 1 | 0.0 | 1 | 215 s |
+| AIR | 0.0 | 1 | 0.0 | 1 | 287 s |
+| CLIMB | 0.1 | 2 | 0.1 | 2 | 117 s |
+
+Not one second of the flight, in either system, has a readout change more than
+twice — which is the assertion the suite now carries, flown, rather than a
+sentence. And the altimeter in feet now changes *less* often than the one in
+metres, because 20 ft is 6.1 m: the toggle has stopped being a legibility
+setting. Checked in the browser as well as in the sim — ten seconds of the
+running prototype at 46 fps, and GND's worst second is 2.
+
+One thing the step cannot cover, and it belongs to an open decision rather
+than to this one. `step()` clamps a touching aircraft to ground + 25 m, and at
+cruise that lifts it **20.8 m in a single frame, on one frame in forty-five** —
+four steps of the altimeter at once, 1.3 times a second. The hold bounds how
+often the number moves and nothing here bounds how far. That is the terrain
+clamp, which is already in the plan as the user's call and is a flight-model
+question; it is now also visible on the instrument.
+
+### The GDD's five sensations, against what this build can show
+
+The HUD paragraph is followed by a table of five sensations and the reading
+that confirms each. Nothing had ever checked it against a flight, so:
+
+| sensation | the GDD's confirmation | Expedition 1 |
+| --- | --- | --- |
+| "this is high" | altitude 4,800 m, temp −4 °C, density low | **18.1 of 37.0 minutes** at or above 4,800 m; peak 5,849 m, σ to 0.55, air to −30.0 °C |
+| "this is a hole" | ground −154 m, temp 42 °C | never: ground 0 to 5,558 m, warmest air −1.0 °C. Turpan is not on this route and is a phase-2 probe |
+| "this is wet" | humidity 90 % | **0 to 7 %, and Lhasa was the wettest place on the route** |
+| "this is empty" | map: nearest city 400 km | needs cities — not built |
+| "this is crowded" | map: 8 cities within 100 km | needs cities — not built |
+
+The first row is comfortably delivered and is the one G1 is scored on. The
+second is a different expedition. The third was a bug.
+
+### The humidity readout called Shanghai a desert
+
+`standInPrecipMm`'s first parameter is named `inlandKm` and the app passed the
+aircraft's projected **easting** — a coordinate measured from a false origin
+3,456 km west of the central meridian, so it grows *toward* the sea rather
+than away from it — and the saturation at 3,200 km then flattened everything
+east of the Ordos to zero. The function's own docstring says *"wet southeast,
+dry northwest"*. It delivered the exact opposite:
+
+| place | humidity, November — before | after | July — after |
+| --- | --- | --- | --- |
+| Sanya | 0 % | 34 % | **96 %** |
+| Shanghai | 0 % | 30 % | 86 % |
+| Wuhan | 0 % | 26 % | 75 % |
+| Chongqing | 0 % | 23 % | 64 % |
+| Chengdu | 0 % | 20 % | 58 % |
+| Harbin | 0 % | 19 % | 53 % |
+| Lhasa | 7 % | 14 % | 41 % |
+| Turpan | 7 % | 6 % | 18 % |
+| Kashgar | **22 %** | 3 % | 9 % |
+
+Six of the nine read exactly zero in every month of the year, and Kashgar — in
+the Taklamakan — read the wettest of them. The GDD's *"this is wet — humidity
+90 %"* was unreachable anywhere in China, and Expedition 1's own authored note
+about thick Sichuan fog was contradicted by its own HUD two minutes into the
+flight.
+
+The shape is untouched calibration and stays: the 240 mm cap, the exponent,
+the monsoon term. What changed is that `dryness` rises toward the northwest,
+which is what the line above it always claimed, and that the function takes a
+**named place** rather than two bare numbers — `unprojectAlbers` already
+returns exactly that shape, so handing it grid metres is now a type error
+rather than arithmetic.
+
+That second half matters more after the fix than before it. The original bug
+at least failed loudly — every populated place read a flat zero. Feed the
+corrected function the same grid metres and Shanghai in July comes back as
+**79 mm**, which is wrong and looks entirely reasonable. Fixing the direction
+without fixing the signature would have made the next transposition of these
+two numbers invisible.
+
+It is still a stand-in — the climate atlas replaces it in phase 2 and no card
+may quote it — so what the tests hold it to is an ordering rather than a
+forecast: wet southeast, dry northwest, monsoon in summer, and the driest
+desert in China never the wettest reading on screen. The residual is recorded
+rather than hidden: Turpan reads wetter than Kashgar, because longitude and
+latitude cannot tell a basin from its surroundings.
+
+**The thermometer beside it was already the right way round and is left
+alone.** Two things about it are now written down. Its `/ 3400` is the
+*synthetic* world's north extent and the real grid is 4,416 km tall, so
+everything north of Harbin reads the same sea-level temperature — the far
+northeast has no gradient at all. And re-anchoring it to the real grid moves
+Harbin in January from −21.3 °C to −13.3 °C, which is *away* from the −25 °C
+the GDD's Ice to Coconuts is built on. That is a calibration for the atlas to
+make, not a sign error to fix here.
+
+Neither function had a test. That is how one of them ran backwards for as long
+as it existed: they are the only two inputs to the simulation with nothing
+asserted about them, and they feed two of the five readouts.
+
+### The operator's column was ninety-two per cent of the HUD
+
+The GDD's word for its HUD is *minimal*. Measured in the running prototype at
+1,280 × 800:
+
+| | area | characters |
+| --- | --- | --- |
+| the player's — five readouts, a bar, the mode | 43,621 px² | 150 |
+| the operator's — debug column and help block | **473,779 px²** | **2,282** |
+
+**91.6 % of the HUD's ink and 46.3 % of the screen**, none of it in the GDD's
+HUD paragraph, all of it always on. A cohort flying this reads the instrument
+rather than the game, which is the confound F15 moved the chase camera and the
+haze into real units to avoid.
+
+So the two blocks are one element behind `O`, off by default, and the one line
+of the mode block that was an operator's — km/min, max climb, and F19's "1 s
+down = N s up" — moved in with them. What is left always on is the GDD's list
+and nothing else: **2.9 % of the screen.** Off by default is a default rather
+than a finding, in F33's sense — it is one line if the prototype would rather
+boot with its instruments showing.
+
+**Built.** `hud/readout.ts` (the step table with its measurement on it, the
+quantiser and the held readout), `SteadyFlag` generalised to `Steady<T>`, the
+1-2-5 ladder as one function with two directions, `standInPrecipMm` taking a
+place instead of two numbers, `O` on the binding table, an `#operator` element
+the five readouts are no longer buried in, and the first tests either climate
+stand-in has ever had. **679 tests, up from 656.**
+
+**Action.** None outstanding that is engineering. The terrain clamp is now
+visible on the altimeter as well as in the camera, which strengthens an item
+already on the list as the user's. "This is a hole" and the two map rows of the
+GDD's sensation table need a different expedition and the city bake, both
+phase 2, and are already tracked as such.
+
+## F47 — The key that hid the prototype's instruments hid the map and everything the game says along with them, because "the operator's" was written as a wrapper rather than as a list
+
+**Question.** F46 took 92 % of the HUD's ink off the screen and put it behind
+`O`. A change that large deserves the question it did not get on the day:
+with the key in, what is actually left in front of a player, and is all of it
+meant to be there?
+
+### The wrapper hid what was inside it, not what was measured
+
+F46 measured two things — the debug column and the generated help block — and
+hid them by wrapping them in a `<div id="operator" hidden>`. Nested inside
+that wrapper were two more elements that were never in the measurement and
+are not the operator's at all: the map overlay and the narration beat.
+
+A wrapper hides whatever is in it. Measured in the running prototype at
+1280 × 800:
+
+| with `O` off | `hidden` | `checkVisibility()` | box |
+| --- | --- | --- | --- |
+| `#map` after pressing `M` | `false` | **`false`** | **0 × 0** |
+| `#beat` with a beat showing | `false` | **`false`** | **0 × 0** |
+
+`M` still worked, in the sense that the toggle ran, `mapOpen` became true and
+`drawMap` went on running every frame for as long as the player left it
+"open". What it drew into was an element with no geometry. On screen that
+panel is **522,000 px², half of a 1280 × 800 window** — on its own larger than
+the 473,779 px² of instrumentation the key exists to hide. F45 had already
+found this map on the wrong side of a visibility bug in the other direction:
+`.map { display: flex }` beat the user agent's `[hidden] { display: none }`,
+so the panel had been on screen permanently since it was built, and the fix
+was `[hidden] { display: none !important }`. Six weeks of work later the same
+panel was permanently *off*, and for a reason that rule cannot reach — an
+ancestor's `display: none` is not something a descendant's own computed style
+can see, which is also why checking `getComputedStyle(map).display` after the
+F46 change reported a healthy `flex` and confirmed nothing.
+
+### Everything the game says over Expedition 1 is four words, and all four went into that box
+
+`#beat` is where the single-card queue's output lands: narration beats,
+discovery cards and comparison spreads, all three through the same element.
+Counted against the authored content rather than assumed:
+
+| over Expedition 1, 36.7 minutes | count |
+| --- | --- |
+| narration beats (waypoint passages) | **4** — Wuhan, Chongqing, Chengdu, Lhasa |
+| discovery cards that fire | **0** — `content:discoveries` says so: 91, 476 and 1,476 km off |
+| comparison spreads that open | **0** — none of the GDD's twelve is authored |
+
+So the whole voice of the game, on its only authored expedition, is four city
+names in thirty-seven minutes — and with the operator column off, a player
+heard none of them. That is not a small consequence of a display bug. It is
+the entire teaching surface of a game whose thesis is that flying over real
+China teaches something.
+
+### The clock is in the GDD's own list, and it was inside the column too
+
+The GDD has a section for it: *"**Time on the HUD.** The clock shows Beijing
+time, which is the point; the map overlay adds local solar time beside it so
+the Kashgar surprise can be understood on the spot."* That is a two-place
+specification, and the prototype had it in one place and the wrong one — all
+three numbers on one line of the debug column, 48 characters, now off screen.
+
+Split as the GDD writes it, the HUD line is five characters and the other
+forty-three are on the map:
+
+| | before | after |
+| --- | --- | --- |
+| HUD | `07:02 Beijing · 05:41 by the sun · sun −13° below`, inside `#debug` | `TIME 07:02 Beijing` |
+| map overlay | — | `05:41 by the sun · sun −13° below`, top right of the panel |
+
+This is not the same instrument shrunk. A HUD line that already says the sun
+is an hour and twenty behind the clock has answered the question the map
+exists to ask, and it answers it on a screen with no longitude on it to
+attach the answer to. On the map there is a country under the number.
+
+### Membership is a list now, and a test holds the list to the markup
+
+The bug is not that the wrong elements were nested; it is that "which blocks
+are the operator's" was expressed as *where they sit in the document*, where
+nothing can check it. It is a declaration in `app/src/hudBlocks.ts` now —
+`OPERATOR_BLOCKS` is the two blocks that were measured, `PLAYER_IDS` is what
+the GDD puts in front of a player, each with the sentence that puts it there —
+and `test/hud/blocks.test.ts` parses `index.html` and holds one to the other:
+every declared id exists, every block on the HUD is classified exactly once,
+and **no player-facing id is a descendant of a block `O` hides**. Reinstating
+the F46 shape fails it in the words of the bug:
+
+```
+#map is inside debug, which O hides: expected [ 'debug' ] to deeply equal []
+```
+
+The same suite reads `main.ts` for every `el("…")` it asks the document for
+and fails on any id the document does not have, because `el` ends in a
+non-null assertion: a renamed element is not a type error and not a runtime
+error either, until the frame that writes to it.
+
+### The challenge banner's first placement failed the way F45's help block failed
+
+A challenge's objectives are the player's — objectives nobody can see are not
+objectives — so they came out of the column too, and the obvious place for a
+one-line objective banner is across the top centre. Measured at 1024 × 768
+before being believed:
+
+| text size | gap to the readouts | with `O` on |
+| --- | --- | --- |
+| 100 % | 42 px | lands on the debug column |
+| 125 % | **−5 px** | lands on the debug column |
+| 150 % | **−52 px** | lands on the debug column |
+
+Which is F45's own lesson about the help block — *"scaled with everything
+else, the help block at 150 % wraps across the whole window and lands on top
+of the altimeter"* — repeated on a different block. Both lines the game says
+share one centred column at the bottom instead, so neither can be placed on
+top of the other, and the column's distance from the bottom is in `em` so the
+stack lifts with the text rather than climbing into the mode block. At
+1024 × 768 with the operator column off it clears everything at all three
+text sizes. With `O` on the help block still lands on it, at every size —
+that is the operator's screen, and it is the same block F45 recorded landing
+on the altimeter.
+
+### What is on screen now
+
+At 1280 × 800, with the operator column off:
+
+| | px² | characters | share of the screen |
+| --- | ---: | ---: | ---: |
+| the player's, always on — six readouts, the bar, the clock, the mode | 34,154 | 105 | **3.3 %** |
+| the player's, on demand — the map | 522,000 | — | 51.0 % while `M` is held open |
+| the operator's — debug column and help block, behind `O` | 560,094 | 2,539 | 54.7 % when asked for |
+
+**Built.** `app/src/hudBlocks.ts` (the two lists, each entry carrying the GDD
+sentence that put it there), the `#operator` wrapper replaced by a `hidden`
+applied from that list at boot and by `O`, the map and the narration beat back
+on the player's side, a `#messages` column that holds the beat and the
+challenge banner so neither can be placed on the other, the clock split into
+Beijing on the HUD and the sun on the map, and `MapScene.caption` to carry it.
+**686 tests, up from 679; 669 of them without a world, up from 662.**
+
+**Action.** None outstanding. The next clause of this row is a look rather
+than a readout and is the journal's, as it was before — but the measurement
+above changes what that clause is worth: the reader is not waiting on content
+alone. Four beats in thirty-seven minutes is what the game currently says with
+its display working.

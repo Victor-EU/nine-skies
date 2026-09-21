@@ -1,12 +1,19 @@
 /**
- * Comfort settings for the chase camera.
+ * Comfort and accessibility settings.
  *
- * The GDD asks for three - a horizon-locked camera option, a field-of-view
- * slider and camera smoothing - because chase-camera flight is a known
- * motion-sickness trigger, and the critical path says do them early: they are
- * cheap, and sickness found at G2 is a redesign. Two are here. The third is
- * not, and the measurement that removed it is worth more than the setting
- * would have been (F35).
+ * The GDD asks for three camera settings - a horizon-locked option, a
+ * field-of-view slider and camera smoothing - because chase-camera flight is a
+ * known motion-sickness trigger, and the critical path says do them early:
+ * they are cheap, and sickness found at G2 is a redesign. Two are here. The
+ * third is not, and the measurement that removed it is worth more than the
+ * setting would have been (F35).
+ *
+ * The rest of the comfort row is the reading half rather than the moving half,
+ * and it is here too now (F45): how big the text is, and which units the
+ * numbers are in. The other two items on that row - a colour-blind-safe map
+ * and no strobing - are not settings and are not here: the first is a palette
+ * with a threshold on it, in `map/palette.ts`, and the second is a property of
+ * the build that was measured and found to hold.
  *
  * **Horizon lock was not the option, it was the behaviour.** The chase camera
  * placed itself from heading alone and never rolled, so the horizon has always
@@ -30,6 +37,7 @@
  * frame for seconds at a time in the mountains. A camera that filtered that
  * out would be inside the hill. It is a flight-model question, and it is open.
  */
+import type { UnitSystem } from "../hud/units.js";
 
 /**
  * Vertical field of view, degrees.
@@ -47,6 +55,9 @@
  */
 export const FOV_CANDIDATES = [50, 62, 75, 90] as const;
 
+/** Re-exported so a caller needs one import for "what has the player chosen". */
+export type { UnitSystem };
+
 /**
  * How much of the wing's bank reaches the horizon.
  *
@@ -60,16 +71,46 @@ export const FOV_CANDIDATES = [50, 62, 75, 90] as const;
  */
 export const BANK_FOLLOW_CANDIDATES = [0, 0.35, 1] as const;
 
+/**
+ * How big the HUD's text is, as a multiple of its designed size.
+ *
+ * A cycle rather than the GDD's slider, for the reason the field of view is
+ * one: a G1 participant can say "the second one" and an operator can write it
+ * down. 1.5 is the top of the range because it is the largest step that
+ * leaves the readouts legible against a moving sky without the primary block
+ * reaching the middle of the screen.
+ *
+ * It scales from one custom property rather than a font size per block, so a
+ * readout added later scales without being told to - and it scales the
+ * player's HUD only. The debug column and the generated help block are the
+ * prototype's own furniture, are not in the shipped HUD, and are already the
+ * largest things on screen: scaled with everything else, the help block at
+ * 150 % wraps across the window and lands on the altimeter. The units toggle
+ * draws the same line for the same reason.
+ */
+export const TEXT_SCALE_CANDIDATES = [1, 1.25, 1.5] as const;
+
 export interface ComfortSettings {
   /** Vertical field of view, degrees. */
   fovDeg: number;
   /** 0 = the horizon never tilts. 1 = the camera rolls with the wing. */
   bankFollow: number;
+  /** HUD text size, as a multiple of the designed size. */
+  textScale: number;
+  /** Which units the player-facing readouts are in. */
+  units: UnitSystem;
 }
 
+/**
+ * Metric is the default the GDD asks for, and the one the whole build is
+ * written in: every finding, every route number and every card figure is in
+ * metres.
+ */
 export const DEFAULT_COMFORT: ComfortSettings = {
   fovDeg: 62,
   bankFollow: 0.35,
+  textScale: 1,
+  units: "metric",
 };
 
 /**
@@ -82,6 +123,11 @@ export const DEFAULT_COMFORT: ComfortSettings = {
  */
 export function cameraRollRad(bankRad: number, comfort: ComfortSettings): number {
   return bankRad * comfort.bankFollow;
+}
+
+/** "100 %" / "125 %" - for the HUD and the help. */
+export function textScaleLabel(scale: number): string {
+  return `${Math.round(scale * 100)} %`;
 }
 
 /** "horizon locked" / "eased 0.35" / "with the wing" - for the HUD and the help. */

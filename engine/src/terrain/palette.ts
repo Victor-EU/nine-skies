@@ -2,10 +2,10 @@
  * The hypsometric ramp, in one place.
  *
  * Stops are real elevations in metres, so every surface that draws ground -
- * the streamed terrain, the horizon impostor, and later the map overlay -
- * keys off the same numbers. The GDD's rule is that colour is never
- * hand-painted; the corollary is that it is also never duplicated, because a
- * second copy is a second set of stops waiting to drift.
+ * the streamed terrain, the horizon impostor, and the map overlay - keys off
+ * the same numbers. The GDD's rule is that colour is never hand-painted; the
+ * corollary is that it is also never duplicated, because a second copy is a
+ * second set of stops waiting to drift.
  *
  * The high stops are a snow line, and a snow line is a fact: permanent snow on
  * the Tibetan Plateau starts around 5,400 m, not at the 3,800 m the first
@@ -13,6 +13,18 @@
  * had Expedition 7's players arriving somewhere that does not exist. Land
  * cover (workstream A step 7) supersedes all of this; until it lands, the
  * stops are the only thing keeping the ground honest.
+ *
+ * **The stops are data and the shader is generated from them (F45).** They
+ * were a wall of GLSL, which meant the one rule this file states - never a
+ * second copy - was the one rule it could not enforce: the map overlay went
+ * and wrote its own ramp (F42), because reading this one would have needed a
+ * GPU. It also meant nothing could test the ramp. The first thing a test
+ * found once it could was that the sub-sea-level branch had its two colours
+ * the wrong way round, painting the floor of a depression as plain green and
+ * its shoreline as salt pan, with a 40.6 dE step across the shore between
+ * them. Nothing has ever shown it: the built corridor has no cell below sea
+ * level, and the place that does is Ayding Lake, which the pipeline has a
+ * golden probe for and the renderer had never drawn.
  */
 export const COLOR_SPACE_GLSL = /* glsl */ `
 vec3 srgbToLinear(vec3 c) {
@@ -29,24 +41,87 @@ vec3 linearToSrgb(vec3 c) {
 }
 `;
 
+export interface ElevationStop {
+  /** Real metres above sea level. */
+  readonly m: number;
+  /** The colour at that elevation, sRGB 0-1 - picked by eye, so sRGB. */
+  readonly srgb: readonly [number, number, number];
+  /** What the stop is, kept because it survives into the generated shader. */
+  readonly name: string;
+}
+
+/**
+ * The ramp itself. Ordered by elevation; below the first and above the last
+ * the colour is held, which is what puts the snow line at a height rather
+ * than at the top of whatever the highest sample happens to be.
+ */
+export const ELEVATION_STOPS: readonly ElevationStop[] = [
+  { m: -160, srgb: [0.82, 0.78, 0.68], name: "saltPan" },
+  { m: 0, srgb: [0.35, 0.47, 0.27], name: "plain" },
+  { m: 200, srgb: [0.47, 0.52, 0.28], name: "farmland" },
+  { m: 800, srgb: [0.66, 0.54, 0.31], name: "loess" },
+  { m: 2000, srgb: [0.6, 0.51, 0.4], name: "highDry" },
+  { m: 3800, srgb: [0.62, 0.57, 0.5], name: "plateau" },
+  { m: 5400, srgb: [0.7, 0.68, 0.64], name: "alpine" },
+  { m: 6600, srgb: [0.95, 0.95, 0.97], name: "snow" },
+];
+
+/**
+ * The ramp, in sRGB, on the CPU.
+ *
+ * The same arithmetic the shader does, because the shader is generated from
+ * the same stops below rather than written beside them. Interpolation is in
+ * sRGB and not in light, deliberately: the stops were picked by eye on a
+ * screen, so the midpoint a reader expects between two of them is the one
+ * halfway along in the space they were picked in.
+ */
+export function elevationRampSrgb(m: number): [number, number, number] {
+  const first = ELEVATION_STOPS[0]!;
+  if (m <= first.m) return [...first.srgb];
+  for (let i = 1; i < ELEVATION_STOPS.length; i++) {
+    const hi = ELEVATION_STOPS[i]!;
+    if (m >= hi.m) continue;
+    const lo = ELEVATION_STOPS[i - 1]!;
+    const t = (m - lo.m) / (hi.m - lo.m);
+    return [
+      lo.srgb[0] + (hi.srgb[0] - lo.srgb[0]) * t,
+      lo.srgb[1] + (hi.srgb[1] - lo.srgb[1]) * t,
+      lo.srgb[2] + (hi.srgb[2] - lo.srgb[2]) * t,
+    ];
+  }
+  return [...ELEVATION_STOPS[ELEVATION_STOPS.length - 1]!.srgb];
+}
+
+/**
+ * The same function in GLSL, written out from the stops at module load.
+ *
+ * Generated rather than transcribed, so "never a second copy" is true of the
+ * ramp instead of merely asked for. The names come through into the shader,
+ * so it still reads as a palette and not as a table of constants.
+ */
+function rampGlsl(stops: readonly ElevationStop[]): string {
+  const v = (s: ElevationStop) =>
+    `vec3(${s.srgb.map((c) => c.toFixed(2)).join(", ")})`;
+  const lines = stops.map((s) => `  vec3 ${s.name} = ${v(s)};`);
+  lines.push("");
+  lines.push(`  if (m <= ${stops[0]!.m.toFixed(1)}) return ${stops[0]!.name};`);
+  for (let i = 1; i < stops.length; i++) {
+    const lo = stops[i - 1]!;
+    const hi = stops[i]!;
+    const span = (hi.m - lo.m).toFixed(1);
+    const offset =
+      lo.m === 0 ? "m" : lo.m < 0 ? `(m + ${(-lo.m).toFixed(1)})` : `(m - ${lo.m.toFixed(1)})`;
+    lines.push(
+      `  if (m < ${hi.m.toFixed(1)}) return mix(${lo.name}, ${hi.name}, ${offset} / ${span});`,
+    );
+  }
+  lines.push(`  return ${stops[stops.length - 1]!.name};`);
+  return lines.join("\n");
+}
+
 export const ELEVATION_RAMP_GLSL = /* glsl */ `
 vec3 elevationRampSrgb(float m) {
-  vec3 saltPan   = vec3(0.82, 0.78, 0.68);
-  vec3 plain     = vec3(0.35, 0.47, 0.27);
-  vec3 farmland  = vec3(0.47, 0.52, 0.28);
-  vec3 loess     = vec3(0.66, 0.54, 0.31);
-  vec3 highDry   = vec3(0.60, 0.51, 0.40);
-  vec3 plateau   = vec3(0.62, 0.57, 0.50);
-  vec3 alpine    = vec3(0.70, 0.68, 0.64);
-  vec3 snow      = vec3(0.95, 0.95, 0.97);
-
-  if (m < 0.0)    return mix(saltPan, plain, clamp(m / -160.0, 0.0, 1.0));
-  if (m < 200.0)  return mix(plain,    farmland, m / 200.0);
-  if (m < 800.0)  return mix(farmland, loess,    (m - 200.0) / 600.0);
-  if (m < 2000.0) return mix(loess,    highDry,  (m - 800.0) / 1200.0);
-  if (m < 3800.0) return mix(highDry,  plateau,  (m - 2000.0) / 1800.0);
-  if (m < 5400.0) return mix(plateau,  alpine,   (m - 3800.0) / 1600.0);
-  return mix(alpine, snow, clamp((m - 5400.0) / 1200.0, 0.0, 1.0));
+${rampGlsl(ELEVATION_STOPS)}
 }
 
 // The stops above are picked by eye, which means they are sRGB. Lighting and

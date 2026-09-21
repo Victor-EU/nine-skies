@@ -26,11 +26,14 @@ export type Action =
   | "toggleHorizon"
   | "cycleFov"
   | "cycleBankFollow"
+  | "cycleTextScale"
+  | "cycleUnits"
   | "toggleExpedition"
   | "toggleMap"
   | "toggleChallenge"
   | "retryChallenge"
   | "toggleStopwatch"
+  | "toggleOperator"
   | "reset";
 
 export interface AxisBinding {
@@ -115,6 +118,28 @@ export const ACTION_BINDINGS: readonly ActionBinding[] = [
     note: "comfort — 0 is the GDD's horizon lock, and what the prototype did (F35)",
   },
   {
+    action: "cycleTextScale",
+    // Keyboard only, and so is the line below it. The standard mapping has
+    // seventeen buttons, this table already claims fifteen, and a setting a
+    // player changes once is the wrong thing to spend the last one on. Both
+    // are cycles so that a G1 operator can set them without a menu; the
+    // shipped build gets the menu.
+    key: "z",
+    padButton: null,
+    label: "text size 100 / 125 / 150 %",
+    note: "comfort - it scales the whole HUD from one property (F45)",
+  },
+  {
+    action: "cycleUnits",
+    key: "u",
+    padButton: null,
+    label: "units metric / imperial",
+    note:
+      "the readings move - altitude, ground, temperature, climb, map " +
+      "distances. The operator's own numbers stay in the units the findings " +
+      "are written in (F45)",
+  },
+  {
     action: "toggleExpedition",
     key: "x",
     padButton: 8,
@@ -156,6 +181,19 @@ export const ACTION_BINDINGS: readonly ActionBinding[] = [
     note:
       "off by default, as the GDD asks. It is scored against nothing: a " +
       "challenge's own deadline, where it has one, is always shown (F43)",
+  },
+  {
+    action: "toggleOperator",
+    // Keyboard only, and the last of the three that are: this one is not a
+    // player control at all.
+    key: "o",
+    padButton: null,
+    label: "operator column on/off",
+    note:
+      "off by default. The debug column and this help block are 92 % of the " +
+      "HUD's ink and 46 % of the screen, and none of it is in the GDD's HUD " +
+      "paragraph - a cohort reading it is reading the instrument rather than " +
+      "the game (F46)",
   },
   { action: "reset", key: "r", padButton: 9, label: "reset to the start" },
 ];

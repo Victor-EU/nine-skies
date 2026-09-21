@@ -1,6 +1,16 @@
 /**
  * The map overlay, drawn on a 2D canvas over the world (F42).
  *
+ * Every colour it uses now comes from `engine/src/map/palette.ts` and is
+ * checked there against a contrast threshold rather than picked here (F45).
+ * Three of them were wrong in ways reading the code could not show: the route
+ * faded from 28.7 dE over the sea to 3.9 over high ground, the base invented a
+ * second elevation ramp that disagreed with the terrain the aircraft was
+ * flying over, and zero-elevation cells were painted as ocean - which is the
+ * sea near Shanghai, China's lowest exposed land at Ayding, and every cell
+ * the pipeline has not published, all as one blue. Five in six of this map's
+ * blue cells were not water.
+ *
  * Deliberately small. Everything it draws is already in world metres and
  * already loaded, so this is a transform, six passes and no new data:
  *
@@ -21,12 +31,34 @@
  *
  * What the base cannot do yet is be a country: the corridor fills 11.6 % of
  * the country grid, so most of this map is empty until phase 2 builds the
- * rest. That is a data gap and not a drawing one.
+ * rest. That was called a data gap and not a drawing one, and half of it was
+ * a drawing one: the gap was being drawn, as an ocean. It is drawn as a gap
+ * now.
  */
 import type { HorizonField } from "../../engine/src/terrain/horizonField.js";
 import { MapView, HEIHE_TENGCHONG, type MapBounds } from "../../engine/src/map/view.js";
 import { bandOf, type FlownTrack } from "../../engine/src/map/track.js";
 import { projectAlbers } from "../../engine/src/terrain/worldGrid.js";
+import {
+  AIRCRAFT,
+  HEIHE_LINE,
+  PIN,
+  PIN_CASING,
+  PROFILE_ALTITUDE,
+  PROFILE_GROUND,
+  ROUTE_CASING,
+  ROUTE_CORE,
+  TRACK,
+  baseShade,
+  css,
+  type MapStroke,
+} from "../../engine/src/map/palette.js";
+import {
+  formatAltitude,
+  formatDistance,
+  scaleBar,
+  type UnitSystem,
+} from "../../engine/src/hud/units.js";
 
 export interface MapPin {
   readonly eastM: number;
@@ -42,6 +74,14 @@ export interface MapScene {
   readonly track: FlownTrack;
   readonly aircraft: { eastM: number; northM: number; headingRad: number };
   readonly showLine: boolean;
+  /**
+   * One line across the top of the panel. The GDD puts the local solar time
+   * here rather than on the HUD - "the map overlay adds local solar time
+   * beside it so the Kashgar surprise can be understood on the spot" - and
+   * the map is where a player can see the longitude that causes it (F47).
+   * Empty draws nothing.
+   */
+  readonly caption: string;
 }
 
 /**
@@ -56,14 +96,25 @@ export interface MapScene {
  */
 export const PROFILE_CEILING_M = 6000;
 
-const INK = "rgba(232,238,245,0.92)";
-const DIM = "rgba(232,238,245,0.30)";
+/** Set a stroke from the palette, dash included. */
+function useStroke(ctx: CanvasRenderingContext2D, s: MapStroke): void {
+  ctx.strokeStyle = css(s.rgb, s.alpha);
+  ctx.lineWidth = s.widthPx;
+  ctx.setLineDash(s.dash ? [...s.dash] : []);
+}
 
-/** A palette for the base: water dark, plain green-grey, plateau pale. */
-function shade(m: number): [number, number, number] {
-  if (m <= 0) return [13, 27, 42];
-  const t = Math.min(1, m / 6000);
-  return [Math.round(58 + 150 * t), Math.round(74 + 128 * t), Math.round(64 + 140 * t)];
+/** Trace a polyline in world metres. The caller decides how to paint it. */
+function tracePath(
+  ctx: CanvasRenderingContext2D,
+  view: MapView,
+  points: readonly { eastM: number; northM: number }[],
+): void {
+  ctx.beginPath();
+  points.forEach((w, i) => {
+    const p = view.project(w.eastM, w.northM);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
 }
 
 /**
@@ -102,11 +153,11 @@ export class MapBase {
       // North is up on screen and northing grows upward, so the rows flip.
       const northM = bounds.northM0 + (h - 1 - y) * cell;
       for (let x = 0; x < w; x++) {
-        const [r, g, b] = shade(field.sampleM(bounds.eastM0 + x * cell, northM));
+        const [r, g, b] = baseShade(field.sampleM(bounds.eastM0 + x * cell, northM));
         const i = (y * w + x) * 4;
-        image.data[i] = r;
-        image.data[i + 1] = g;
-        image.data[i + 2] = b;
+        image.data[i] = Math.round(r);
+        image.data[i + 1] = Math.round(g);
+        image.data[i + 2] = Math.round(b);
         image.data[i + 3] = 255;
       }
     }
@@ -116,12 +167,26 @@ export class MapBase {
   }
 }
 
+/**
+ * What the reader has chosen, as the map needs it: their units, and how big
+ * their text is. Both are comfort settings, and both have to reach a canvas -
+ * the HUD's own `--hud-scale` moves the DOM and stops at the canvas edge.
+ */
+export interface MapStyle {
+  readonly units: UnitSystem;
+  readonly labelPx: number;
+}
+
+export const DEFAULT_MAP_STYLE: MapStyle = { units: "metric", labelPx: 10 };
+
 export function drawMap(
   ctx: CanvasRenderingContext2D,
   field: HorizonField,
   base: MapBase,
   scene: MapScene,
+  style: MapStyle = DEFAULT_MAP_STYLE,
 ): void {
+  const { units, labelPx } = style;
   const { canvas } = ctx;
   const view = new MapView(scene.bounds, canvas.width, canvas.height, 12);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -140,35 +205,25 @@ export function drawMap(
   if (scene.showLine) {
     const a = projectAlbers(HEIHE_TENGCHONG.north.latDeg, HEIHE_TENGCHONG.north.lonDeg);
     const b = projectAlbers(HEIHE_TENGCHONG.south.latDeg, HEIHE_TENGCHONG.south.lonDeg);
-    ctx.strokeStyle = "rgba(255,214,140,0.55)";
-    ctx.setLineDash([6, 5]);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    const pa = view.project(a.eastM, a.northM);
-    const pb = view.project(b.eastM, b.northM);
-    ctx.moveTo(pa.x, pa.y);
-    ctx.lineTo(pb.x, pb.y);
+    useStroke(ctx, HEIHE_LINE);
+    tracePath(ctx, view, [a, b]);
     ctx.stroke();
     ctx.setLineDash([]);
   }
 
-  // Route.
+  // Route, cased: a dark stroke carries it over pale ground and a light one
+  // over dark, so its contrast no longer depends on the elevation underneath.
   if (scene.route.length > 1) {
-    ctx.strokeStyle = DIM;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    scene.route.forEach((w, i) => {
-      const p = view.project(w.eastM, w.northM);
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    });
+    tracePath(ctx, view, scene.route);
+    useStroke(ctx, ROUTE_CASING);
+    ctx.stroke();
+    useStroke(ctx, ROUTE_CORE);
     ctx.stroke();
   }
 
   // Track, pen up across teleports.
   const points = scene.track.recent();
-  ctx.strokeStyle = "rgba(255,196,92,0.95)";
-  ctx.lineWidth = 2;
+  useStroke(ctx, TRACK);
   ctx.beginPath();
   let down = false;
   for (const t of points) {
@@ -179,14 +234,23 @@ export function drawMap(
   }
   ctx.stroke();
 
-  // Pins - found entries only.
-  ctx.fillStyle = INK;
-  ctx.font = "10px ui-monospace, monospace";
+  // Pins - found entries only, and cased for the same reason the route is.
+  // A pale pin on snow is 2.7 dE, which is inside the range where no reader
+  // sees a difference at all.
+  ctx.font = `${labelPx}px ui-monospace, monospace`;
+  ctx.lineJoin = "round";
   for (const pin of scene.pins) {
     const p = view.project(pin.eastM, pin.northM);
     ctx.beginPath();
     ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = css(PIN.rgb, PIN.alpha);
+    ctx.strokeStyle = css(PIN_CASING.rgb, PIN_CASING.alpha);
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
     ctx.fill();
+    ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.strokeText(pin.name, p.x + 6, p.y + 3);
     ctx.fillText(pin.name, p.x + 6, p.y + 3);
   }
 
@@ -195,7 +259,10 @@ export function drawMap(
   ctx.save();
   ctx.translate(a.x, a.y);
   ctx.rotate(-scene.aircraft.headingRad);
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = css(AIRCRAFT.rgb, AIRCRAFT.alpha);
+  ctx.strokeStyle = css(PIN_CASING.rgb, PIN_CASING.alpha);
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([]);
   ctx.beginPath();
   ctx.moveTo(0, -6);
   ctx.lineTo(4, 5);
@@ -203,22 +270,44 @@ export function drawMap(
   ctx.lineTo(-4, 5);
   ctx.closePath();
   ctx.fill();
+  ctx.stroke();
   ctx.restore();
 
   // Scale bar, from the view's own metres per pixel.
-  const barKm = 500;
-  const barPx = barKm / view.kmPerPx;
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 1;
+  const bar = scaleBar(view.kmPerPx, canvas.width, units);
+  const barPx = bar.km / view.kmPerPx;
+  useStroke(ctx, PIN);
   ctx.beginPath();
   ctx.moveTo(16, canvas.height - 16);
   ctx.lineTo(16 + barPx, canvas.height - 16);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = css(PIN_CASING.rgb, PIN_CASING.alpha);
   ctx.stroke();
-  ctx.fillText(`${barKm} km`, 16, canvas.height - 22);
+  useStroke(ctx, PIN);
+  ctx.stroke();
+  ctx.fillStyle = css(PIN.rgb, PIN.alpha);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = css(PIN_CASING.rgb, PIN_CASING.alpha);
+  ctx.strokeText(bar.label, 16, canvas.height - 22);
+  ctx.fillText(bar.label, 16, canvas.height - 22);
+
+  // The caption, in the scale bar's casing and at the opposite corner: the
+  // bar says how far, this says when, and neither has anything under it.
+  if (scene.caption) {
+    ctx.textAlign = "right";
+    ctx.strokeText(scene.caption, canvas.width - 16, labelPx + 8);
+    ctx.fillText(scene.caption, canvas.width - 16, labelPx + 8);
+    ctx.textAlign = "left";
+  }
 }
 
 /** The last 200 km of ground and altitude, on a fixed vertical scale. */
-export function drawProfile(ctx: CanvasRenderingContext2D, track: FlownTrack): void {
+export function drawProfile(
+  ctx: CanvasRenderingContext2D,
+  track: FlownTrack,
+  style: MapStyle = DEFAULT_MAP_STYLE,
+): void {
+  const { units, labelPx } = style;
   const { canvas } = ctx;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const points = track.recent();
@@ -229,7 +318,7 @@ export function drawProfile(ctx: CanvasRenderingContext2D, track: FlownTrack): v
     ((km - points[0]!.km) / Math.max(1, track.windowKm)) * canvas.width;
   const y = (m: number) => canvas.height - (Math.min(m, PROFILE_CEILING_M) / PROFILE_CEILING_M) * canvas.height;
 
-  ctx.fillStyle = "rgba(88,110,96,0.85)";
+  ctx.fillStyle = css(PROFILE_GROUND.rgb, PROFILE_GROUND.alpha);
   ctx.beginPath();
   ctx.moveTo(x(points[0]!.km), canvas.height);
   for (const p of points) ctx.lineTo(x(p.km), y(p.groundM));
@@ -237,18 +326,18 @@ export function drawProfile(ctx: CanvasRenderingContext2D, track: FlownTrack): v
   ctx.closePath();
   ctx.fill();
 
-  ctx.strokeStyle = "rgba(255,196,92,0.95)";
-  ctx.lineWidth = 1.5;
+  useStroke(ctx, PROFILE_ALTITUDE);
   ctx.beginPath();
   points.forEach((p, i) => (i === 0 ? ctx.moveTo(x(p.km), y(p.altitudeM)) : ctx.lineTo(x(p.km), y(p.altitudeM))));
   ctx.stroke();
 
-  ctx.fillStyle = INK;
-  ctx.font = "10px ui-monospace, monospace";
+  ctx.fillStyle = css(PIN.rgb, PIN.alpha);
+  ctx.font = `${labelPx}px ui-monospace, monospace`;
   ctx.fillText(
-    `last ${band.spanKm.toFixed(0)} km · ground ${band.minGroundM.toFixed(0)}–${band.maxGroundM.toFixed(0)} m · ` +
-      `full scale ${PROFILE_CEILING_M.toLocaleString()} m`,
+    `last ${formatDistance(band.spanKm, units)} · ` +
+      `ground ${formatAltitude(band.minGroundM, units)}–${formatAltitude(band.maxGroundM, units)} · ` +
+      `full scale ${formatAltitude(PROFILE_CEILING_M, units)}`,
     8,
-    12,
+    labelPx + 2,
   );
 }

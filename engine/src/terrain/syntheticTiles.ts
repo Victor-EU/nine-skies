@@ -129,6 +129,16 @@ export const WORLD_TILES_Y = Math.ceil(3400 / TILE_KM);
  * exists only so the prototype's thermometer moves; it is a latitude gradient
  * and a lapse rate, not a climate model, and no discovery card may ever quote
  * a number that came out of it.
+ *
+ * Unlike its neighbour below it runs the right way round, and it is left
+ * alone on purpose (F46). Two things about it are worth knowing. Its `/ 3400`
+ * is the *synthetic* world's north extent and the real grid is 4,416 km tall
+ * (`COUNTRY_NORTH_KM`), so everything north of Harbin is pinned at the same
+ * sea-level temperature - the far northeast has no gradient at all. And
+ * re-anchoring it to the real grid would move Harbin in January from -21.3 C
+ * to -13.3 C, which is away from the -25 C the GDD's Ice to Coconuts is built
+ * on. That is a calibration the atlas should make, not a sign error to fix
+ * here.
  */
 export function standInGroundTempC(
   northKm: number,
@@ -143,11 +153,70 @@ export function standInGroundTempC(
   return seaLevel - (6.5 * Math.max(0, elevationM)) / 1000;
 }
 
-/** Stand-in monthly precipitation, mm. Wet southeast, dry northwest. */
-export function standInPrecipMm(inlandKm: number, northKm: number, month: number): number {
+/**
+ * Stand-in monthly precipitation, mm. Wet southeast, dry northwest.
+ *
+ * REPLACED BY THE CLIMATE ATLAS, like the thermometer above, and with the
+ * same rule: no discovery card may quote a number that came out of it.
+ *
+ * **It ran the wrong way for as long as it has existed** (F46). Its first
+ * argument was called `inlandKm` and the app passed the aircraft's projected
+ * *easting* - a coordinate measured from a false origin 3,456 km west of the
+ * central meridian, so it grows toward the sea rather than away from it, and
+ * the `/ 3200` saturated every populated place east of the Ordos. Shanghai,
+ * Wuhan, Chongqing, Chengdu, Harbin and Sanya all read exactly 0 % humidity
+ * in every month; Lhasa read 7 % and Kashgar, in the Taklamakan, read the
+ * wettest of the nine at 22 %. The GDD's "this is wet - humidity 90 %" row
+ * was unreachable anywhere in China, and Expedition 1's own authored note
+ * about thick Sichuan fog was contradicted by its own HUD.
+ *
+ * So it takes the two numbers climate actually varies with, and it takes them
+ * as a named place rather than as two bare numbers - which is the half of the
+ * fix that stops it happening again. Two `number` parameters are two things a
+ * caller can transpose or fill from the wrong coordinate system and the
+ * compiler will agree; `unprojectAlbers` already returns exactly this shape,
+ * so the only easy way to call it is the right one.
+ *
+ * The shape - the 240 mm cap, the exponent, the monsoon term - is untouched
+ * calibration; what changed is that `dryness` now rises toward the northwest,
+ * which is what the line above it always claimed. It is still a stand-in, and
+ * the residual is real: Turpan is the driest place in China and reads wetter
+ * than Kashgar, because longitude and latitude cannot tell a basin from its
+ * surroundings. What it is now is right-way-round, which is a thing a test
+ * can hold it to.
+ */
+export function standInPrecipMm(at: GeoDegrees, month: number): number {
   const monsoon = 0.35 + 0.65 * Math.max(0, Math.cos(((month - 7) / 12) * Math.PI * 2));
-  const dryness = Math.min(1, Math.max(0, inlandKm / 3200));
+  const dryness = continentality(at);
   return 240 * monsoon * (1 - dryness) ** 1.6;
+}
+
+/** Where on the Earth, in degrees. The shape `unprojectAlbers` hands back. */
+export interface GeoDegrees {
+  readonly latDeg: number;
+  readonly lonDeg: number;
+}
+
+/** The eastern seaboard, and the far interior, near enough for a stand-in. */
+const COAST_LON_DEG = 121;
+const INTERIOR_LON_DEG = 75;
+/** China's own latitude span, south cape to the Heilongjiang bend. */
+const SOUTH_LAT_DEG = 18;
+const NORTH_LAT_DEG = 53;
+
+/**
+ * How far from the sea this place is, 0 at the southeast corner and 1 in the
+ * northwest - the diagonal the docstring above has always named.
+ *
+ * Longitude and latitude weigh the same because neither is the story on its
+ * own: longitude alone puts Harbin on the coast, latitude alone puts Kashgar
+ * and Shanghai in the same place.
+ */
+function continentality({ latDeg, lonDeg }: GeoDegrees): number {
+  const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+  const west = clamp01((COAST_LON_DEG - lonDeg) / (COAST_LON_DEG - INTERIOR_LON_DEG));
+  const north = clamp01((latDeg - SOUTH_LAT_DEG) / (NORTH_LAT_DEG - SOUTH_LAT_DEG));
+  return clamp01((west + north) / 2);
 }
 
 /**

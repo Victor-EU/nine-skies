@@ -27,6 +27,9 @@ import {
   type FlightInput,
 } from "../../engine/src/sim/flight.js";
 import { LIGHT_PISTON, climbRecoveryRatio } from "../../engine/src/sim/aircraft.js";
+import { BOOST_MIN_SIGMA } from "../../engine/src/sim/atmosphere.js";
+import { SteadyFlag } from "../../engine/src/hud/steady.js";
+import { createReadouts, type SteadyReadout } from "../../engine/src/hud/readout.js";
 import { createProbe } from "./probe.js";
 import { Input } from "../../engine/src/input/input.js";
 import { helpLines, type Action } from "../../engine/src/input/bindings.js";
@@ -54,7 +57,8 @@ import {
   COUNTRY_EAST_KM,
   COUNTRY_NORTH_KM,
 } from "../../engine/src/terrain/worldGrid.js";
-import { MapBase, drawMap, drawProfile } from "./mapOverlay.js";
+import { MapBase, drawMap, drawProfile, type MapStyle } from "./mapOverlay.js";
+import { OPERATOR_BLOCKS } from "./hudBlocks.js";
 import {
   DEFAULT_TIME_RATE,
   WorldClock,
@@ -82,10 +86,22 @@ import {
   BANK_FOLLOW_CANDIDATES,
   DEFAULT_COMFORT,
   FOV_CANDIDATES,
+  TEXT_SCALE_CANDIDATES,
   bankFollowLabel,
   cameraRollRad,
+  textScaleLabel,
   type ComfortSettings,
 } from "../../engine/src/gfx/comfort.js";
+import {
+  UNIT_SYSTEMS,
+  altitudeUnit,
+  altitudeValue,
+  climbUnit,
+  climbValue,
+  temperatureUnit,
+  temperatureValue,
+  unitsLabel,
+} from "../../engine/src/hud/units.js";
 import {
   CAMERA_AIM_AHEAD,
   CAMERA_AIM_UP_REAL_M,
@@ -181,13 +197,73 @@ let cruiseIndex = indexIn(CRUISE_CANDIDATES, DEFAULT_PACING.cruiseKmPerMin);
  * The comfort settings - on the critical path's "can start early and should"
  * list, because they are cheap and sickness found at G2 is a redesign.
  *
- * Two of the GDD's three. The horizon lock turned out to be the behaviour
- * rather than an option, so what is here is the camera that banks; camera
- * smoothing is not here at all, and F35 says why in numbers (D28).
+ * Two of the GDD's three camera settings. The horizon lock turned out to be
+ * the behaviour rather than an option, so what is here is the camera that
+ * banks; camera smoothing is not here at all, and F35 says why in numbers
+ * (D28). The reading half of the row - text size and units - arrived with
+ * F45 and is the same object, because a participant who turns one of these
+ * up has said something about the other three.
  */
 let comfort: ComfortSettings = { ...DEFAULT_COMFORT };
 let fovIndex = indexIn(FOV_CANDIDATES, DEFAULT_COMFORT.fovDeg);
 let bankIndex = indexIn(BANK_FOLLOW_CANDIDATES, DEFAULT_COMFORT.bankFollow);
+let textIndex = indexIn(TEXT_SCALE_CANDIDATES, DEFAULT_COMFORT.textScale);
+let unitsIndex = Math.max(0, UNIT_SYSTEMS.indexOf(DEFAULT_COMFORT.units));
+
+/**
+ * The two HUD states derived by comparing a continuous quantity to a
+ * threshold, rate-limited so neither can flash (F45).
+ *
+ * Only these two. The pacing warning is a function of a setting the player
+ * cycles with a key, and a key cannot chatter - the input sources edge-detect,
+ * so a held key fires once. A value sitting on a threshold is the only thing
+ * here that can change sixty times a second.
+ *
+ * The air flag drives the density bar's colour *and* the sentence beside it,
+ * which is what makes them one fact rather than two that happen to agree.
+ */
+const airTooThin = new SteadyFlag(false);
+const offPlan = new SteadyFlag(false);
+
+/**
+ * The six numbers, quantised to a step and held to the same rate (F46).
+ *
+ * The flags above were the small half of "no strobing". Flown down the
+ * authored route, the ground readout changed what it said on **sixty frames
+ * out of sixty** in its worst second and the altimeter was over the HUD's own
+ * two-a-second ceiling in 97 % of the flight's seconds in feet. A number that
+ * cannot be read cannot confirm anything, which is the whole of what the GDD
+ * asks these six to do.
+ */
+let readouts = createReadouts(DEFAULT_COMFORT.units);
+
+/**
+ * The prototype's own instrumentation, which is not the game's HUD.
+ *
+ * Off by default because the GDD's HUD is five readouts and a bar, and this
+ * is 92 % of the ink beside them (F46). `O` brings it back for an operator.
+ *
+ * Which blocks that means is `OPERATOR_BLOCKS` and not a wrapper in the HTML.
+ * F46 used a wrapper, and a wrapper hides whatever is nested inside it: the
+ * map and the narration beat were, so `M` opened a map with no box and the
+ * game's only four lines over Expedition 1 went to a node nobody could see
+ * (F47). `test/hud/blocks.test.ts` is what holds the list to the markup.
+ */
+let operatorShown = false;
+
+/** One property at the root; every size on the HUD is a multiple of it. */
+function applyTextScale(): void {
+  el("hud").style.setProperty("--hud-scale", String(comfort.textScale));
+}
+
+/**
+ * The same two settings, for the map - which is a canvas, so neither the
+ * custom property nor the unit spans reach it. 10 px is the size its labels
+ * were drawn at before there was a setting.
+ */
+function mapStyle(): MapStyle {
+  return { units: comfort.units, labelPx: Math.round(10 * comfort.textScale) };
+}
 
 /**
  * Real elevation if the pipeline has published a corridor, otherwise the
@@ -410,6 +486,7 @@ const mapBounds = world
       northM1: (world.manifest.window.ty1 + 2) * TILE_KM * 1000,
     }
   : { eastM0: 0, northM0: 0, eastM1: COUNTRY_EAST_KM * 1000, northM1: COUNTRY_NORTH_KM * 1000 };
+
 /** Expeditions this profile has arrived at, which is one of the two unlocks. */
 const finished = new Set(profile.runs.filter((r) => r.arrived).map((r) => r.expeditionId));
 const resumed = plan ? resumeRun(plan, runFor(profile, plan.id), planPrint) : { kind: "start" as const };
@@ -648,6 +725,23 @@ function act(action: Action): void {
       // sets the level up-vector rather than leaving the last one on.
       comfort = { ...comfort, bankFollow: BANK_FOLLOW_CANDIDATES[bankIndex]! };
       break;
+    case "cycleTextScale":
+      textIndex = (textIndex + 1) % TEXT_SCALE_CANDIDATES.length;
+      comfort = { ...comfort, textScale: TEXT_SCALE_CANDIDATES[textIndex]! };
+      applyTextScale();
+      break;
+    case "cycleUnits":
+      unitsIndex = (unitsIndex + 1) % UNIT_SYSTEMS.length;
+      comfort = { ...comfort, units: UNIT_SYSTEMS[unitsIndex]! };
+      // The map's labels are drawn rather than styled, so the next frame
+      // carries them - but the base raster does not depend on units and is
+      // not invalidated, which is the whole point of keeping it offscreen.
+      //
+      // The readouts are rebuilt rather than reused: the step is a property
+      // of the system, and a toggle the player just pressed should land on
+      // the next frame rather than wait out a hold (F46).
+      readouts = createReadouts(comfort.units);
+      break;
     case "toggleExpedition":
       flyingExpedition = run !== null && !flyingExpedition;
       // Starting is not flying here from the start: the expedition picks up
@@ -678,6 +772,10 @@ function act(action: Action): void {
     case "toggleStopwatch":
       stopwatch = !stopwatch;
       break;
+    case "toggleOperator":
+      operatorShown = !operatorShown;
+      showOperator();
+      break;
     case "reset":
       Object.assign(flight, createFlightState({ ...START, headingRad: Math.PI / 2 }));
       // The aircraft did not fly here, so neither did the expedition or the
@@ -686,6 +784,14 @@ function act(action: Action): void {
       break;
   }
 }
+
+/** Both operator blocks, from the one list `O` toggles. */
+function showOperator(): void {
+  for (const id of OPERATOR_BLOCKS) el(id).hidden = !operatorShown;
+}
+// Off at boot, from the same list rather than from a `hidden` attribute in
+// the markup, so there is one place that decides and it is the list.
+showOperator();
 
 // The help block is the table, so it cannot name a key the handler does not
 // have. Notes are the operator's, and stay in the table with the binding.
@@ -1115,12 +1221,16 @@ function frame(now: number): void {
   // Environment under the aircraft. Ground elevation is read back from the
   // same Int16 buffer the GPU is drawing, so HUD and picture always agree.
   const groundM = terrain.groundElevationM(flight.eastM, flight.northM) ?? 0;
-  const inlandKm = flight.eastM / 1000;
-  const northKm = flight.northM / 1000;
+  // Degrees, once a frame, for everything that is a function of where on the
+  // Earth the aircraft is rather than where in the grid: the climate
+  // stand-ins, the sun, and local solar time. The precipitation one used to
+  // be handed a projected easting and read the whole populated east as
+  // desert (F46).
+  const { latDeg, lonDeg } = unprojectAlbers(flight.eastM, flight.northM);
   const env: Environment = {
     groundElevationM: groundM,
-    groundTempC: standInGroundTempC(northKm, groundM, month),
-    monthlyPrecipMm: standInPrecipMm(inlandKm, northKm, month),
+    groundTempC: standInGroundTempC(flight.northM / 1000, groundM, month),
+    monthlyPrecipMm: standInPrecipMm({ latDeg, lonDeg }, month),
     windEastMs: 0,
     windNorthMs: 0,
   };
@@ -1198,27 +1308,53 @@ function frame(now: number): void {
     fpsFrames = 0;
   }
 
-  el("alt").textContent = Math.round(flight.altitudeM).toLocaleString();
-  el("gnd").textContent = Math.round(groundM).toLocaleString();
-  el("temp").textContent = tm.outsideAirTempC.toFixed(1);
-  el("hum").textContent = Math.round(tm.humidity * 100).toString();
-  el("climb").textContent = flight.verticalRateMs.toFixed(1);
+  // The five readings, in the player's units. Humidity is a percentage in
+  // both systems, which is why it has no entry in the units table.
+  //
+  // Every one of them goes through a readout rather than straight onto the
+  // screen: converted, quantised to a step the route was measured for, and
+  // held to the same half second the density flag is (F46). The conversion
+  // is still `units.ts`'s, so the number the toggle shows is the same number
+  // in another system - only its precision changes with it.
+  const u = comfort.units;
+  const nowS = now / 1000;
+  const write = (id: string, readout: SteadyReadout, value: number): void => {
+    readout.update(value, nowS);
+    el(id).textContent = readout.text();
+  };
+  write("alt", readouts.altitude, altitudeValue(flight.altitudeM, u));
+  write("gnd", readouts.ground, altitudeValue(groundM, u));
+  write("temp", readouts.temperature, temperatureValue(tm.outsideAirTempC, u));
+  write("hum", readouts.humidity, tm.humidity * 100);
+  write("climb", readouts.climb, climbValue(flight.verticalRateMs, u));
+  el("altUnit").textContent = altitudeUnit(u);
+  el("gndUnit").textContent = altitudeUnit(u);
+  el("tempUnit").textContent = temperatureUnit(u);
+  el("climbUnit").textContent = climbUnit(u);
 
   const bar = el("densityBar");
   bar.style.width = `${Math.round(tm.densityRatio * 100)}%`;
-  bar.classList.toggle("thin", tm.densityRatio < 0.7);
-  el("densityText").textContent = tm.densityRatio.toFixed(2);
+  // The same constant the sentence below is written from, rather than a
+  // second copy of 0.7: the bar's colour and "air too thin for boost" are one
+  // fact, and two copies of a threshold is how they would stop being one.
+  // One flag, two readouts. The bar's colour and the sentence below are the
+  // same fact, and the threshold behind both is the flight model's own.
+  const thin = airTooThin.update(tm.densityRatio < BOOST_MIN_SIGMA, nowS);
+  bar.classList.toggle("thin", thin);
+  write("densityText", readouts.density, tm.densityRatio);
 
-  el("mode").textContent = flight.mode.toUpperCase();
+  el("modeText").textContent = flight.mode.toUpperCase();
   const boost = el("boostState");
-  boost.textContent = tm.boostAvailable ? "boost ready" : "air too thin for boost";
-  boost.classList.toggle("dead", !tm.boostAvailable);
+  boost.textContent = thin ? "air too thin for boost" : "boost ready";
+  boost.classList.toggle("dead", thin);
   // The price of altitude, beside the climb rate that sets it. Descent is
   // gravity-assisted and unchanged by height; climb is power-limited and has
   // lost most of itself by plateau cruise, so a second of looking down costs
   // four seconds at the coast and two dozen over Tibet (F19). It is the
   // density bar's consequence, which the bar itself cannot show.
   const recovery = climbRecoveryRatio(LIGHT_PISTON, flight.altitudeM);
+  // Operator's, and it sits in the operator's column now: km/min is a build
+  // setting rather than a reading, and the climb budget is F19's number.
   el("ground").textContent =
     `${((tm.groundSpeedMs * 60) / 1000).toFixed(0)} km/min · max climb ${tm.maxClimbRateMs.toFixed(1)} m/s` +
     ` · 1 s down = ${Number.isFinite(recovery) ? `${recovery.toFixed(0)} s` : "∞"} up`;
@@ -1285,7 +1421,12 @@ function frame(now: number): void {
           : ` · ${Math.round(-room.marginM).toLocaleString()} m below the floor`
         : "") +
       (progress.arrived ? " · arrived" : "");
-    expedition.classList.toggle("warn", !progress.onRoute || room?.ok === false);
+    // Both halves of this are a continuous quantity against a threshold - the
+    // cross-track distance and the floor margin - so both can sit on the line.
+    expedition.classList.toggle(
+      "warn",
+      offPlan.update(!progress.onRoute || room?.ok === false, now / 1000),
+    );
   } else {
     expedition.textContent = "free flight · no expedition bundle for this world";
   }
@@ -1324,14 +1465,16 @@ function frame(now: number): void {
   // across sixty-two degrees of longitude, so flying west moves the sun
   // backwards against a clock that does not move at all. Shanghai to Lhasa is
   // two hours and two minutes of it (F41).
-  const { latDeg, lonDeg } = unprojectAlbers(flight.eastM, flight.northM);
   const sessionS = now / 1000;
   const sun = clock.sunAt(sessionS, latDeg, lonDeg);
-  el("clock").textContent =
-    `${clockString(clock.minutesAt(sessionS))} Beijing · ` +
-    `${clockString(clock.solarMinutesAt(sessionS, lonDeg))} by the sun · ` +
-    `sun ${sun.elevationDeg >= 0 ? "" : "−"}${Math.abs(sun.elevationDeg).toFixed(0)}°` +
-    `${sun.elevationDeg < 0 ? " below" : ""}`;
+  // Beijing on the HUD, the sun on the map. That is the GDD's own split -
+  // "The clock shows Beijing time, which is the point; the map overlay adds
+  // local solar time beside it so the Kashgar surprise can be understood on
+  // the spot" - and it is not the same instrument shrunk. A HUD line that
+  // already says the sun is two hours behind the clock has answered the
+  // question the map exists to ask, and it answers it where there is no
+  // longitude on screen to attach the answer to (F47).
+  el("clock").textContent = clockString(clock.minutesAt(sessionS));
 
   // The challenge, only while one is being flown. Two clocks and they are
   // different things: the deadline is the challenge's own and is always shown
@@ -1375,8 +1518,15 @@ function frame(now: number): void {
       track,
       aircraft: flight,
       showLine: true,
-    });
-    drawProfile(profileCtx, track);
+      // The other half of the clock. The HUD says Beijing; this says what the
+      // sun is doing at this longitude, which is the pair the GDD asks for
+      // and only makes sense with a map under it (F47).
+      caption:
+        `${clockString(clock.solarMinutesAt(sessionS, lonDeg))} by the sun · ` +
+        `sun ${sun.elevationDeg >= 0 ? "" : "−"}${Math.abs(sun.elevationDeg).toFixed(0)}°` +
+        `${sun.elevationDeg < 0 ? " below" : ""}`,
+    }, mapStyle());
+    drawProfile(profileCtx, track, mapStyle());
     // What the overlay costs the frame it is open on. Only measured while it
     // is open, because closed it costs nothing at all.
     mapMs = performance.now() - mapT0;
@@ -1403,7 +1553,8 @@ function frame(now: number): void {
   // see, and with the camera locked it is still the only place it shows.
   el("comfort").textContent =
     `fov ${comfort.fovDeg}° · ${bankFollowLabel(comfort.bankFollow)} · ` +
-    `bank ${((flight.bankRad * 180) / Math.PI).toFixed(0)}°`;
+    `bank ${((flight.bankRad * 180) / Math.PI).toFixed(0)}° · ` +
+    `text ${textScaleLabel(comfort.textScale)} · ${unitsLabel(comfort.units)}`;
   // Both axes, always, and the product they make. An operator's notes on a
   // G1 session are worthless if they record only one of the two.
   el("scaleText").textContent =
