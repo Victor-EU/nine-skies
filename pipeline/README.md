@@ -134,6 +134,15 @@ attach to shipped assets.
      cut from the coarse one, `make ground` writes `docs/ground-report.md` on
      every build and both cutters refuse to write an artefact over a hero
      area (D52, F53).
+   - **And what the areas are worth to the challenge they were cut for is
+     measured too.** `make gorges` writes `docs/gorge-report.md`: the largest
+     terrain-free disc the aeroplane's own position lies inside, at heights
+     above the water, which is what a full-bank reversal needs. Tiger Leaping
+     Gorge is **0.36 km** wide a hundred metres over the river and the turn
+     first fits 725 m above its rim; Wu Gorge reverses at `low` with 164 m of
+     wall still above it. Below the rim the 1 km grid reports no room at all,
+     because at that height it puts the aeroplane inside the hill it draws
+     where the reservoir is (D54, F55).
    - `cut` also writes **`hero/index.json`**, which is the file the engine
      fetches to find out what exists. Beside the areas rather than in the
      corridor manifest: that manifest is hashed into every route section's

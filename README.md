@@ -108,7 +108,8 @@ npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
 make challenges   # fly every authored challenge, and price what it asks for
 make ground       # the two elevation grids, and what is authored over them
-make test         # 746 TypeScript tests and 152 Python tests
+make gorges       # room to turn round, gorge by gorge
+make test         # 761 TypeScript tests and 152 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -121,7 +122,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-704 of the 746 TypeScript tests run without the world; the forty-two that do
+714 of the 761 TypeScript tests run without the world; the forty-seven that do
 not are the ones whose subject is the world itself. The HUD's own suite is in
 the first group: it flies Expedition 1 at sixty frames a second over the
 committed section and counts what each readout says (F46).
@@ -252,7 +253,11 @@ overlap the fine grid stands up to **374 m above** the coarse — more than the
 333 m the only authored expedition clears its worst terrain by. Nothing
 authored is over a hero area; that is measured on every build rather than
 remembered, and both cutters refuse to write an artefact that would be
-(D52, F53).
+(D52, F53). And [the gorge report](docs/gorge-report.md), which asks the two
+gorges this world has cut at 90 m whether the aeroplane can be turned round
+inside them: Tiger Leaping Gorge is **0.36 km** wide where a player would fly
+it, not the 1.3–8.0 km an earlier finding recorded from a coordinate 71 km
+away, and the gorge that can actually be threaded is the other one (D54, F55).
 
 Three worth reading first. **F1** was wrong twice before it was right. **F12**
 found that the Everest golden probe can never pass, because Copernicus GLO-30

@@ -17,6 +17,7 @@
 #   make atlas                      # what the journal can show, and what it cannot yet
 #   make challenges                 # every authored challenge flown, and whether it can be done
 #   make ground                     # the two grids, and what is authored over them
+#   make gorges                     # room to turn round, gorge by gorge
 #   make stations                   # re-cut where the frame budget is measured
 #   make test                       # every suite, TypeScript and Python
 #
@@ -29,7 +30,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles hero siting probes sources sections patches cut-key reference routes sessions teaches atlas challenges ground stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles hero siting probes sources sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -123,7 +124,7 @@ patches:
 cut-key:
 	npm run content:cut-key
 
-world: acquire sources grid tiles hero siting probes sections patches ground
+world: acquire sources grid tiles hero siting probes sections patches ground gorges
 	@echo "world built: $(WORLD_OUT)"
 
 ## The other gate: every authored route flown over real ground. Needs no flag
@@ -175,6 +176,19 @@ challenges:
 ## Expedition 1 clears its own worst terrain by (F53).
 ground:
 	npm run content:ground
+
+## Whether the GDD's *thread a gorge at low speed* has a gorge to be threaded
+## in. A full-bank reversal needs a level disc of its own diameter with no
+## ground in it, so this measures the largest such disc the aeroplane's own
+## position lies inside, at heights above the water, on both grids.
+##
+## A report and never a gate: every number feeds the open question of which of
+## the flight model, the speed modes and the challenge moves (F43, F55). Needs
+## the 90 m cover -- on the 1 km grid a hundred metres over the Three Gorges is
+## inside the hill that grid draws there, so the answer would be about
+## resampling rather than about a gorge.
+gorges:
+	npm run content:gorges
 
 ## Where the frame budget is measured (D25). Cut from the route, committed,
 ## and deliberately not part of `world`: a capture is only worth taking if it

@@ -4370,6 +4370,21 @@ only mode that would fit is `approach`, which is not in `SPEED_MODES` and
 cannot be selected by a player — D26 keeps it that way on purpose, because it
 is a local change of scale rather than a change of speed.
 
+> **Corrected, 21 September 2026.** The left-hand side of that comparison
+> stands — the reversal widths are the flight model's own and have had a test
+> since F38. The right-hand side does not. The cross-section table above was
+> taken along an axis through 26.87 N, 100.75 E, which F49 then measured as
+> **71 km from Tiger Leaping Gorge**, and on the 1 km grid, which F50 and F52
+> then showed fills a gorge in. The script that produced it is not in this
+> repository and cannot be re-run, which is the third thing wrong with it.
+>
+> Measured where the gorge is, on the 90 m grid, by a tool that is committed:
+> the aeroplane has **0.36 km** of room to turn a hundred metres over the
+> water and 1.15 km at four hundred, against the 1.3 to 8.0 km here. The
+> conclusion survives and gets worse — `approach` does not fit inside this
+> gorge either, and the ordering of the two candidate gorges reverses. See
+> F55.
+
 F38 had already written the general form of this down — *a corridor narrower
 than the aeroplane's own turn is not a corridor* — and a gorge is exactly
 that. Which of the flight model, the speed modes and the challenge moves is a
@@ -6473,3 +6488,203 @@ One thing the manifest had been publishing since the first corridor and the
 engine's type had never declared: `heights.tilesWithLand`. It is in the type
 now, which is how the 232 blank tiles could be checked against the four states
 adding up to them.
+
+## F55 — The gorge the aeroplane cannot turn inside was measured 71 km from the gorge, on the grid that fills gorges in, by a script that is not in the repository — and the other gorge can be threaded
+
+*21 September 2026, on `real-elevation-pipeline`.*
+
+The build plan's *the gorge is narrower than the aeroplane's own turn* is the
+user's decision, and it has been carrying one clause nobody could act on: *a
+second candidate exists since F52 — the Three Gorges are cut and their water
+is a reservoir rather than a river, which is a different channel entirely; how
+wide, against the same full-bank reversal, is unmeasured.*
+
+It is measured now, and measuring it found that the first candidate's number
+was wrong three ways over.
+
+### What F43 compared, and which half of it survives
+
+F43 put two numbers beside each other. The aeroplane's full-bank reversal at
+`low` — 5.1 km across the ground settled, 6.1 arriving from cruise — and a
+channel "1.3 to 8.0 km wide and 1.8 km at its middle".
+
+The first is the flight model's own and has had a test since F38. It
+reproduces to the decimal today: at 2,607 m, `reversalWidthM(alt, "low")` is
+5.13 km, which is F43's 5.1.
+
+The second was measured along an axis through **26.87 N, 100.75 E**. F49 then
+measured that coordinate as **71 km from Tiger Leaping Gorge** — a highland
+with 1,642 m of relief against the gorge's 3,823. It was measured on the
+**1 km country grid**, which F50 and F52 then showed raises a gorge floor by
+six hundred metres and cuts four to nine hundred off its walls. And the script
+that produced it is not in this repository: the table could be read and never
+re-run, which is why the only reason it was ever checked is that two other
+findings happened to walk past it.
+
+Three faults, one number, and the number is the one the decision rests on.
+
+### What replaces it, and why it is not a width
+
+A cross-section width needs an axis somebody has to draw, and F48 has already
+said what a hand-drawn axis is worth — a chord across country is not a
+centreline. So the measurement is geometric instead, and needs no axis at all:
+
+> A full-bank reversal needs a level disc of its own diameter with no ground
+> in it. At flight altitude `A`, what is the diameter of the largest such disc
+> that the aeroplane's own position lies inside?
+
+In a straight channel that *is* the channel's width, which is what makes it
+comparable to F43's table; at a bend or a confluence it correctly finds the
+extra room a cross-section cannot see. "With no ground in it" is the game's
+rule rather than an aviator's: `flight.ts` bounces the aeroplane at
+`BOUNCE_CLEARANCE_M` above the ground, so a cell is in the way when
+`ground + 25 >= A`.
+
+The disc must **contain** the aeroplane, because *threading a gorge* means
+turning round in the gorge. The largest disc anywhere in the reachable air is
+a different and much larger number: four hundred metres over the reservoir it
+is 4.90 km against 1.45, and it sits in open country forty kilometres away.
+
+Underneath it is an exact squared Euclidean distance transform —
+Felzenszwalb and Huttenlocher's separable lower envelope, O(cells) — rather
+than the obvious two-pass chamfer, which is a few per cent wrong on the
+diagonal and at 90 m cells that is tens of metres of gorge. The first version
+seeded its parabolas with `Infinity`; the envelope subtracts two of those, and
+`Infinity − Infinity` is `NaN`, which does not throw and reported a whole area
+as clear air — 33 km of turning room a hundred metres above the Yangtze. The
+test that fails without the finite stand-in is in the suite.
+
+### The subjects are not a list in the tool
+
+A hero area is cut to hold named places (`hero.py`'s `holds`), and the
+corridor manifest carries every place the world was built with. So the tool
+measures *every named place the 90 m grid covers*, and publishing an area over
+a place measures it. There is no second table to keep in step, which is the
+fault D46 was written about.
+
+That also means the control arrives for free. `shigu` is a broad valley on the
+same river 41 km above Tiger Leaping Gorge, and it is in the report because
+the gorge's own rectangle reaches it rather than because anybody chose a
+control.
+
+| place | 90 m ground | 1 km grid | wall within 1 km | within 4 km |
+| --- | ---: | ---: | ---: | ---: |
+| `qutang-gorge` | 158 m | 462 m (+304) | +837 m | +1,247 m |
+| `wu-gorge` | 160 m | 433 m (+273) | +964 m | +1,358 m |
+| `xiling-gorge` | 158 m | 419 m (+261) | +702 m | +1,397 m |
+| `tiger-leaping-gorge` | 1,807 m | 2,197 m (+390) | +900 m | +2,869 m |
+| `shigu` (the control) | 1,819 m | 1,852 m (+34) | +182 m | +1,136 m |
+
+The 90 m column corroborates two things measured elsewhere and not tuned to
+each other: the reservoir reads 158–160 m where the source runs it at 156–158
+(F52), and Tiger Leaping Gorge reads 1,807 m, which is the number
+`docs/probe-report-hero.md` prints for it.
+
+### Room to turn round
+
+| place | +100 m | +200 m | +400 m | +800 m | +1,600 m |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `qutang-gorge` | 0.80 km | 1.02 km | 1.45 km | 2.42 km | 28.44+ km |
+| `wu-gorge` | 0.74 km | 0.97 km | 1.61 km | 4.45 km | 26.24 km |
+| `xiling-gorge` | 0.90 km | 1.15 km | 1.80 km | 5.25 km | 31.65 km |
+| **`tiger-leaping-gorge`** | **0.36 km** | 0.65 km | 1.15 km | 2.35 km | 5.47 km |
+| `shigu` (the control) | 1.71 km | 2.20 km | 3.14 km | 5.37 km | 26.63 km |
+
+The reversal at `low` over this range is 4.02 to 5.60 km, widening with
+altitude because true airspeed does. A `+` means the hero area's own edge
+stopped the disc and the number is a floor — beyond an area there is no 90 m
+ground, and ground nobody has is not ground known to be clear.
+
+**Tiger Leaping Gorge is three hundred and sixty metres wide** where the
+aeroplane would fly it, not 1.3 km and not 1.8. The control reads 4.8× that at
+the same height, which is what a control is for.
+
+### The lowest height at which the turn fits
+
+Climbed in 25 m steps. Both sides of the comparison move: the gorge opens and
+the air thins, so the turn widens as the room does.
+
+| place | `low`, settled | against the wall |
+| --- | ---: | --- |
+| `wu-gorge` | **+800 m** | **164 m below the near rim** |
+| `xiling-gorge` | +750 m | 48 m above the near rim, 647 m below the far one |
+| `qutang-gorge` | +950 m | 113 m above the near rim, 297 m below the far one |
+| `tiger-leaping-gorge` | **+1,625 m** | **725 m above the near rim** |
+| `shigu` (the control) | +775 m | 593 m above the near rim |
+
+And `approach` — the mode F43 called "the only mode narrow enough", which D26
+deliberately keeps out of `SPEED_MODES` — fits at +550 m at Wu Gorge and at
+**+900 m at Tiger Leaping Gorge, which is exactly its near rim.** So F43's one
+escape route does not fit inside the gorge it was proposed for either. That
+conclusion is F43's, reached at the right coordinate and made worse by it.
+
+**The ordering of the two candidates reverses.** Tiger Leaping Gorge is the
+one the GDD's challenge is named for and the one this repository has always
+reached for; it cannot be threaded at any authorable speed. The Three Gorges
+— cut by F52 for a different reason entirely, and 190 km long — can be: at
+Wu Gorge the aeroplane can reverse at `low` eight hundred metres over the
+water with a wall still standing 164 m above it, and from cruise at +825 m
+with 139 m of wall. That is a gorge run flown inside a gorge.
+
+### The two directions of the grid disagreement are dangerous for different checks
+
+F53 measured the 90 m and 1 km grids against each other and named the
+dangerous direction: the fine grid standing *above* the coarse one is a
+clearance check passing over terrain the aeroplane meets. This measurement
+runs into the other direction, and it is dangerous too.
+
+| at +800 m | 90 m room | 1 km room |
+| --- | ---: | ---: |
+| `wu-gorge` | 4.45 km | **11.68 km** |
+| `xiling-gorge` | 5.25 km | 6.05 km |
+| `tiger-leaping-gorge` | 2.35 km | 2.17 km |
+
+The coarse grid shaves ridges (F51: 390 m below the fine grid's), so above the
+valley floor it reports **2.6× the room that is there**. Coarse-above-fine
+flies safe for clearance and generous for turning; fine-above-coarse is the
+reverse. One disagreement, two checks, opposite signs — which is the argument
+for the rule F53 arrived at rather than for either grid.
+
+And below the rim the coarse grid has no gorge at all. **A hundred and two
+hundred metres over the Three Gorges it reports zero room**, because at 258 m
+the aeroplane is two hundred metres inside the hill that grid draws where the
+reservoir is. Measuring a gorge on the country grid answers a question about
+resampling.
+
+### What this does not say, and what it does not change
+
+It does not say what a whole reach does. These are five sited points; a course
+is flown between them and the narrowest place on the water binds. Finding that
+wants the channel centreline stage 3 would bring (D45, F48), and a chord
+between two of these is not it.
+
+Nor is the disc a circle between two walls. At Wu Gorge it is 4.45 km across
+while the wall a kilometre away stands 964 m over the water, so the turn is
+using the reservoir where it opens out — F52's own note says that reach is
+47.7 km of narrows "in two runs either side of a 5 km opening". The rim
+figures are the highest ground within 1 km and within 4 km, which is what
+`siting.py` reports and not a claim about the whole circle. What the number
+says exactly is what it says: a level circle of that diameter, with no ground
+in it, that the aeroplane is inside.
+
+It changes nothing that is built and gates nothing. A gorge challenge is not
+authorable today whatever these numbers say — a patch is cut from the 1 km
+grid and `cutPatch` refuses to write one over a hero area (D52, F53) — and
+which of the flight model, the speed modes and the challenge moves stays the
+user's decision. What it changes is that the decision now has both candidates
+priced, and the number it was resting on was wrong.
+
+### What it cost
+
+**761 TypeScript tests in 63 files, up from 746**, 714 of them with
+`dist-world/` moved aside — ten of the fifteen are the arithmetic over
+synthetic ground and need no world, which is deliberate: a straight channel of
+a known width is the one case where the answer is knowable without measuring
+anything, and it is the case that catches the transform seeded with `Infinity`.
+
+`tools/gorge.ts` is the measurement and `tools/gorgeReport.ts` writes
+`docs/gorge-report.md`; `npm run content:gorges`, `make gorges`, last in
+`make world` beside `ground`. Nothing in the pipeline moved and no artefact
+was re-cut: this reads the world that is built and writes a report. The one
+edit outside the new files is a comment in `test/sim/reversal.test.ts` that
+repeated F43's "roughly 2 km between its walls".

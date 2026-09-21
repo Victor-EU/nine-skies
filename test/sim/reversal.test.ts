@@ -40,9 +40,13 @@ describe("a full-bank reversal", () => {
   });
 
   it("is kilometres wide at every mode, which no gorge is", () => {
-    // The aeroplane turns in about 200 m of air at `low` and 2 km of ground,
-    // because the compression multiplies the turn by the mode's ground gain.
-    // Tiger Leaping Gorge is roughly 2 km between its walls.
+    // The aeroplane turns in about 200 m of air at `low` and kilometres of
+    // ground, because the compression multiplies the turn by the mode's ground
+    // gain. This comment used to say Tiger Leaping Gorge is "roughly 2 km
+    // between its walls", which was F43's channel width -- measured 71 km from
+    // the gorge (F49) on the grid that fills a gorge in (F50). Measured where
+    // the gorge is, on the 90 m grid, the aeroplane has 0.36 km of room to
+    // turn a hundred metres over the water and 1.15 km at four hundred (F55).
     expect(reversalWidthM(2500, "low")).toBeGreaterThan(2_000);
     expect(reversalWidthM(2500, "approach")).toBeGreaterThan(2_000);
   });
