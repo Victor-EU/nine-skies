@@ -1,0 +1,72 @@
+# Challenge 1 — The high airfield.
+#
+# The GDD names four of the twelve challenges and this is the first of them:
+# *land at a 4,411 m airport*. That is Daocheng Yading in western Sichuan, the
+# highest civil airfield in the world, and it is 4,387.7 m on our 1 km grid —
+# 23 m under the published figure, which is the closest any probe in this
+# repository has come to a published elevation outside the two golden ones.
+#
+# Three things about it are measured rather than chosen, and F43 has the
+# workings.
+#
+#   It is not a landing and it cannot be one. `flight.ts` bounces the
+#   aeroplane off terrain at ground + 25 m rather than crashing it, which is
+#   the GDD's own rule — no stalls, no crashes — so there is no altitude below
+#   25 m and a challenge authored there is passed by flying at the hill. The
+#   schema refuses it. What this asks for instead is 200 m over the field at
+#   the slowest pace the aeroplane has, which is a low pass at a high airfield
+#   and is the thing the game can actually express. It is the same wall F22
+#   hit from the other end, where the route check has no `landing` kind.
+#
+#   The bite is the air, not the geometry. The field sits in a shallow bowl:
+#   the rim ten to twenty kilometres out stands at 4,450 to 4,800 m, so the
+#   descent onto it is two hundred metres and nothing. What is hard up here is
+#   everything else — the aeroplane has 2.2 m/s of climb left at 4,411 m
+#   against 7.1 at the sea, every control lag is 1.6x longer, and the highest
+#   ground within a hundred kilometres is 5,667 m against a 6,197 m ceiling.
+#   Five hundred and thirty metres of headroom is the whole margin.
+#
+#   The gate is where the rim is. Twenty kilometres east of the field the
+#   ground rises to 4,774 m, which is 386 m above the airfield: the approach
+#   crosses a ridge and then has to be down. Its floor is the rim plus the
+#   clearance the route checks use.
+#
+# The name and the framing are a writer's. What is engineering here is the
+# geometry, and `npm run content:challenges` flies it.
+
+id: high-airfield
+name: The high airfield
+bite: Two hundred metres over the world's highest airfield, in air that gives the engine a third of its power
+
+# Late October: the plateau is clear and the field is still open.
+month: 10
+# Mid-morning, so nothing here depends on the light.
+start_hour: 10
+speed: low
+
+start:
+  lat: 29.3231
+  lon: 100.7740
+  altitude_m: 5400
+  heading_deg: 270
+
+objectives:
+  - kind: gates
+    id: rim
+    label: Cross the eastern rim between 4,800 and 5,000 m
+    gates:
+      - lat: 29.3231
+        lon: 100.2590
+        bearing_deg: 270
+        width_km: 12
+        floor_m: 4800
+        ceiling_m: 5000
+
+  - kind: land
+    id: low-pass
+    label: Below 200 m over Daocheng Yading, at low pace
+    lat: 29.3231
+    lon: 100.0533
+    radius_km: 4
+    max_agl_m: 200
+    max_speed: low

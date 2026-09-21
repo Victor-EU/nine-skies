@@ -33,7 +33,29 @@ export interface CorridorManifest {
   readonly source?: { bucket?: string; tiles?: number; sha256?: string; unrecorded?: boolean };
 }
 
-export interface Corridor {
+/**
+ * The part of a built world that answers "what is under this point?".
+ *
+ * Split out from `Corridor` because it is all a flown challenge ever asks,
+ * and a committed patch of ground can answer it without being a corridor
+ * (D39). A `Corridor` satisfies it; so does `patchGround`.
+ */
+export interface GroundField {
+  /** Bilinear ground elevation in real metres, from the country origin. */
+  groundAt(eastM: number, northM: number): number;
+  /**
+   * Whether this build has ground under a point at all.
+   *
+   * `groundAt` answers 0 where there is nothing, which is indistinguishable
+   * from the East China Sea. A corridor is a strip and a patch is narrower
+   * still, so anything flown across the edge reads as a flight over calm
+   * water and clears everything -- the worst possible failure for a gate,
+   * because it is silent and it is green.
+   */
+  covers(eastM: number, northM: number): boolean;
+}
+
+export interface Corridor extends GroundField {
   readonly manifest: CorridorManifest;
   /**
    * The heightfield's digest as measured, not as the manifest claims it.
@@ -44,17 +66,17 @@ export interface Corridor {
    * is already in memory by the time this is computed.
    */
   readonly heightsSha256: string;
-  /** Bilinear ground elevation in real metres, from the country origin. */
-  groundAt(eastM: number, northM: number): number;
   /**
-   * Whether this build has tiles under a point at all.
+   * One sample of the world's own lattice, or null where nothing is built.
    *
-   * `groundAt` answers 0 outside the built window, which is indistinguishable
-   * from the East China Sea. A corridor is a strip, so a route that leaves it
-   * reads as a flight over calm water and clears everything -- the worst
-   * possible failure for a gate, because it is silent and it is green.
+   * `groundAt` answers a question the world does not hold: an elevation
+   * between four samples, at a point no raster cell is centred on. This
+   * answers the question it does hold, which is what makes a committed patch
+   * of ground possible -- a patch cut from these numbers is a subset of the
+   * world rather than a resampling of it, and reproduces `groundAt` exactly
+   * rather than to a rounding (D39, F44).
    */
-  covers(eastM: number, northM: number): boolean;
+  sampleAtKm(i: number, j: number): number | null;
 }
 
 export function loadCorridor(dir: string): Corridor | null {
@@ -90,6 +112,7 @@ export function loadCorridor(dir: string): Corridor | null {
   return {
     manifest,
     heightsSha256: createHash("sha256").update(bytes).digest("hex"),
+    sampleAtKm: (i, j) => (inWindow(i, j) ? sampleAt(i, j) : null),
     // The window is a rectangle in tile space and the tile index rises with
     // the cell index, so the two opposite corners of the bilinear stencil
     // decide all four.

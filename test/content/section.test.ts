@@ -154,6 +154,7 @@ describe("a corridor that does not match its own manifest", () => {
       heightsSha256: "b".repeat(64),
       groundAt: () => 100,
       covers: () => true,
+      sampleAtKm: () => 100,
     };
     const result = cutSection(seaToSky(), lying, throwaway().sign);
     expect("problem" in result).toBe(true);

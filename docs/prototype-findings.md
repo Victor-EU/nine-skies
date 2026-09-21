@@ -4109,3 +4109,547 @@ projection to under a nanometre across every point in the committed
 projection table.
 
 Twenty-two tests; 503 in all.
+
+## F42 — The map is the surface D30's teleport verb was built for, nothing recorded where the aircraft had been, and the first version of the overlay cost a whole frame
+
+The map overlay is phase 2's, and two decisions have been made in
+anticipation of it without it existing. D30 split `advance` from `moveTo`
+because *"free flight jumps to map pins, and a 2,900 km jump asked as a
+flight collects every catchment near the line"* — a map jump, from a map
+there was not. And the horizon field's own comment asks for it: *"having the
+map and the horizon read the same array is the point: the wall you fly
+towards and the wall drawn on the map cannot disagree."*
+
+So most of what a map needs was already built and already in world metres.
+One thing was not.
+
+### Nothing knew where the aircraft had been
+
+The runner knows how far along a route the aircraft is (F38), the profile
+knows where it stopped (F39), the atlas knows what it found (F40). None of
+them knows the path. In free flight — which is where most of the atlas is met
+— there was no record of it at all.
+
+The GDD asks for *a live elevation profile sampled from the resident tile
+cache over the last 200 km*, and the cache can answer: the terrain makes a
+**disc** of radius six tiles resident, 384 km, and re-makes it every frame, so
+the last 200 km of ground is always in memory and is never the layer an
+insert evicts. What is not in memory is *which* 200 km. Sample the cache along
+a straight line back from the aircraft and the first turn makes it fiction.
+
+So the path is recorded as it is flown, at **one sample a kilometre** —
+the resolution the ground itself has (D21), against 5,500 points for the same
+200 km if it were recorded per frame at cruise.
+
+### A teleport lifts the pen, for the third time
+
+The same seam as the route (D32) and the card catchments (D30, F40), now on
+the one surface whose entire job is to say where the player has been: a track
+that joined the two ends of a jump would draw a line across China that nobody
+flew.
+
+Writing that produced a second bug immediately, and the profile said so out
+loud. The first version recorded a point *at* the teleport, and the profile
+read `ground 0–0 m` in the middle of the Hengduan — because the tile under a
+jump is not resident on the frame the jump happens, so the ground reads null
+and a coerced zero is sea level. `moveTo` records nothing now; it lifts the
+pen and moves the distance reference, and the next `advance` writes the first
+point of the new leg with ground the terrain has actually loaded. A sample
+whose ground is still unknown is skipped rather than invented, which also
+covers the edge of the built corridor.
+
+### 200 km is between forty-six seconds and nine minutes of flying
+
+| mode | ground per minute | 200 km is |
+| --- | ---: | ---: |
+| `boost` | 260.0 km | 0.77 min |
+| `cruise` | 130.0 km | 1.54 min |
+| `low` | 43.3 km | 4.62 min |
+| `approach` | 21.7 km | 9.23 min |
+
+Twelve times, across one window. F39 reached the opposite conclusion about a
+save — *an autosave is a clock, not a distance* — and the two are consistent
+rather than in tension: **a save is about what the player did, so it is
+measured in their time; a profile is about what the ground did, so it is
+measured in ground.** Two hundred kilometres of the Hengduan is the same
+amount of terrain whether it took ninety seconds or nine minutes.
+
+### The ground inside that window varies seventy-eight-fold
+
+Measured over Expedition 1, the relief inside the trailing 200 km:
+
+| | relief | where |
+| --- | ---: | --- |
+| flattest | **57 m** | km 900, the eastern plain |
+| roughest | **4,464 m** | km 1,867, the Hengduan |
+
+An axis fitted to the window would draw the plain's 57 m of noise at the full
+height of the widget and make farmland look like the Hengduan. That is F14's
+mistake with a different instrument — a drama setting tuned on a stand-in
+world 15× smoother than China. So the profile is drawn at a **fixed 6,000 m**
+and the renderer is handed the band rather than an autoscale (D36).
+
+### The horizon field is the map's picture and not its profile
+
+The base layer needed nothing new: the 8 km country reduction the impostor
+reads is 841 × 553 samples, 908 kB, already loaded at boot. But it cannot
+supply the elevation profile, and the reason is the thing that makes it good
+at its own job. `SILHOUETTE_BIAS` is 0.6 — biased toward the cell maximum, so
+a distant range keeps its crests instead of arriving as a low hump.
+
+Against the 1 km ground actually under Expedition 1, it reads **high at 92 %
+of kilometres, by 229 m on average and 1,826 m at worst**. Right for the wall
+ahead; wrong for the ground just flown over, where it would tell a player they
+cleared a ridge by nearly two kilometres more than they did. The map's picture
+and the map's profile want different arrays, and saying so is the whole of it.
+
+What the base cannot do yet is be a country. The corridor fills **11.6 %** of
+the country grid, so most of the map is empty until phase 2 builds the rest —
+a data gap, not a drawing one.
+
+### The first version of the overlay cost 36.7 ms
+
+One `fillRect` per 8 km cell, every frame: **89,088 cells, 36.7 ms** — more
+than the whole 33.3 ms frame budget, for a picture that does not change.
+
+The field is rasterised once at its own resolution, one pixel per cell —
+336 × 264 for the corridor window — into an offscreen canvas, and the frame
+blits it with a single scaled `drawImage`. Rebuilt only when the widget or the
+bounds change, which is on open and on resize.
+
+**36.7 ms → 0.20 ms.** A hundred and eighty times, from a frame budget to
+0.6 % of one, and it looks better: the blit is smoothed where 89,088 rectangles
+were not. Closed, the overlay costs nothing at all, because it is not drawn.
+
+`__ns.mapMs()` reports it, in the same spirit as `fieldMs`.
+
+### What is on it
+
+Route from the plan's projected waypoints — the ones the content gate flew.
+Pins for **found** entries only, because a pin for a card nobody has met is
+the exact pin the GDD refuses to give (F40). The track, pen up across
+teleports. The Heihe–Tengchong line, drawn from the same two endpoints the
+pipeline's equal-area probe measures the 57/43 land split against, with a test
+that reads them out of `probes.py` so the two cannot drift. A scale bar from
+the view's own metres per pixel. And `M` opens it, which is the key the GDD's
+first five minutes ends by showing the player.
+
+One rule in the transform: **it never stretches.** The projection is
+equal-area by D1 — *"honest scale" is an equal-area claim; Xinjiang has to be
+bigger* — and a map that fitted the widget by scaling each axis on its own
+would throw that away on the one surface where two provinces are visible at
+once. It letterboxes.
+
+Twenty-one tests; 524 in all.
+
+## F43 — Six primitives, four behaviours, and an aeroplane that cannot turn inside a gorge
+
+The build plan's challenges row is one sentence: *"six objective primitives
+(land-in-radius, gate sequence, reach-before-time, hold-altitude,
+stay-on-instruments, follow-line) cover all twelve. Instant retry, timer off
+by default."* The GDD names four of the twelve and nothing else about them:
+*land at a 4,411 m airport, thread a gorge at low speed, cross a dust storm on
+instruments, race the sunset along the Great Wall.*
+
+Every one of those four was measured before a line of the schema was written,
+because "cover all twelve" is a claim about twelve things of which four exist
+as sentences and zero as files. **One of the four can be authored today. One
+needs a decision. One needs the 90 m hero grid. One needs weather.** And the
+sixth primitive is not a primitive.
+
+### The six are four, and the sixth is a modifier
+
+*Reach-before-time* is *land-in-radius* with the landing conditions off and a
+deadline above it — and the deadline cannot belong to the objective, because
+the GDD says in the same breath that *"the timer is off by default with a
+toggle for players who want it"* and that one of the twelve is a race against
+the sunset. A timer that can be switched off cannot be that race's deadline.
+
+So there are two clocks and they are different things:
+
+| | what it is | shown |
+| --- | --- | --- |
+| **deadline** | part of the challenge, authored, ends the attempt | always, where there is one |
+| **stopwatch** | how long this attempt has taken, scored against nothing | off by default |
+
+With them apart, the fifth and sixth collapse too. *Stay-on-instruments* is
+*hold-altitude* with a heading beside it: the obscuring half is weather the
+aeroplane flies through, not anything an objective can test, and what is
+actually scored either way is a band held for a duration. **Six names an
+author needs; four behaviours an engine has.** The schema keeps all six
+because they are six different things to write down, and `ObjectivePlan` has
+four members, which is where the finding lives in the type system.
+
+### There is no landing, and this is the second time
+
+`flight.ts` bounces the aeroplane off terrain at **ground + 25 m** rather than
+crashing it, which is the GDD's own rule — *no stalls, no crashes; flying into
+terrain bounces you up with a soft camera shake.* The consequence for a
+*land-in-radius* objective is exact: 25 m above the ground is not a difficult
+altitude, it is the only altitude below which nothing exists. An objective
+authored under it can never be met; one authored at it is met by flying at the
+hill.
+
+This is F22's wall reached from the other side. There is no `landing` kind in
+the expedition schema because the altitude floor keeps its terrain margin to
+the threshold and the lowest legal trajectory over flat ground still arrives
+300 m up. Different arithmetic, different system, same conclusion: **this
+game's aircraft does not land.** The schema refuses `max_agl_m ≤ 25` by name
+and the challenge that ships is a low pass.
+
+### The four the GDD names, priced
+
+**Land at a 4,411 m airport — authorable, and the number survives.** Daocheng
+Yading, 29.32 N 100.05 E, the highest civil airfield in the world, and it is
+inside the built corridor:
+
+| | published | our 1 km grid | gap |
+| --- | ---: | ---: | ---: |
+| Daocheng Yading | 4,411 m | **4,387.7 m** | −23.3 m |
+| Lhasa Gonggar | 3,570 m | 3,581.2 m | +11.2 m |
+
+The aeroplane can get there: the ceiling is **6,197 m** at 0.5 m/s of residual
+climb, and at 4,411 m it still has **2.20 m/s** against 7.11 at the sea. What
+makes it a challenge is what is left over — the highest ground within a
+hundred kilometres of the field is **5,667 m**, so the margin under the
+ceiling is **530 m**, and every control lag is 1.6× longer up here. The field
+itself sits in a shallow bowl whose rim ten to twenty kilometres out stands at
+4,450–4,800 m, so the descent onto it is two hundred metres and nothing. The
+bite is the air, not the geometry, which is the game's own thesis.
+
+**Thread a gorge at low speed — no, and not for a reason more terrain data
+fixes.** Two separate problems, and the second is the one that does not go
+away.
+
+The grid has filled the gorge in. Tiger Leaping Gorge, nine cross-sections
+along its own axis, on the 1 km grid:
+
+| along | floor | rim | depth | channel within 400 m of the floor |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 % | 1,927 m | 3,488 m | 1,561 m | 4.8 km |
+| 25 % | 2,145 m | 4,799 m | 2,654 m | 8.0 km |
+| 50 % | 2,165 m | 4,842 m | 2,677 m | 1.8 km |
+| 75 % | 2,150 m | 4,439 m | 2,289 m | 1.5 km |
+| 88 % | 2,028 m | 4,190 m | 2,162 m | **1.3 km** |
+
+The published river runs at about 1,800 m and the walls stand at 5,396 and
+5,596 m; ours reads 2,448 m at the river and 4,508 / 5,192 m at the walls. So
+the grid has raised the floor by six hundred metres and lowered the walls by
+four hundred to nine hundred — F12's finding about Everest, in a landform
+where it costs the whole feature. That half the hero grid fixes.
+
+The half it does not: **the aeroplane's turn is wider than the gorge.** At the
+airspeed it holds, a full-bank turn at `low` is about 200 m across — and the
+aeroplane does not move at its airspeed. Horizontal motion carries the mode's
+ground gain, 19× at `low` and 42× at cruise, so the turn the terrain sees is
+the ground-speed one. Measured through the flight model at gorge altitude:
+
+| at 2,500 m | settled at the mode | arriving from cruise |
+| --- | ---: | ---: |
+| `approach` | 2.5 km | 3.1 km |
+| `low` | 5.1 km | 6.1 km |
+
+Against a channel that is **1.3 to 8.0 km wide and 1.8 km at its middle**. At
+the speed the GDD names, one reversal is two to four times the width of the
+gorge. Nothing can be threaded; it can only be flown straight through. The
+only mode that would fit is `approach`, which is not in `SPEED_MODES` and
+cannot be selected by a player — D26 keeps it that way on purpose, because it
+is a local change of scale rather than a change of speed.
+
+F38 had already written the general form of this down — *a corridor narrower
+than the aeroplane's own turn is not a corridor* — and a gorge is exactly
+that. Which of the flight model, the speed modes and the challenge moves is a
+design decision.
+
+**Cross a dust storm on instruments — the objective is built; the storm is
+three orders of magnitude away.** The holding half runs today: a band, a
+heading, a duration, tested. The obscuring half needs a visibility the
+atmosphere cannot produce. At the shipped `DEFAULT_HAZE_DENSITY_PER_M` of
+2.75 × 10⁻⁶, the air is **95 % obscured at 1,184 km** at 500 m altitude. A
+dust storm is a kilometre of visibility, and because visibility goes as 1/ρ
+the factor is exactly the ratio of those two distances: **1,184× the shipped
+haze**, and local rather than global, where the haze is one uniform for the
+whole world. That is phase 3's weather, and it is worth knowing it is a factor
+of a thousand rather than a tuning pass.
+
+**Race the sunset along the Great Wall — a race at exactly one clock rate, and
+the rate is undecided.** Shanhaiguan to Jiayuguan is **1,802 km**. Because
+China keeps one clock across all of it, the sun sets later in the west by four
+minutes a degree, and the head start is almost the same all year — it is
+longitude, not season:
+
+| month | sunset, east end | sunset, west end | head start |
+| ---: | ---: | ---: | ---: |
+| March | 18:07 | 19:33 | 86.0 min |
+| June | 19:31 | 20:56 | 85.4 min |
+| September | 18:11 | 19:37 | 85.7 min |
+| December | 16:37 | 18:03 | 86.4 min |
+
+Against 86 clock minutes of head start, the flight costs 41.6 minutes at
+`low`, 13.9 at cruise and 6.9 at boost. At the shipped **1× clock the player
+wins by 72 minutes** at cruise and arrives in broad daylight; at **aircraft
+time (23.8×) they lose by four hours** at every mode. It is a contest only
+where those cross:
+
+| mode | dead heat at |
+| --- | ---: |
+| `low` | ×2.06 |
+| cruise | ×6.18 |
+| boost | ×12.36 |
+
+So the GDD's one explicitly timed challenge is scored on a number nobody has
+chosen — *how fast does the world's clock run* is still open from F41 — and
+the answer changes it from trivial to impossible with nothing in between. The
+Great Wall is also outside the built corridor, so it cannot be authored until
+phase 2 in any case.
+
+### The aeroplane's turn, and F38's table explained
+
+`reversalWidthM` is in `flight.ts` now rather than in somebody's scratch
+file. It flies the model — full stick, level, until the heading has come
+through 180° — because the roll-in lag is a third of the answer and no closed
+form has it.
+
+It reproduces F38's six published figures **to the decimal**, and finding out
+why took a second parameter. F38 measured the reversal of an aeroplane that
+had *just changed speed mode*; indicated airspeed decays over `TAU_SPEED_S`
+and the turn happens during the decay:
+
+| | settled at the mode | from cruise (F38's table) |
+| --- | ---: | ---: |
+| `low`, 1,200 m | 4.4 km | **5.3 km** |
+| `low`, 4,500 m | 6.3 km | **7.8 km** |
+| cruise, 1,200 m | 16.2 km | **16.2 km** |
+| cruise, 4,500 m | 23.3 km | **23.3 km** |
+| boost, 1,200 m | 42.2 km | **36.0 km** |
+| boost, 4,500 m | 28.8 km | **23.3 km** |
+
+Cruise matches both ways because it *is* cruise. Both numbers are real: the
+settled one is the narrowest the aircraft can ever manage, the transient one
+is what a player gets, and the authoring check uses the wider.
+
+### A disc can be tested at a point; a gate cannot
+
+At 30 fps the aircraft moves **12 m per frame at `approach`, 24 at `low`, 72
+at cruise and 144 at boost**. A disc wider than about 150 m therefore always
+contains a sample and its conditions can be read there. A gate has no width at
+all in the direction of flight, so it is never sampled and only a crossing
+test finds it — which makes this the first place in the build where a point
+test is wrong at *every* frame rate rather than only at the fast ones. D30 was
+about a poll rate; this is about geometry.
+
+So discs are tested by containment and gates by crossing, and both take the
+two verbs everything else that watches the aircraft takes. A `ReachDisc` that
+sees a segment cross its circle with no sample inside it counts that
+separately — `clippedWithoutSample` — because that is the instrument failing
+rather than the player passing or failing.
+
+**A teleport credits nothing.** The fourth instance of D30's seam, and the
+first where it is about credit rather than about narration: `__ns.goTo`
+exists, the map has pins, and an operator drops a playtester at km 900 (F28).
+A challenge is something the player is *credited with*, so `jump` re-seats the
+position, clears anything mid-hold, and scores nothing at all.
+
+### A challenge is not data until something has completed it
+
+D17's rule, one level down. *Below 200 m over a 4,411 m airfield* is an
+approach or an impossibility depending on the descent rate, the density lag
+and the rim of the bowl — none of which are in the file, and none of which a
+parser can reach. So `flyChallenge` flies an autopilot along the course and
+scores the objectives exactly as the game does.
+
+It earned its place on the first run. The authored gate started at 4,900–5,800
+m over a rim twenty kilometres from the field, and **the challenge could not
+be completed**: crossing the rim at 5,350 m leaves 862 m to lose in the 27
+seconds those twenty kilometres last, against a descent that asymptotes at
+18 m/s. The gate band came down to 4,800–5,000 and it flies. Nobody would have
+found that by reading the file.
+
+Flown in the browser by hand afterwards, the same challenge completes in
+**70.7 s against the probe's 69** — which is the cross-check that matters,
+because it says the offline gate and the game are the same experiment.
+
+### What the check measures
+
+`npm run content:challenges`, and `make challenges`. Per challenge: the ground
+the world puts under every place it names, every authored width against a
+full-bank reversal at its own speed and altitude, the flown result with the
+lowest height above ground it reached, and — for a sunset — the deadline
+computed where the challenge ends and priced at every clock rate.
+
+It is a gate rather than a report, unlike `teaches` and `atlas`: a challenge
+whose objectives cannot be met is broken rather than unwritten. It is **not**
+in CI, and the reason is a gap: a challenge is a set of points rather than a
+route, so there is no committed section under it the way D21 gives every
+expedition. The structural half — the bounce floor, the gate bands, the
+deadline — runs everywhere with the rest of content validation.
+
+### What the save keeps
+
+`SAVE_VERSION` 1 → 2, one field: the ids of challenges finished. The GDD is
+explicit that there is nothing else to keep — *"each is done or not done; no
+medals or leaderboards"* — so a best time is deliberately not stored, because
+a stored best time is the first half of a leaderboard. The stopwatch is scored
+against nothing and the profile does not know it exists.
+
+**Built.** `engine/src/challenge/` — `objectives.ts` (the four behaviours),
+`challenge.ts` (the run, the two clocks, the retry), `plan.ts` (the bundle
+form), `fly.ts` (the probe); `reversalWidthM` in `flight.ts`; the challenge
+schema and its refusals in `content/schema.ts`; `tools/challenge.ts` and
+`tools/challengeCheck.ts` with `tools/challenges.ts` as the report; one
+authored challenge; `G`, `T` and `Y` in the binding table; `__ns.startChallenge`,
+`getChallenge` and `retryChallenge`. Bundle version 3 → 4. **576 tests, up
+from 524.**
+
+**Action.** Three of the GDD's four named challenges are blocked and the
+blocks are different in kind — the gorge is a design decision, the dust storm
+is phase 3's weather, the sunset is the clock-rate decision plus the
+full-country build. The eleven unwritten challenges are a writer's. And the
+flown gate wants a way to run in CI, which means the challenge equivalent of a
+route section: the ground under a challenge's own places, committed beside it.
+
+---
+
+## F44 — The ground under a challenge, and the hole that reported a safer flight
+
+**Question.** F43 left the flown challenge gate outside CI, and the reason
+looked structural: a challenge is a set of points rather than a route, so there
+is nothing to commit beside it the way D21 commits a profile beside every
+expedition. Is that true, and if it is not, what is the artefact?
+
+### A route asks the world a one-dimensional question; a challenge does not
+
+D21 works because `profileAlong` has already reduced the corridor to 2,932
+numbers before the first flight starts. The check never asks the world anything
+with two dimensions in it — it asks for the ground at a distance along a line,
+and those answers *are* the section.
+
+A challenge has no line. The path between its points is discovered by flying,
+so there is no distance to index by. What there is, is a lattice: the world is
+Int16 samples one kilometre apart in the Albers grid and `groundAt` is bilinear
+between four of them. So the two-dimensional question has a finite answer too —
+**the cells a flight can reach** — and the artefact is a swath of the world's
+own lattice, one row of spans per kilometre of northing, following the course
+the probe is steered along.
+
+The flown gate now runs everywhere. `high-airfield` is **12.2 kB** of committed
+JSON, 1,726 cells in 23 rows, against the corridor's 9.76 MB and 4.88 M lattice
+samples — **0.035 % of the ground it was cut from**.
+
+### The patch is a subset of the world, not a resampling of it, and that buys exactness
+
+This is the difference from a section, and it is the whole reason the artefact
+is shaped this way. A section stores *answers*: elevations interpolated at
+stations along a line that crosses the lattice diagonally, at points no raster
+cell is centred on. It therefore has a rounding to choose, and F24 measured
+what the choice costs — whole metres move Expedition 1's lowest arrival by
+3.2 m, decimetres by 14 mm.
+
+A patch stores the numbers the pipeline wrote. There is no rounding to choose,
+and so none to defend:
+
+| | route section | ground patch |
+| --- | --- | --- |
+| what is stored | interpolated elevations along a line | the lattice samples themselves |
+| precision | decimetres, measured (F24) | whole metres, exact |
+| agreement with the world | 0.05 m tolerance | **0 m, at all 4,740 ground reads a flight makes** |
+| the flight it produces | the same to a tolerance | `done in 68.9333 s`, `45.4635 m`, both ways |
+
+Zero is not a tolerance that happened to hold. Bilinear interpolation over the
+patch and over the corridor are the same arithmetic over the same integers, so
+`PATCH_DRIFT_TOLERANCE_M` is `0` and any disagreement at all is a rebuilt world
+that never reached the artefact.
+
+### The shape is the swath and not the box
+
+A bounding box would have been three lines shorter. The one authored challenge
+does not care — its swath is 83 % of its box. The next challenge the GDD names
+does:
+
+| course | margin | swath | bounding box | swath as % of box |
+| --- | ---: | ---: | ---: | ---: |
+| high airfield, 69 km | 9 km | 1,726 | 2,070 | 83 % |
+| Shanhaiguan → Jiayuguan, 1,801 km | 9 km | 36,535 | 216,818 | **17 %** |
+| the same, allowed to follow the Wall | 10 km | 38,853 | 680,400 | **6 %** |
+
+So the box is wrong by six to seventeen times for the Great Wall sunset race,
+and the row-span form costs nothing on the compact case.
+
+### How wide: the aeroplane's own turn, measured against what it needs
+
+The margin is the full-bank reversal from cruise at the challenge's own speed
+and starting height — the same number F43 measures a gate against, used for a
+second purpose. It is the widest a probe steering towards a course point can be
+displaced by a turn it is able to make, and it is derived from the challenge
+alone, so a reader with no world recomputes it and a changed speed invalidates
+the patch by itself.
+
+What the flight actually needs is much less. `high-airfield` strays **200 m**
+from its course and flies identically on **half a kilometre** either side:
+
+| margin | rows | cells | the flight |
+| ---: | ---: | ---: | --- |
+| 0.25 km | 5 | 154 | never completes — 32,708 frames with no ground |
+| **0.5 km** | 7 | 224 | `done` in 68.93 s, lowest 45.5 m — identical |
+| 3 km | 11 | 614 | identical |
+| **9 km** (committed) | 23 | 1,726 | identical |
+
+Eighteen times what it needs, for 10 kB. The case for that is the next section:
+the failure it buys off is invisible.
+
+### The hole that reported a safer flight
+
+Cutting the ground found a hole in the gate that cut it. Delete **one row** from
+the committed patch — one kilometre of northing, 90 cells, **5 % of the file**,
+which is what a rebuilt window or a badly resolved merge leaves behind:
+
+| patch | state | seconds | lowest above ground | objectives | frames with no ground |
+| --- | --- | ---: | ---: | --- | ---: |
+| whole | done | 68.93 | **45.5 m** | both met | 0 |
+| without row 1314 | done | 68.93 | **169.8 m** | both met | 1,290 |
+| without row 1315 | done | 100.60 | 173.4 m | both met | 1,357 |
+| every row trimmed to 10 cells | *flying* | 1,200 | — | — | 35,710 |
+
+The last row is the reassuring one: a patch that is obviously broken starves
+the aeroplane at once and the flight times out. **The dangerous cut is the
+small one.** With one row missing the challenge finishes in the same 68.93
+seconds with both objectives met, and the number an author would actually read
+is not merely wrong but wrong in the reassuring direction — the low pass looks
+like it cleared by 170 m when the real flight clears by 45, because *the frames
+where the aeroplane was lowest are the frames it had no ground for*.
+
+Every part of that behaviour is individually correct. `groundM` is `null` and
+not `0` where nothing is built (F42). `conditionsHold` refuses to credit an
+objective whose height it cannot measure. `minAglM` only records frames it has
+ground for. Correct at every reading, and the composition is a silent pass —
+which is exactly what `firstUncoveredKm` refuses one level up, and exactly what
+`pickWorld` refuses one level out. `ChallengeFlight` simply had no field for
+ground it could not read; it has one now, and any frames at all fail the gate,
+fail the cutter, and are refused before a patch is written.
+
+### The cutter flies what it cut
+
+A section is complete by construction: it is one-dimensional and every number
+in it is read. A patch is two-dimensional, only a few hundred of its cells are
+ever read, and which ones is decided by a flight nobody has run yet — so the
+guarantee cannot come from the geometry. `npm run content:patches` therefore
+does in advance exactly what CI will do: flies the challenge over the world,
+flies it again over the patch it just cut, and refuses to write anything if the
+two disagree on state, seconds, lowest pass, bounces, or ground it could not
+read.
+
+**Built.** `tools/patch.ts` (the artefact, cut, verify, render, and the patch as
+a `GroundField`), `tools/cutChallenges.ts` (`npm run content:patches`, and `make
+patches`, now a stage of `make world`), `sampleAtKm` and `GroundField` split out
+of `Corridor`, `framesWithoutGround` on `ChallengeFlight`, the two-source ground
+resolution in `checkChallenge`, `npm run content:challenges` in CI and in `npm
+run check`, and `content/patches/high-airfield.json`. **603 tests, up from 577 —
+and 586 of them run without a world, up from 564, because the check that a
+challenge can be completed at all is no longer gated on 13.9 GB.**
+
+**Action.** None outstanding for engineering. The eleven unwritten challenges
+get their ground for free the moment they are authored over built terrain; the
+three that F43 blocked are blocked on the same things as before. What this does
+retire is the gap F43 recorded, and what it adds is a smaller one: a challenge
+authored outside the corridor still cannot be cut, which is the same
+full-country build that D14's region raster and the Great Wall are waiting on.

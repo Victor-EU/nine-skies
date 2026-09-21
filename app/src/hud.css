@@ -32,3 +32,16 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1117; }
 .beat:empty { display: none; }
 .help { right: 24px; bottom: 24px; text-align: right; opacity: .42; font-size: 10px; line-height: 1.7; }
 .help .pad { opacity: .7; }
+
+/* The map overlay. Centred, letterboxed by the view itself (never stretched,
+   because the projection is equal-area and the map must stay honest), and on
+   a ground dark enough that the horizon field's own palette carries. */
+.map {
+  position: absolute; inset: 0; margin: auto;
+  width: max-content; height: max-content;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px; border-radius: 4px;
+  background: rgba(8, 12, 18, .88);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, .55);
+}
+.map canvas { display: block; border-radius: 2px; background: #0d1b2a; }

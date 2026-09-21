@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { flyableFrom, loadExpeditions, loadTriggers, planFor } from "./expedition.ts";
 import { atlasBundle, loadCards, loadSpreads } from "./journal.ts";
+import { loadChallenges, planFrom } from "./challenge.ts";
 import { resolveGround } from "./ground.ts";
 import { climbFloor } from "../engine/src/sim/route.ts";
 import { pathFrom } from "../engine/src/expedition/path.ts";
@@ -64,7 +65,14 @@ const atlas = atlasBundle(
   loadCards(join(root, "content", "cards")),
   loadSpreads(join(root, "content", "spreads")),
 );
-const bundle: ExpeditionBundle = { version: BUNDLE_VERSION, expeditions: plans, cards, atlas };
+const challenges = loadChallenges(join(root, "content", "challenges")).map(planFrom);
+const bundle: ExpeditionBundle = {
+  version: BUNDLE_VERSION,
+  expeditions: plans,
+  cards,
+  atlas,
+  challenges,
+};
 
 const out = join(root, "app", "public", "expeditions.json");
 mkdirSync(dirname(out), { recursive: true });
@@ -114,4 +122,15 @@ const bytes = JSON.stringify(bundle).length;
 console.log(
   `\n  wrote ${plans.length} expedition(s) to app/public/expeditions.json ` +
     `(${(bytes / 1024).toFixed(1)} kB)\n`,
+);
+
+for (const c of challenges) {
+  const kinds = c.objectives.map((o) => `${o.id} (${o.kind})`).join(", ");
+  console.log(
+    `\n  challenge ${c.id} · ${c.speed} · ${kinds}` +
+      (c.deadline ? ` · deadline ${c.deadline.label}` : ""),
+  );
+}
+console.log(
+  `\n  ${challenges.length} of the GDD's 12 challenges; npm run content:challenges flies them\n`,
 );

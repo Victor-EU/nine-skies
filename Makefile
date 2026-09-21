@@ -6,12 +6,14 @@
 #   make probes                     # golden probes against what is built
 #   make sources                    # record the source raster digests
 #   make sections                   # re-cut the committed route sections
+#   make patches                    # re-cut the committed ground under each challenge
 #   make cut-key                    # generate this machine's cutting key
 #   make reference                  # re-cut the projection reference table
 #   make routes                     # every expedition flown over the world
 #   make sessions                   # what a playtest session of N minutes contains
 #   make teaches                    # what each route shows against what it claims
 #   make atlas                      # what the journal can show, and what it cannot yet
+#   make challenges                 # every authored challenge flown, and whether it can be done
 #   make stations                   # re-cut where the frame budget is measured
 #   make test                       # every suite, TypeScript and Python
 #
@@ -24,7 +26,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles probes sources sections cut-key reference routes sessions teaches atlas stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles probes sources sections patches cut-key reference routes sessions teaches atlas challenges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -74,13 +76,22 @@ reference: $(PY)
 sections:
 	npm run content:sections
 
+## Stage 7 -- cut the committed ground patches out of what was built (D39).
+## The challenge equivalent of `sections`, and the one place in this repository
+## where cutting an artefact also flies it: only a few hundred of a patch's
+## cells are ever read and which ones depends on a flight, so the guarantee
+## cannot come from the geometry. A patch that does not fly like the world it
+## came from is refused rather than written.
+patches:
+	npm run content:patches
+
 ## The key a section is signed with (D23). Run once per machine that builds
 ## worlds; the public half is committed and the private half never is. A
 ## machine that only reads sections -- CI, a writer's laptop -- needs neither.
 cut-key:
 	npm run content:cut-key
 
-world: acquire sources grid tiles probes sections
+world: acquire sources grid tiles probes sections patches
 	@echo "world built: $(WORLD_OUT)"
 
 ## The other gate: every authored route flown over real ground. Needs no flag
@@ -109,6 +120,15 @@ teaches:
 ## writing rather than by code.
 atlas:
 	npm run content:atlas
+
+## Every authored challenge flown by an autopilot, and whether it can be done
+## at all (D38). Unlike `atlas` and `teaches` this one is a gate: a challenge
+## whose objectives cannot be met, or whose gate is narrower than the
+## aeroplane's own turn, is broken rather than unwritten. Needs no world and no
+## flag: the ground is committed in content/patches/ (D39), which is what makes
+## it the same check here and in CI.
+challenges:
+	npm run content:challenges
 
 ## Where the frame budget is measured (D25). Cut from the route, committed,
 ## and deliberately not part of `world`: a capture is only worth taking if it

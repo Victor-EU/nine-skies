@@ -595,3 +595,245 @@ export function validateSpreads(
 
   return issues;
 }
+
+/**
+ * Challenge schema (build plan, workstream D, the *Challenges* row).
+ *
+ * The plan's line is *"six objective primitives (land-in-radius, gate
+ * sequence, reach-before-time, hold-altitude, stay-on-instruments,
+ * follow-line) cover all twelve"*. These six kinds are those six names,
+ * because they are six different things to write down; the engine behind them
+ * is four classes and a deadline, and F43 is why.
+ *
+ * The GDD names four of the twelve — *land at a 4,411 m airport, thread a
+ * gorge at low speed, cross a dust storm on instruments, race the sunset
+ * along the Great Wall* — and every one of them was measured before this
+ * schema was written. One is authorable today, one needs a decision, one
+ * needs the 90 m hero grid, and one needs weather. F43 has the numbers.
+ */
+
+export const OBJECTIVE_KINDS = [
+  "land",
+  "gates",
+  "reach",
+  "hold-altitude",
+  "instruments",
+  "follow",
+] as const;
+
+export type ObjectiveKind = (typeof OBJECTIVE_KINDS)[number];
+
+export interface ObjectiveSpec {
+  kind: ObjectiveKind;
+  id: string;
+  /** One line, shown as written: "below 200 m over Daocheng Yading". */
+  label: string;
+  /** `land`, `reach`. */
+  lat?: number;
+  lon?: number;
+  radius_km?: number;
+  /** `land`: how low over the airfield's own ground counts as being there. */
+  max_agl_m?: number;
+  /** `land`: the pace it has to be done at. */
+  max_speed?: SpeedName;
+  /** `gates`. */
+  gates?: GateSpec[];
+  /** `hold-altitude`, `instruments`. */
+  min_m?: number;
+  max_m?: number;
+  above_ground?: boolean;
+  seconds?: number;
+  /** `instruments`. */
+  heading_deg?: number;
+  heading_tolerance_deg?: number;
+  /** `follow`. */
+  points?: Array<{ lat: number; lon: number }>;
+  corridor_km?: number;
+}
+
+export interface GateSpec {
+  lat: number;
+  lon: number;
+  /** The course *through* the gate; the gate itself lies across it. */
+  bearing_deg: number;
+  width_km: number;
+  floor_m: number;
+  ceiling_m: number;
+}
+
+export interface DeadlineSpec {
+  /**
+   * `clock` is a Beijing time written down; `sunset` is computed where the
+   * challenge ends, which is the only kind the GDD actually asks for.
+   */
+  kind: "clock" | "sunset";
+  /** `clock`: "18:30", Beijing. */
+  at?: string;
+  /** `sunset`: where the sun has to still be up. */
+  lat?: number;
+  lon?: number;
+  label: string;
+}
+
+export interface Challenge {
+  id: string;
+  name: string;
+  /** One line on what makes it a test rather than a flight. */
+  bite: string;
+  /** 1-12, fixed the way an expedition's is (D35). */
+  month: number;
+  /** 0-23, Beijing time. */
+  start_hour: number;
+  start: { lat: number; lon: number; altitude_m: number; heading_deg: number };
+  /** The pace it is flown at. Every width in it is checked against this. */
+  speed: SpeedName;
+  objectives: ObjectiveSpec[];
+  deadline?: DeadlineSpec;
+}
+
+export const CHALLENGE_RULES = {
+  /**
+   * The lowest altitude above ground that exists, metres.
+   *
+   * `flight.ts` bounces off terrain at `ground + 25` rather than crashing, so
+   * a `land` objective authored at or below this is met by flying at the
+   * hill. It is the same wall F22 hit from the other side: the route check
+   * has no `landing` kind because the altitude floor keeps its margin to the
+   * threshold, and the flight model has no landing because it will not let
+   * the aeroplane touch. Two systems, one conclusion (F43).
+   */
+  bounceFloorM: 25,
+  /** A `land` has to ask for something below this or it is not an arrival. */
+  maxLandAglM: 1000,
+  /** GDD, "Challenges": twelve short optional skill tests, about an hour. */
+  maxMinutes: 12,
+  /** A gate the aeroplane cannot see the far post of is not a gate. */
+  maxGateWidthKm: 40,
+} as const;
+
+export function validateChallenges(challenges: Challenge[]): Issue[] {
+  const issues: Issue[] = [];
+  const seen = new Set<string>();
+  const add = (subject: string, field: string, message: string) =>
+    issues.push({ subject, field, message });
+  const { bbox } = RULES;
+  const inChina = (lat: number, lon: number): boolean =>
+    lat >= bbox.minLat && lat <= bbox.maxLat && lon >= bbox.minLon && lon <= bbox.maxLon;
+
+  for (const c of challenges) {
+    const id = c.id ?? "(no id)";
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(c.id ?? "")) add(id, "id", "must be kebab-case");
+    if (seen.has(c.id)) add(id, "id", "duplicate id");
+    seen.add(c.id);
+    if (!c.name) add(id, "name", "missing");
+    if (!c.bite) add(id, "bite", "say what makes it a test, or it is a flight");
+    if (!Number.isInteger(c.month) || c.month < 1 || c.month > 12)
+      add(id, "month", `${c.month} is not a month`);
+    if (!Number.isInteger(c.start_hour) || c.start_hour < 0 || c.start_hour > 23)
+      add(id, "start_hour", `${c.start_hour} is not an hour`);
+    if (!SPEED_MODES.includes(c.speed))
+      add(id, "speed", `${c.speed} is not one of ${SPEED_MODES.join(", ")}`);
+
+    const start = c.start;
+    if (!start) add(id, "start", "a challenge starts somewhere");
+    else {
+      if (!inChina(start.lat, start.lon)) add(id, "start", "outside China");
+      if (!(start.altitude_m >= 0)) add(id, "start.altitude_m", "must be at or above the sea");
+      if (!(start.heading_deg >= 0 && start.heading_deg < 360))
+        add(id, "start.heading_deg", `${start.heading_deg} is not a bearing`);
+    }
+
+    const objectives = c.objectives ?? [];
+    if (objectives.length === 0) add(id, "objectives", "a challenge with no objective is a flight");
+    const objectiveIds = new Set<string>();
+    objectives.forEach((o, i) => {
+      const where = `objectives[${i}] ${o.id ?? "(no id)"}`;
+      if (!o.id) add(id, where, "every objective needs an id");
+      else if (objectiveIds.has(o.id)) add(id, where, "duplicate objective id");
+      objectiveIds.add(o.id);
+      if (!o.label) add(id, `${where}.label`, "say what the player has to do");
+      if (!OBJECTIVE_KINDS.includes(o.kind)) {
+        add(id, `${where}.kind`, `${o.kind} is not one of ${OBJECTIVE_KINDS.join(", ")}`);
+        return;
+      }
+
+      if (o.kind === "land" || o.kind === "reach") {
+        if (o.lat === undefined || o.lon === undefined || !inChina(o.lat, o.lon))
+          add(id, `${where}`, "needs a lat and lon inside China");
+        if (!(o.radius_km! > 0)) add(id, `${where}.radius_km`, "needs a radius");
+      }
+      if (o.kind === "land") {
+        const agl = o.max_agl_m;
+        if (agl === undefined) add(id, `${where}.max_agl_m`, "a landing is a height above ground");
+        else if (agl <= CHALLENGE_RULES.bounceFloorM)
+          add(
+            id,
+            `${where}.max_agl_m`,
+            `${agl} m is at or under the ${CHALLENGE_RULES.bounceFloorM} m the flight model ` +
+              `bounces off, so it is met by flying at the ground rather than by flying well`,
+          );
+        else if (agl > CHALLENGE_RULES.maxLandAglM)
+          add(id, `${where}.max_agl_m`, `${agl} m over an airfield is a fly-past, not an arrival`);
+        if (o.max_speed !== undefined && !SPEED_MODES.includes(o.max_speed))
+          add(id, `${where}.max_speed`, `${o.max_speed} is not a speed mode`);
+      }
+
+      if (o.kind === "gates") {
+        const gates = o.gates ?? [];
+        if (gates.length === 0) add(id, `${where}.gates`, "needs at least one gate");
+        gates.forEach((g, j) => {
+          const gw = `${where}.gates[${j}]`;
+          if (!inChina(g.lat, g.lon)) add(id, gw, "outside China");
+          if (!(g.bearing_deg >= 0 && g.bearing_deg < 360))
+            add(id, `${gw}.bearing_deg`, `${g.bearing_deg} is not a bearing`);
+          if (!(g.width_km > 0)) add(id, `${gw}.width_km`, "a gate needs a width");
+          else if (g.width_km > CHALLENGE_RULES.maxGateWidthKm)
+            add(id, `${gw}.width_km`, `${g.width_km} km is a region, not a gate`);
+          if (!(g.ceiling_m > g.floor_m))
+            add(id, `${gw}.ceiling_m`, "the ceiling has to be above the floor");
+        });
+      }
+
+      if (o.kind === "hold-altitude" || o.kind === "instruments") {
+        if (!(o.seconds! > 0)) add(id, `${where}.seconds`, "a hold needs a duration");
+        if (!(o.max_m! > o.min_m!)) add(id, `${where}.max_m`, "the band has to have a height");
+        if (o.above_ground && o.min_m! < CHALLENGE_RULES.bounceFloorM)
+          add(
+            id,
+            `${where}.min_m`,
+            `${o.min_m} m above ground is under the ${CHALLENGE_RULES.bounceFloorM} m ` +
+              `the flight model bounces off`,
+          );
+      }
+      if (o.kind === "instruments") {
+        if (o.heading_deg === undefined || !(o.heading_deg >= 0 && o.heading_deg < 360))
+          add(id, `${where}.heading_deg`, "on instruments means holding a heading");
+        if (!(o.heading_tolerance_deg! > 0))
+          add(id, `${where}.heading_tolerance_deg`, "needs a tolerance, or it cannot be flown");
+      }
+
+      if (o.kind === "follow") {
+        const points = o.points ?? [];
+        if (points.length < 2) add(id, `${where}.points`, "a line needs two ends");
+        for (const p of points)
+          if (!inChina(p.lat, p.lon)) add(id, `${where}.points`, "a point outside China");
+        if (!(o.corridor_km! > 0)) add(id, `${where}.corridor_km`, "needs a corridor");
+      }
+    });
+
+    const d = c.deadline;
+    if (d) {
+      if (!d.label) add(id, "deadline.label", "say what the deadline is, in words");
+      if (d.kind === "clock") {
+        if (!/^\d{1,2}:\d{2}$/.test(d.at ?? "")) add(id, "deadline.at", "needs a time like 18:30");
+      } else if (d.kind === "sunset") {
+        if (d.lat === undefined || d.lon === undefined || !inChina(d.lat, d.lon))
+          add(id, "deadline", "a sunset happens somewhere; give it a lat and lon");
+      } else {
+        add(id, "deadline.kind", `${(d as DeadlineSpec).kind} is not clock or sunset`);
+      }
+    }
+  }
+
+  return issues;
+}

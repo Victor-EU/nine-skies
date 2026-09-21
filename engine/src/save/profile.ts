@@ -22,7 +22,7 @@
  */
 
 /** Bumped when a shape below changes. A profile from the future is refused. */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 /** Up to three local profiles, so a household can share one install (GDD). */
 export const MAX_PROFILES = 3;
@@ -63,6 +63,16 @@ export interface Profile {
   readonly position: PositionSave | null;
   /** The expedition being flown, if one was. */
   readonly flying: string | null;
+  /**
+   * Challenges finished, by id (D37).
+   *
+   * A list rather than a record of times, because the GDD is explicit that
+   * there is nothing else to keep: *"each is done or not done; no medals or
+   * leaderboards"*. A best time stored here would be the first half of a
+   * leaderboard, and the stopwatch is deliberately scored against nothing
+   * (F43).
+   */
+  readonly challenges: readonly string[];
 }
 
 export function emptyProfile(id: string, name: string): Profile {
@@ -75,6 +85,7 @@ export function emptyProfile(id: string, name: string): Profile {
     runs: [],
     position: null,
     flying: null,
+    challenges: [],
   };
 }
 
@@ -159,5 +170,8 @@ export function readProfile(raw: unknown): Profile | null {
     runs,
     position,
     flying: typeof candidate.flying === "string" ? candidate.flying : null,
+    challenges: Array.isArray(candidate.challenges)
+      ? candidate.challenges.filter((c): c is string => typeof c === "string")
+      : [],
   };
 }

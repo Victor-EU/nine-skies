@@ -27,6 +27,7 @@
  * which is what the plan asked for.
  */
 import type { Trigger } from "../discovery/triggers.js";
+import type { ChallengePlan } from "../challenge/plan.js";
 import type { AtlasEntry, RegionInfo } from "../journal/atlas.js";
 import type { SpreadPlan } from "../journal/spread.js";
 import { modeAtKm, type Route, type RouteLeg } from "../sim/route.js";
@@ -95,7 +96,7 @@ export interface ExpeditionPlan {
  * than flown: a runtime reading last week's legs would be enforcing a
  * guarantee about a route that no longer exists.
  */
-export const BUNDLE_VERSION = 3;
+export const BUNDLE_VERSION = 4;
 
 /** A discovery catchment with the name a HUD can print (F37). */
 export interface CardTrigger extends Trigger {
@@ -127,6 +128,14 @@ export interface ExpeditionBundle {
    */
   readonly cards: readonly CardTrigger[];
   readonly atlas: AtlasBundle;
+  /**
+   * The authored challenges, projected (D37).
+   *
+   * In this bundle rather than beside it for the same reason the atlas is:
+   * one fetch, one version number, and no way for a build to ship a challenge
+   * cut from a different shape of the file than the routes were.
+   */
+  readonly challenges: readonly ChallengePlan[];
 }
 
 export interface RunState {

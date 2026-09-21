@@ -31,6 +31,20 @@ jobs:
       # section that does not verify is refused, never flown.
       - name: Content validation
         run: npm run content:validate
+      # And flies every authored challenge (D38, D39). A challenge is a set of
+      # points rather than a route, so what is committed beside it is not a
+      # profile along a line but a swath of the world's own 1 km lattice,
+      # following the course the probe is steered along and as wide as the
+      # aeroplane's own full-bank reversal. Because that is a subset of the
+      # world rather than a resampling of it, the flight here is the flight the
+      # author's machine ran -- 68.9333 s either way, not to a tolerance.
+      #
+      # A challenge with neither a world nor a patch fails here rather than
+      # printing NOT CHECKED, and so does a flight that reads no ground: a
+      # patch cut too narrow completes this challenge over a hole at ten
+      # kilometres below sea level and reports `done` (F44).
+      - name: Challenges flown
+        run: npm run content:challenges
       - name: Build
         run: npm run build
 

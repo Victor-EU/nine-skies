@@ -66,7 +66,8 @@ shown.
 ```bash
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
-make test         # 503 TypeScript tests and 59 Python tests
+make challenges   # fly every authored challenge, and price what it asks for
+make test         # 603 TypeScript tests and 59 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -79,13 +80,27 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-494 of the 503 TypeScript tests run without the world; the nine that do not
-are the ones whose subject is the world itself.
+586 of the 603 TypeScript tests run without the world; the seventeen that do
+not are the ones whose subject is the world itself.
+
+`make challenges` is the same rule one level down, and it needs no world
+either. A challenge is a set of points rather than a route, so what is
+committed beside it is not a profile along a line but a swath of the world's
+own 1 km lattice, following the course the probe flies and as wide as the
+aeroplane's own full-bank reversal — 12.2 kB for the one authored challenge
+(D39). Because that is a subset of the world rather than a resampling of it
+there is no rounding to choose, so the flight in CI is the flight the author's
+machine ran, to the millisecond. The check flies each challenge with an
+autopilot and refuses one whose objectives cannot be met, whose gate is
+narrower than the aeroplane's own turn (D38), or that flew any part of itself
+over ground the patch did not have — which reports a *safer* flight than the
+real one rather than a failed one (F44).
 
 A section is also signed by the machine that cut it, and one that does not
 verify against the committed public key is refused rather than flown — so the
 only way to change the ground under a route is to cut it from a world again
-(D23). It names the source rasters behind it, too, and those are digested
+(D23). The challenge patches carry the same signature from the same key, for
+the same reason. It names the source rasters behind it, too, and those are digested
 against the mirror's own ETag rather than against ourselves: all 331 tiles of
 the corridor match what Copernicus serves today, and a build refuses tiles
 that have moved since (D24). The signature says where the numbers came from and cannot say they are
@@ -108,13 +123,15 @@ and the engine checks `projectAlbers` against it where PROJ does not (D22).
 | `engine/src/expedition` | Where along an authored route the aircraft has got to, what fires when, and whether there is room to finish |
 | `engine/src/save` | What survives quitting, and when it is written |
 | `engine/src/journal` | The collection: per-region counts, what to say about an entry nobody has found, and when a comparison spread opens |
+| `engine/src/map` | Where the aircraft has been, and the transform that puts it on a map without stretching it |
+| `engine/src/challenge` | What a skill test asks for, how an attempt is scored and retried, and an autopilot that proves it can be done |
 | `app` | Prototype shell: renderer, chase camera, HUD, framebuffer probes, frame-cost capture |
-| `content` | Card, expedition and comparison-spread schema, the nine regions, the committed route sections, and the validation gate |
+| `content` | Card, expedition, comparison-spread and challenge schema, the nine regions, the committed route sections and challenge ground patches, and the validation gate |
 | `pipeline` | Offline DEM → tile pipeline: acquire, reproject, tile, probe, the committed projection reference and the source raster digests |
-| `tools` | Node-only authoring tools: corridor reader, route sections and their signatures, route check, playtest session planner, lesson report, atlas report, frame-budget stations |
+| `tools` | Node-only authoring tools: corridor reader, route sections and challenge ground patches with their signatures, route check, playtest session planner, lesson report, atlas report, challenge check, frame-budget stations |
 | `test` | Unit tests, including the golden reference tables |
 | `docs` | Running findings for each gate, and the golden probe report |
-| `Makefile` | `make world`, `make probes`, `make sources`, `make sections`, `make cut-key`, `make reference`, `make routes`, `make sessions`, `make teaches`, `make stations`, `make test` |
+| `Makefile` | `make world`, `make probes`, `make sources`, `make sections`, `make patches`, `make cut-key`, `make reference`, `make routes`, `make sessions`, `make teaches`, `make atlas`, `make challenges`, `make stations`, `make test` |
 
 ## What a frame costs
 

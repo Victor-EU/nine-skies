@@ -51,6 +51,14 @@ describe("a profile", () => {
     expect(read).toEqual(saved());
   });
 
+  it("keeps which challenges are finished, and nothing else about them", () => {
+    // The GDD: "each is done or not done; no medals or leaderboards". A best
+    // time here would be the first half of a leaderboard (D38, F43).
+    const read = readProfile({ ...saved(), challenges: ["high-airfield", 7, null] });
+    expect(read?.challenges).toEqual(["high-airfield"]);
+    expect(readProfile({ ...saved(), challenges: undefined })?.challenges).toEqual([]);
+  });
+
   it("refuses anything that is not this version's shape", () => {
     expect(readProfile(null)).toBeNull();
     expect(readProfile("a profile, honestly")).toBeNull();

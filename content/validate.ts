@@ -11,15 +11,18 @@ import { parse } from "yaml";
 import {
   regionName,
   validateCards,
+  validateChallenges,
   validateExpeditions,
   validateSpreads,
   wordCount,
   type Card,
+  type Challenge,
   type Expedition,
 } from "./schema.ts";
 import { checkRoutes, describe, sectionsDir } from "../tools/routeCheck.ts";
 import { loadExpeditions } from "../tools/expedition.ts";
 import { loadSpreads } from "../tools/journal.ts";
+import { loadChallenges } from "../tools/challenge.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cardsDir = join(here, "cards");
@@ -31,10 +34,13 @@ const expeditions: Expedition[] = loadExpeditions(join(here, "expeditions"));
 
 const spreads = loadSpreads(join(here, "spreads"));
 
+const challenges: Challenge[] = loadChallenges(join(here, "challenges"));
+
 const issues = [
   ...validateCards(cards),
   ...validateExpeditions(expeditions),
   ...validateSpreads(spreads, cards, expeditions.map((e) => e.id)),
+  ...validateChallenges(challenges),
 ];
 
 if (issues.length > 0) {
@@ -120,6 +126,11 @@ console.log(
   spreads.length === 0
     ? `0 comparison spread(s) · the GDD plans 12 and G2 scores one (npm run content:atlas)`
     : `${spreads.length} comparison spread(s) valid`,
+);
+console.log(
+  challenges.length === 0
+    ? `0 challenge(s) · the GDD plans 12 (npm run content:challenges)`
+    : `${challenges.length} of 12 challenge(s) valid · flown over committed ground by npm run content:challenges`,
 );
 for (const e of expeditions) {
   const legs = e.route

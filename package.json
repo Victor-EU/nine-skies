@@ -18,14 +18,16 @@
     "build": "npm -w app run build",
     "content:validate": "vite-node content/validate.ts",
     "content:sections": "vite-node tools/cutSections.ts",
+    "content:patches": "vite-node tools/cutChallenges.ts",
     "content:cut-key": "vite-node tools/cutKey.ts",
     "content:sessions": "vite-node tools/sessionPlan.ts",
     "content:teaches": "vite-node tools/teachCheck.ts",
     "content:discoveries": "vite-node tools/discoveries.ts",
     "content:atlas": "vite-node tools/atlas.ts",
+    "content:challenges": "vite-node tools/challenges.ts",
     "content:expeditions": "vite-node tools/cutExpeditions.ts",
     "content:stations": "vite-node tools/cutStations.ts",
-    "check": "npm run typecheck && npm test && npm run content:validate"
+    "check": "npm run typecheck && npm test && npm run content:validate && npm run content:challenges"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

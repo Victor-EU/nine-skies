@@ -27,6 +27,10 @@ export type Action =
   | "cycleFov"
   | "cycleBankFollow"
   | "toggleExpedition"
+  | "toggleMap"
+  | "toggleChallenge"
+  | "retryChallenge"
+  | "toggleStopwatch"
   | "reset";
 
 export interface AxisBinding {
@@ -118,6 +122,40 @@ export const ACTION_BINDINGS: readonly ActionBinding[] = [
     note:
       "off is free flight, which is what G1 flies — on gives the route its own " +
       "leg speeds and holds the pacing at what its clearance was checked at (F38)",
+  },
+  {
+    action: "toggleMap",
+    key: "m",
+    padButton: 6,
+    label: "map overlay on/off",
+    note:
+      "the GDD's first five minutes end with this opening once by itself, so " +
+      "the player learns the key exists (F42)",
+  },
+  {
+    action: "toggleChallenge",
+    key: "g",
+    padButton: 7,
+    label: "fly the authored challenge on/off",
+    note:
+      "picks up where the aircraft is; the objectives are scored on the track " +
+      "flown, and a teleport credits none of them (D37, F43)",
+  },
+  {
+    action: "retryChallenge",
+    key: "t",
+    padButton: 1,
+    label: "retry the challenge from its start",
+    note: "the GDD's instant retry — it costs nothing and nothing counts attempts",
+  },
+  {
+    action: "toggleStopwatch",
+    key: "y",
+    padButton: 11,
+    label: "stopwatch on/off",
+    note:
+      "off by default, as the GDD asks. It is scored against nothing: a " +
+      "challenge's own deadline, where it has one, is always shown (F43)",
   },
   { action: "reset", key: "r", padButton: 9, label: "reset to the start" },
 ];

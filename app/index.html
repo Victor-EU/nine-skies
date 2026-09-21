@@ -40,7 +40,16 @@
         <div id="profile">—</div>
         <div id="journal">—</div>
         <div id="clock">—</div>
+        <div id="challenge" hidden>—</div>
       </div>
+      <!-- The map overlay (F42). Hidden until M. Two canvases rather than one
+           because the profile has its own aspect and its own vertical scale,
+           and drawing them together would mean one of them lying about it. -->
+      <div class="map" id="map" hidden>
+        <canvas id="mapCanvas" width="760" height="520"></canvas>
+        <canvas id="profileCanvas" width="760" height="110"></canvas>
+      </div>
+
       <!-- A narration beat, held by the single-card queue. Placeholder: what a
            beat looks like to a player is the journal's question (F38). -->
       <div class="block beat" id="beat"></div>

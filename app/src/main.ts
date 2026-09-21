@@ -41,6 +41,20 @@ import {
 } from "../../engine/src/expedition/runner.js";
 import { CardQueue } from "../../engine/src/discovery/queue.js";
 import { Atlas } from "../../engine/src/journal/atlas.js";
+import { FlownTrack } from "../../engine/src/map/track.js";
+import {
+  ChallengeRun,
+  stopwatchString,
+  type ChallengeStart,
+} from "../../engine/src/challenge/challenge.js";
+import { specFromPlan } from "../../engine/src/challenge/plan.js";
+import type { ChallengeSample } from "../../engine/src/challenge/objectives.js";
+import { TILE_KM } from "../../engine/src/terrain/syntheticTiles.js";
+import {
+  COUNTRY_EAST_KM,
+  COUNTRY_NORTH_KM,
+} from "../../engine/src/terrain/worldGrid.js";
+import { MapBase, drawMap, drawProfile } from "./mapOverlay.js";
 import {
   DEFAULT_TIME_RATE,
   WorldClock,
@@ -86,6 +100,7 @@ import {
   DRAMA_CANDIDATES,
   TERRAIN_LIMITED_CRUISE_KM_PER_MIN,
   apparentExaggeration,
+  groundKmPerMin,
   hazeDensityPerWorldUnit,
   hazeFalloffPerWorldUnit,
   minutesForKm,
@@ -263,6 +278,7 @@ async function loadBundle(): Promise<ExpeditionBundle> {
     expeditions: [],
     cards: [],
     atlas: { regions: [], entries: [], spreads: [] },
+    challenges: [],
   };
   try {
     const response = await fetch("/expeditions.json");
@@ -289,11 +305,21 @@ const planPrint = plan ? planFingerprint(plan) : "";
  * an engineering one.
  */
 const month = plan?.month ?? FREE_FLIGHT_MONTH;
-const clock = new WorldClock(
+const worldClock = new WorldClock(
   (plan?.startHour ?? FREE_FLIGHT_HOUR) * 60,
   dayOfYear(month),
   DEFAULT_TIME_RATE,
 );
+/**
+ * The clock in force. The world's, unless a challenge has replaced it.
+ *
+ * A challenge fixes its own month and hour the way an expedition does, and
+ * unlike an expedition it is picked rather than resumed - so starting one has
+ * to move the clock to the hour it is written at. `WorldClock` is immutable,
+ * so this is a new one based so that it reads the challenge's start hour at
+ * the moment the challenge starts.
+ */
+let clock = worldClock;
 /** The card catchments, which belong to free flight as much as to a route. */
 const cardName = new Map(bundle.cards.map((c) => [c.id, c.name]));
 const discoveries = new TriggerField(bundle.cards);
@@ -323,6 +349,67 @@ discoveries.restore(profile.seen);
  */
 const atlas = new Atlas(bundle.atlas.regions, bundle.atlas.entries, profile.seen);
 const spreadName = new Map(bundle.atlas.spreads.map((s) => [s.id, s.name]));
+/**
+ * Where the aircraft has been (F42). One sample a kilometre, which is the
+ * resolution the ground has, and the pen lifts across a teleport.
+ */
+const track = new FlownTrack();
+let mapOpen = false;
+/** Milliseconds the last map draw took. Zero while it is closed. */
+let mapMs = 0;
+/**
+ * The authored challenge, and the attempt in progress (D37, F43).
+ *
+ * One challenge in the bundle and twelve in the GDD, which is the same shape
+ * the atlas is in: the machinery is here and the writing is not. Off unless
+ * the player asks for it - a challenge is never required, and G1 and G2 both
+ * fly something else.
+ */
+const challengePlan = bundle.challenges[0] ?? null;
+let challenge: ChallengeRun | null = null;
+let challengeStartedAtS = 0;
+/** The GDD's timer, which is off by default. Not the challenge's deadline. */
+let stopwatch = false;
+const mapBase = new MapBase();
+const mapCanvas = document.getElementById("mapCanvas") as HTMLCanvasElement;
+const profileCanvas = document.getElementById("profileCanvas") as HTMLCanvasElement;
+const mapCtx = mapCanvas.getContext("2d")!;
+const profileCtx = profileCanvas.getContext("2d")!;
+
+/**
+ * Fit the map to the window, at the bounds' own aspect ratio.
+ *
+ * Two reasons it is not a fixed size. The projection is equal-area, so the
+ * view letterboxes rather than stretches (D1); a canvas whose aspect is
+ * nothing like the corridor's 2.4:1 would spend most of itself on the
+ * letterbox. And a window smaller than the canvas simply clips it, which is
+ * how this was first seen: a 400 px pane and a 760 px map.
+ */
+function sizeMap(): void {
+  const aspect =
+    (mapBounds.eastM1 - mapBounds.eastM0) / Math.max(1, mapBounds.northM1 - mapBounds.northM0);
+  const profileH = 90;
+  const maxW = Math.max(240, Math.min(980, innerWidth - 64));
+  const maxH = Math.max(160, innerHeight - 64 - profileH - 26);
+  const width = Math.min(maxW, maxH * aspect);
+  mapCanvas.width = Math.round(width);
+  mapCanvas.height = Math.round(width / aspect);
+  profileCanvas.width = mapCanvas.width;
+  profileCanvas.height = profileH;
+}
+/**
+ * What the map covers: the built window, with a tile of margin, or the whole
+ * country grid when there is no world. The corridor fills 11.6 % of that
+ * grid, so framing the map on the country would be framing mostly nothing.
+ */
+const mapBounds = world
+  ? {
+      eastM0: (world.manifest.window.tx0 - 1) * TILE_KM * 1000,
+      northM0: (world.manifest.window.ty0 - 1) * TILE_KM * 1000,
+      eastM1: (world.manifest.window.tx1 + 2) * TILE_KM * 1000,
+      northM1: (world.manifest.window.ty1 + 2) * TILE_KM * 1000,
+    }
+  : { eastM0: 0, northM0: 0, eastM1: COUNTRY_EAST_KM * 1000, northM1: COUNTRY_NORTH_KM * 1000 };
 /** Expeditions this profile has arrived at, which is one of the two unlocks. */
 const finished = new Set(profile.runs.filter((r) => r.arrived).map((r) => r.expeditionId));
 const resumed = plan ? resumeRun(plan, runFor(profile, plan.id), planPrint) : { kind: "start" as const };
@@ -346,6 +433,12 @@ async function persist(): Promise<void> {
       headingRad: flight.headingRad,
     },
     flying: flyingExpedition && plan ? plan.id : null,
+    // Done or not done, which is all the GDD keeps. A finished challenge
+    // stays finished whether or not the player is still flying it.
+    challenges:
+      challenge?.state === "done" && !profile.challenges.includes(challenge.spec.id)
+        ? [...profile.challenges, challenge.spec.id]
+        : profile.challenges,
   };
   profile =
     run && plan
@@ -421,6 +514,8 @@ function collect(ids: readonly string[]): void {
 function landed(): void {
   run?.moveTo(flight.eastM, flight.northM);
   collect(discoveries.moveTo(flight.eastM, flight.northM));
+  track.moveTo(flight.eastM, flight.northM);
+  challenge?.jump(challengeSample());
 }
 
 landed();
@@ -466,6 +561,60 @@ function connectedPad(): PadSnapshot | null {
   return null;
 }
 
+/**
+ * What a challenge sees. Built once per frame and per key press (D37).
+ *
+ * The ground is `null` rather than 0 where no tile is resident, which is
+ * F42's rule and it matters more here than it did on the map: a coerced zero
+ * over the Hengduan would read a 3,000 m fly-past as a landing.
+ */
+function challengeSample(): ChallengeSample {
+  return {
+    seconds: sessionSeconds - challengeStartedAtS,
+    eastM: flight.eastM,
+    northM: flight.northM,
+    altitudeM: flight.altitudeM,
+    groundM: terrain.groundElevationM(flight.eastM, flight.northM),
+    headingRad: flight.headingRad,
+    groundSpeedKmPerMin: groundKmPerMin(flight.mode, pacing),
+    clockMinutes: clock.minutesAt(sessionSeconds),
+  };
+}
+
+/**
+ * Put the aircraft at a challenge's start, and the clock at its hour.
+ *
+ * The clock has to move because a challenge is picked rather than resumed: a
+ * sunset race started at whatever hour the last flight was at is not the
+ * challenge that was authored. `landed()` because this is a teleport, and a
+ * teleport credits nothing (D30, D32, F43).
+ */
+function placeAtChallenge(start: ChallengeStart): void {
+  Object.assign(flight, createFlightState({
+    eastM: start.eastM,
+    northM: start.northM,
+    altitudeM: start.altitudeM,
+    headingRad: start.headingRad,
+    mode: challengePlan?.speed ?? "cruise",
+  }));
+  // Start at the pace the challenge is written at, and leave it there rather
+  // than holding it: an objective that asks for a pace scores it, and forcing
+  // the mode would make that condition true by construction.
+  if (challengePlan) input.mode = challengePlan.speed;
+  // A challenge is not flown inside an expedition. The runner sets the leg's
+  // speed mode every frame (D31), so leaving it on would quietly take the
+  // pace back off the challenge on the frame after it was set.
+  flyingExpedition = false;
+  clock = new WorldClock(
+    start.clockMinutes - (sessionSeconds / 60) * DEFAULT_TIME_RATE,
+    dayOfYear(start.month),
+    DEFAULT_TIME_RATE,
+  );
+  challengeStartedAtS = sessionSeconds;
+  landed();
+  challenge?.jump(challengeSample());
+}
+
 /** What a press does. The table says which press; this says what. */
 function act(action: Action): void {
   switch (action) {
@@ -505,6 +654,29 @@ function act(action: Action): void {
       // where the aircraft already is, which is what an operator dropping a
       // participant at km 900 needs (F28), and what a resume is.
       if (flyingExpedition) run?.moveTo(flight.eastM, flight.northM);
+      break;
+    case "toggleMap":
+      mapOpen = !mapOpen;
+      if (mapOpen) sizeMap();
+      el("map").hidden = !mapOpen;
+      break;
+    case "toggleChallenge":
+      if (challenge || !challengePlan) {
+        challenge = null;
+        clock = worldClock;
+      } else {
+        challenge = new ChallengeRun(specFromPlan(challengePlan));
+        placeAtChallenge(challenge.spec.start);
+      }
+      el("challenge").hidden = challenge === null;
+      break;
+    case "retryChallenge":
+      // The GDD's instant retry: nothing is reshuffled, nothing is counted,
+      // and the same flight is offered again.
+      if (challenge) placeAtChallenge(challenge.retry());
+      break;
+    case "toggleStopwatch":
+      stopwatch = !stopwatch;
       break;
     case "reset":
       Object.assign(flight, createFlightState({ ...START, headingRad: Math.PI / 2 }));
@@ -598,7 +770,10 @@ function resize(): void {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
-addEventListener("resize", resize);
+addEventListener("resize", () => {
+  resize();
+  if (mapOpen) sizeMap();
+});
 resize();
 
 // A tab being closed gets one more write. IndexedDB may not finish it -
@@ -726,6 +901,44 @@ if (import.meta.env.DEV) {
     horizon,
     ring,
     fieldMs,
+    /** What the map overlay costs the frame it is drawn on (F42). */
+    mapMs: () => mapMs,
+    /**
+     * The challenge, from outside. `act` is the key; this is the script.
+     *
+     * An operator running a challenge in a session needs to start one, read
+     * whether it is going and retry it without reaching for the keyboard, and
+     * a probe needs to be able to assert on the objectives rather than on a
+     * line of HUD text.
+     */
+    startChallenge(): boolean {
+      if (!challengePlan) return false;
+      challenge = new ChallengeRun(specFromPlan(challengePlan));
+      placeAtChallenge(challenge.spec.start);
+      el("challenge").hidden = false;
+      return true;
+    },
+    getChallenge: () =>
+      challenge
+        ? {
+            id: challenge.spec.id,
+            state: challenge.state,
+            seconds: +challenge.seconds.toFixed(1),
+            clockMinutes: +challenge.clockMinutes.toFixed(2),
+            minutesRemaining: challenge.minutesRemaining,
+            progress: +challenge.progress.toFixed(3),
+            objectives: challenge.objectives.map((o) => ({
+              id: o.id,
+              state: o.state,
+              progress: +o.progress.toFixed(3),
+            })),
+          }
+        : null,
+    retryChallenge(): boolean {
+      if (!challenge) return false;
+      placeAtChallenge(challenge.retry());
+      return true;
+    },
     renderer,
     scene,
     camera,
@@ -877,6 +1090,8 @@ function placeAt(
 }
 
 let last = performance.now();
+/** Seconds since the page started flying, kept here so a key press can read it. */
+let sessionSeconds = 0;
 let fpsAccum = 0;
 let fpsFrames = 0;
 let fpsShown = 0;
@@ -890,6 +1105,7 @@ function frame(now: number): void {
   }
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  sessionSeconds = now / 1000;
 
   const intent = player.poll(connectedPad());
   input.pitch = intent.pitch;
@@ -922,6 +1138,19 @@ function frame(now: number): void {
   // flight is where most of them are met (F37).
   const found = discoveries.advance(flight.eastM, flight.northM);
   collect(found);
+  // The ground is recorded with the position, because it cannot be recovered
+  // afterwards: the resident disc is 384 km wide and a player who turned
+  // twice did not fly the straight line back through it (F42).
+  track.advance(
+    flight.eastM,
+    flight.northM,
+    flight.altitudeM,
+    terrain.groundElevationM(flight.eastM, flight.northM),
+  );
+  // A challenge is scored on the track flown, for the same reason a card is:
+  // a gate has no width at all, so a point test would miss it at every frame
+  // rate rather than merely at the fast ones (D37, F43).
+  challenge?.advance(challengeSample());
   // The leg's authored speed, which is the other half of what makes this the
   // route the content gate flew: `low / low / cruise / cruise` is not a
   // suggestion, it is the profile that clears the ground (F18).
@@ -1103,6 +1332,55 @@ function frame(now: number): void {
     `${clockString(clock.solarMinutesAt(sessionS, lonDeg))} by the sun · ` +
     `sun ${sun.elevationDeg >= 0 ? "" : "−"}${Math.abs(sun.elevationDeg).toFixed(0)}°` +
     `${sun.elevationDeg < 0 ? " below" : ""}`;
+
+  // The challenge, only while one is being flown. Two clocks and they are
+  // different things: the deadline is the challenge's own and is always shown
+  // where there is one, and the stopwatch is the GDD's optional timer, scored
+  // against nothing and off unless the player asked (F43).
+  if (challenge) {
+    const marks = challenge.objectives
+      .map((o) => {
+        const mark = o.state === "met" ? "✓" : o.state === "missed" ? "✗" : "○";
+        return `${mark} ${o.id}${o.state === "pending" ? ` ${(o.progress * 100).toFixed(0)} %` : ""}`;
+      })
+      .join("  ");
+    const verdict =
+      challenge.state === "done"
+        ? " · done"
+        : challenge.state === "failed"
+          ? " · failed, T to retry"
+          : profile.challenges.includes(challenge.spec.id)
+            ? " · done before"
+            : "";
+    const left = challenge.minutesRemaining;
+    el("challenge").textContent =
+      `${challenge.spec.name}${verdict} · ${marks}` +
+      (left === null ? "" : ` · ${left.toFixed(0)} min to ${challenge.spec.deadline!.label}`) +
+      (stopwatch ? ` · ${stopwatchString(challenge.seconds)}` : "");
+  }
+
+  // The map, only while it is open. Everything it draws is already in world
+  // metres and already loaded; the base is the horizon field the impostor
+  // reads, so the wall on the map and the wall ahead cannot disagree (F42).
+  if (mapOpen) {
+    const mapT0 = performance.now();
+    drawMap(mapCtx, horizonField, mapBase, {
+      bounds: mapBounds,
+      route: plan?.points ?? [],
+      // Only what has been found. A pin for a card nobody has met would be
+      // the exact pin the GDD refuses to give (F40).
+      pins: bundle.cards
+        .filter((c) => atlas.has(c.id))
+        .map((c) => ({ eastM: c.eastM, northM: c.northM, radiusM: c.radiusM, name: c.name })),
+      track,
+      aircraft: flight,
+      showLine: true,
+    });
+    drawProfile(profileCtx, track);
+    // What the overlay costs the frame it is open on. Only measured while it
+    // is open, because closed it costs nothing at all.
+    mapMs = performance.now() - mapT0;
+  }
 
   el("fps").textContent = `${fpsShown.toFixed(0)} fps`;
   el("draws").textContent =
