@@ -13,13 +13,33 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from . import probes
+from . import places, probes
 from .acquire import data_root
 from .grid import RESOLUTION_M
 from .sample import GridSampler
 
 #: How far a river waypoint may be from the cell that holds its channel.
 CHANNEL_RADIUS_KM = 2.0
+
+def channel_tolerance_m(resolution_m: float) -> float:
+    """How far an `on_channel` place may stand above the water, by cell size.
+
+    **Not zero, and not a constant.** The metric is the point against the
+    lowest ground in a window reaching 2.83 km, and two things lift it that
+    have nothing to do with the coordinate. A river falls: through Tiger
+    Leaping Gorge the Jinsha drops 46 m across that window at the source's
+    own 30 m. And a grid loses the channel in proportion to its cell, because
+    a cell wider than the water is mostly not water — the same waypoint reads
+    63 m at 90 m and **186 m at 1 km**, on ground that has not moved.
+
+    Measured at those three resolutions the floor is about `42 + 0.14 * cell`,
+    so this is twice that, rounded: every honest reading sits near half of it
+    at every resolution, and F50's fault — a waypoint **1,260 m** up the gorge
+    wall — clears it by 3.4x even on the coarsest grid here. A fixed 200 m
+    would have passed the 1 km reading by 14 m, which is a threshold that
+    happens not to have fired rather than one that holds.
+    """
+    return 100.0 + 0.3 * resolution_m
 
 #: Spacings the monotonic chord is re-walked at, to show what the verdict at
 #: the waypoints is worth. Not a gate: see `monotonic_sensitivity`.
@@ -88,16 +108,21 @@ def run(
         )
         lines.append("")
         lines.append(
-            f"The channel minimum is what is checked. A waypoint's coordinates "
-            f"are quoted to two decimals, which is ±550 m, and a 1 km cell "
-            f"straddling a gorge reports the wall as readily as the water — so "
-            f"a point sample would be testing the waypoint list rather than the "
-            f"terrain. The search radius is {CHANNEL_RADIUS_KM:.0f} km. The "
-            f"point sample is shown beside it because the gap between the two "
-            f"columns *is* the damage resampling does to a river, and stage 3 "
-            f"exists to carve it back. It is not, however, what decides the "
-            f"verdict: the sweep below takes the same verdict at every radius "
-            f"from none to 25 km and it never moves."
+            f"The channel minimum is what is checked, over a square window "
+            f"{CHANNEL_RADIUS_KM:.0f} km to a side's half-width — so "
+            f"{CHANNEL_RADIUS_KM * 2 ** 0.5:.2f} km into the corners. A 1 km "
+            f"cell straddling a gorge reports the wall as readily as the "
+            f"water. A waypoint quoted to two decimals is ±550 m from where "
+            f"it means, which is why the two on the channel carry four. The "
+            f"point sample beside it is what the search "
+            f"is worth: the gap between the columns *is* the damage "
+            f"resampling does to a river, and stage 3 exists to carve it "
+            f"back. What the search must never be is the thing producing the "
+            f"verdict — F50 found this probe reading the Jinsha only because "
+            f"a 2 km disc reached it from a waypoint 1,260 m up the gorge "
+            f"wall, with the minimum sitting at the rim of the disc at every "
+            f"resolution. Both its waypoints are on the water now, and the "
+            f"sweep below is where that shows."
         )
         lines.append("")
         lines.append("| Waypoint | Point sample | Channel minimum | Drop |")
@@ -107,10 +132,14 @@ def run(
             drop = "—" if previous is None else f"{c - previous:,.0f} m"
             previous = c
             lines.append(
-                f"| {lat:.2f} N, {lon:.2f} E | {r:,.0f} m | {c:,.0f} m | {drop} |"
+                f"| {lat:.4f} N, {lon:.4f} E | {r:,.0f} m | {c:,.0f} m | {drop} |"
             )
         lines.append("")
         lines.extend(monotonic_sensitivity(sampler, probe))
+
+    place_failures, place_lines = named_places(sampler)
+    failures.extend(place_failures)
+    lines.extend(place_lines)
 
     deferred = probes.deferred_on(phase, grid)
     if deferred:
@@ -159,12 +188,14 @@ def monotonic_sensitivity(sampler: GridSampler, probe) -> list[str]:
     lines.append("")
 
     lines.append(
-        "**Walked more finely, along the same chord.** The waypoints are a "
-        "hand-placed line across country, not a centreline, so a straight "
-        "reach from Tiger Leaping Gorge to Chongqing crosses mountains the "
-        "river goes around. Read this as the resolution at which the chord "
-        "stops being a river, and not as a hydrology result: it is why the "
-        "probe cannot simply be densified, and why stage 3 is the fix."
+        f"**Walked more finely, along the same chord.** The {len(probe.waypoints)} "
+        f"waypoints are a hand-placed line across country, not a centreline, "
+        f"so the straight reach between two of them crosses ground the river "
+        f"goes around. Read this as the spacing at which the chord stops "
+        f"being a river, and not as a hydrology result: it is why the probe "
+        f"cannot simply be densified, and why stage 3 is the fix. A "
+        f"two-waypoint probe fails it sooner than a seven-waypoint one for "
+        f"the same reason a short chord is no straighter than a long one."
     )
     lines.append("")
     lines.append("| Spacing | Samples | Uphill steps | Total uphill | Verdict |")
@@ -205,6 +236,84 @@ def monotonic_sensitivity(sampler: GridSampler, probe) -> list[str]:
     return lines
 
 
+def named_places(sampler: GridSampler) -> tuple[list[str], list[str]]:
+    """What the built world reads at every place in `places.py`.
+
+    A table of coordinates cannot tell you one of them is in the wrong
+    valley; elevation can. The relief column is the one that does it: a place
+    whose landform says `gorge` and whose surroundings are a gentle slope is
+    either the wrong coordinate or the wrong name, and for two years one of
+    them was — `tiger-leaping-gorge` sat 71 km from the gorge, in a highland
+    with 1,642 m of relief where the gorge has 3,823 (F49). This table is
+    what would have caught it, so it prints on every run.
+
+    Returns (failures, lines): a place that promises `on_channel` and is not
+    fails the run, because a river probe reading from a cliff is a green
+    verdict about nothing (F50).
+    """
+    tolerance = channel_tolerance_m(sampler.resolution_m)
+    lines = ["### Named places, as the built world reads them", ""]
+    lines.append(
+        "`places.py` is the one table these coordinates come from — the "
+        "manifest's anchors, the golden probes' named waypoints and the "
+        "committed projection reference all read it, so a place has one "
+        "coordinate in this repository. What it cannot check is whether that "
+        "coordinate is where the name says; the two right-hand columns are "
+        "what a reader checks that against."
+    )
+    lines.append("")
+    lines.append(
+        "| Place | Claims to be | Ground | Lowest within 2 km | Above it | "
+        "Relief in a 20 km box |"
+    )
+    lines.append("| --- | --- | ---: | ---: | ---: | ---: |")
+    failures: list[str] = []
+    for place in places.PLACES:
+        point = sampler.elevation_m(place.lat, place.lon)
+        if point != point:  # off this corridor
+            lines.append(
+                f"| {place.name} | {place.landform} | — | — | — | outside this build |"
+            )
+            continue
+        low = sampler.channel_m(place.lat, place.lon, CHANNEL_RADIUS_KM)
+        above = point - low
+        relief = sampler.relief_m(place.lat, place.lon, 10.0)
+        mark = ""
+        if place.on_channel:
+            bad = above > tolerance
+            mark = " **off the water**" if bad else " on the water"
+            if bad:
+                failures.append(
+                    f"{place.name}: claims to be on the channel but stands "
+                    f"{above:,.0f} m above the lowest ground within "
+                    f"{CHANNEL_RADIUS_KM:.0f} km, over the {tolerance:,.0f} m "
+                    f"this grid's {sampler.resolution_m:,.0f} m cells allow"
+                )
+        lines.append(
+            f"| {place.name} | {place.landform} | {point:,.0f} m | "
+            f"{low:,.0f} m | {above:,.0f} m{mark} | {relief:,.0f} m |"
+        )
+    lines.append("")
+    lines.append(
+        f"**Above it** is the column F50 added, and it is the one that would "
+        f"have caught F50: relief cannot separate a gorge floor from the "
+        f"cliff over it, because both sit in the same 20 km box and both "
+        f"report ~3,800 m. A place marked `on_channel` in `places.py` "
+        f"promises to be on the water and is held to {tolerance:,.0f} m of it "
+        f"on this grid's {sampler.resolution_m:,.0f} m cells — the waypoint "
+        f"this probe used to carry stood **1,260 m** above the Jinsha and "
+        f"passed every check there was. The tolerance scales with the cell "
+        f"because the floor of this measurement does: a river falls (46 m "
+        f"through this gorge at the source's 30 m, 1 m at Shigu where the "
+        f"same river runs flat) and a cell wider than the water is mostly "
+        f"not water (63 m at 90 m, 186 m at 1 km, on ground that has not "
+        f"moved). A column that read zero on a steep river would be "
+        f"measuring something else."
+    )
+    lines.append("")
+    return failures, lines
+
+
 def probes_by_type(
     phase: probes.Phase, grid: probes.Grid = "country"
 ) -> dict[str, list]:
@@ -215,6 +324,75 @@ def probes_by_type(
         "monotonic": [p for p in runnable if isinstance(p, probes.MonotonicProbe)],
         "area": [p for p in runnable if isinstance(p, probes.AreaRatioProbe)],
     }
+
+
+def run_every_hero_area(args) -> int:
+    """Every built hero area, into one report.
+
+    A loop rather than a Makefile loop because which areas exist is a fact
+    about `hero.py`, and a gate that has to be told what to check is a gate
+    that stops checking the thing nobody remembered to add (F12's rule about
+    silence, applied to the runner instead of to a probe).
+    """
+    from . import hero
+
+    built = [a for a in hero.AREAS if (data_root() / "work" / f"hero-{a.id}.tif").exists()]
+    if not built:
+        print("no hero area is built; run `make hero`", file=sys.stderr)
+        return 1
+
+    failures: list[str] = []
+    body: list[str] = [
+        f"# Golden probe report — hero grid, {hero.RESOLUTION_M} m",
+        "",
+        f"{date.today().isoformat()} · {len(built)} of {len(hero.AREAS)} sited "
+        f"areas built, {len(hero.UNSITED)} unsited · "
+        f"bias {hero.SILHOUETTE_BIAS} · generated by "
+        f"`python -m nineskies.probe --area all`.",
+        "",
+        "This is the artefact stage 6 exists to produce a verdict on. The "
+        "seventh golden probe cannot pass on the 1 km grid the game ships — "
+        "the Jinsha climbs 221 m through Tiger Leaping Gorge there, where "
+        "the source runs it down 41 — so it is deferred to this grid on "
+        "F12's rule and this is where it is answered (F49, F50).",
+        "",
+    ]
+    for area in built:
+        sampler = GridSampler(data_root() / "work" / f"hero-{area.id}.tif")
+        area_failures, lines = run(sampler, args.phase, "hero")
+        failures.extend(area_failures)
+        body += [
+            f"## {area.name}",
+            "",
+            f"`{area.id}` · {area.count} tiles of {hero.TILE_SAMPLES} x "
+            f"{hero.TILE_SAMPLES} at {sampler.resolution_m:.0f} m · "
+            f"hero tiles {area.hx0},{area.hy0}–{area.hx1},{area.hy1} · "
+            f"holds {', '.join(area.holds)}",
+            "",
+            area.why,
+            "",
+        ] + lines
+    if hero.UNSITED:
+        body += ["## Areas the build plan names that have no coordinate", "",
+                 "Siting one means writing a coordinate, and a coordinate "
+                 "written from memory is what F49 and F50 cost. Each of these "
+                 "needs one checked against the ground before it is cut.", "",
+                 "| Area | What it needs |", "| --- | --- |"]
+        body += [f"| {name} | {why} |" for _, name, why in hero.UNSITED]
+        body.append("")
+
+    report = "\n".join(body) + "\n"
+    if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(report)
+    print(report)
+    if failures:
+        print(f"{len(failures)} probe failure(s):", file=sys.stderr)
+        for failure in failures:
+            print(f"  {failure}", file=sys.stderr)
+        return 1
+    print("all runnable probes pass")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -228,10 +406,22 @@ def main(argv: list[str] | None = None) -> int:
         choices=["country", "hero"],
         help="which artefact --grid points at (hero is stage 6, 90 m)",
     )
+    parser.add_argument(
+        "--area",
+        default=None,
+        help="a hero area id, or 'all' for every one that is built; reads "
+        "data/work/hero-<id>.tif (implies --grid-kind hero)",
+    )
     parser.add_argument("--report", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    path = args.grid or data_root() / "work" / f"{args.corridor}-1km.tif"
+    if args.area == "all":
+        return run_every_hero_area(args)
+    if args.area:
+        args.grid_kind = "hero"
+        path = args.grid or data_root() / "work" / f"hero-{args.area}.tif"
+    else:
+        path = args.grid or data_root() / "work" / f"{args.corridor}-1km.tif"
     sampler = GridSampler(path)
     failures, lines = run(sampler, args.phase, args.grid_kind)
 
@@ -240,8 +430,14 @@ def main(argv: list[str] | None = None) -> int:
         "",
         f"{date.today().isoformat()} · `{path.name}` · "
         f"bias {sampler.tags.get('bias', '?')} · "
-        f"tiles {sampler.tags.get('tx0')},{sampler.tags.get('ty0')}"
-        f"–{sampler.tags.get('tx1')},{sampler.tags.get('ty1')}",
+        f"{sampler.resolution_m:.0f} m cells · "
+        + (
+            f"hero tiles {sampler.tags.get('hx0')},{sampler.tags.get('hy0')}"
+            f"–{sampler.tags.get('hx1')},{sampler.tags.get('hy1')}"
+            if sampler.tags.get("hx0")
+            else f"tiles {sampler.tags.get('tx0')},{sampler.tags.get('ty0')}"
+            f"–{sampler.tags.get('tx1')},{sampler.tags.get('ty1')}"
+        ),
         "",
         "Generated by `python -m nineskies.probe`. The unit suite tests the probe",
         "logic and runs anywhere; this runs it against real elevation and cannot.",

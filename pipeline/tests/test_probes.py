@@ -14,8 +14,10 @@ except ImportError:  # pragma: no cover - a bare interpreter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from nineskies import places  # noqa: E402
 from nineskies.probes import (  # noqa: E402
     AREA_PROBES,
+    FLATNESS_PROBES,
     MONOTONIC_PROBES,
     POINT_PROBES,
     deferred_on,
@@ -29,12 +31,19 @@ EVEREST = next(p for p in POINT_PROBES if "Everest" in p.name)
 
 class TestPhaseSplit(unittest.TestCase):
     def test_corridor_build_can_only_reach_two_probes(self):
-        # The build plan's phase 0 gate. Promising six here would make the gate
-        # unpassable and hide a real failure behind a scheduling error.
-        self.assertEqual(len(probes_for("corridor")), 2)
+        # The build plan's phase 0 gate: two probes readable from a corridor
+        # build. Promising more here would make the gate unpassable and hide
+        # a real failure behind a scheduling error. The gorge probe has
+        # corridor data and is not one of them — it cannot be read from the
+        # 1 km grid at all, which is what `runnable_on` is for (F49).
+        self.assertEqual(len(runnable_on("corridor")), 2)
+        self.assertEqual(len(probes_for("corridor")), 3)
 
-    def test_full_build_reaches_all_six(self):
-        self.assertEqual(len(probes_for("full")), 6)
+    def test_full_build_reaches_all_seven(self):
+        # Six in the build plan's table plus the gorge, which is a seventh
+        # because F49 found the failure the sixth was written to catch and
+        # could not see.
+        self.assertEqual(len(probes_for("full")), 7)
 
     def test_the_country_grid_cannot_reach_everest(self):
         # F12: at 1 km the summit moves 153 m with grid phase alone, so the
@@ -44,9 +53,14 @@ class TestPhaseSplit(unittest.TestCase):
         self.assertNotIn("Everest summit", names)
         self.assertIn("Everest summit", [p.name for p in deferred_on("full")])
 
-    def test_the_hero_grid_reaches_exactly_everest(self):
-        self.assertEqual([p.name for p in runnable_on("full", "hero")],
-                         ["Everest summit"])
+    def test_the_hero_grid_is_where_the_1_km_grid_cannot_reach(self):
+        # Both for the same reason, six weeks apart: a 1 km cell containing
+        # the feature is mostly not the feature. Everest reads 235-388 m low
+        # (F12); the gorge reads 377 m high and turns the river uphill (F49).
+        self.assertEqual(
+            [p.name for p in runnable_on("full", "hero")],
+            ["Everest summit", "Jinsha through Tiger Leaping Gorge"],
+        )
 
     def test_no_probe_is_lost_between_the_two_grids(self):
         for phase in ("corridor", "full"):
@@ -179,6 +193,140 @@ class TestWhatTheMonotonicProbeCannotSee(unittest.TestCase):
         self.assertIn("no centreline data", self.yangtze.source)
 
 
+class TestNamedPlaces(unittest.TestCase):
+    """One coordinate per place, and the coordinate that was not (F49)."""
+
+    @unittest.skipUnless(HAVE_RASTERIO, "needs numpy and rasterio")
+    def test_the_anchors_are_the_places(self):
+        # The manifest's anchors used to be their own literal table. Two
+        # tables of the same coordinates is how one of them drifts 71 km.
+        from nineskies.tiles import ANCHORS
+
+        self.assertEqual(ANCHORS, places.anchors())
+        self.assertTrue(ANCHORS)
+
+    def test_the_probe_waypoints_that_are_places_come_from_the_table(self):
+        yangtze = MONOTONIC_PROBES[0]
+        for place_id in ("tiger-leaping-gorge", "chongqing", "yichang",
+                         "wuhan", "shanghai"):
+            self.assertIn(places.at(place_id), yangtze.waypoints, place_id)
+
+    def test_no_place_is_defined_twice(self):
+        ids = [p.id for p in places.PLACES]
+        self.assertEqual(len(ids), len(set(ids)))
+        for place in places.PLACES:
+            self.assertTrue(place.source, place.id)
+
+    def test_the_gorge_is_no_longer_seventy_one_kilometres_from_the_gorge(self):
+        # The bug, stated. 26.87 N, 100.75 E was the anchor, the probe
+        # waypoint and a row of the committed projection table; it is a
+        # highland 721 m above the river it was named for.
+        stale = (26.87, 100.75)
+        self.assertNotIn(stale, [(p.lat, p.lon) for p in places.PLACES])
+        for probe in MONOTONIC_PROBES:
+            self.assertNotIn(stale, probe.waypoints, probe.name)
+        gorge = places.BY_ID["tiger-leaping-gorge"]
+        self.assertEqual(gorge.landform, "gorge")
+
+    def test_the_gorge_is_no_longer_on_the_wall_above_the_gorge(self):
+        # The second fault at the same coordinate, and the subtler one. F49
+        # moved this place 71 km to the right *place*; it landed 1,260 m up
+        # the cliff, and the probe kept reading the river only because a 2 km
+        # channel search reached down to it (F50).
+        wall = (27.18, 100.13)
+        self.assertNotIn(wall, [(p.lat, p.lon) for p in places.PLACES])
+        for probe in MONOTONIC_PROBES:
+            self.assertNotIn(wall, probe.waypoints, probe.name)
+
+    def test_both_waypoints_of_the_gorge_probe_promise_to_be_on_the_water(self):
+        gorge = [p for p in MONOTONIC_PROBES if "Tiger Leaping" in p.name][0]
+        for lat, lon in gorge.waypoints:
+            place = [p for p in places.PLACES if (p.lat, p.lon) == (lat, lon)][0]
+            self.assertTrue(
+                place.on_channel,
+                f"{place.id} is a waypoint of a river probe but does not "
+                f"promise to be on the river, so nothing checks that it is",
+            )
+
+    def test_a_place_that_is_not_a_river_makes_no_such_promise(self):
+        # The flag has to mean something, which means it has to be absent
+        # somewhere. A city on a river bank is not a channel coordinate.
+        self.assertFalse(places.BY_ID["shanghai"].on_channel)
+        self.assertEqual(
+            {p.id for p in places.on_channel()},
+            {"shigu", "tiger-leaping-gorge"},
+        )
+
+
+class TestProbesReadTheOneTable(unittest.TestCase):
+    """F49 moved the waypoint lists onto `places.py` and left the point
+    probes carrying their own coordinates -- Lhasa's, written out twice and
+    identically in two files, which is the exact duplication F49 was about
+    surviving the fix for it (F50)."""
+
+    def test_no_probe_declares_its_own_coordinates(self):
+        import dataclasses
+
+        from nineskies.probes import FlatnessProbe as F, PointProbe as P
+
+        for cls in (P, F):
+            fields = {f.name for f in dataclasses.fields(cls)}
+            self.assertNotIn("lat", fields, f"{cls.__name__} stores its own lat")
+            self.assertNotIn("lon", fields, f"{cls.__name__} stores its own lon")
+            self.assertIn("place", fields)
+
+    def test_every_probe_names_a_place_that_exists(self):
+        for probe in (*POINT_PROBES, *FLATNESS_PROBES):
+            self.assertIn(probe.place, places.BY_ID, probe.name)
+        for probe in AREA_PROBES:
+            self.assertIn(probe.north_place, places.BY_ID, probe.name)
+            self.assertIn(probe.south_place, places.BY_ID, probe.name)
+
+    def test_a_probe_reads_the_table_rather_than_a_copy_of_it(self):
+        lhasa = [p for p in POINT_PROBES if p.place == "lhasa"][0]
+        self.assertEqual((lhasa.lat, lhasa.lon), places.at("lhasa"))
+
+    def test_the_probes_own_places_are_not_teleport_targets(self):
+        # `anchor` is what keeps "somewhere to measure" apart from "somewhere
+        # to be sent". Adding five probe subjects must not have added five
+        # places an operator can jump to.
+        for place_id in ("everest", "ayding-lake", "qinghai-lake", "heihe", "tengchong"):
+            self.assertFalse(places.BY_ID[place_id].anchor, place_id)
+        self.assertEqual(len(places.anchors()), 8)
+
+
+class TestTheGorgeProbe(unittest.TestCase):
+    """The failure the Yangtze probe was written to catch and cannot see."""
+
+    def setUp(self):
+        self.gorge = next(
+            p for p in MONOTONIC_PROBES if "Tiger Leaping" in p.name
+        )
+
+    def test_it_is_two_points_on_one_river(self):
+        self.assertEqual(
+            list(self.gorge.waypoints),
+            [places.at("shigu"), places.at("tiger-leaping-gorge")],
+        )
+
+    def test_it_is_deferred_rather_than_failed(self):
+        # F12's rule: a probe that cannot pass on an artefact belongs on the
+        # artefact it can pass on, listed as deferred so it is never quietly
+        # absent. At 90 m this reads -28 m and passes.
+        self.assertEqual(self.gorge.grid, "hero")
+        self.assertEqual(self.gorge.phase, "corridor")
+        self.assertNotIn(self.gorge, runnable_on("corridor"))
+        self.assertIn(self.gorge, deferred_on("corridor"))
+
+    def test_the_1_km_reading_would_fail_it(self):
+        # What the built corridor actually reads at the two waypoints. This
+        # is the assertion that stops the finding being only prose.
+        self.assertIsNotNone(self.gorge.check([1826.0, 2152.0]))
+        # ...and the source's own 30 m, and the 90 m stage 6 would cut.
+        self.assertIsNone(self.gorge.check([1816.0, 1775.0]))
+        self.assertIsNone(self.gorge.check([1816.0, 1788.0]))
+
+
 @unittest.skipUnless(HAVE_RASTERIO, "needs numpy and rasterio (pipeline/.venv)")
 class TestWalkingAPolyline(unittest.TestCase):
     """The stepping `probe.py` re-walks a chord with.
@@ -202,6 +350,11 @@ class TestWalkingAPolyline(unittest.TestCase):
             def channel_at(self, col, row, radius_km):
                 return col - radius_km
 
+        # The sampler reads its own cell size now rather than the frozen
+        # country constant, so the stub has to have one. That is the whole
+        # of F50's unit fix: a radius was cells wearing the name of
+        # kilometres, and the two agreed on exactly one artefact.
+        Stub.resolution_m = grid.RESOLUTION_M
         stub = Stub()
         self.resolution_m = grid.RESOLUTION_M
         return GridSampler.walk.__get__(stub, Stub)
@@ -247,3 +400,114 @@ class TestAreaProbe(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+@unittest.skipUnless(HAVE_RASTERIO, "needs numpy and rasterio")
+class TestTheChannelCheck(unittest.TestCase):
+    """The column F50 added, and the tolerance it is read against.
+
+    A guard that has never fired is not a guard, so these reproduce the
+    fault: a waypoint 1,260 m up a gorge wall, which relief could not see
+    because a gorge floor and the cliff over it sit in the same 20 km box.
+    """
+
+    def tolerance(self, resolution_m):
+        from nineskies.probe import channel_tolerance_m
+
+        return channel_tolerance_m(resolution_m)
+
+    def test_it_scales_with_the_cell_because_the_floor_does(self):
+        # A cell wider than the water is mostly not water, so the honest
+        # reading grows with the grid even though the ground has not moved.
+        self.assertLess(self.tolerance(30), self.tolerance(90))
+        self.assertLess(self.tolerance(90), self.tolerance(1000))
+
+    def test_it_passes_every_honest_reading_measured(self):
+        # The gorge waypoint, on the water, at three resolutions (F50).
+        for resolution_m, above_m in ((30, 46), (90, 71), (1000, 186)):
+            self.assertLess(
+                above_m,
+                self.tolerance(resolution_m),
+                f"an honest {resolution_m} m reading would fail the check",
+            )
+
+    def test_it_catches_the_fault_it_exists_for_at_every_resolution(self):
+        # 1,260 m up the wall, which passed relief, landform and the probe.
+        for resolution_m in (30, 90, 1000):
+            self.assertGreater(1260, self.tolerance(resolution_m))
+
+    def test_the_honest_readings_and_the_fault_are_not_close(self):
+        # The check is only worth having if there is daylight between them.
+        self.assertGreater(1260 / self.tolerance(1000), 3.0)
+
+    def test_a_place_on_a_cliff_fails_the_run(self):
+        from nineskies import probe as probe_module
+
+        class Stub:
+            resolution_m = 90.0
+
+            def elevation_m(self, lat, lon):
+                # Everything sits on the floor except the gorge, which is up
+                # the wall by F50's own 1,260 m.
+                return 3036.0 if lat == places.BY_ID["tiger-leaping-gorge"].lat else 1817.0
+
+            def channel_m(self, lat, lon, radius_km):
+                return 1776.0
+
+            def relief_m(self, lat, lon, radius_km):
+                return 3801.0
+
+        failures, lines = probe_module.named_places(Stub())
+        self.assertTrue(failures, "a waypoint on a cliff passed the check")
+        self.assertIn("Tiger Leaping Gorge", failures[0])
+        self.assertIn("off the water", "\n".join(lines))
+
+    def test_the_same_places_on_the_water_pass(self):
+        from nineskies import probe as probe_module
+
+        class Stub:
+            resolution_m = 90.0
+
+            def elevation_m(self, lat, lon):
+                return 1817.0
+
+            def channel_m(self, lat, lon, radius_km):
+                return 1776.0
+
+            def relief_m(self, lat, lon, radius_km):
+                return 3801.0
+
+        failures, lines = probe_module.named_places(Stub())
+        self.assertEqual(failures, [])
+        self.assertIn("on the water", "\n".join(lines))
+
+
+class TestTheSamplerKnowsItsOwnCellSize(unittest.TestCase):
+    """F50's unit fault: a radius in cells wearing the name of kilometres.
+
+    `grid.RESOLUTION_M` is a frozen 1,000, so on the country grid the two
+    numbers are the same and nothing showed. On stage 6's 90 m grid a "2 km"
+    search reached 180 m.
+    """
+
+    @unittest.skipUnless(HAVE_RASTERIO, "needs numpy and rasterio")
+    def test_the_radius_is_metres_of_ground_at_any_cell_size(self):
+        from nineskies.sample import GridSampler
+
+        class Stub:
+            def __init__(self, resolution_m):
+                self.resolution_m = resolution_m
+
+        for resolution_m, expected in ((1000, 2), (90, 23), (30, 67)):
+            reach = GridSampler._reach(Stub(resolution_m), 2000)
+            self.assertEqual(reach, expected, f"{resolution_m} m cells")
+            self.assertAlmostEqual(reach * resolution_m, 2000, delta=resolution_m)
+
+    def test_the_source_still_names_the_constant_it_stopped_using(self):
+        # The docstring explains the fault; if the code goes back to the
+        # frozen constant this is what notices.
+        source = (
+            Path(__file__).resolve().parents[1] / "nineskies/sample.py"
+        ).read_text()
+        self.assertNotIn("radius_km * 1000 / grid.RESOLUTION_M", source)
+        self.assertIn("self.resolution_m", source)

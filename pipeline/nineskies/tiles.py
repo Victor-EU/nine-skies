@@ -32,6 +32,7 @@ import numpy as np
 import rasterio
 
 from . import grid
+from . import places
 from .acquire import data_root
 from .grid import CORRIDORS
 from .mosaic import corridor_window
@@ -39,15 +40,11 @@ from .mosaic import corridor_window
 #: Named places along the Sea to Sky route, as the GDD lists it. The pipeline
 #: is the only thing here that owns a projection, so it publishes these in the
 #: country grid's own metres and the engine never learns what Albers is.
-ANCHORS: dict[str, tuple[float, float]] = {
-    "shanghai": (31.23, 121.47),
-    "wuhan": (30.59, 114.31),
-    "yichang": (30.70, 111.29),
-    "chongqing": (29.57, 106.55),
-    "chengdu": (30.66, 104.07),
-    "tiger-leaping-gorge": (26.87, 100.75),
-    "lhasa": (29.65, 91.10),
-}
+#:
+#: Derived from `places.py` rather than written here, because this table used
+#: to be one of three copies of the same coordinates and one of the three was
+#: 71 km from the place it named (F49).
+ANCHORS: dict[str, tuple[float, float]] = places.anchors()
 
 HORIZON_SAMPLE_KM = 8
 #: Inherited from `engine/src/terrain/horizonField.ts`. If these two ever

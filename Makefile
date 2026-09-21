@@ -3,6 +3,7 @@
 #
 #   make world                      # the phase 0 corridor, end to end
 #   make world CORRIDOR=china       # the full country (phase 2, ~70 GB)
+#   make hero                       # the 90 m hero areas (stage 6)
 #   make probes                     # golden probes against what is built
 #   make sources                    # record the source raster digests
 #   make sections                   # re-cut the committed route sections
@@ -26,7 +27,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles probes sources sections patches cut-key reference routes sessions teaches atlas challenges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles hero probes sources sections patches cut-key reference routes sessions teaches atlas challenges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -59,10 +60,15 @@ grid: $(PY)
 tiles: $(PY)
 	$(PIPELINE) -m nineskies.tiles --corridor $(CORRIDOR)
 
-## The gate: golden probes against the built grid, with a report.
+## The gate: golden probes against every built grid, with a report each.
+## Both, because a probe deferred from the 1 km grid to the 90 m one is only
+## answered on the second -- run one of these and the seventh probe is
+## invisible again, which is the failure F49 found in the first place.
 probes: $(PY)
 	$(PIPELINE) -m nineskies.probe --corridor $(CORRIDOR) \
 		--report docs/probe-report.md
+	$(PIPELINE) -m nineskies.probe --area all \
+		--report docs/probe-report-hero.md
 
 ## The projection table the engine checks itself against (D22). Needs PROJ
 ## rather than a built world: it is the pipeline publishing the one thing only
@@ -70,13 +76,25 @@ probes: $(PY)
 reference: $(PY)
 	$(PIPELINE) -m nineskies.reference
 
-## Stage 6 -- cut the committed route sections out of what was built (D21).
+## Stage 6 -- the 90 m hero areas over a handful of named places. Not a
+## fidelity preference: the seventh golden probe cannot pass on the 1 km grid,
+## where the Jinsha runs 221 m uphill through Tiger Leaping Gorge (F49, F50).
+## `--list` says which areas are sited, which have their source cells, and
+## which the build plan names but nothing has ever given a checked coordinate.
+hero: $(PY)
+	$(PIPELINE) -m nineskies.hero --corridor $(CORRIDOR)
+
+## Cut the committed route sections out of what was built (D21). Not one of
+## workstream A's numbered stages -- it cuts content out of the world rather
+## than building the world -- and it used to be labelled "Stage 6" here, which
+## is the number the hero grid above actually has.
 ## Part of `world` rather than a thing to remember, because a corridor rebuild
 ## that leaves the sections behind is exactly the drift the gate then reports.
 sections:
 	npm run content:sections
 
-## Stage 7 -- cut the committed ground patches out of what was built (D39).
+## Cut the committed ground patches out of what was built (D39), and see the
+## note above about the numbering.
 ## The challenge equivalent of `sections`, and the one place in this repository
 ## where cutting an artefact also flies it: only a few hundred of a patch's
 ## cells are ever read and which ones depends on a flight, so the guarantee
@@ -91,7 +109,7 @@ patches:
 cut-key:
 	npm run content:cut-key
 
-world: acquire sources grid tiles probes sections patches
+world: acquire sources grid tiles hero probes sections patches
 	@echo "world built: $(WORLD_OUT)"
 
 ## The other gate: every authored route flown over real ground. Needs no flag

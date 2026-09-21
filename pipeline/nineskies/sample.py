@@ -2,6 +2,14 @@
 
 Everything here takes (lat, lon) and returns metres, so `probes.py` never
 learns what a projection is.
+
+**Distances here are metres, and the raster says how many cells that is.**
+They used to be converted with `grid.RESOLUTION_M`, a frozen 1,000, which is
+right for exactly one artefact: on the 1 km country grid a radius in cells and
+a radius in kilometres are the same number, so nothing ever showed. Pointed at
+stage 6's 100 m hero grid the same call searched **0.28 km for a 2 km radius**
+(F50) — the same shape of fault as F46's `inlandKm`, a unit that was correct
+by coincidence. The resolution now comes from the file that was opened.
 """
 
 from __future__ import annotations
@@ -33,6 +41,12 @@ class GridSampler:
         self._inverse = ~self.transform
         self._wgs = CRS.from_epsg(4326)
         self._albers = CRS.from_proj4(grid.ALBERS_PROJ4)
+        #: Metres per pixel, from the raster rather than from a constant.
+        self.resolution_m: float = abs(self.transform.a)
+
+    def _reach(self, radius_m: float) -> int:
+        """A radius in metres as a whole number of this raster's cells."""
+        return int(math.ceil(radius_m / self.resolution_m))
 
     def to_pixel(self, lat: float, lon: float) -> tuple[float, float]:
         xs, ys = transform_points(self._wgs, self._albers, [lon], [lat])
@@ -46,7 +60,7 @@ class GridSampler:
         return self.elevation_at(*self.to_pixel(lat, lon))
 
     def elevation_at(self, col: float, row: float) -> float:
-        """Bilinear, in pixel coordinates. One pixel is `grid.RESOLUTION_M`."""
+        """Bilinear, in pixel coordinates. One pixel is `self.resolution_m`."""
         height, width = self.array.shape
         if not (0 <= col <= width - 1 and 0 <= row <= height - 1):
             return float("nan")
@@ -59,19 +73,25 @@ class GridSampler:
         return float(top * (1 - fr) + bottom * fr)
 
     def channel_m(self, lat: float, lon: float, radius_km: float = 2.0) -> float:
-        """The lowest cell within a radius — where a river actually is.
+        """The lowest cell in a square window — where a river actually is.
 
         A 1 km cell straddling a gorge reports the wall as readily as the
         water. Until stage 3 burns HydroSHEDS centrelines, this is how a river
         waypoint finds its own channel; it is a measurement aid, not a fix, and
         `probe.py` reports both numbers so the difference stays visible.
+
+        **Square, not round**, so the corners reach `radius_km * sqrt(2)` — a
+        "2 km" search reaches 2.83 km diagonally. Named for the radius because
+        that is the scale it is reasoned about at, and stated here because a
+        search whose reach is 41 % larger than its name is exactly the kind of
+        thing that decides a verdict quietly (F50).
         """
         return self.channel_at(*self.to_pixel(lat, lon), radius_km)
 
     def channel_at(self, col: float, row: float, radius_km: float) -> float:
-        """The lowest cell within a radius, in pixel coordinates."""
+        """The lowest cell in a square window, in pixel coordinates."""
         height, width = self.array.shape
-        reach = int(math.ceil(radius_km * 1000 / grid.RESOLUTION_M))
+        reach = self._reach(radius_km * 1000)
         c0, c1 = max(0, int(col) - reach), min(width, int(col) + reach + 1)
         r0, r1 = max(0, int(row) - reach), min(height, int(row) + reach + 1)
         if c0 >= c1 or r0 >= r1:
@@ -82,7 +102,7 @@ class GridSampler:
         """(mean, standard deviation) over a disc — for the lake flatness probe."""
         col, row = self.to_pixel(lat, lon)
         height, width = self.array.shape
-        reach = int(math.ceil(radius_km * 1000 / grid.RESOLUTION_M))
+        reach = self._reach(radius_km * 1000)
         c0, c1 = max(0, int(col) - reach), min(width, int(col) + reach + 1)
         r0, r1 = max(0, int(row) - reach), min(height, int(row) + reach + 1)
         patch = self.array[r0:r1, c0:c1]
@@ -93,6 +113,32 @@ class GridSampler:
         if values.size == 0:
             return float("nan"), float("nan")
         return float(values.mean()), float(values.std())
+
+    def relief_m(self, lat: float, lon: float, radius_km: float) -> float:
+        """Max minus min over a square window — what tells a gorge from a slope."""
+        col, row = self.to_pixel(lat, lon)
+        height, width = self.array.shape
+        reach = self._reach(radius_km * 1000)
+        c0, c1 = max(0, int(col) - reach), min(width, int(col) + reach + 1)
+        r0, r1 = max(0, int(row) - reach), min(height, int(row) + reach + 1)
+        if c0 >= c1 or r0 >= r1:
+            return float("nan")
+        patch = self.array[r0:r1, c0:c1]
+        return float(patch.max() - patch.min())
+
+    def above_channel_m(self, lat: float, lon: float, radius_km: float = 2.0) -> float:
+        """How far this point stands above the lowest ground near it.
+
+        The column that tells a river from the wall above it. Relief cannot:
+        a gorge floor and the cliff over it sit in the same 20 km box and
+        report the same 3,800 m, which is why F49's landform check passed a
+        waypoint standing **1,260 m above the Jinsha** and called it the
+        river (F50). Near zero means the coordinate is on the water; a large
+        number on a place whose landform is a river means it is not.
+        """
+        point = self.elevation_m(lat, lon)
+        low = self.channel_m(lat, lon, radius_km)
+        return point - low
 
     def walk(
         self,
@@ -119,7 +165,7 @@ class GridSampler:
             else (lambda c, r: self.channel_at(c, r, radius_km))
         )
         pixels = [self.to_pixel(lat, lon) for lat, lon in waypoints]
-        step_px = max(1e-6, stride_km * 1000 / grid.RESOLUTION_M)
+        step_px = max(1e-6, stride_km * 1000 / self.resolution_m)
         out: list[float] = []
         for (c0, r0), (c1, r1) in zip(pixels, pixels[1:]):
             steps = max(1, round(math.hypot(c1 - c0, r1 - r0) / step_px))

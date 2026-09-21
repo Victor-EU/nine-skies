@@ -48,11 +48,23 @@ describe("the Heihe-Tengchong line", () => {
   it("uses the endpoints the equal-area probe is measured against", () => {
     // The map draws the line and the pipeline checks the 57/43 land split
     // across it. Two copies of two coordinates, so this reads the pipeline's.
+    //
+    // They live in places.py now rather than in the probe: a probe that
+    // carries its own coordinates is a second coordinate for a name, which
+    // is the fault F49 and F50 are both about. So this follows the same
+    // chain the pipeline does -- the probe names a place, the place has the
+    // numbers -- and checks the naming too, or the endpoints could drift
+    // apart while both halves of this test still passed.
     const probes = readFileSync("pipeline/nineskies/probes.py", "utf8");
-    const north = /north_end:\s*tuple\[float,\s*float\]\s*=\s*\(([\d.]+),\s*([\d.]+)\)/.exec(probes);
-    const south = /south_end:\s*tuple\[float,\s*float\]\s*=\s*\(([\d.]+),\s*([\d.]+)\)/.exec(probes);
-    expect(north, "north_end not found in probes.py").not.toBeNull();
-    expect(south, "south_end not found in probes.py").not.toBeNull();
+    const places = readFileSync("pipeline/nineskies/places.py", "utf8");
+    expect(/north_place:\s*str\s*=\s*"heihe"/.test(probes), "the probe names heihe").toBe(true);
+    expect(/south_place:\s*str\s*=\s*"tengchong"/.test(probes), "the probe names tengchong").toBe(true);
+    const at = (id: string) =>
+      new RegExp(`Place\\(\\s*"${id}",\\s*"[^"]*",\\s*([\\d.]+),\\s*([\\d.]+),`).exec(places);
+    const north = at("heihe");
+    const south = at("tengchong");
+    expect(north, "heihe not found in places.py").not.toBeNull();
+    expect(south, "tengchong not found in places.py").not.toBeNull();
     expect(Number(north![1])).toBeCloseTo(HEIHE_TENGCHONG.north.latDeg, 6);
     expect(Number(north![2])).toBeCloseTo(HEIHE_TENGCHONG.north.lonDeg, 6);
     expect(Number(south![1])).toBeCloseTo(HEIHE_TENGCHONG.south.latDeg, 6);

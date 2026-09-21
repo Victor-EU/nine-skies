@@ -287,10 +287,17 @@
     },
     {
       "name": "tiger-leaping-gorge",
-      "lat": 26.87,
-      "lon": 100.75,
-      "eastM": 3035982.5,
-      "northM": 1038685.0
+      "lat": 27.2107,
+      "lon": 100.1253,
+      "eastM": 2976154.5,
+      "northM": 1079438.6
+    },
+    {
+      "name": "shigu",
+      "lat": 26.8747,
+      "lon": 99.9625,
+      "eastM": 2958243.8,
+      "northM": 1042847.8
     },
     {
       "name": "lhasa",

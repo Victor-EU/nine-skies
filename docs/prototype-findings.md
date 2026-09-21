@@ -545,6 +545,20 @@ cell containing a gorge is mostly not gorge. **Tiger Leaping Gorge is +523 m**,
 which is the strongest argument in this document for the 90 m hero areas: at
 1 km that gorge is not a gorge, it is a slope.
 
+> **Corrected, 21 September 2026.** The Tiger Leaping Gorge row is not Tiger
+> Leaping Gorge. The anchor of that name sat at 26.87 N, 100.75 E, which F49
+> measured as **71 km** from the gorge and 721 m above the river through it —
+> a highland with 1,642 m of relief in a 20 km box against the gorge's 3,823.
+> The pipeline/engine agreement in the first two columns stands; it was a
+> coordinate check and it checked a coordinate. The third column and the
+> +523 m do not: they compare a reading at one place against a figure for
+> another. **The conclusion survives at the right place and is larger.** At
+> 27.18 N, 100.13 E the source's own 30 m reads 1,775 m within 2 km and the
+> 1 km grid reads 2,152 m, so the grid fills the gorge in by **377 m** — and
+> 40 km upstream at Shigu, where the same river runs through a broad valley,
+> it is right to 10 m. One river, one grid, two answers: that pair is the
+> argument for the hero areas.
+
 Three things the build should not forget:
 
 - The floor device measurement is still outstanding and is the one that decides
@@ -5392,13 +5406,19 @@ how far you look:
 | 10 km | 1,711 m |
 | 25 km | 1,572 m |
 
-The Jinsha through that gorge is commonly published at about 1,800 m, so the
-shipped 2 km search reads roughly **900 m above the water** and you have to
-look 10 km to find it — by which point you are not measuring a gorge, you are
-measuring the lowest thing within ten kilometres. The same widening at
-Shanghai reads 0 m at 25 km, which is the sea. A proxy whose answer moves by a
-kilometre with a radius nobody derived is not finding a channel; it is finding
-a minimum. The centreline that would end the argument is stage 3's.
+A proxy whose answer moves by a kilometre and a half with a radius nobody
+derived is not finding a channel; it is finding a minimum. The same widening
+at Shanghai reads 0 m at 25 km, which is the sea. The centreline that would
+end the argument is stage 3's.
+
+> **Corrected, 21 September 2026.** This paragraph first read that the
+> shipped 2 km search sits "roughly 900 m above the water", comparing the
+> reading at this waypoint against a published figure for Tiger Leaping
+> Gorge. The waypoint is not at Tiger Leaping Gorge — it is 71 km away, which
+> F49 measured and which is a larger finding than this one. Against the
+> source's own 30 m within the same 2 km, the 1 km grid reads **216 m** high
+> here, not 900. The table above is unchanged; what was wrong was the
+> sentence under it.
 
 ### What changed
 
@@ -5433,3 +5453,334 @@ river network and nobody has downloaded it.** That is a fetch of a public
 dataset rather than a decision, so it is engineering — but it is a download,
 and the acquire step for it does not exist. Until it does, this probe covers
 what the table above says it covers and the report says so on every run.
+
+## F49 — The anchor named after the world's deepest gorge was 71 km from it, and the 1 km grid runs the Yangtze uphill through the real one
+
+**Question.** F48 left stage 3 blocked on a download, so the next stage that
+could run on the bytes already here is stage 6, the 90 m hero areas — four of
+its five places sit inside the corridor box. The measurement that decides
+whether stage 6 is worth building is what 90 m holds that 1 km loses, and
+Tiger Leaping Gorge is the place this repository has always named for it. So:
+read the same ground at 30 m, at 90 m and at 1 km.
+
+### The gorge was not where the repository said it was
+
+The first reading came out wrong in a way that was not about resolution. At
+the coordinate the repository calls `tiger-leaping-gorge` — 26.87 N,
+100.75 E — the source's own 30 m bottoms at 2,496 m within 2 km. At Tiger
+Leaping Gorge it bottoms at 1,775 m. The two are **71 km apart**, and the
+shape of the ground says which is which:
+
+| | lowest within 2 km, at 30 m | relief in a 20 km box |
+| --- | ---: | ---: |
+| the anchor as shipped (26.87 N, 100.75 E) | 2,496 m | 1,642 m |
+| Tiger Leaping Gorge (27.18 N, 100.13 E) | 1,775 m | **3,823 m** |
+
+A gorge between two 5,400 m massifs has 3,823 m of relief in a 20 km box. A
+highland has 1,642. That one coordinate had reached four places: the manifest
+anchor the operator's `goToAnchor("tiger-leaping-gorge")` teleports to, the
+Yangtze golden probe's third waypoint, the committed projection reference
+table `make reference` writes, and three findings — including phase 0's own
+*"Tiger Leaping Gorge is +523 m, which is the strongest argument in this
+document for the 90 m hero areas"*, computed 71 km from the gorge. F48's
+"roughly 900 m above the water" was the same mistake, four days old. All three
+are corrected in place above.
+
+Nothing could have caught it, because nothing compared the name to the ground.
+The coordinates were three separate literals that happened to agree, and a
+table of coordinates cannot tell you one of them is in the wrong valley.
+
+### The real gorge says something much sharper
+
+With the coordinate right, the reading is the one stage 6 was always supposed
+to produce — and it is bigger than the one it replaces:
+
+| on the Jinsha, 40 km apart | 30 m source | 90 m | the 1 km grid |
+| --- | ---: | ---: | ---: |
+| Shigu, where the river turns north | 1,816 m | 1,816 m | 1,826 m |
+| Tiger Leaping Gorge | 1,775 m | 1,788 m | **2,152 m** |
+| **downstream, Shigu → the gorge** | **−41 m** | **−28 m** | **+326 m** |
+
+> **Corrected, 21 September 2026 (F50).** These three columns read the gorge
+> through a 2 km channel search from a waypoint that was **1,260 m up the
+> gorge wall** — the search found the river, so the numbers are coherent, but
+> the search was doing the placing and its answer sat at the rim of the disc
+> at every resolution. With the waypoint on the water the conclusion holds and
+> the figure is **+221 m**, not +326. The rest of this section is left as it
+> was written; the direction, the mechanism and the argument for stage 6 all
+> survive, and F50 carries the corrected sweep.
+
+One river, two places, three resolutions. Through a broad valley the 1 km grid
+is right to 10 m. Through the gorge it lifts the water 377 m — and the two
+together mean **the 1 km grid runs the Yangtze uphill**, 326 m of climb in
+40 km of downstream river.
+
+That is not a subtle artefact. It is the exact thing the monotonic golden
+probe exists to catch — *"A river must not run uphill after resampling and
+carving"* — happening on the built corridor, in the most famous gorge in the
+country, while the probe passes. It passes because neither of those two points
+is on its waypoint list: F48 measured that the probe cannot see between its
+waypoints, and this is what was between them.
+
+### What changed
+
+**One table of places.** `pipeline/nineskies/places.py` holds every named
+place once — id, name, coordinates, what landform it claims to be, and where
+the coordinate came from. The manifest's anchors are derived from it, the
+golden probes' named waypoints read it by id, and the projection reference
+follows the anchors. A second coordinate for the same name is now something
+you cannot write down.
+
+**The report checks the name against the ground.** Every run prints what the
+built world reads at every place, with the relief around it beside the
+landform it claims to be:
+
+| Place | Claims to be | Lowest within 2 km | Relief in a 20 km box |
+| --- | --- | ---: | ---: |
+| Chengdu | city | 500 m | 88 m |
+| Tiger Leaping Gorge | gorge | 2,152 m | 3,352 m |
+| Shigu | valley | 1,826 m | 2,115 m |
+
+That table is what would have caught this, so it is not optional and it does
+not wait for a failure.
+
+**A seventh golden probe, deferred rather than failed.** *Jinsha through
+Tiger Leaping Gorge* is the shortest monotonic probe that can exist — two
+points on one river — and at 1 km it is unpassable for the same reason
+Everest is unpassable at 1 km: the cell containing the feature is mostly not
+the feature. F12's rule applies unchanged, so it is declared `grid="hero"` and
+appears in the report's *not runnable* table with the number on it, instead of
+being a known failure nobody wrote down. At 90 m it reads −28 m and passes,
+which is measured rather than hoped, and that is also the case for stage 6:
+**the hero grid is not a fidelity nicety, it is what stops a golden probe
+failing.** Stage 3 carving the channel at 1 km would fix it too, and this
+probe is the check that says which of the two the world still needs.
+
+**Built.** `places.py`, the anchors and probe waypoints derived from it,
+`GridSampler.relief_m`, the named-places table in the probe report, the gorge
+probe, and seven tests including the one that states the bug: the stale
+coordinate appears in no place and no probe. The world's elevation is
+untouched — `heights.bin` hashes to the same `ec5a5e1b…` it did before, and
+only the names attached to it moved. **73 Python tests, up from 66.**
+
+**Action.** Stage 6, and it is now a probe failure rather than a fidelity
+preference. Four of the five hero areas — Guilin, Zhangjiajie, the Three
+Gorges and Tiger Leaping Gorge — are inside the corridor box whose source is
+already on disk. Everest is not: its own one-degree cell is there but its
+three neighbours are not, so the summit's hero tile needs a small download,
+and Everest is the probe F12 deferred to this grid.
+
+> **Corrected, 21 September 2026 (F50).** It is **three**, not four. Guilin
+> sits 0.27° north of the corridor box's southern edge, so a 64 km area around
+> it reaches into latitude 24 and those cells were never fetched. Stage 6 is
+> built and the gorge area is cut; what the count above got wrong is which of
+> the remaining four can follow it without a download.
+
+## F50 — The gorge waypoint was 1,260 m up the gorge wall, and stage 6 is built
+
+**Question.** F49 left stage 6 as the next thing to build and said why: at
+1 km the Jinsha climbs through Tiger Leaping Gorge where the source runs it
+down, so the seventh golden probe cannot pass on the artefact the game ships.
+The build plan left one question open — how a hero tile is addressed against a
+64 km country tile, which 11.52 km does not divide — and one number unexamined:
+90 m, written down before anything measured it. So: measure what the hero grid
+has to be, then build it.
+
+The first measurement said something else.
+
+### The waypoint was on the wall, and a search radius was hiding it
+
+At the gorge coordinate F49 established — 27.18 N, 100.13 E — a **point sample
+of the source's own 30 m reads 3,036 m**. The Jinsha there is at about 1,776 m.
+The waypoint stood **1,260 m up the gorge wall**, and F49's whole argument had
+been computed on it.
+
+It read the river anyway, because `channel_m` searches for the lowest cell
+within 2 km and found one. The tell is where:
+
+| resolution | lowest within 2 km | how far away it was |
+| --- | ---: | ---: |
+| 30 m | 1,779 m | 2.10 km |
+| 60 m | 1,782 m | 2.23 km |
+| 90 m | 1,789 m | 2.18 km |
+| 1 km | 2,143 m | 2.48 km |
+
+The minimum sits at the **rim of the disc at every resolution**. A search whose
+answer is always at its own edge is not finding the channel; it is reporting
+the lowest point of whatever circle you drew, and the circle was doing the
+placing. Widen it and the answer keeps moving: 3 km finds 1,763 m, 5 km finds
+1,724 m.
+
+F49 added the relief column precisely to catch a misplaced name, and relief
+could not catch this one — **a gorge floor and the cliff above it sit in the
+same 20 km box and both report about 3,800 m**. The column that separates them
+is how far a point stands above the lowest ground near it. It is in the report
+now, and it reads 2 m at Shigu and 1,260 m at the old waypoint.
+
+### Where the gorge is, by what makes it a gorge
+
+Rather than move the coordinate by eye, the gorge was located by its own
+geometry — the Jinsha running between two massifs — and the built world was
+asked where those are. Inside a 40 km box there are three summits above
+5,000 m: **Haba Xueshan at 5,341 m** (27.32 N, 100.11 E) and **Yulong Xueshan
+at 5,399 m and 5,445 m** (27.14 N, 100.16 E). Ranking every cell below 1,900 m
+by the depth of the trench around it puts the deepest reach between them, and
+the channel cell nearest its middle is **27.2107 N, 100.1253 E at 1,757 m**,
+3.45 km from where the waypoint was. Shigu moved 0.58 km onto the water by the
+same rule; it had only ever been 9 m above it, which is why the identical fault
+was invisible there.
+
+A river waypoint says so in the table now. `Place.on_channel` is a promise that
+the coordinate is on the water, and the probe report holds every such place to
+it against the built world.
+
+**The tolerance is not zero and cannot be.** Two things lift the reading with
+no help from the coordinate. A river falls — through this gorge the Jinsha
+drops 46 m across the window at the source's own 30 m, against 1 m at Shigu
+where the same river runs flat. And a cell wider than the water is mostly not
+water, so the same waypoint reads 63 m at 90 m and **186 m at 1 km on ground
+that has not moved**. Measured at three resolutions the floor is about
+`42 + 0.14 × cell`, so the tolerance is twice that: every honest reading sits
+near half of it, and the 1,260 m fault clears it by 3.4× even on the coarsest
+grid. A fixed 200 m — the first number tried — would have passed the 1 km
+reading by 14 m, which is a threshold that happens not to have fired rather
+than one that holds.
+
+### With the waypoint on the water, what the resolution sweep actually says
+
+The probe is now a point sample and needs no search at all. Over sixteen
+sub-cell grid phases at each resolution — F12's method, because grid phase
+alone swung Everest by 153 m — the downstream drop from Shigu to the gorge:
+
+| resolution | worst phase | best phase | verdict |
+| --- | ---: | ---: | --- |
+| 30 m | −39.5 m | −46.7 m | passes at every phase |
+| 60 m | −29.5 m | −42.4 m | passes at every phase |
+| 90 m | −13.9 m | −25.3 m | passes at every phase |
+| 100 m | −7.7 m | −21.9 m | passes at every phase |
+| 120 m | **+0.9 m** | −23.2 m | fails at some phase |
+| 200 m | +49.2 m | +18.7 m | fails at every phase |
+| 1 km | +379.7 m | +213.9 m | fails at every phase |
+
+So the probe flips between 100 m and 120 m, and F49's headline number is
+corrected by the move: the 1 km grid runs the Jinsha uphill by **221 m**
+between these two waypoints, not 326 — the larger figure was measured from the
+cliff.
+
+### 90 m is right, and it was nearly talked out of it
+
+100 m is the tempting answer, because it is the one resolution that nests: ten
+hero cells to a country cell, 12.8 km tiles exactly five to a 64 km country
+tile, every country sample also a hero sample. 90 m nests in nothing —
+`gcd(90, 64000)` is 10, so country samples land on hero samples only every
+9 km and **no tile size of 90 m cells would fix it**.
+
+What settles it is the second probe. Everest also reads this grid, and the two
+pull opposite ways: the gorge wants the valley floor left alone, a summit wants
+the ridge kept. Sweeping the silhouette bias at each resolution gives the
+window where both pass at once — the summit half measured on Yulong and Haba,
+the two massifs this gorge runs between, standing in for Everest, whose own
+source cells are not on disk:
+
+| resolution | bias window where both pass | best margins | MB per 64 km area |
+| --- | --- | --- | ---: |
+| 60 m | **every value tested, 0.00–0.75** | gorge 11.7 m, summit 11.1 m | 2.3 |
+| 90 m | 0.25–0.45 | gorge 4.4 m, summit 3.6 m | 1.0 |
+| 100 m | **0.35 alone** | gorge 3.0 m, summit 1.0 m | 0.8 |
+| 120 m | none | — | 0.6 |
+
+100 m is not a setting, it is a coincidence: one value of a continuous knob,
+with a metre to spare on a 5,337 m mountain. The nesting is worth having and it
+is not worth that. **90 m stands, now for a measured reason rather than an
+inherited one**, and its bias is **0.40** — its own number, not stage 2's 0.25,
+which sits at the very edge of the window.
+
+The honest caveat is in the table: at **60 m the knob stops mattering
+altogether**, both probes pass at every bias, and the margins triple. It costs
+2.3 MB per area against 1.0 — about 6.5 MB across five areas, on a line the
+plan budgets at ~9 MB and which is not on the critical path to first flight.
+That is a budget decision rather than an engineering one, so it is recorded
+here and listed as an open item rather than taken.
+
+### How a hero tile is addressed: it is not
+
+The build plan's open question has a factual answer rather than a preferred
+one. At 90 m there is no nesting available at any tile size, so the hero
+lattice stands on its own and shares only the country grid's origin, which is
+what keeps both indexed from the same corner. `country_tiles_under` answers
+"where does this tile sit" with a span of one, two or four country tiles rather
+than an index.
+
+What makes that safe is not shared samples but the skirts the engine already
+has. `terrain.ts` drops a ring `900 * verticalExaggeration` below every tile
+edge, commented "Skirts must out-reach the worst height disagreement between
+LODs" — so the cut measures its own boundary against the country grid and
+refuses to write an area that exceeds it. For the gorge area: **mean 71 m,
+worst 333 m, against 900 m of skirt.** Checked rather than assumed, which is
+the only reason a non-nesting grid is allowed to exist here.
+
+### Two faults found on the way in
+
+**The sampler's radii were cells wearing the name of kilometres.**
+`GridSampler` converted every radius with `grid.RESOLUTION_M`, a frozen 1,000.
+On the 1 km grid a radius in cells and a radius in kilometres are the same
+number, so nothing ever showed; pointed at the 90 m hero grid, a 2 km search
+reached **180 m**. Measured against a synthetic cone it read 0.28 km for a
+stated 2 km. The resolution comes from the opened raster now. This is F46's
+`inlandKm` again — a unit that was correct by coincidence on the one input
+anybody tried. The same measurement showed the window is a **square**, so a
+"2 km" search reaches 2.83 km into its corners; that is in the docstring and
+in the report rather than quietly in the arithmetic.
+
+**F49's one-table fix had not reached the point probes.** It moved the
+monotonic probes' waypoints and the manifest anchors onto `places.py` and left
+`PointProbe` and `FlatnessProbe` carrying their own `lat`/`lon` — so **Lhasa's
+coordinate was written out twice, identically, in two files**, which is the
+exact duplication F49 exists to end, surviving the fix for it. Every probe
+names a place now and the dataclasses have no coordinate fields at all, so a
+second copy cannot be written. Five places came in with them — Everest, Ayding
+Lake, Qinghai Lake, Heihe and Tengchong — all with `anchor=False`, because they
+are things to measure rather than places to be sent, and the manifest's eight
+anchors are unchanged.
+
+### What was built
+
+Stage 6 exists. `hero.py` cuts 90 m areas on the lattice above, in the same
+129 × 129 tile layout and the same north-running `j` as a country tile so the
+engine's heightmap reader needs no second convention. The gorge area is **24
+tiles, 0.80 MB, 1,581–5,440 m**, and:
+
+> **the seventh golden probe passes — −80 m downstream on the channel, −11 m as
+> a bare point sample, at every search radius from none to 25 km.**
+
+Which is the shape F48 asked for: the search no longer decides the verdict.
+
+An area is sited on places from `places.py` and refuses to be cut if it does
+not contain them. **Two of the plan's five are sited; three are not**, and that
+is deliberate — Guilin, Zhangjiajie and the Three Gorges have no coordinate in
+this repository that anything has ever checked against the ground, and writing
+three from memory is precisely what F49 and F50 cost. They are listed in
+`hero.UNSITED` with what siting each needs, and the hero report prints them.
+Everest is sited and refuses to cut: three of its four one-degree cells are not
+on disk.
+
+Also corrected: F49's claim that four of the five areas need no download. It is
+**three**. Guilin sits 0.27° north of the corridor's southern edge, so a 64 km
+area around it reaches into latitude 24, which was never fetched.
+
+`make hero` cuts the areas, `make probes` now runs both grids and writes
+`docs/probe-report.md` and `docs/probe-report-hero.md` — both, because a probe
+deferred from one grid to the other is only answered on the second, and running
+one gate would make the seventh probe invisible again. The Makefile's own stage
+numbering is fixed with it: it had been calling the route-section cut "Stage 6",
+which is the number the hero grid actually has.
+
+**106 Python tests, up from 73.** The two faults are reproduced rather than
+asserted: putting the old coordinate back fails `test_the_gorge_is_no_longer_on
+_the_wall_above_the_gorge`, and removing the `on_channel` promise fails three
+more. `test_the_fixture_is_not_saturated` is there because the first version of
+the tile-layout test encoded `row * 1000 + col`, overflowed Int16, and passed
+its shared-edge assertion by comparing 32,767 to itself.
+
+**The world's elevation is untouched.** `heights.bin` still hashes to
+`ec5a5e1b83247978`; only the names attached to it moved.

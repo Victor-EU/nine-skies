@@ -1,19 +1,23 @@
 """Golden probes for the terrain pipeline (build plan, workstream A).
 
-Six probes. If they pass, the georeferencing, the projection, the
+Seven probes. If they pass, the georeferencing, the projection, the
 hydro-conditioning and the equal-area claim are all correct. If any fails, the
 world is wrong and no amount of shader work will fix it.
 
 Only two can run against a corridor build. Three more need the full-country
-grid and first run in phase 2. The sixth -- Everest -- needs the 90 m hero
-grid from stage 6, because at 1 km it cannot pass at any tolerance; see
-`docs/prototype-findings.md`, F12.
+grid and first run in phase 2. The last two need the 90 m hero grid from stage
+6, because at 1 km neither can pass at any tolerance: the summit cell is
+mostly not summit (F12), and the gorge cell is mostly not gorge, which is why
+the 1 km grid runs the Jinsha uphill through it (F49). See
+`docs/prototype-findings.md`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Callable, Literal, Sequence
+
+from . import places
 
 Phase = Literal["corridor", "full"]
 
@@ -28,8 +32,11 @@ class PointProbe:
     """A named place whose elevation we know independently of our own pipeline."""
 
     name: str
-    lat: float
-    lon: float
+    #: The id this probe's coordinates come from. Not a copy of them: a probe
+    #: that carries its own lat/lon is a second coordinate for a name, which
+    #: is what F49 ended for the waypoint lists and F50 found still true here
+    #: -- Lhasa's was written out twice, identically, in two files.
+    place: str
     expected_m: float
     tolerance_m: float
     phase: Phase
@@ -39,6 +46,14 @@ class PointProbe:
     #: Recorded so the gap stays visible instead of looking like a typo.
     published_m: float | None = None
     note: str = ""
+
+    @property
+    def lat(self) -> float:
+        return places.BY_ID[self.place].lat
+
+    @property
+    def lon(self) -> float:
+        return places.BY_ID[self.place].lon
 
     def check(self, sample_m: float) -> str | None:
         if abs(sample_m - self.expected_m) > self.tolerance_m:
@@ -54,14 +69,21 @@ class FlatnessProbe:
     """A lake surface must be flat, and at its real elevation."""
 
     name: str
-    lat: float
-    lon: float
+    place: str
     radius_km: float
     expected_m: float
     tolerance_m: float
     max_std_dev_m: float
     phase: Phase
     source: str
+
+    @property
+    def lat(self) -> float:
+        return places.BY_ID[self.place].lat
+
+    @property
+    def lon(self) -> float:
+        return places.BY_ID[self.place].lon
 
 
 @dataclass(frozen=True)
@@ -96,6 +118,10 @@ class MonotonicProbe:
     #: with a HydroSHEDS centreline, and this becomes a number that turns the
     #: probe into the check it has always claimed to be.
     stride_km: float | None = None
+    #: Which built artefact this can be read from, on the same rule as a point
+    #: probe. A river through a gorge cannot pass at 1 km for the same reason
+    #: Everest cannot: the cell is mostly not the feature (F12, F49).
+    grid: Grid = "country"
     #: What the probe is known not to cover, printed in the report beside the
     #: verdict so a pass is never read as more than it is.
     note: str = ""
@@ -128,9 +154,17 @@ class AreaRatioProbe:
     tolerance_pct: float
     phase: Phase
     source: str
-    # The line, roughly Heihe (Heilongjiang) to Tengchong (Yunnan).
-    north_end: tuple[float, float] = (50.25, 127.48)
-    south_end: tuple[float, float] = (25.02, 98.49)
+    # The line, Heihe (Heilongjiang) to Tengchong (Yunnan), from the table.
+    north_place: str = "heihe"
+    south_place: str = "tengchong"
+
+    @property
+    def north_end(self) -> tuple[float, float]:
+        return places.at(self.north_place)
+
+    @property
+    def south_end(self) -> tuple[float, float]:
+        return places.at(self.south_place)
 
     def check(self, west_pct: float) -> str | None:
         if abs(west_pct - self.expected_west_pct) > self.tolerance_pct:
@@ -144,8 +178,7 @@ class AreaRatioProbe:
 POINT_PROBES: tuple[PointProbe, ...] = (
     PointProbe(
         name="Lhasa",
-        lat=29.65,
-        lon=91.10,
+        place="lhasa",
         expected_m=3650,
         tolerance_m=30,
         phase="corridor",
@@ -153,8 +186,7 @@ POINT_PROBES: tuple[PointProbe, ...] = (
     ),
     PointProbe(
         name="Everest summit",
-        lat=27.9881,
-        lon=86.9250,
+        place="everest",
         # Not the survey height. GLO-30 is 111 m below it before the pipeline
         # touches the data -- TanDEM-X radar penetrates snow and averages the
         # summit pyramid across its cell -- so a probe against 8,849 m would
@@ -179,8 +211,7 @@ POINT_PROBES: tuple[PointProbe, ...] = (
     ),
     PointProbe(
         name="Ayding Lake, Turpan",
-        lat=42.68,
-        lon=89.26,
+        place="ayding-lake",
         expected_m=-154,
         tolerance_m=15,
         phase="full",
@@ -191,8 +222,7 @@ POINT_PROBES: tuple[PointProbe, ...] = (
 FLATNESS_PROBES: tuple[FlatnessProbe, ...] = (
     FlatnessProbe(
         name="Qinghai Lake surface",
-        lat=36.90,
-        lon=100.20,
+        place="qinghai-lake",
         radius_km=25,
         expected_m=3196,
         tolerance_m=2,
@@ -206,13 +236,13 @@ MONOTONIC_PROBES: tuple[MonotonicProbe, ...] = (
     MonotonicProbe(
         name="Yangtze, source to mouth",
         waypoints=(
-            (33.45, 91.10),   # Tuotuo He, headwaters
-            (31.80, 98.60),   # upper Jinsha
-            (26.87, 100.75),  # Tiger Leaping Gorge
-            (29.57, 106.55),  # Chongqing
-            (30.70, 111.29),  # Yichang, below the Three Gorges
-            (30.59, 114.31),  # Wuhan
-            (31.23, 121.47),  # Shanghai
+            (33.45, 91.10),                      # Tuotuo He, headwaters
+            (31.80, 98.60),                      # upper Jinsha
+            places.at("tiger-leaping-gorge"),
+            places.at("chongqing"),
+            places.at("yichang"),                # below the Three Gorges
+            places.at("wuhan"),
+            places.at("shanghai"),
         ),
         phase="corridor",
         # Not "monotonicity enforced in stage 3": stage 3 has never run, and
@@ -226,6 +256,29 @@ MONOTONIC_PROBES: tuple[MonotonicProbe, ...] = (
         "see a clipped meander between two of them, which is the failure "
         "stage 3 exists to prevent, and it passes at every channel search "
         "radius including none.",
+    ),
+    MonotonicProbe(
+        name="Jinsha through Tiger Leaping Gorge",
+        # Two points on one river, 40 km apart, and the shortest monotonic
+        # probe that can exist. It is here because it is the failure the probe
+        # above was written to catch and cannot: at 1 km the gorge cell is
+        # mostly not gorge, so the grid lifts the water 377 m and the river
+        # climbs 326 m downstream. Deferred rather than failed, on F12's rule
+        # -- a probe that cannot pass on an artefact belongs on the artefact
+        # it can pass on, and 90 m reads -28 m (F49).
+        waypoints=(places.at("shigu"), places.at("tiger-leaping-gorge")),
+        phase="corridor",
+        grid="hero",
+        source="Measured against Copernicus GLO-30 at native 30 m, which "
+        "reads 1,817 m at Shigu and 1,776 m in the gorge -- both waypoints "
+        "on the channel, which F50 is about",
+        stride_km=None,
+        note="Unpassable at 1 km, where it reads +221 m uphill against the "
+        "source's -41 m. Needs the 90 m hero grid from stage 6, or stage 3 "
+        "carving the channel back down at 1 km, and it is the check that "
+        "says which of those two the world still needs. Both its waypoints "
+        "are `on_channel` places, so the report holds them to the water "
+        "rather than trusting the 2 km search to find it (F50).",
     ),
 )
 

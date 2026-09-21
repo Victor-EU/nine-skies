@@ -107,7 +107,7 @@ shown.
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
 make challenges   # fly every authored challenge, and price what it asks for
-make test         # 686 TypeScript tests and 66 Python tests
+make test         # 686 TypeScript tests and 106 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -237,8 +237,9 @@ about it — and because a colour stop is a factual claim. See
 ## Findings so far
 
 [docs/prototype-findings.md](docs/prototype-findings.md) — thirteen findings
-from phase 0, and [the golden probe report](docs/probe-report.md) from the
-corridor build.
+from phase 0, and the golden probe reports from the two built grids:
+[the 1 km corridor](docs/probe-report.md) and
+[the 90 m hero areas](docs/probe-report-hero.md).
 
 Three worth reading first. **F1** was wrong twice before it was right. **F12**
 found that the Everest golden probe can never pass, because Copernicus GLO-30
