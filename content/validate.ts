@@ -70,6 +70,7 @@ for (const r of routes) for (const l of describe(r)) console.log(l);
 
 const brokenIssues = routes.reduce((n, r) => n + (r.check?.issues.length ?? 0), 0);
 const staleSections = routes.filter((r) => r.sectionIssue !== null);
+const wrongGrid = routes.filter((r) => (r.drawnGap?.over ?? 0) > 0);
 const unchecked = routes.filter((r) => r.check === null);
 let failed = false;
 
@@ -84,6 +85,20 @@ if (staleSections.length > 0) {
     `\n${staleSections.length} committed section(s) no longer describe their route.`,
   );
   console.error("Re-cut them with `npm run content:sections` on a machine with a world.");
+  failed = true;
+}
+// Only ever fires on a machine with a world, like the drift check above: CI
+// has the committed section and no `hero/` to compare it against. That is the
+// right asymmetry -- the machine that can see the fault is the machine that
+// can do something about it (F53).
+if (wrongGrid.length > 0) {
+  console.error(
+    `\n${wrongGrid.length} route(s) are checked against ground the game does not draw.`,
+  );
+  console.error(
+    "The section is a faithful cut of the 1 km grid; the game draws 90 m over a hero area.",
+  );
+  console.error("Which grid content is cut from is an open decision (F51, F53).");
   failed = true;
 }
 if (unchecked.length > 0 && !allowUnchecked) {

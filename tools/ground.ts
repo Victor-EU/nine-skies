@@ -14,8 +14,11 @@
  */
 import {
   corridorCache,
+  drawnGap,
   profileAlong,
+  stationsAlong,
   type Corridor,
+  type DrawnGap,
 } from "./corridor.ts";
 import { corridorFor, projectedWaypoints } from "./expedition.ts";
 import { maxDriftM, readSection, sectionPath, verifySection } from "./section.ts";
@@ -42,6 +45,13 @@ export interface GroundResolution {
   readonly corridor: string | null;
   /** Why the committed section cannot stand for this route, if it cannot. */
   readonly sectionIssue: string | null;
+  /**
+   * Whether this route is flown over ground the game does not draw, measured
+   * against the 90 m cover beside the world -- null everywhere the world is
+   * not, which is the same set of machines that cannot re-cut a section
+   * either (F53).
+   */
+  readonly drawnGap: DrawnGap | null;
   readonly skipReason: string | null;
 }
 
@@ -61,7 +71,8 @@ export function resolveGround(
   const { chosen, looked, leaves } = corridorFor(expedition, open);
 
   if (chosen) {
-    const profiled = profileAlong(chosen.corridor, projectedWaypoints(expedition));
+    const waypoints = projectedWaypoints(expedition);
+    const profiled = profileAlong(chosen.corridor, waypoints);
     // The check CI cannot do for itself: the committed artefact against the
     // data it claims to come from. It only ever runs where both exist, which
     // is the machine that can fix it.
@@ -70,6 +81,9 @@ export function resolveGround(
       groundM: profiled.profileM,
       source: "world",
       corridor: chosen.name,
+      // Measured at the same stations the profile is, so "station 1,842" means
+      // the same kilometre in both.
+      drawnGap: drawnGap(chosen.corridor, stationsAlong(waypoints)),
       sectionIssue:
         stale ??
         (drift > DRIFT_TOLERANCE_M
@@ -86,6 +100,7 @@ export function resolveGround(
       source: "section",
       corridor: section.cutFrom.corridor,
       sectionIssue: null,
+      drawnGap: null,
       skipReason: null,
     };
 
@@ -100,6 +115,7 @@ export function resolveGround(
     source: null,
     corridor: null,
     sectionIssue: stale,
+    drawnGap: null,
     skipReason:
       `no ground to fly it over — ${worlds}, and ${cut}. ` +
       `Run \`make world CORRIDOR=${expedition.id}\`, which cuts the section too`,

@@ -92,7 +92,8 @@ attach to shipped assets.
    must match it — `test/terrain/horizon.test.ts` holds the reduction to
    keeping the Himalayan crest within 10 %.
 6. **Hero areas** — 90 m tiles, 129 x 129 over 11.52 km, in the country
-   tiler's own layout. **Built** (`make hero`, F50), and it is what a golden
+   tiler's own layout. **Built, and the engine draws them** (`make hero`, F50,
+   F51), and it is what a golden
    probe was waiting on: at 1 km the Jinsha climbs 221 m in the 41 km
    downstream from Shigu to Tiger Leaping Gorge, where the source runs it
    down 41. On this grid the probe passes — −80 m on the channel, −11 m as a
@@ -108,13 +109,31 @@ attach to shipped assets.
      index. What keeps the seam closed is the 900 m skirt in
      `engine/src/terrain/terrain.ts`, and the cut measures its own boundary
      against the country grid and refuses to write an area that exceeds it
-     (71 m mean, 333 m worst for the gorge).
+     (71 m mean, 333 m worst for the gorge). Read back from the other side by
+     the engine, through the sampling the HUD uses, the same rim is 71.4 m
+     mean and 339.4 m worst (F51).
+   - **Two grids is a cost as well as a fidelity gain, and it is measured on
+     the other side.** The rim is where they are held together; the interior
+     is where they are allowed to disagree, and inside these two areas the
+     90 m grid stands up to **374 m above** the 1 km grid — more than the
+     333 m the only authored expedition clears its worst terrain by. Since
+     the cockpit reads the fine grid and every committed section and patch is
+     cut from the coarse one, `make ground` writes `docs/ground-report.md` on
+     every build and both cutters refuse to write an artefact over a hero
+     area (D52, F53).
+   - `cut` also writes **`hero/index.json`**, which is the file the engine
+     fetches to find out what exists. Beside the areas rather than in the
+     corridor manifest: that manifest is hashed into every route section's
+     signature (D23), so an area appearing must not change what a section
+     verifies against.
    - An area is sited on `places.py` entries and refuses to cut if it does not
-     contain them. Two of the five are sited; Guilin, Zhangjiajie and the
-     Three Gorges are in `hero.UNSITED` because no coordinate for them in this
-     repository has ever been checked against the ground, and writing three
-     from memory is what F49 and F50 cost. Everest is sited and refuses to
-     cut: three of its four source cells are not on disk.
+     contain them, and the coordinates come from `siting.py` rather than from
+     memory (F52). Three of the five are sited and two are built — Tiger
+     Leaping Gorge at 24 tiles and the Three Gorges at 36, 2.00 MB of cover.
+     Everest is sited and refuses to cut: three of its four source cells are
+     not on disk. Guilin and Zhangjiajie are in `hero.UNSITED`, and neither is
+     waiting on a coordinate — Guilin wants three one-degree cells below 25 N,
+     and Zhangjiajie wants a source that resolves what it is named for.
 7. **Land cover** — aggregate to 2 km class fractions, packed RGBA.
 8. **Atlases** — climate at 10 km, wind at 25 km, country-wide, loaded once.
 9. **City baker** — GHSL to per-tile block instances.
@@ -141,11 +160,29 @@ report the same 3,800 m of relief. A place that claims `on_channel` is held
 to the water, to a tolerance that scales with the cell — a river falls, and a
 cell wider than the water is mostly not water (F50).
 
+And **a probe that reads nothing reports nothing**. The hero grid is not one
+raster but a handful of small ones, and every hero probe is run against every
+area, so the moment a second area existed the Jinsha probe ran against the
+Three Gorges 1,200 km away, read `nan` at both waypoints and reported *pass* —
+NaN compares false against every threshold a check can set. A probe whose
+subject is off this raster is now listed under *Not on this artefact*, and one
+that is half on it fails rather than skipping, because a verdict on the half
+it can see is a green light for a raster cut too small (F52).
+
 ```bash
 make test-py      # or: python3 -m unittest discover -s pipeline/tests
 make hero         # stage 6 — the 90 m areas the seventh probe needs
+make siting       # where a coordinate goes, measured off the source at 30 m
 make probes       # the real thing, against both built grids
 ```
+
+`make siting` writes `docs/siting-report.md`, which is the same question asked
+of the source rather than of the built world: 1 km ground cannot tell a gorge
+from the county it sits in, and 30 m can. A city on the plain reads under a
+fifth of a percent of its cells past 45°, a gorge reads five to twenty, and a
+coordinate in the wrong valley reads like its neighbours. `siting.py` also has
+`drama`, `scan`, `pools` and `walls` for placing the next area — the three
+Yangtze gorges came out of them rather than out of recall (F52).
 
 The unit suite runs on a bare interpreter; tests that need rasterio or numpy
 skip themselves. That is a convenience locally and a trap in CI — a bare

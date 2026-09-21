@@ -24,6 +24,13 @@ gorge rather than in it, because a gorge floor and the cliff above it sit in
 the same 20 km box and report the same 3,800 m of relief. The column that
 separates them is how far a point stands above the lowest ground near it, and
 the promise a river place makes is `on_channel` below (F50).
+
+Both of those are checks on a coordinate somebody already wrote. `siting.py`
+is the other half: it reads the source's own 30 m in a box and says where the
+ground the name describes actually is, so a coordinate can be measured out
+rather than recalled and then defended. The three Yangtze gorges below came
+from it, and what it says about Wulingyuan is why there is still no place
+here called that (F52).
 """
 
 from __future__ import annotations
@@ -66,6 +73,60 @@ PLACES: tuple[Place, ...] = (
     Place("wuhan", "Wuhan", 30.59, 114.31, "city", "City centre"),
     Place("yichang", "Yichang", 30.70, 111.29, "city",
           "Below the Three Gorges, where the Yangtze meets the plain"),
+    # The three below were sited by `siting.py` rather than recalled, which is
+    # the whole of what F52 is about. The reservoir behind the Three Gorges dam
+    # is flat to the metre for 190 km, so the source states where the water is
+    # outright; each of these is the point on that surface with the highest
+    # ground within a kilometre of it, moved the last few cells onto the water
+    # at 30 m. Their order along the river and the length of each narrows is
+    # what the three names are checked against -- see each note.
+    Place(
+        "qutang-gorge",
+        "Qutang Gorge",
+        31.0222,
+        109.6089,
+        "gorge",
+        "On the Yangtze in the narrows above Fengjie, at the reservoir's "
+        "158 m, with 1,137 m of wall standing over the water within a "
+        "kilometre",
+        on_channel=True,
+        note="The shortest of the three and the westernmost: the near wall "
+        "holds above 600 m for 4.8 km here, against 47.7 km through Wu "
+        "Gorge below it. That ordering -- short, long, short, going "
+        "downstream -- is what the three names are held to, because no "
+        "gazetteer in this repository can confirm one (F52).",
+    ),
+    Place(
+        "wu-gorge",
+        "Wu Gorge",
+        31.0689,
+        109.9467,
+        "gorge",
+        "On the Yangtze below Wushan, at the reservoir's 156 m, with 1,022 m "
+        "of wall within a kilometre and 1,366 m within four",
+        on_channel=True,
+        note="The long one: 47.7 km of continuous narrows, in two runs "
+        "either side of a 5 km opening. Sited at the stronger of its two "
+        "wall maxima; the other is 30 km downstream at 31.0156 N, 110.2622 "
+        "E and reads 915 m (F52).",
+    ),
+    Place(
+        "xiling-gorge",
+        "Xiling Gorge",
+        30.9511,
+        110.7756,
+        "gorge",
+        "On the Yangtze above Zigui, at the reservoir's 158 m, with 1,023 m "
+        "of wall within a kilometre and 1,698 m within four -- the deepest "
+        "of the three at the wider radius",
+        on_channel=True,
+        note="Identified by position rather than by length: it is the reach "
+        "between the last narrows and the dam, which the measurement puts at "
+        "111.00 E by the step from the 158 m pool to the 32-37 m river "
+        "below it. Its narrows run 14.3 km, where the gorge as a whole is "
+        "usually given as four times that -- most of it is drowned and open "
+        "now, which the source reads and this coordinate cannot fix (F52).",
+    ),
     Place("chongqing", "Chongqing", 29.57, 106.55, "city", "City centre"),
     Place("chengdu", "Chengdu", 30.66, 104.07, "city", "City centre"),
     Place(

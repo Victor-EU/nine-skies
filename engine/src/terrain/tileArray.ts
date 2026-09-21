@@ -23,6 +23,14 @@ export const MAX_LAYERS = 256;
 /** Heightmap texels per side. 64 km tiles at 1 km, sharing an edge row. */
 export const TILE_SAMPLES = 65;
 
+/**
+ * Hero tiles are 129 (stage 6): 11.52 km at 90 m, sharing an edge row the
+ * same way. They cannot share this array -- a texture array has one width and
+ * one height for every layer in it -- so a second one is built beside it.
+ * That is why `samples` is a constructor argument rather than a constant.
+ */
+export const HERO_TILE_SAMPLES = 129;
+
 export interface TileKey {
   x: number;
   y: number;
@@ -30,6 +38,47 @@ export interface TileKey {
 
 export function tileId(x: number, y: number): string {
   return `${x},${y}`;
+}
+
+/**
+ * One square tile of samples, read bilinearly at a tile-local `(u, v)`.
+ *
+ * Free rather than a method because two callers with nothing else in common
+ * have to agree to the metre about it: the renderer, which reads a resident
+ * layer of a texture array to tell the cockpit what is under the aeroplane,
+ * and the content tooling, which reads a published area off disk to check
+ * whether the ground a section was cut from is the ground the game draws
+ * (F53). Two copies of this arithmetic would be two answers to the same
+ * question, and the first time they disagreed would be the first time anyone
+ * looked.
+ *
+ * `u` and `v` are clamped, so the edge row and column are the tile's own
+ * rather than a neighbour's: tiles share their edge samples by construction,
+ * which is why a grid of `n` cells carries `n + 1`.
+ */
+export function bilinearSample(
+  data: ArrayLike<number>,
+  base: number,
+  samples: number,
+  u: number,
+  v: number,
+): number {
+  const max = samples - 1;
+  const fx = Math.min(max, Math.max(0, u * max));
+  const fy = Math.min(max, Math.max(0, v * max));
+  const x0 = Math.floor(fx);
+  const y0 = Math.floor(fy);
+  const x1 = Math.min(max, x0 + 1);
+  const y1 = Math.min(max, y0 + 1);
+  const tx = fx - x0;
+  const ty = fy - y0;
+  const h00 = data[base + y0 * samples + x0] ?? 0;
+  const h10 = data[base + y0 * samples + x1] ?? 0;
+  const h01 = data[base + y1 * samples + x0] ?? 0;
+  const h11 = data[base + y1 * samples + x1] ?? 0;
+  const top = h00 + (h10 - h00) * tx;
+  const bottom = h01 + (h11 - h01) * tx;
+  return top + (bottom - top) * ty;
 }
 
 export class HeightTileArray {
@@ -43,18 +92,20 @@ export class HeightTileArray {
   private clock = 0;
   private dirty = false;
 
-  constructor(readonly layers: number = MAX_LAYERS) {
-    const stride = TILE_SAMPLES * TILE_SAMPLES;
+  /**
+   * @param samples texels per side. The country grid's 65, or a hero grid's
+   * 129 -- whatever a layer of this array holds, the whole array holds.
+   */
+  constructor(
+    readonly layers: number = MAX_LAYERS,
+    readonly samples: number = TILE_SAMPLES,
+  ) {
+    const stride = samples * samples;
     this.data = new Int16Array(stride * layers);
     this.occupant = new Array<string | null>(layers).fill(null);
     this.lastUsed = new Array<number>(layers).fill(-1);
 
-    this.texture = new DataArrayTexture(
-      this.data,
-      TILE_SAMPLES,
-      TILE_SAMPLES,
-      layers,
-    );
+    this.texture = new DataArrayTexture(this.data, samples, samples, layers);
     this.texture.format = RedIntegerFormat;
     this.texture.type = ShortType;
     this.texture.internalFormat = "R16I";
@@ -78,7 +129,7 @@ export class HeightTileArray {
 
   /**
    * Make a tile resident, evicting the least recently used layer if the array
-   * is full. `heights` is Int16 metres, TILE_SAMPLES^2, row-major.
+   * is full. `heights` is Int16 metres, `samples`^2, row-major.
    */
   insert(x: number, y: number, heights: Int16Array): number {
     const id = tileId(x, y);
@@ -90,7 +141,7 @@ export class HeightTileArray {
       this.occupant[layer] = id;
       this.layerOf.set(id, layer);
     }
-    this.data.set(heights, layer * TILE_SAMPLES * TILE_SAMPLES);
+    this.data.set(heights, layer * this.samples * this.samples);
     this.lastUsed[layer] = ++this.clock;
     this.dirty = true;
     return layer;
@@ -104,29 +155,13 @@ export class HeightTileArray {
   sample(x: number, y: number, u: number, v: number): number | null {
     const layer = this.layerOf.get(tileId(x, y));
     if (layer === undefined) return null;
-    const base = layer * TILE_SAMPLES * TILE_SAMPLES;
-    const max = TILE_SAMPLES - 1;
-    const fx = Math.min(max, Math.max(0, u * max));
-    const fy = Math.min(max, Math.max(0, v * max));
-    const x0 = Math.floor(fx);
-    const y0 = Math.floor(fy);
-    const x1 = Math.min(max, x0 + 1);
-    const y1 = Math.min(max, y0 + 1);
-    const tx = fx - x0;
-    const ty = fy - y0;
-    const h00 = this.data[base + y0 * TILE_SAMPLES + x0] ?? 0;
-    const h10 = this.data[base + y0 * TILE_SAMPLES + x1] ?? 0;
-    const h01 = this.data[base + y1 * TILE_SAMPLES + x0] ?? 0;
-    const h11 = this.data[base + y1 * TILE_SAMPLES + x1] ?? 0;
-    const top = h00 + (h10 - h00) * tx;
-    const bottom = h01 + (h11 - h01) * tx;
-    return top + (bottom - top) * ty;
+    return bilinearSample(this.data, layer * this.samples * this.samples, this.samples, u, v);
   }
 
   /** Call once per frame before rendering. */
   flush(): void {
     if (!this.dirty) return;
-    // Spike-level: re-upload the whole array (2.2 MB) when anything changes.
+    // Spike-level: re-upload the whole array when anything changes.
     // Production wants texSubImage3D per layer; tracked as a phase 2 task.
     this.texture.needsUpdate = true;
     this.dirty = false;

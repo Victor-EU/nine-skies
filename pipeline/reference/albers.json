@@ -272,6 +272,27 @@
       "northM": 1477060.1
     },
     {
+      "name": "qutang-gorge",
+      "lat": 31.0222,
+      "lon": 109.6089,
+      "eastM": 3889895.3,
+      "northM": 1504509.0
+    },
+    {
+      "name": "wu-gorge",
+      "lat": 31.0689,
+      "lon": 109.9467,
+      "eastM": 3921409.9,
+      "northM": 1511282.4
+    },
+    {
+      "name": "xiling-gorge",
+      "lat": 30.9511,
+      "lon": 110.7756,
+      "eastM": 4000085.1,
+      "northM": 1502274.6
+    },
+    {
       "name": "chongqing",
       "lat": 29.57,
       "lon": 106.55,

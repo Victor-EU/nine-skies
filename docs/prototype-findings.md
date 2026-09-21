@@ -5784,3 +5784,568 @@ its shared-edge assertion by comparing 32,767 to itself.
 
 **The world's elevation is untouched.** `heights.bin` still hashes to
 `ec5a5e1b83247978`; only the names attached to it moved.
+
+## F51 — The hero grid reaches the engine, and it cannot be drawn over or under the one it replaces; the drama setting was chosen against ground three times coarser
+
+**Question.** F50 built stage 6 and left the artefact unread: `hero.py` writes
+129 × 129 Int16 tiles and a manifest, and nothing loads them. The build plan
+recorded what it thought was needed — *a source that answers by position rather
+than by tile index, and a rule for which grid wins where they overlap* — and
+added that "this is a streaming and addressing job rather than a rendering
+one". Two of those three are right.
+
+### It is a second lattice, not a second source
+
+`TileSource` is asked by country tile index, and 90 m nests in no country tile
+at any tile size (D47). That much the plan had. What it did not have is that
+the engine bakes *one* lattice into three places that cannot be talked out of
+it:
+
+| where | what is baked in |
+| --- | --- |
+| `HeightTileArray` | a texture array has one width and one height for every layer in it — 65 × 65 |
+| `buildGrid(segments, 65)` | the texel stride is a vertex attribute, built once per LOD |
+| `uTileWorldSize` | one uniform, one material, 64 km |
+
+So a hero tile cannot ride in the country grid's draw. It gets its own texture
+array, its own four buckets and its own material, and `Terrain` holds both and
+keeps one rebase point between them. That is a rendering job, and the estimate
+in the plan was wrong; it is recorded here rather than quietly fixed because
+the same reasoning will be applied to the next grid somebody adds.
+
+Two things did fall out for free. The LOD ladder still works — 128 divides
+128 at every level, so every hero LOD lands on real samples — and the haze,
+the palette, the skirts and the flat-shading are shared code that neither
+knows nor cares which lattice it is drawing.
+
+The hero ladder is **not** the country one. `LOD_SEGMENTS` starts at 64, which
+over 129 samples strides by two: 180 m ground, at an area cut for 90. The hero
+ladder is `[128, 64, 32, 16]`.
+
+### Neither grid can be drawn over the other
+
+The obvious cheap rule — draw the fine grid on top and let the depth buffer
+sort it out — is not available, and the reason is measurable. Over the gorge
+area, sampled on the hero lattice's own 90 m cells (393,216 of them):
+
+> **hero − country spans −764.5 m to +390.0 m.**
+
+The country grid fills the gorge in from above by up to 764 m and its ridges
+sit up to 390 m below the hero grid's. Drawn together, the 1 km surface would
+roof over the gorge the player is meant to thread and the 90 m ridges would
+spear up through it. So where a hero area is drawn, the country grid is
+**removed**: the terrain shader takes the area rectangles as uniforms and
+discards fragments inside them.
+
+Per-fragment rather than per-vertex because a country tile's vertices are 1 km
+apart at the finest LOD and 8 km at the coarsest, and the rim of a hero area
+is a straight line at neither spacing. The cost is that a shader containing
+`discard` gives up early-Z on most hardware whether the branch is taken or
+not — so the material is **generated**, and the one with no holes to cut is
+compiled without one. Every build that has no hero cover, which is every build
+before this one, draws the shader it always drew.
+
+The invariant that makes the hole safe is that **an area is drawn whole or not
+at all.** An area streamed in tile by tile would show sky through its
+unfinished half, so the cut is published from the list of areas that were
+actually drawn this frame, and an area that could not be drawn whole is not
+cut. It costs nothing to promise: the gorge cover is 0.80 MB and is resident in
+one piece.
+
+### The seam, measured a second way
+
+The cutter measures its own rim against the country grid and refuses to publish
+an area that disagrees by more than the 900 m the skirts drop. Read back
+independently here — bilinear, 45 m inside the rim, through the same sampling
+the HUD uses — the rim disagrees by **mean 71.4 m, worst 339.4 m**, against the
+cutter's own 71.3 and 333.2 from the other side. The two halves of the contract
+agree, and `SKIRT_DEPTH_M` is now one exported constant that the pipeline's
+test reads rather than a 900 written twice.
+
+### What it costs the frame
+
+Measured over the real gorge cut, at the view radius the app flies:
+
+| | draws | instances | triangles |
+| --- | ---: | ---: | ---: |
+| country grid alone | 3 | 123 | 252k |
+| both, gorge under the aeroplane | 5 | 147 | **712k** |
+
+Against a budget of 8 draws and 1,200k triangles. The hero area is 460k of
+that and it should be — 24 tiles of 90 m ground the player is flying through is
+what the whole stage is for. Approaching it:
+
+| distance | hero triangles | frame total |
+| ---: | ---: | ---: |
+| 300 km | 16k | 268k |
+| 120 km | 34k | 286k |
+| 60 km | 81k | 333k |
+| 25 km | 265k | 517k |
+| 0 km | 460k | 712k |
+
+An area is drawn as soon as it is within the country lattice's own reach, so
+the fine ground never appears later than the coarse ground it replaces and
+there is no distance at which the swap can be seen happening.
+
+### The drama setting was chosen against ground three times coarser
+
+This is the finding, and it is not an engineering one.
+
+Facet angle is `atan(A · dh/dx)` where `A` is compression × exaggeration
+(F14). A real slope renders the same at any cell size — but a finer grid
+*resolves steeper real slopes*, because a 1 km cell is the average of 123 of
+them. Measured in the same box, the gorge area, on both grids:
+
+| grid | A | p50 | p90 | over 60° | over 75° |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| country 1 km | 6 (shipped) | 42.0° | 67.6° | 22.7 % | 1.1 % |
+| country 1 km | 12 (what F14 rejected) | 60.9° | 78.3° | 51.4 % | 19.3 % |
+| **hero 90 m** | **6 (shipped)** | **53.1°** | **75.3°** | **42.1 %** | **11.1 %** |
+| hero 90 m | 3.8 | 40.2° | 67.4° | 22.5 % | 1.4 % |
+
+F14 measured the shipped 1:8 × 1.5 over the flown route at 35.6 % past 60° and
+11.2 % past 75°, called it "spikes, not mountains" and moved the default to
+A = 6 to fix it. **The hero grid at A = 6 is 42.1 % and 11.1 %** — in the same
+box it is two-thirds of the way from the picture the project ships to the
+picture it threw out, and on the 75° measure it is all the way there. It looks
+like it: a rock forest where the 1 km ground beside it is rounded hills. F14's
+own A/B renders in `docs/ab/` are from 1,400 m over this exact gorge, which
+makes the comparison as direct as it can be.
+
+**A = 3.8 puts the 90 m ground where the 1 km ground sits today** — both the
+60° and the 75° share solve to within 0.15 of each other, which is a firmer
+answer than a single percentile would be.
+
+**The hero grid cannot have its own exaggeration**, so this is one number for
+the whole world and not a per-area setting. At the rim the two grids disagree
+about real elevation by up to 333 m, which the skirt hides; drawn at different
+vertical scales they would disagree by `h · (v_country − v_hero)`, which passes
+`900 · v_country` at **2,454 m of real elevation** and reaches 2.2 × the skirt
+at the area's 5,440 m summits. The area runs 1,581–5,440 m, so most of it would
+open.
+
+So it is the same knob D28 and F14 left with the G1 cohort, and it now has a
+second thing riding on it. Recorded as an open item rather than moved.
+
+### Two consequences that are not fixed here
+
+**The ground under the aeroplane steps at the rim.** `groundElevationM` reads
+whichever grid is on screen, which is right — the HUD and the picture cannot
+disagree — and that means crossing into a hero area moves the ground reading
+by the rim disagreement: mean 71 m, worst 339 m. `step()` clamps the aircraft
+to `ground + 25`, so that is a clamp event of up to 339 m in one frame, which
+belongs with the terrain-clamp decision already open rather than beside it.
+
+**The cockpit and the content gate now read different ground.** `Terrain`
+prefers the hero grid; `tools/corridor.ts`, which is what cuts route sections
+and challenge patches and what CI flies, knows only the country grid. No
+authored content touches a hero area today, so nothing is wrong yet — but the
+first challenge authored in the gorge would be checked against ground the game
+does not use. Cutting a patch from the finest grid available is a content
+decision with D23 signatures and D24 digests behind it, not a change to make in
+passing.
+
+### What was built
+
+`heroSource.ts` holds every area published for a corridor as one
+position-addressed source — `tileAt`, `covers`, `bounds` in the metres the
+aeroplane flies in — and refuses areas that disagree about the lattice, the
+origin or their own size rather than merging them. `hero.py` writes
+`hero/index.json` beside the areas so the engine knows what to fetch; it is a
+separate file rather than a line in the corridor manifest because that manifest
+is hashed into every route section's signature (D23), and an area appearing
+must not change what a section verifies against.
+
+`tools/heroCover.ts` is the same loader over `node:fs`, for the tests and for
+whatever content tooling wants it next.
+
+Nothing imports across the Python/TypeScript boundary, so the index's shape is
+checked the way the skirt depth is — from the Python side, against the
+interface the engine declares. That guard needed two goes: matching a field
+name as a bare substring passed a rename of `tileM` to `tileMetres`, because
+the old name is a prefix of the new one. **109 Python tests, up from 106.**
+
+**709 TypeScript tests in 60 files, up from 686 in 59**, and the four load-bearing behaviours are
+reproduced rather than asserted: draw an area that is a tile short and
+`will not punch a hole it cannot fill` fails; take the hero grid out of
+`groundElevationM` and the gorge reads 2,197 m again; give the hero lattice the
+country ladder and `reads every 90 m sample at the finest level` fails; compile
+the cut into every material and `is the world as it was when nothing is
+published` fails. The gorge case runs against the artefact on disk and is
+skipped, loudly, where there is no world — after the first version of it broke
+every build that has none, because `describe.skipIf` still runs a skipped
+suite's body to collect it and the fixture was read at the top of the block.
+`test/route/fixture.ts` carries that warning in a comment and it was read after
+the fact rather than before. Checked by measurement rather than by reading the
+code: with `dist-world/` moved aside the suite is **688 passed, 21 skipped, 60
+files green**.
+
+## F52 — The Three Gorges were measured out rather than remembered; Wulingyuan cannot be from this source; and a second area made a golden probe pass over nothing
+
+*21 September 2026, on `real-elevation-pipeline`.*
+
+The build plan's item said this was *engineering, and the work is a measurement
+rather than a lookup*. That was right, and the measurement is now a module
+rather than a session: `pipeline/nineskies/siting.py`, run by `make siting`.
+Twice a coordinate written from memory has been wrong in a way nothing caught —
+71 km off, then 1,260 m up a cliff (F49, F50) — and both times the fix was a
+measurement that was then thrown away. This one is kept, because the next
+coordinate is Guilin's.
+
+### What the source states outright, and what it does not
+
+Nothing in this repository is a gazetteer and nothing here will be. What a
+measurement can do is hold a coordinate to the claim its *landform* makes, and
+for the Three Gorges the source states the landform outright: the reservoir
+behind the dam is flat to the metre for 190 km. Grouping every still block — a
+240 m block whose own 30 m samples agree within a metre — by its elevation
+finds it in one pass:
+
+| Level | Still area in the box | Longitudes | Latitudes |
+| ---: | ---: | --- | --- |
+| **158 m** | **98 km²** | 109.000 – 110.951 E | 30.889 – 31.080 N |
+| 32 – 37 m | 167 km² | 111.304 – 111.998 E | 30.002 – 30.676 N |
+
+Two water levels 120 m apart, meeting at 111.00 E. That step **is** the dam,
+and it is the only fact in this whole finding that came from the ground rather
+than from a name. The lower surface runs east out of the box past Yichang,
+which is already in `places.py`.
+
+**A gorge is a narrow trench, so the radius is the measurement.** Wall height
+above the water at 4 km reads within a couple of hundred metres everywhere
+along the reach; at 1 km it separates the narrows from the open water between
+them by a factor of two. Ranked at the near radius, twelve kilometres apart:
+
+| Point | Water | Wall within 1 km | Wall within 4 km |
+| --- | ---: | ---: | ---: |
+| 31.0222 N 109.6089 E | 158 m | **1,137 m** | 1,255 m |
+| 30.9511 N 110.7756 E | 158 m | 1,023 m | **1,698 m** |
+| 31.0689 N 109.9467 E | 158 m | 1,022 m | 1,366 m |
+| 31.0156 N 110.2622 E | 158 m | 915 m | 1,594 m |
+| 31.0244 N 110.0644 E | 158 m | 766 m | 1,531 m |
+| 30.8853 N 110.8847 E | 157 m | 643 m | 1,365 m |
+
+Each answer is then moved the last few cells onto the water at 30 m, because a
+240 m block on a river is mostly not river — the same fault
+`probe.channel_tolerance_m` scales for, one stage earlier.
+
+**The three names rest on the shape of the reach, and that much is checkable.**
+Walking the near wall along the pool, the runs where it holds above 600 m are,
+going downstream: **4.8 km**, then **47.7 km** in two runs either side of a
+5 km opening, then **14.3 km**, and then the water widens to the dam. Short,
+long, short — which is the order and roughly the proportion Qutang, Wu and
+Xiling are given in. Qutang's 4.8 and Wu's 47.7 match their usual 8 and 45.
+Xiling's do not: it is normally given as four times its 14.3 km of narrows,
+because most of it is drowned and open now. So that one is identified by
+position — the reach between the last narrows and the dam — and `places.py`
+says so rather than implying the length agreed.
+
+### What the coordinates read, at 30 m and at 1 km
+
+`make siting` now writes `docs/siting-report.md`: every coordinate this
+repository ships, in a 10 km box at the source's own resolution. It is the
+question `probe.py` asks of the *built* world, asked where it can be answered —
+1 km ground cannot tell a gorge from the county it sits in.
+
+| Place | Claims to be | Relief | Past 45° | Past 60° |
+| --- | --- | ---: | ---: | ---: |
+| Shanghai | city | 47 m | 0.0 % | 0.00 % |
+| Chengdu | city | 63 m | 0.0 % | 0.00 % |
+| Lhasa | city | 1,038 m | 0.2 % | 0.00 % |
+| Shigu | valley | 1,439 m | 4.0 % | 0.09 % |
+| **Qutang Gorge** | gorge | 1,314 m | 5.2 % | 0.40 % |
+| **Xiling Gorge** | gorge | 1,786 m | 7.1 % | 0.68 % |
+| **Wu Gorge** | gorge | 1,458 m | 7.3 % | 0.69 % |
+| Tiger Leaping Gorge | gorge | 3,574 m | 20.6 % | 2.52 % |
+| Everest summit | summit | 3,532 m | 21.2 % | 4.79 % |
+
+A city on the plain reads under a fifth of a percent past 45°; a gorge reads
+five to twenty. The column separates them, which is the whole reason to print
+it.
+
+And the reason the area exists at all is the gap between the grids. At 1 km the
+reservoir reads **237 to 298 m** where the source runs it at 156 to 158 — the
+water the player would fly along is filled in by 80 to 140 m and the walls come
+down with it. From the cockpit, with the area cut and flying:
+
+| Waypoint | Country grid | Hero grid | Drop |
+| --- | ---: | ---: | ---: |
+| Qutang | 462.2 m | 158.0 m | 304.2 m |
+| Wu | 433.0 m | 159.8 m | 273.2 m |
+| Xiling | 419.1 m | 158.0 m | 261.1 m |
+
+The seam holds: the area's boundary stands **mean 80.1 m, worst 330.1 m** from
+the country grid it is dropped into, against 900 m of skirt — the same order as
+the gorge already cut (71.3 / 333.2).
+
+### One area, not three, and the number that decided it
+
+The build plan left this open: *it is three gorges over ~120 km, so it may want
+to be three areas rather than one.* Three areas would save 11 tiles — **0.37
+MB** — and cost five more rim crossings, because F51's ground reading steps by
+the grids' disagreement wherever hero cover starts or stops. A flight down this
+reach would take six of those instead of two, at the mouth of the gorge the GDD
+wants threaded. One area, 12 × 3 tiles, 1.20 MB.
+
+It would not have bought a cheaper frame either. **The reach that decides
+whether an area draws is 384 km** — `viewRadiusTiles` *country* tiles, six of
+64 km — so two areas within a few hundred kilometres of each other are one area
+as far as a frame is concerned. Three would all have drawn together anyway.
+
+The cover is now **60 tiles, 2.00 MB**, across two areas.
+
+### Wulingyuan cannot be sited from this source, and the reason is not the coordinate
+
+A coordinate for it already exists — `content/cards/wulingyuan.yaml` carries
+`trigger: { lat: 29.33, lon: 110.48 }`, which is a fourth place a coordinate
+lives and the duplication F49 was written about. Nothing has ever checked it.
+Checking it is what this measurement is for, and the answer is not the one the
+item expected:
+
+| 10 km box | Relief | Past 45° | Past 60° |
+| --- | ---: | ---: | ---: |
+| the card's trigger, 29.33 N 110.48 E | 870 m | 4.4 % | 0.21 % |
+| 50 km north | 1,372 m | 5.8 % | 0.19 % |
+| 50 km south | 697 m | 3.2 % | 0.04 % |
+| 50 km east | 713 m | 1.2 % | 0.01 % |
+| 50 km west | 582 m | 1.0 % | 0.02 % |
+| Shigu, which `places.py` calls a broad valley | 1,439 m | 4.0 % | 0.09 % |
+
+**The card's coordinate reads like Shigu** — the control the hero grid was
+deliberately not cut for — and its own neighbour 50 km north is steeper. Sweeping
+10 km windows over the whole surrounding degree, the steepest ground in it is
+at **29.656 N 110.539 E, 36 km from the card** — and measured there the same
+way as the table above, it reads **1.39 % past 60°**, still half Tiger Leaping
+Gorge's 2.52 %.
+
+The card promises "more than three thousand quartz-sandstone pillars, some of
+them rising two hundred metres from the valley floor". If those were resolved,
+a 10 km box would read several percent of its cells near-vertical from the
+pillar walls alone; it reads 0.21 %. A detector for towers — 600 m-scale local
+maxima standing a given drop above their own surroundings — was swept over
+sixteen settings of radius and drop, and its answer moved anywhere in a **104
+by 91 km box**. That is F50's fault exactly, in a new instrument: when the
+search moves the answer, the search is doing the placing.
+
+So the item's own framing was wrong and that is the finding. Zhangjiajie is not
+waiting on a coordinate; it is waiting on a source that resolves what it is
+named for. **A 90 m grid cut here would draw hills**, because the 30 m it would
+be cut from draws hills. Whether to fetch a finer source or drop the area is a
+decision, and it is recorded as one. Guilin is likely to be the same shape of
+problem — karst towers are the same size of feature — and it is still blocked
+first on three one-degree cells below 25 N, about 120 MB, which nothing here
+will fetch without being asked.
+
+### The second area made a golden probe pass over nothing
+
+Adding it turned the hero report green over an empty raster. Every hero probe
+runs against every hero area, and the Jinsha probe — 1,200 km away in Yunnan —
+ran against the Three Gorges, read `nan m` at both waypoints, and reported
+**pass**:
+
+```
+| Jinsha through Tiger Leaping Gorge | monotonic non-increasing | 2 waypoints | pass |
+| 26.8747 N, 99.9625 E | nan m | nan m | — |
+| 27.2107 N, 100.1253 E | nan m | nan m | nan m |
+```
+
+NaN compares false against every threshold a check can set, so *monotonic
+non-increasing* over nothing at all is satisfied. This is F44's fault — a
+challenge flown over a hole at ten kilometres below sea level reporting `done` —
+one artefact along, and one area had hidden it because the only area there was
+happened to contain the only probe there was.
+
+`probe.on_this_artefact` now asks, before running anything, whether the
+coordinates a probe reads are on this raster. All off, and it is listed under
+*Not on this artefact* rather than passed. **Some on and some off is a
+failure**, not a skip: a check that returns a verdict on the half it can see is
+a green light for a raster cut too small.
+
+The same counting argument applies to the texture array. Every published tile
+is a layer, because an area is drawn whole and nothing is ever evicted; WebGL2
+guarantees 256 layers. Eight areas of the Three Gorges' size would be 288, and
+`Terrain` now says so at construction rather than letting it fail at upload,
+where it would read as a driver problem.
+
+### What was built
+
+`siting.py` is arithmetic above the GDAL line, on the same rule as `grid.py`
+and `hero.py`: `slope_degrees` takes the steeper axis rather than the gradient
+magnitude, because a cliff that falls along one axis is a cliff; `box_max` and
+`box_min` wrap at the edge of the box and every caller masks a margin, which is
+stated in a test rather than left to be discovered; `box_share` shrinks at the
+edge instead, and uses a float64 running sum because a float32 one over a
+hundred million cells loses the last cells entirely. `block_reduce` keeps the
+*lowest* as well as the mean, which is the only reason a river survives a
+reduction at all.
+
+**139 Python tests, up from 109**, and the load-bearing ones were reproduced
+before being trusted: averaging the two axes instead of taking the steeper
+fails the slope tests; quoting a gorge to two decimals instead of four fails
+`a coordinate is quoted finely enough to mean a cell`; disabling the probe
+filter makes the runner report `pass` over NaN again, and two guards fire.
+
+**718 TypeScript tests in 60 files, up from 709**, and with `dist-world/` moved
+aside, **692 passed, 26 skipped**. The check a screenshot made for F51 is made
+headlessly here, because two areas are what makes it possible to get wrong: the
+cut rect published while flying the Three Gorges has to contain the camera and
+be the size of *that* area — publish it off the list of areas that exist rather
+than the list actually drawn, and the hole lands in Yunnan while the fill is on
+the Yangtze. `heights.bin` rebuilt byte-for-byte
+identical (`ec5a5e1b83247978…`) after `make tiles`, so the three new anchors
+reach the manifest without moving anything a committed section is signed
+against — checked by hashing rather than assumed, since the alternative was
+invalidating every section in the repository.
+
+## F53 — The cockpit and the content gate read different ground, and the gap in the dangerous direction is larger than the only clearance anything is checked to keep
+
+*21 September 2026, on `real-elevation-pipeline`.*
+
+The build plan listed this as *engineering, and it is a content decision before
+it is a code change.* Both halves of that are right, and they are separable: the
+decision is which grid content is cut from, and it stays the user's. What was
+not separable is that **nothing measured the gap**, so "nothing is wrong yet"
+was a sentence rather than a check — and this repository has now twice shipped
+a claim that was true when written and false later without anyone noticing
+(F49's 71 km, F50's 1,260 m), plus a golden probe that reported `pass` over a
+raster it could not read (F52).
+
+### The two surfaces
+
+Since stage 6 this world has two elevation grids. `Terrain.groundElevationM`
+prefers the fine one, because the HUD and the picture must not disagree about
+what is under the aeroplane. `cutSection` and `cutPatch` read `groundAt`, which
+is the country grid, because every committed artefact in `content/` was cut
+from it and re-cutting them all re-signs all of them (D23, D24).
+
+Measured every 250 m across each published area:
+
+| Area | Points | Mean gap | **90 m above 1 km** | 1 km above 90 m |
+| --- | ---: | ---: | ---: | ---: |
+| tiger-leaping-gorge | 51,245 | 72.2 m | **374 m** | 695 m |
+| three-gorges | 76,867 | 74.5 m | **301 m** | 512 m |
+
+Only one of those two columns is dangerous, and it is not the larger one. The
+coarse grid standing *above* the fine one is a section that says the ground is
+higher than the game draws it: the route flies safe and looks wrong. The fine
+grid standing above the coarse one is a section that says the ground is **lower
+than the aeroplane actually meets** — a clearance check passing over terrain
+that is there.
+
+**374 m, against the 333 m Expedition 1 clears its own worst terrain by.** A
+route through Tiger Leaping Gorge, cut and checked exactly the way Expedition 1
+is, can clear by 333 m in CI and be forty metres inside the wall in play. That
+is the number this finding exists for, and it was not knowable before two areas
+and a measurement existed at once.
+
+### The guard, which is not the fix
+
+The fix is to cut content from the ground the game draws, and it is not mine to
+make: it invalidates every committed section and patch at once, which is a
+decision about D23 and D24 rather than a repair. What is buildable without
+pre-empting it is a refusal.
+
+`cutSection` gained a fourth refusal and `cutPatch` a third, beside the ones
+that already exist for a route leaving its corridor and a heightfield that does
+not match its own manifest. Proved by authoring the route the GDD asks for —
+Yichang out through Xiling, Wu and Qutang:
+
+```
+122 of 169 stations are over three-gorges, which the game draws at 90 m.
+A section cut from the 1 km grid would put the ground 351 m from what the
+player flies over at its worst (530 m against 179 m). Which grid content is
+cut from is an open decision (F51, F53)
+```
+
+and the challenge version, a low pass over Wu Gorge, which is the most obvious
+place in the built world to author *thread a gorge at low speed*:
+
+```
+1092 of 1092 cells are under three-gorges, which the game draws at 90 m …
+272 m from what the player flies over at its worst (619 m against 347 m)
+```
+
+**The refusal is what makes CI able to see this, and no new committed artefact
+was needed for it.** CI has no world and no `hero/`, so it cannot compare the
+two grids itself. It does not have to. Moving a waypoint into the gorge changes
+the route, `verifySection` compares the committed section's waypoints against
+the expedition's to 1e-9, and a stale section is already a CI failure telling
+the author to re-cut. The re-cut is then refused on the machine that has the
+world, and CI's next complaint is *no ground to fly it over* — which is also
+already a failure (D21). The loop closes on machinery that was all there; what
+was missing was the one refusal in the middle of it.
+
+Run rather than reasoned about, by moving Expedition 1's Chongqing waypoint
+into Wu Gorge and putting `dist-world/` aside to stand for CI:
+
+```
+✗ sea-to-sky · section: waypoint 2 (chongqing) has moved to 31.0689, 109.9467
+  since the section was cut at 29.57, 106.55
+1 committed section(s) no longer describe their route.
+Re-cut them with `npm run content:sections` on a machine with a world.
+```
+
+and the re-cut CI asks for is the thing that refuses:
+
+```
+– sea-to-sky not cut — 139 of 2891 stations are over three-gorges, which the
+  game draws at 90 m. A section cut from the 1 km grid would put the ground
+  255 m from what the player flies over at its worst (437 m against 182 m).
+```
+
+Three different machines, three different messages, and no way through any of
+them that ends in a committed number nobody chose.
+
+### What the pass covers
+
+Both gates now print it rather than implying it, in the habit F48 put on the
+probe report:
+
+```
+✓ sea-to-sky over sea-to-sky (world) · 36.7 min · clears by 333 m at 2366 km · arrives 264 m up against an authored 300
+    90 m cover beside it: tiger-leaping-gorge, three-gorges (60 tiles at 90 m) · 0 of 2932 stations over it
+```
+
+Zero of 2,932 stations and zero of 1,726 committed cells. That is the whole of
+the current content, and it is a fact about the content as it stands rather
+than a property of anything — which is why `make ground` writes
+`docs/ground-report.md` on every build instead of anyone remembering it.
+
+**A count of zero and no cover at all are different sentences.** `DrawnGap`
+carries `cover` for exactly that reason: a world built before stage 6 reports
+`over: 0` because there is no second grid to disagree with, which must not read
+as a check that ran and found nothing. This is F52's rule — a probe that reads
+nothing reports nothing — applied before the fault rather than after it.
+
+### One bilinear rule, so the two readers cannot drift
+
+The renderer samples a resident layer of a texture array; the content tooling
+samples an area held whole in memory. Those were about to be two copies of the
+same arithmetic, and the first time they disagreed would have been the first
+time anyone looked — so `HeightTileArray.sample` and the new `HeroCover.groundAt`
+both call one exported `bilinearSample`. The cross-check is a test rather than
+a comment: over Wu Gorge the cockpit's `groundElevationM` and the tooling's
+`Corridor.drawnAt` agree to nine decimal places, and both give 159.8 m where
+the country grid gives 433.0.
+
+### What it cost, and what it did not
+
+**729 TypeScript tests in 61 files, up from 718**; with `dist-world/` moved
+aside, 695 passed and 34 skipped. Every guard was reproduced as a failure
+before being trusted: disabling either cutter's refusal fails the two
+refusal tests; making `HeroCover.groundAt` nearest-neighbour instead of
+bilinear fails the agreement test; making `Corridor.drawnAt` prefer the coarse
+grid fails the cockpit cross-check.
+
+Nothing already committed moved. `npm run content:sections` and
+`npm run content:patches` both re-cut and reported `unchanged`, which is the
+point: this guard is invisible until the day it is not.
+
+### What is still the user's
+
+Which grid content is cut from. The choice has a price either way — cutting
+from `drawnAt` re-signs every section and patch and makes a committed artefact
+depend on which hero areas were published when it was cut, and leaving it means
+no authored content may enter a hero area at all, including the gorge the GDD
+names. The guard makes the choice arrive when the first piece of content needs
+it, and that is all it does.

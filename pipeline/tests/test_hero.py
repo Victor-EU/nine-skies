@@ -51,14 +51,18 @@ class TestTheGeometry(unittest.TestCase):
         self.assertNotEqual((grid.TILE_KM * 1000) % hero.RESOLUTION_M, 0)
 
     def test_what_makes_a_non_nesting_grid_safe_is_the_skirt(self):
-        # Inherited from engine/src/terrain/terrain.ts, where the ring is
-        # `900 * verticalExaggeration` deep and is commented "Skirts must
-        # out-reach the worst height disagreement between LODs".
+        # Shared with engine/src/terrain/terrain.ts, where the ring is
+        # `SKIRT_DEPTH_M * verticalExaggeration` deep and is commented "Skirts
+        # must out-reach the worst height disagreement between LODs". It is a
+        # contract between the two halves rather than a rendering constant:
+        # `cut` refuses to publish an area whose rim disagrees by more, so if
+        # the engine ever lowers this the cutter has to hear about it.
         source = (
             Path(__file__).resolve().parents[2]
             / "engine/src/terrain/terrain.ts"
         ).read_text()
-        self.assertIn(f"skirtDepth: {hero.SKIRT_DEPTH_M} *", source)
+        self.assertIn(f"export const SKIRT_DEPTH_M = {hero.SKIRT_DEPTH_M};", source)
+        self.assertIn("skirtDepth: SKIRT_DEPTH_M *", source)
 
     def test_a_hero_tile_knows_which_country_tiles_it_sits_on(self):
         for hx, hy in ((0, 0), (256, 89), (259, 94), (17, 23)):
@@ -101,11 +105,14 @@ class TestTheAreas(unittest.TestCase):
         self.assertEqual(set(area.holds), {"shigu", "tiger-leaping-gorge"})
 
     def test_an_unsited_area_is_named_rather_than_invented(self):
-        """Three of the plan's five have no coordinate anything has checked.
-        Writing three from memory is exactly what cost F49 and F50, so they
-        are listed with what siting them needs instead."""
+        """An area the plan names with no coordinate anything has checked is
+        listed with what siting it needs, rather than invented. Writing one
+        from memory is exactly what cost F49 and F50. The Three Gorges left
+        this list by being measured off the source instead (F52), and the two
+        that remain are not waiting on a coordinate at all -- Guilin wants a
+        fetch, Zhangjiajie a source that resolves what it is named for."""
         unsited = {a for a, _, _ in hero.UNSITED}
-        self.assertEqual(unsited, {"guilin", "zhangjiajie", "three-gorges"})
+        self.assertEqual(unsited, {"guilin", "zhangjiajie"})
         for area_id in unsited:
             self.assertNotIn(area_id, hero.BY_ID)
         for _, name, why in hero.UNSITED:
@@ -231,3 +238,98 @@ class TestTheBias(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTheIndexTheEngineReads(unittest.TestCase):
+    """`hero/index.json` is the only thing that tells the engine an area
+    exists. It is a file rather than a line in the corridor manifest because
+    that manifest is hashed into every route section's signature (D23), so an
+    area appearing must not change what a section verifies against (F51)."""
+
+    def _written(self, tmp: Path) -> dict:
+        import json
+
+        area = hero.AREAS[0]
+        manifest = {
+            "window": {
+                "hx0": area.hx0,
+                "hy0": area.hy0,
+                "hx1": area.hx1,
+                "hy1": area.hy1,
+            },
+            "heights": {"bytes": 12345},
+        }
+        (tmp / f"{area.id}.json").write_text(json.dumps(manifest))
+        return json.loads(hero.write_index(tmp).read_text())
+
+    def test_it_lists_what_is_on_disk_rather_than_what_is_defined(self):
+        import json
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            index = self._written(tmp)
+            self.assertEqual([a["id"] for a in index["areas"]], [hero.AREAS[0].id])
+            # A second area defined in the module but never cut is not
+            # advertised: the engine would fetch a file that is not there.
+            self.assertGreater(len(hero.AREAS), 1)
+
+            # Rebuilt from the directory, so cutting one area later does not
+            # clobber the entry for one cut before it.
+            second = hero.AREAS[1]
+            (tmp / f"{second.id}.json").write_text(
+                json.dumps(
+                    {
+                        "window": {
+                            "hx0": second.hx0,
+                            "hy0": second.hy0,
+                            "hx1": second.hx1,
+                            "hy1": second.hy1,
+                        },
+                        "heights": {"bytes": 1},
+                    }
+                )
+            )
+            again = json.loads(hero.write_index(tmp).read_text())
+            self.assertEqual(
+                sorted(a["id"] for a in again["areas"]),
+                sorted([hero.AREAS[0].id, second.id]),
+            )
+
+    def test_it_states_the_lattice_the_engine_has_to_agree_with(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            index = self._written(Path(raw))
+        self.assertEqual(index["resolutionM"], hero.RESOLUTION_M)
+        self.assertEqual(index["tileM"], hero.TILE_M)
+        self.assertEqual(index["tileSamples"], hero.TILE_SAMPLES)
+        self.assertEqual(index["origin"]["originXM"], grid.ORIGIN_X_M)
+        self.assertEqual(index["origin"]["originYM"], grid.ORIGIN_Y_M)
+
+    def test_the_engine_declares_the_fields_this_writes(self):
+        """The seam between the two languages, checked the same way the skirt
+        is: nothing imports across it, so the test reads the other side. A
+        field renamed here and not there loads as `undefined` and the lattice
+        silently becomes NaN metres wide.
+
+        Matched as `name:` rather than as a bare substring, because the first
+        version of this passed a rename of `tileM` to `tileMetres` -- the old
+        name is a prefix of the new one and `in` cannot tell them apart."""
+        import re
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            index = self._written(Path(raw))
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "engine/src/terrain/heroSource.ts"
+        ).read_text()
+        declared = source[source.index("interface HeroIndex") :]
+        declared = declared[: declared.index("}")]
+        for field in index:
+            self.assertRegex(declared, rf"\b{re.escape(field)}\??:", f"HeroIndex: {field}")
+        entry = source[source.index("interface HeroAreaEntry") :]
+        entry = entry[: entry.index("}")]
+        for field in index["areas"][0]:
+            self.assertRegex(entry, rf"\b{re.escape(field)}\??:", f"HeroAreaEntry: {field}")

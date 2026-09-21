@@ -55,6 +55,9 @@ The check above reads **175 cells of 4,735,745** — 0.0037 % of the built grid 
 | Shanghai | city | 10 m | 7 m | 3 m | 14 m |
 | Wuhan | city | 20 m | 18 m | 2 m | 66 m |
 | Yichang | city | 84 m | 49 m | 35 m | 546 m |
+| Qutang Gorge | gorge | 462 m | 298 m | 164 m on the water | 1,620 m |
+| Wu Gorge | gorge | 433 m | 258 m | 175 m on the water | 1,692 m |
+| Xiling Gorge | gorge | 419 m | 237 m | 182 m on the water | 1,746 m |
 | Chongqing | city | 242 m | 211 m | 31 m | 433 m |
 | Chengdu | city | 509 m | 500 m | 9 m | 88 m |
 | Tiger Leaping Gorge | gorge | 2,197 m | 2,011 m | 186 m on the water | 3,429 m |

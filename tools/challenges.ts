@@ -22,6 +22,7 @@ import { AIRCRAFT_TIME_RATE, clockString } from "../engine/src/sim/solar.ts";
 import { loadChallenges } from "./challenge.ts";
 import { checkChallenge } from "./challengeCheck.ts";
 import { corridorCache } from "./corridor.ts";
+import { describeGap } from "./routeCheck.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const challengesDir = join(root, "content", "challenges");
@@ -42,6 +43,18 @@ for (const c of loadChallenges(challengesDir)) {
   if (r.patchIssue) {
     console.log(`    ✗ patch: ${r.patchIssue}`);
     failures++;
+  }
+  // Only ever non-null on a machine with a world, which is the machine that
+  // has the 90 m cover to compare against (F53).
+  const gap = describeGap(r.drawnGap);
+  if (gap) {
+    console.log(`    ✗ ${gap}`);
+    failures++;
+  } else if (r.drawnGap?.cover) {
+    console.log(
+      `    90 m cover beside it: ${r.drawnGap.cover} · ` +
+        `${r.drawnGap.over} of ${r.drawnGap.of} committed cells over it`,
+    );
   }
   const from = r.world === null ? "nothing built" : r.groundSource === "patch" ? `the committed patch of ${r.world}` : r.world;
   console.log(`    ground, from ${from}:`);

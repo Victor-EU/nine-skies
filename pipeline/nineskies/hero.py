@@ -178,14 +178,15 @@ def area_around(
     return hx0, hy0, hx1 - hx0 + 1, hy1 - hy0 + 1
 
 
-#: The areas the build plan names, in the order it names them. Three of the
-#: five have no entry here, and that is the point rather than an omission:
-#: an area is sited on places from `places.py`, and Guilin, Zhangjiajie and
-#: the Three Gorges have no coordinate in this repository that has ever been
-#: checked against the ground. Inventing three now is precisely the move that
-#: cost F49 and F50 -- a coordinate written from memory, agreed with itself in
-#: three files, and 71 km from the place it named. They are listed in
-#: `UNSITED` with what siting them needs.
+#: The areas the build plan names, in the order it names them. Two of the five
+#: have no entry here, and that is the point rather than an omission: an area
+#: is sited on places from `places.py`, and inventing a coordinate is precisely
+#: the move that cost F49 and F50 -- one written from memory, agreed with
+#: itself in three files, and 71 km from the place it named. The Three Gorges
+#: below stopped being one of them by being measured rather than recalled, and
+#: `siting.py` is that measurement kept. The remaining two are listed in
+#: `UNSITED` with what each needs, and neither needs a coordinate: Guilin needs
+#: a fetch and Zhangjiajie needs a finer source than we have.
 AREAS: tuple[HeroArea, ...] = (
     HeroArea(
         id="tiger-leaping-gorge",
@@ -200,6 +201,26 @@ AREAS: tuple[HeroArea, ...] = (
         "where the source runs it down 41 (F49, F50).",
         note="Sized to hold both probe waypoints with 8 km to spare, which "
         "is why it is 4 x 6 tiles rather than square.",
+    ),
+    HeroArea(
+        id="three-gorges",
+        name="Qutang, Wu and Xiling gorges",
+        hx0=336,
+        hy0=129,
+        tiles_x=12,
+        tiles_y=3,
+        holds=("qutang-gorge", "wu-gorge", "xiling-gorge"),
+        why="The GDD's *thread a gorge at low speed* wants a gorge the "
+        "aeroplane can be flown down, and this is 190 km of one. At 1 km the "
+        "reservoir through it reads 237-298 m where the source runs it at "
+        "156-158, so the water the player would fly along is filled in by "
+        "80-140 m and the walls are cut down with it (F52).",
+        note="One area rather than three, which is the question the build "
+        "plan left open. Three would save 11 tiles and cost five more rim "
+        "crossings: the ground reading steps by the grids' disagreement "
+        "wherever hero cover starts or stops (F51), and a flight down this "
+        "reach would take six of those instead of two. Sized on the same "
+        "8 km margin as the gorge above.",
     ),
     HeroArea(
         id="everest",
@@ -230,15 +251,15 @@ UNSITED: tuple[tuple[str, str, str], ...] = (
     (
         "zhangjiajie",
         "Zhangjiajie / Wulingyuan pillars",
-        "Needs a sited coordinate only; the source cells are inside the "
-        "corridor and on disk.",
-    ),
-    (
-        "three-gorges",
-        "Qutang, Wu and Xiling gorges",
-        "Needs a sited coordinate only; the source cells are inside the "
-        "corridor and on disk. It is three gorges over ~120 km, so it may "
-        "want to be three areas rather than one.",
+        "The cells are on disk and the coordinate is not the blocker any "
+        "more: the source is. `siting.py` cannot place this one, and the "
+        "reason is that there is nothing there to place it on. At 30 m the "
+        "pillars are not resolved as pillars, the ground around the card's "
+        "own trigger reads 4.4 % of its cells past 45 deg against Tiger "
+        "Leaping Gorge's 20.6 %, and the steepest 10 km box anywhere in the "
+        "surrounding degree is 36 km away and still only half as steep as "
+        "the gorge already cut. A 90 m grid over it would draw hills. What "
+        "this needs is a finer source or a decision not to cut it (F52).",
     ),
 )
 
@@ -545,12 +566,54 @@ def cut(
     }
     manifest_path = out_dir / f"{area.id}.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    write_index(out_dir)
     print(
         f"  wrote {heights_path.stat().st_size / 1e6:.2f} MB · "
         f"{cut_array.min()}..{cut_array.max()} m · {manifest_path.name} · "
         f"probe with --grid {tif_path}"
     )
     return out_dir
+
+
+def write_index(out_dir: Path) -> Path:
+    """The list of areas actually cut, beside them.
+
+    Nothing else publishes it. The corridor manifest is not the place: it is
+    hashed into the section signature (D23), and a hero area appearing or
+    disappearing must not change what a route section verifies against. So the
+    engine asks this file which areas exist and fetches those, and a corridor
+    with no hero cover simply has no index -- the same shape as a checkout with
+    no world at all, which the app already knows how to fly.
+
+    Rebuilt from the directory rather than from `chosen`, so cutting one area
+    leaves the other entries alone instead of clobbering them.
+    """
+    areas = []
+    for area in AREAS:
+        path = out_dir / f"{area.id}.json"
+        if not path.exists():
+            continue
+        manifest = json.loads(path.read_text())
+        areas.append(
+            {
+                "id": area.id,
+                "name": area.name,
+                "file": path.name,
+                "window": manifest["window"],
+                "bytes": manifest["heights"]["bytes"],
+            }
+        )
+    index = {
+        "version": 1,
+        "resolutionM": RESOLUTION_M,
+        "tileM": TILE_M,
+        "tileSamples": TILE_SAMPLES,
+        "origin": {"originXM": grid.ORIGIN_X_M, "originYM": grid.ORIGIN_Y_M},
+        "areas": areas,
+    }
+    path = out_dir / "index.json"
+    path.write_text(json.dumps(index, indent=2) + "\n")
+    return path
 
 
 def main(argv: list[str] | None = None) -> int:

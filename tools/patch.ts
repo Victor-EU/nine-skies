@@ -56,7 +56,7 @@ import { reversalWidthM } from "../engine/src/sim/flight.ts";
 import { MODE_IAS_MS, type SpeedMode } from "../engine/src/sim/scale.ts";
 import { projectAlbers } from "../engine/src/terrain/worldGrid.ts";
 import { flownCourse, placesOf } from "./challenge.ts";
-import type { Corridor, GroundField, Waypoint } from "./corridor.ts";
+import { drawnGap, type Corridor, type GroundField, type Waypoint } from "./corridor.ts";
 import { PUBLIC_KEY_FILE, type Signer, type Verifier } from "./attest.ts";
 
 export const PATCH_VERSION = 1;
@@ -227,6 +227,22 @@ export function attestation(patch: Omit<GroundPatch, "signature">): string {
 
 const round = (x: number, places: number): number => Number(x.toFixed(places));
 
+/**
+ * Every cell of a patch as a position, for a check that needs metres.
+ *
+ * A patch is stored in lattice indices because that is what makes it a subset
+ * of the world rather than a resampling of it (D39). Anything asking a
+ * question about *where* it is -- which hero area is over it, say -- needs the
+ * other spelling, and the conversion is the 1 km grid's own definition.
+ */
+export function patchPoints(patch: Pick<GroundPatch, "rows">): Waypoint[] {
+  const points: Waypoint[] = [];
+  for (const row of patch.rows)
+    for (let k = 0; k < row.m.length; k++)
+      points.push({ eastM: (row.i0 + k) * 1000, northM: row.j * 1000 });
+  return points;
+}
+
 export function cellCount(patch: GroundPatch): number {
   return patch.rows.reduce((n, r) => n + r.m.length, 0);
 }
@@ -275,6 +291,20 @@ export function cutPatch(
   const { rows, clippedByWorld } = swathRows(corridor, course, marginKm * 1000);
   if (!rows.length)
     return { problem: `nothing to cut — ${corridor.manifest.corridor} has no lattice under the course` };
+
+  // The third refusal, and the same one a section has: this patch would be a
+  // faithful cut of a surface the game does not draw here. See `cutSection`
+  // for why it refuses rather than quietly cutting from the finer grid.
+  const gap = drawnGap(corridor, patchPoints({ rows }));
+  if (gap.over > 0)
+    return {
+      problem:
+        `${gap.over} of ${gap.of} cells are under ${gap.areas.join(", ")}, which the ` +
+        `game draws at 90 m. A patch cut from the 1 km grid would put the ground ` +
+        `${gap.worstM.toFixed(0)} m from what the player flies over at its worst ` +
+        `(${gap.countryM.toFixed(0)} m against ${gap.heroM.toFixed(0)} m). ` +
+        `Which grid content is cut from is an open decision (F51, F53)`,
+    };
 
   const unsigned = {
     version: PATCH_VERSION,

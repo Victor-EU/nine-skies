@@ -4,6 +4,7 @@
 #   make world                      # the phase 0 corridor, end to end
 #   make world CORRIDOR=china       # the full country (phase 2, ~70 GB)
 #   make hero                       # the 90 m hero areas (stage 6)
+#   make siting                     # every shipped coordinate, against the source
 #   make probes                     # golden probes against what is built
 #   make sources                    # record the source raster digests
 #   make sections                   # re-cut the committed route sections
@@ -15,6 +16,7 @@
 #   make teaches                    # what each route shows against what it claims
 #   make atlas                      # what the journal can show, and what it cannot yet
 #   make challenges                 # every authored challenge flown, and whether it can be done
+#   make ground                     # the two grids, and what is authored over them
 #   make stations                   # re-cut where the frame budget is measured
 #   make test                       # every suite, TypeScript and Python
 #
@@ -27,7 +29,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles hero probes sources sections patches cut-key reference routes sessions teaches atlas challenges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles hero siting probes sources sections patches cut-key reference routes sessions teaches atlas challenges ground stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -84,6 +86,18 @@ reference: $(PY)
 hero: $(PY)
 	$(PIPELINE) -m nineskies.hero --corridor $(CORRIDOR)
 
+## Where a coordinate goes, measured off the source rather than recalled.
+## `probes` asks the same question of the built world, which is 1 km ground
+## and cannot tell a gorge from the county it sits in; this asks it at 30 m,
+## where it can. Twice a coordinate written from memory has been wrong in a
+## way nothing caught (F49, F50), and the three Yangtze gorges are the first
+## that were measured out instead (F52).
+##
+## The module also has `drama`, `scan`, `pools` and `walls` for siting the
+## next one -- see its docstring.
+siting: $(PY)
+	$(PIPELINE) -m nineskies.siting places --report docs/siting-report.md
+
 ## Cut the committed route sections out of what was built (D21). Not one of
 ## workstream A's numbered stages -- it cuts content out of the world rather
 ## than building the world -- and it used to be labelled "Stage 6" here, which
@@ -109,7 +123,7 @@ patches:
 cut-key:
 	npm run content:cut-key
 
-world: acquire sources grid tiles hero probes sections patches
+world: acquire sources grid tiles hero siting probes sections patches ground
 	@echo "world built: $(WORLD_OUT)"
 
 ## The other gate: every authored route flown over real ground. Needs no flag
@@ -147,6 +161,20 @@ atlas:
 ## it the same check here and in CI.
 challenges:
 	npm run content:challenges
+
+## The two elevation grids this world has, and which of them every authored
+## thing is checked against. Last in `world` because it reads the artefacts
+## the two cutters above have just written.
+##
+## A report and a gate at once, in the sense that the gate is elsewhere: the
+## cutters refuse to write a section or a patch over a hero area, so the only
+## thing this can ever print in its right-hand column is zero. What it is for
+## is saying so out loud. The cockpit prefers the 90 m grid and every
+## committed artefact is cut from the 1 km one, and through Tiger Leaping
+## Gorge the fine grid stands 374 m above the coarse -- more than the 333 m
+## Expedition 1 clears its own worst terrain by (F53).
+ground:
+	npm run content:ground
 
 ## Where the frame budget is measured (D25). Cut from the route, committed,
 ## and deliberately not part of `world`: a capture is only worth taking if it

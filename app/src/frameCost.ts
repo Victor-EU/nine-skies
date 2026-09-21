@@ -92,6 +92,12 @@ export interface StationCost {
   readonly ms: Readonly<Record<string, number>>;
   /** Instances in each LOD bucket, nearest first. */
   readonly perLod: readonly number[];
+  /**
+   * What each of those buckets is. Four LODs of the country grid, and four
+   * more of the hero grid when 90 m cover is flying (F51) - the totals above
+   * hide which lattice the triangles came from, and they do not cost the same.
+   */
+  readonly bucketLabels: readonly string[];
 }
 
 export interface FrameCostReport {
@@ -390,12 +396,23 @@ async function capture(
     for (let lod = 0; lod < meshes.length; lod++) {
       if (perLod[lod]! === 0) continue;
       showOnly((i) => i === lod, false);
-      ms[`terrain.l${lod}`] = await timeVariant(`terrain.l${lod}`);
+      const label = terrain.stats.bucketLabels[lod] ?? `l${lod}`;
+      ms[`terrain.${label}`] = await timeVariant(`terrain.${label}`);
     }
     showOnly(() => true, true);
     ms["all"] = await timeVariant("all");
 
-    stations.push({ station, drawCalls, instances, triangles, resident, missing, ms, perLod });
+    stations.push({
+      station,
+      drawCalls,
+      instances,
+      triangles,
+      resident,
+      missing,
+      ms,
+      perLod,
+      bucketLabels: [...terrain.stats.bucketLabels],
+    });
   }
 
   const drewAt = renderer.getSize(new Vector2());
@@ -472,8 +489,12 @@ export function frameCostTable(report: FrameCostReport): string {
       : "  instrument: NOT CHECKED — the linearity probe did not resolve",
   );
   lines.push("");
+  // The bucket names come from the terrain rather than being spelled here,
+  // because how many there are depends on whether hero cover was flying.
+  const buckets = report.stations[0]?.bucketLabels ?? ["L0", "L1", "L2", "L3"];
   lines.push(
-    "  station        km    alt   tiles   L0/L1/L2/L3        tris  clear terrain horizon   all",
+    `  station        km    alt   tiles   ${buckets.join("/")}` +
+      `        tris  clear terrain horizon   all`,
   );
   for (const s of report.stations) {
     const net = (key: string): number => (s.ms[key] ?? Number.NaN) - (s.ms["clear"] ?? 0);
@@ -500,7 +521,7 @@ export function frameCostTable(report: FrameCostReport): string {
   lines.push("");
   lines.push("  the D3 trip-wire — displaced grid at L0, against 4 ms");
   for (const s of report.stations) {
-    const l0 = s.ms["terrain.l0"];
+    const l0 = s.ms[`terrain.${s.bucketLabels[0] ?? "L0"}`];
     if (l0 === undefined) continue;
     const net = l0 - (s.ms["clear"] ?? 0);
     lines.push(

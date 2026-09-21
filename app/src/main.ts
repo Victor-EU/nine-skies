@@ -17,6 +17,10 @@ import {
   loadWorld,
   type LoadedWorld,
 } from "../../engine/src/terrain/tileSource.js";
+import {
+  loadHeroCover,
+  type HeroCover,
+} from "../../engine/src/terrain/heroSource.js";
 import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
 import { HorizonRing } from "../../engine/src/terrain/horizonRing.js";
 import {
@@ -281,6 +285,23 @@ try {
 } catch (error) {
   console.error("published world failed to load; flying the stand-in", error);
 }
+/**
+ * And 90 m over the few places the 1 km grid is wrong about (stage 6, F51).
+ *
+ * Fetched only when a corridor is flying: the hero lattice is indexed from
+ * the country grid's origin, so it means nothing over the stand-in world.
+ * Absent is the ordinary case and costs a 404 - every corridor built before
+ * stage 6 ran has no index, and then the country grid draws everywhere as it
+ * always did.
+ */
+let hero: HeroCover | null = null;
+if (world) {
+  try {
+    hero = await loadHeroCover("/world/sea-to-sky");
+  } catch (error) {
+    console.error("hero cover failed to load; flying the country grid alone", error);
+  }
+}
 const worldMs = performance.now() - worldT0;
 
 const terrain = new Terrain({
@@ -288,6 +309,7 @@ const terrain = new Terrain({
   viewRadiusTiles: 6,
   layers: 256,
   source: world?.source ?? standIn,
+  hero,
 });
 for (const mesh of terrain.meshes) scene.add(mesh);
 
@@ -894,7 +916,8 @@ addEventListener("pagehide", () => void persist());
  */
 const worldLabel = world
   ? `${world.manifest.corridor} · ${world.manifest.heights.tiles} real tiles ` +
-    `(${(world.manifest.heights.bytes / 1e6).toFixed(1)} MB in ${worldMs.toFixed(0)} ms)`
+    `(${(world.manifest.heights.bytes / 1e6).toFixed(1)} MB in ${worldMs.toFixed(0)} ms)` +
+    (hero ? ` · ${hero.label}` : "")
   : `stand-in world · no published corridor (${worldMs.toFixed(0)} ms)`;
 /**
  * The corridor's own flown length, for the pacing readout. Anchors arrive in
@@ -1187,7 +1210,7 @@ function placeAt(
   // integrate in world units. Convert here, once, for both materials.
   const hazeDensityWorld = hazeDensityPerWorldUnit(air.hazeDensityPerM, scale);
   const hazeFalloffWorld = hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, scale);
-  for (const m of [terrain.material, ring.material]) {
+  for (const m of [...terrain.materials, ring.material]) {
     (m.uniforms.uHazeColor!.value as Color).copy(air.sky);
     (m.uniforms.uSunColor!.value as Color).copy(air.sun);
     m.uniforms.uHazeDensity!.value = hazeDensityWorld;

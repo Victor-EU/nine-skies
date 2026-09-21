@@ -29,6 +29,121 @@ from nineskies.probes import (  # noqa: E402
 EVEREST = next(p for p in POINT_PROBES if "Everest" in p.name)
 
 
+class TestAProbeThatCannotRead(unittest.TestCase):
+    """A probe whose subject is not on this raster must not report a verdict.
+
+    The hero grid is not one artefact but a handful of small ones, and every
+    hero probe is run against every area. NaN compares false against every
+    threshold a check can set, so the moment a second area existed *monotonic
+    non-increasing* came back `pass` having read nothing at all: the Tiger
+    Leaping Gorge probe ran against the Three Gorges, 1,200 km away, and the
+    report said it passed. One area had hidden it (F52). This is F44's rule --
+    a flight that reads no ground fails rather than printing `done` -- one
+    artefact along.
+    """
+
+    GORGE = MONOTONIC_PROBES[-1]
+
+    class Raster:
+        """The sampler surface `probe.run` uses, over a rule about lat/lon."""
+
+        resolution_m = 90.0
+        #: `monotonic_sensitivity` prints coverage as a share of the raster.
+        array = type("Cells", (), {"size": 591_745})()
+
+        def __init__(self, covers):
+            self.covers = covers
+
+        def elevation_m(self, lat, lon):
+            return 500.0 - lat if self.covers(lat, lon) else float("nan")
+
+        def channel_m(self, lat, lon, radius_km):
+            return self.elevation_m(lat, lon)
+
+        def relief_m(self, lat, lon, radius_km):
+            return 0.0 if self.covers(lat, lon) else float("nan")
+
+        def disc_stats(self, lat, lon, radius_km):
+            return self.elevation_m(lat, lon), 0.0
+
+        def walk(self, waypoints, stride_km, radius_km=0.0):
+            return [self.channel_m(lat, lon, radius_km) for lat, lon in waypoints]
+
+    @classmethod
+    def nowhere(cls):
+        return cls.Raster(lambda lat, lon: False)
+
+    @classmethod
+    def everywhere(cls):
+        return cls.Raster(lambda lat, lon: True)
+
+    @classmethod
+    def half(cls):
+        """On the raster at the first waypoint and off it at the second."""
+        return cls.Raster(lambda lat, lon: lon <= 100.0)
+
+    def test_the_check_itself_cannot_catch_this(self):
+        # Stated rather than assumed, because it is the reason the filter is
+        # in the runner and not in `check`: a list of NaNs is non-increasing
+        # as far as any comparison can tell.
+        nan = float("nan")
+        self.assertIsNone(self.GORGE.check([nan, nan]))
+
+    @unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
+    def test_a_probe_that_reads_nothing_is_not_runnable_here(self):
+        from nineskies import probe
+
+        readable, missing, total = probe.on_this_artefact(self.nowhere(), self.GORGE)
+        self.assertFalse(readable)
+        self.assertEqual((missing, total), (2, 2))
+
+    @unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
+    def test_a_probe_that_reads_everything_is(self):
+        from nineskies import probe
+
+        readable, missing, _ = probe.on_this_artefact(self.everywhere(), self.GORGE)
+        self.assertTrue(readable)
+        self.assertEqual(missing, 0)
+
+    @unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
+    def test_half_on_the_artefact_is_a_failure_rather_than_a_skip(self):
+        # Worse than all off: the check would return a verdict on the half it
+        # can see, which is a green light for a raster cut too small.
+        from nineskies import probe
+
+        readable, missing, total = probe.on_this_artefact(self.half(), self.GORGE)
+        self.assertFalse(readable)
+        self.assertEqual((missing, total), (1, 2))
+
+    @unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
+    def test_the_runner_lists_it_instead_of_passing_it(self):
+        from nineskies import probe
+
+        failures, lines = probe.run(self.nowhere(), "corridor", "hero")
+        report = "\n".join(lines)
+        self.assertEqual(failures, [])
+        self.assertIn("Not on this artefact", report)
+        self.assertNotIn("monotonic non-increasing", report)
+
+    @unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
+    def test_the_runner_fails_a_probe_it_can_only_half_read(self):
+        from nineskies import probe
+
+        failures, _ = probe.run(self.half(), "corridor", "hero")
+        self.assertTrue(
+            any("off the edge of this artefact" in f for f in failures), failures
+        )
+
+    @unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
+    def test_what_a_probe_reads_is_asked_of_the_probe(self):
+        # A point probe reads one coordinate and a chord reads its waypoints;
+        # getting this wrong would make the filter decide on the wrong ground.
+        from nineskies import probe
+
+        self.assertEqual(probe.reads(self.GORGE), tuple(self.GORGE.waypoints))
+        self.assertEqual(probe.reads(EVEREST), ((EVEREST.lat, EVEREST.lon),))
+
+
 class TestPhaseSplit(unittest.TestCase):
     def test_corridor_build_can_only_reach_two_probes(self):
         # The build plan's phase 0 gate: two probes readable from a corridor
@@ -254,7 +369,8 @@ class TestNamedPlaces(unittest.TestCase):
         self.assertFalse(places.BY_ID["shanghai"].on_channel)
         self.assertEqual(
             {p.id for p in places.on_channel()},
-            {"shigu", "tiger-leaping-gorge"},
+            {"shigu", "tiger-leaping-gorge", "qutang-gorge", "wu-gorge",
+             "xiling-gorge"},
         )
 
 
@@ -292,7 +408,13 @@ class TestProbesReadTheOneTable(unittest.TestCase):
         # places an operator can jump to.
         for place_id in ("everest", "ayding-lake", "qinghai-lake", "heihe", "tengchong"):
             self.assertFalse(places.BY_ID[place_id].anchor, place_id)
-        self.assertEqual(len(places.anchors()), 8)
+        # Stated as the rule rather than as a count, so that siting a place an
+        # operator *should* be able to jump to does not read as a regression.
+        self.assertEqual(
+            {p.id for p in places.PLACES if not p.anchor},
+            {"everest", "ayding-lake", "qinghai-lake", "heihe", "tengchong"},
+        )
+        self.assertEqual(len(places.anchors()), len(places.PLACES) - 5)
 
 
 class TestTheGorgeProbe(unittest.TestCase):

@@ -1,4 +1,4 @@
-import { Color, ShaderMaterial, GLSL3, Vector2, Vector3 } from "three";
+import { Color, ShaderMaterial, GLSL3, Vector2, Vector3, Vector4 } from "three";
 import {
   AERIAL_HAZE_GLSL,
   COLOR_SPACE_GLSL,
@@ -63,7 +63,59 @@ void main() {
 }
 `;
 
-const FRAGMENT = /* glsl */ `
+/**
+ * How many hero areas one terrain material can cut holes for.
+ *
+ * The build plan names five (gorge, karst towers, sandstone pillars, three
+ * gorges, Everest) and the last of those may want to be three areas, so eight
+ * is the next comfortable size up. A material asked for more is refused
+ * rather than quietly dropping the ninth.
+ */
+export const MAX_CUT_RECTS = 8;
+
+const cutUniforms = (maxCuts: number): string =>
+  maxCuts === 0
+    ? ""
+    : /* glsl */ `
+uniform vec4 uCutRects[${maxCuts}];
+uniform int uCutCount;
+`;
+
+/**
+ * The overlap rule, in one `discard` (F51).
+ *
+ * Where a hero area exists, the country grid under it is not a coarser
+ * version of the same ground - it is different ground. Through Tiger Leaping
+ * Gorge the 1 km surface stands up to 764 m above the 90 m one and 390 m
+ * below its ridges, so neither can be drawn over the other: the country
+ * surface would fill the gorge in from above, and the hero ridges would
+ * spear through it from below. The country grid is removed inside the
+ * rectangle instead.
+ *
+ * Per-fragment rather than per-vertex because a country tile's vertices are
+ * 1 km apart at the finest LOD and 8 km apart at the coarsest, and the rim of
+ * a hero area is a straight line at neither spacing. The gap it leaves is
+ * covered by the hero tiles' own skirts, which drop 900 m against a rim that
+ * the cutter measures and refuses to publish above 333 m.
+ *
+ * This is also why the block is generated rather than always present: a
+ * shader containing `discard` gives up early-Z on most hardware whether the
+ * branch is taken or not, so the material that has no holes to cut is
+ * compiled without one.
+ */
+const cutBody = (maxCuts: number): string =>
+  maxCuts === 0
+    ? ""
+    : /* glsl */ `
+  for (int i = 0; i < uCutCount; i++) {
+    vec4 r = uCutRects[i];
+    if (vWorld.x >= r.x && vWorld.x < r.z && vWorld.z >= r.y && vWorld.z < r.w) {
+      discard;
+    }
+  }
+`;
+
+const fragmentShader = (maxCuts: number): string => /* glsl */ `
 precision highp float;
 
 in vec3 vWorld;
@@ -82,8 +134,10 @@ ${COLOR_SPACE_GLSL}
 ${ELEVATION_RAMP_GLSL}
 ${AERIAL_HAZE_GLSL}
 ${GROUND_LIGHT_GLSL}
+${cutUniforms(maxCuts)}
 
 void main() {
+${cutBody(maxCuts)}
   // Flat-shaded facet normal from the derivative of world position.
   vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
   if (n.y < 0.0) n = -n;
@@ -106,6 +160,12 @@ void main() {
 
 export interface TerrainUniformValues {
   tileWorldSize: number;
+  /**
+   * Rectangles of the world this material must not draw, because a finer grid
+   * draws them instead. Zero - the default - compiles a shader with no
+   * `discard` in it at all.
+   */
+  maxCuts?: number;
   verticalExaggeration: number;
   skirtDepth: number;
   sunDirection: Vector3;
@@ -119,11 +179,25 @@ export function createTerrainMaterial(
   heights: import("three").DataArrayTexture,
   values: TerrainUniformValues,
 ): ShaderMaterial {
+  const maxCuts = values.maxCuts ?? 0;
+  if (maxCuts > MAX_CUT_RECTS) {
+    throw new Error(`${maxCuts} cut rectangles asked for, ${MAX_CUT_RECTS} available`);
+  }
+  const cuts =
+    maxCuts === 0
+      ? {}
+      : {
+          uCutRects: {
+            value: Array.from({ length: maxCuts }, () => new Vector4()),
+          },
+          uCutCount: { value: 0 },
+        };
   return new ShaderMaterial({
     glslVersion: GLSL3,
     vertexShader: VERTEX,
-    fragmentShader: FRAGMENT,
+    fragmentShader: fragmentShader(maxCuts),
     uniforms: {
+      ...cuts,
       uHeights: { value: heights },
       uTileWorldSize: { value: values.tileWorldSize },
       uVerticalExaggeration: { value: values.verticalExaggeration },

@@ -20,7 +20,7 @@
 import { join } from "node:path";
 import { validateRoute, type RouteCheck } from "../engine/src/sim/route.ts";
 import { EXPEDITION_RULES, type Expedition } from "../content/schema.ts";
-import { corridorCache, type Corridor } from "./corridor.ts";
+import { corridorCache, type Corridor, type DrawnGap } from "./corridor.ts";
 import { flyableFrom } from "./expedition.ts";
 import { resolveGround, type GroundSource } from "./ground.ts";
 
@@ -34,6 +34,8 @@ export interface RouteReport {
   readonly corridor: string | null;
   /** Why the committed section cannot stand for this route, if it cannot. */
   readonly sectionIssue: string | null;
+  /** How much of this route is flown over ground the game does not draw (F53). */
+  readonly drawnGap: DrawnGap | null;
   readonly skipReason: string | null;
 }
 
@@ -76,9 +78,18 @@ export function checkRoutes(
   for (const e of expeditions) {
     const authored = e.arrival !== undefined;
     const ground = resolveGround(e, worldRoot, sectionRoot, open);
-    const { groundM, source, corridor, sectionIssue, skipReason } = ground;
+    const { groundM, source, corridor, sectionIssue, drawnGap, skipReason } = ground;
     if (!groundM) {
-      reports.push({ expedition: e.id, authored, check: null, source, corridor, sectionIssue, skipReason });
+      reports.push({
+        expedition: e.id,
+        authored,
+        check: null,
+        source,
+        corridor,
+        sectionIssue,
+        drawnGap,
+        skipReason,
+      });
       continue;
     }
     const { route, ground: profile } = flyableFrom(e, groundM);
@@ -92,6 +103,7 @@ export function checkRoutes(
       source,
       corridor,
       sectionIssue,
+      drawnGap,
       skipReason: null,
       check: validateRoute(route, profile, { ...optionsFor(e), strideKm: 25, toleranceM: 5 }),
     });
@@ -104,6 +116,8 @@ export function describe(report: RouteReport): string[] {
   const lines: string[] = [];
   if (report.sectionIssue)
     lines.push(`  ✗ ${report.expedition} · section: ${report.sectionIssue}`);
+  const gap = describeGap(report.drawnGap);
+  if (gap) lines.push(`  ✗ ${report.expedition} · ${gap}`);
 
   const { check } = report;
   if (!check) {
@@ -132,7 +146,43 @@ export function describe(report: RouteReport): string[] {
       `      approach: the lowest legal line passes ` +
         `${check.approachMarginM.toFixed(0)} m over terrain at its closest`,
     );
+  // What the pass covers, in the habit F48 put on the probe report: a route
+  // that misses every hero area is checked against the ground the game draws,
+  // and a reader should be able to see that rather than infer it from silence.
+  const { drawnGap: g } = report;
+  if (g && g.cover)
+    lines.push(
+      `      90 m cover beside it: ${g.cover} · ` +
+        `${g.over} of ${g.of} stations over it`,
+    );
   return lines;
+}
+
+/**
+ * The one line a route flown over the wrong grid gets, or null.
+ *
+ * Separate from `describe` because the challenge gate says the same thing
+ * about a patch, and the two must not drift into two different sentences
+ * about one fault.
+ *
+ * It names no remedy on purpose. "Re-cut it" is what a stale section is told
+ * and it is the wrong advice here: re-cutting produces the same 1 km numbers,
+ * because the cutters read `groundAt` and that is not a thing to change
+ * quietly -- it invalidates every committed section and patch at once
+ * (D23, D24). What this is for is making the choice arrive at the moment the
+ * first piece of content needs it, instead of arriving as a flight that
+ * cleared in CI and hit a wall in play.
+ */
+export function describeGap(gap: DrawnGap | null): string | null {
+  if (!gap || gap.over === 0) return null;
+  const where = gap.areas.join(", ");
+  return (
+    `${gap.over} of ${gap.of} checked points are over ${where}, which the game ` +
+    `draws at 90 m — the ground here was cut from the 1 km grid and the two ` +
+    `differ by ${gap.worstM.toFixed(0)} m at their worst ` +
+    `(${gap.countryM.toFixed(0)} m against ${gap.heroM.toFixed(0)} m). ` +
+    `Which grid content is cut from is an open decision (F51, F53)`
+  );
 }
 
 /** Where sections live, relative to the content directory. */

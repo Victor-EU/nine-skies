@@ -9,6 +9,7 @@ carries the result to somebody who does not have the data.
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from datetime import date
 from pathlib import Path
@@ -51,6 +52,37 @@ STRIDE_SWEEP_KM = (500.0, 100.0, 25.0, 5.0, 1.0)
 RADIUS_SWEEP_KM = (0.0, 2.0, 5.0, 10.0, 25.0)
 
 
+def reads(probe) -> tuple[tuple[float, float], ...]:
+    """The coordinates a probe samples, for asking whether it can read at all.
+
+    Not the same question as `runnable_on`, which is a declaration about a
+    *grid*. This is about one artefact: the hero grid is not one raster but a
+    handful of small ones, and a probe declared runnable on it is only
+    runnable on the area that contains its subject.
+    """
+    if isinstance(probe, probes.MonotonicProbe):
+        return tuple(probe.waypoints)
+    if isinstance(probe, probes.AreaRatioProbe):
+        return (probe.north_end, probe.south_end)
+    return ((probe.lat, probe.lon),)
+
+
+def on_this_artefact(sampler: GridSampler, probe) -> tuple[bool, int, int]:
+    """(readable, points off the raster, points in all).
+
+    The fault this exists to stop is F44's, one artefact along. A probe whose
+    subject is nowhere near this raster reads NaN at every waypoint, and NaN
+    fails every comparison a check makes — so *monotonic non-increasing* over
+    nothing at all comes back `pass`. It did: adding a second hero area made
+    the Tiger Leaping Gorge probe run against the Three Gorges, 1,200 km away,
+    where it read nothing and passed (F52). One area had hidden it, because
+    the only area there was happened to contain the only probe there was.
+    """
+    points = reads(probe)
+    missing = sum(1 for lat, lon in points if math.isnan(sampler.elevation_m(lat, lon)))
+    return missing == 0, missing, len(points)
+
+
 def run(
     sampler: GridSampler,
     phase: probes.Phase = "corridor",
@@ -61,6 +93,25 @@ def run(
     lines: list[str] = []
 
     runnable = probes_by_type(phase, grid)
+    elsewhere: list = []
+    for kind, group in runnable.items():
+        keep = []
+        for probe in group:
+            readable, missing, total = on_this_artefact(sampler, probe)
+            if readable:
+                keep.append(probe)
+            elif missing == total:
+                elsewhere.append(probe)
+            else:
+                # Half on and half off is worse than all off: the check would
+                # return a verdict on the half it can see. It runs, and it
+                # fails, and the NaNs in its own table say where.
+                failures.append(
+                    f"{probe.name}: {missing} of {total} points it reads are "
+                    f"off the edge of this artefact"
+                )
+                keep.append(probe)
+        runnable[kind] = keep
 
     lines.append("| Probe | Expected | Measured | Result |")
     lines.append("| --- | ---: | ---: | --- |")
@@ -140,6 +191,26 @@ def run(
     place_failures, place_lines = named_places(sampler)
     failures.extend(place_failures)
     lines.extend(place_lines)
+
+    if elsewhere:
+        if lines and lines[-1] != "":
+            lines.append("")
+        lines.append("### Not on this artefact")
+        lines.append("")
+        lines.append(
+            "Runnable on this grid, but their subject is not inside this "
+            "raster. Listed rather than skipped, on the same rule as the "
+            "table below: a probe that reads nothing and reports `pass` is "
+            "the worst of the three outcomes, and NaN compares false against "
+            "every threshold a check can set (F52)."
+        )
+        lines.append("")
+        lines.append("| Probe | Where it reads |")
+        lines.append("| --- | --- |")
+        for probe in elsewhere:
+            where = ", ".join(f"{lat:.2f} N {lon:.2f} E" for lat, lon in reads(probe))
+            lines.append(f"| {probe.name} | {where} |")
+        lines.append("")
 
     deferred = probes.deferred_on(phase, grid)
     if deferred:

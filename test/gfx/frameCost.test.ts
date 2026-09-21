@@ -27,6 +27,7 @@ const station = (id: string, clear: number): StationCost => ({
   missing: 0,
   ms: { clear, terrain: clear + 0.3, all: clear + 0.4 },
   perLod: [9, 60, 68, 0],
+  bucketLabels: ["L0", "L1", "L2", "L3"],
 });
 
 const report = (clears: number[]): FrameCostReport => ({

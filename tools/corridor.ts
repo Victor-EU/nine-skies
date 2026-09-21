@@ -15,6 +15,8 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { HeroCover } from "../engine/src/terrain/heroSource.ts";
+import { loadHeroCoverFrom } from "./heroCover.ts";
 
 const TILE_SAMPLES = 65;
 const TILE_CELLS = TILE_SAMPLES - 1;
@@ -77,6 +79,28 @@ export interface Corridor extends GroundField {
    * rather than to a rounding (D39, F44).
    */
   sampleAtKm(i: number, j: number): number | null;
+  /**
+   * The 90 m cover published beside this corridor (stage 6), or null.
+   *
+   * It is here rather than opened separately because a corridor build emits
+   * both and the two are one answer to "what was built": a tool that reads
+   * `heights.bin` and never looks in `hero/` is reading a surface the game
+   * stopped drawing the day an area was cut over it (F53).
+   */
+  readonly hero: HeroCover | null;
+  /**
+   * The ground the *game* draws at a point -- the hero grid where there is
+   * one, the country grid everywhere else.
+   *
+   * This is `Terrain.groundElevationM`'s rule, and deliberately not
+   * `groundAt`. Sections and patches are cut from `groundAt`, because every
+   * committed artefact in this repository was, and changing that invalidates
+   * all of them at once (D23, D24) -- a decision rather than a fix. What
+   * `drawnAt` is for is *noticing*: the cockpit and the content gate now read
+   * different surfaces, and through Tiger Leaping Gorge they differ by more
+   * than the clearance any route is checked to keep.
+   */
+  drawnAt(eastM: number, northM: number): number;
 }
 
 export function loadCorridor(dir: string): Corridor | null {
@@ -109,10 +133,14 @@ export function loadCorridor(dir: string): Corridor | null {
     return heights[tile * TILE_SAMPLES * TILE_SAMPLES + j * TILE_SAMPLES + i] ?? 0;
   };
 
-  return {
+  const hero = loadHeroCoverFrom(dir);
+
+  const corridor: Corridor = {
     manifest,
+    hero,
     heightsSha256: createHash("sha256").update(bytes).digest("hex"),
     sampleAtKm: (i, j) => (inWindow(i, j) ? sampleAt(i, j) : null),
+    drawnAt: (eastM, northM) => hero?.groundAt(eastM, northM) ?? corridor.groundAt(eastM, northM),
     // The window is a rectangle in tile space and the tile index rises with
     // the cell index, so the two opposite corners of the bilinear stencil
     // decide all four.
@@ -136,6 +164,7 @@ export function loadCorridor(dir: string): Corridor | null {
       );
     },
   };
+  return corridor;
 }
 
 /**
@@ -232,6 +261,75 @@ export function profileAlong(
   return {
     ...metrics,
     profileM: stationsAlong(waypoints).map((p) => corridor.groundAt(p.eastM, p.northM)),
+  };
+}
+
+/**
+ * How far the ground a check reads is from the ground the game draws.
+ *
+ * Every committed section and patch is cut from the 1 km country grid, and
+ * since stage 6 the game does not always draw that grid: over a hero area it
+ * draws 90 m ground instead, and `Terrain.groundElevationM` answers off
+ * whichever is on screen. So a route or a challenge over a hero area is
+ * checked against a surface the player never flies. Nothing authored is over
+ * one today -- this is what says so, and keeps saying it (F53).
+ *
+ * `over` is the count that matters: zero is the pass, and it is only a real
+ * pass when `cover` names something. A world built before stage 6 has no
+ * second grid to disagree with and reports zero for that reason instead,
+ * which is a different sentence and must not read as the same one.
+ */
+export interface DrawnGap {
+  /** The 90 m cover published beside this world, or null if there is none. */
+  readonly cover: string | null;
+  /** Points asked about, and how many of them the game draws at 90 m. */
+  readonly of: number;
+  readonly over: number;
+  /** Area ids met, in the order the points meet them. */
+  readonly areas: readonly string[];
+  /** The worst the two grids disagree across those points, metres. */
+  readonly worstM: number;
+  /** Which point that was: an index into the list given. */
+  readonly worstAt: number;
+  readonly countryM: number;
+  readonly heroM: number;
+}
+
+export function drawnGap(corridor: Corridor, points: readonly Waypoint[]): DrawnGap {
+  const hero = corridor.hero;
+  const areas: string[] = [];
+  let over = 0;
+  let worstM = 0;
+  let worstAt = -1;
+  let countryM = 0;
+  let heroM = 0;
+
+  if (hero !== null) {
+    points.forEach((p, i) => {
+      const fine = hero.groundAt(p.eastM, p.northM);
+      if (fine === null) return;
+      over++;
+      const area = hero.areaAt(p.eastM, p.northM);
+      if (area !== null && !areas.includes(area)) areas.push(area);
+      const coarse = corridor.groundAt(p.eastM, p.northM);
+      if (Math.abs(coarse - fine) > worstM) {
+        worstM = Math.abs(coarse - fine);
+        worstAt = i;
+        countryM = coarse;
+        heroM = fine;
+      }
+    });
+  }
+
+  return {
+    cover: hero?.label ?? null,
+    of: points.length,
+    over,
+    areas,
+    worstM,
+    worstAt,
+    countryM,
+    heroM,
   };
 }
 

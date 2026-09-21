@@ -107,7 +107,8 @@ shown.
 npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
 make challenges   # fly every authored challenge, and price what it asks for
-make test         # 686 TypeScript tests and 106 Python tests
+make ground       # the two elevation grids, and what is authored over them
+make test         # 729 TypeScript tests and 139 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -120,7 +121,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-669 of the 686 TypeScript tests run without the world; the seventeen that do
+695 of the 729 TypeScript tests run without the world; the thirty-four that do
 not are the ones whose subject is the world itself. The HUD's own suite is in
 the first group: it flies Expedition 1 at sixty frames a second over the
 committed section and counts what each readout says (F46).
@@ -239,7 +240,19 @@ about it — and because a colour stop is a factual claim. See
 [docs/prototype-findings.md](docs/prototype-findings.md) — thirteen findings
 from phase 0, and the golden probe reports from the two built grids:
 [the 1 km corridor](docs/probe-report.md) and
-[the 90 m hero areas](docs/probe-report-hero.md).
+[the 90 m hero areas](docs/probe-report-hero.md). Beside them,
+[the siting report](docs/siting-report.md) — every coordinate this repository
+ships, measured against the source's own 30 m rather than taken on trust,
+which is how the Three Gorges were placed and how Wulingyuan was found not to
+be placeable at all (F52) — and
+[the ground report](docs/ground-report.md), which is about having two
+elevation grids at once. The cockpit reads the 90 m one over a hero area and
+every committed section and patch is cut from the 1 km one, and where they
+overlap the fine grid stands up to **374 m above** the coarse — more than the
+333 m the only authored expedition clears its worst terrain by. Nothing
+authored is over a hero area; that is measured on every build rather than
+remembered, and both cutters refuse to write an artefact that would be
+(D52, F53).
 
 Three worth reading first. **F1** was wrong twice before it was right. **F12**
 found that the Everest golden probe can never pass, because Copernicus GLO-30

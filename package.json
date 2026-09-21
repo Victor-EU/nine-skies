@@ -25,6 +25,7 @@
     "content:discoveries": "vite-node tools/discoveries.ts",
     "content:atlas": "vite-node tools/atlas.ts",
     "content:challenges": "vite-node tools/challenges.ts",
+    "content:ground": "vite-node tools/groundReport.ts",
     "content:expeditions": "vite-node tools/cutExpeditions.ts",
     "content:stations": "vite-node tools/cutStations.ts",
     "check": "npm run typecheck && npm test && npm run content:validate && npm run content:challenges"

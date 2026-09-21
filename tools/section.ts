@@ -42,9 +42,11 @@ import { join } from "node:path";
 import { projectAlbers } from "../engine/src/terrain/worldGrid.ts";
 import type { Expedition } from "../content/schema.ts";
 import {
+  drawnGap,
   firstUncoveredKm,
   measureAlong,
   profileAlong,
+  stationsAlong,
   type Corridor,
   type ProfiledRoute,
 } from "./corridor.ts";
@@ -168,6 +170,30 @@ export function cutSection(
         `heights.bin hashes to ${corridor.heightsSha256.slice(0, 12)}…, the manifest ` +
         `says ${claimed.slice(0, 12)}…. Rebuild it with \`make world CORRIDOR=` +
         `${corridor.manifest.corridor}\` rather than cutting from it`,
+    };
+
+  // The fourth refusal, and the only one that is not about this file being
+  // wrong: it is about the file being *right about the wrong surface*. Since
+  // stage 6 the game draws 90 m ground over a hero area, and a section is cut
+  // from the 1 km grid, so a route through one is checked to clear terrain
+  // that is not the terrain it flies over. Through Tiger Leaping Gorge the
+  // two differ by more than any clearance a route is held to.
+  //
+  // Refusing rather than cutting from `drawnAt` on the spot, because the
+  // choice of grid is not this function's to make: every committed section
+  // and patch was cut from `groundAt`, and changing that re-signs all of them
+  // (D23, D24). Refusing makes the choice arrive at the moment the first
+  // route needs it; cutting quietly would make it arrive as a route that
+  // cleared in CI (F51, F53).
+  const gap = drawnGap(corridor, stationsAlong(projected));
+  if (gap.over > 0)
+    return {
+      problem:
+        `${gap.over} of ${gap.of} stations are over ${gap.areas.join(", ")}, which ` +
+        `the game draws at 90 m. A section cut from the 1 km grid would put the ` +
+        `ground ${gap.worstM.toFixed(0)} m from what the player flies over at its ` +
+        `worst (${gap.countryM.toFixed(0)} m against ${gap.heroM.toFixed(0)} m). ` +
+        `Which grid content is cut from is an open decision (F51, F53)`,
     };
 
   const profiled = profileAlong(corridor, projected);

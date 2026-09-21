@@ -34,13 +34,14 @@ import { reversalWidthM } from "../engine/src/sim/flight.ts";
 import { MODE_IAS_MS, type SpeedMode } from "../engine/src/sim/scale.ts";
 import { flyChallenge, type ChallengeFlight } from "../engine/src/challenge/fly.ts";
 import { projectAlbers } from "../engine/src/terrain/worldGrid.ts";
-import type { Corridor, GroundField } from "./corridor.ts";
+import { drawnGap, type Corridor, type DrawnGap, type GroundField } from "./corridor.ts";
 import { courseFor, courseKm, deadlineFrom, minutesFor, placesOf, specFrom } from "./challenge.ts";
 import { committedVerifier } from "./attest.ts";
 import {
   maxPatchDriftM,
   patchGround,
   patchPath,
+  patchPoints,
   readPatch,
   verifyPatch,
   PATCH_DRIFT_TOLERANCE_M,
@@ -77,6 +78,12 @@ export interface ChallengeReport {
   readonly groundSource: ChallengeGroundSource | null;
   /** Why the committed patch cannot stand for this challenge, if it cannot. */
   readonly patchIssue: string | null;
+  /**
+   * How much of the committed ground is under a hero area, and so is not the
+   * ground the game draws there (F53). Null off a machine with a world: the
+   * comparison needs the `hero/` beside the corridor, and CI has neither.
+   */
+  readonly drawnGap: DrawnGap | null;
   readonly ground: readonly GroundNote[];
   readonly widths: readonly WidthNote[];
   readonly flight: ChallengeFlight | null;
@@ -132,6 +139,7 @@ export function checkChallenge(
   let source: ChallengeGroundSource | null = null;
   let name: string | null = null;
   let patchIssue: string | null = stale;
+  let gap: DrawnGap | null = null;
 
   if (world) {
     field = world.corridor;
@@ -141,6 +149,7 @@ export function checkChallenge(
     // data it claims to come from. A patch is a subset of the lattice rather
     // than a resampling of it, so the tolerance is zero.
     if (patch && !stale) {
+      gap = drawnGap(world.corridor, patchPoints(patch));
       const drift = maxPatchDriftM(patch, world.corridor);
       if (drift > PATCH_DRIFT_TOLERANCE_M)
         patchIssue =
@@ -170,6 +179,7 @@ export function checkChallenge(
       world: null,
       groundSource: null,
       patchIssue,
+      drawnGap: gap,
       ground,
       flight: null,
       skipReason:
@@ -181,7 +191,16 @@ export function checkChallenge(
   const flight = flyChallenge(specFrom(c), courseFor(c), c.speed as SpeedMode, {
     groundAt: (eastM, northM) => (field.covers(eastM, northM) ? field.groundAt(eastM, northM) : null),
   });
-  return { ...base, world: name, groundSource: source, patchIssue, ground, flight, skipReason: null };
+  return {
+    ...base,
+    world: name,
+    groundSource: source,
+    patchIssue,
+    drawnGap: gap,
+    ground,
+    flight,
+    skipReason: null,
+  };
 }
 
 function groundUnder(field: GroundField, lat: number, lon: number): number | null {
