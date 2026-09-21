@@ -207,3 +207,20 @@ def project(lats: list[float], lons: list[float]) -> tuple[list[float], list[flo
         CRS.from_epsg(4326), CRS.from_proj4(ALBERS_PROJ4), lons, lats
     )
     return list(xs), list(ys)
+
+
+def unproject(xs: list[float], ys: list[float]) -> tuple[list[float], list[float]]:
+    """Projected metres back to degrees, through the same PROJ call.
+
+    Here rather than in the one module that needs it, for the reason `project`
+    is here: two transformations built from two spellings of the same
+    projection are two projections, and the second one is found the day a
+    coordinate is a kilometre out.
+    """
+    from rasterio.crs import CRS
+    from rasterio.warp import transform as transform_points
+
+    lons, lats = transform_points(
+        CRS.from_proj4(ALBERS_PROJ4), CRS.from_epsg(4326), xs, ys
+    )
+    return list(lats), list(lons)

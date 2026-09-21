@@ -43,6 +43,8 @@ export interface WorldAnchor {
   northM: number;
 }
 
+import type { CoverageRecord } from "./coverage.js";
+
 export interface WorldStart {
   eastM: number;
   northM: number;
@@ -57,7 +59,14 @@ export interface WorldManifest {
   tileSamples: number;
   country: { tilesX: number; tilesY: number; originXM: number; originYM: number };
   window: WorldWindow;
-  heights: { file: string; tiles: number; bytes: number; sha256: string };
+  heights: {
+    file: string;
+    tiles: number;
+    /** How many of them hold any ground above zero. The other kind is F54's. */
+    tilesWithLand: number;
+    bytes: number;
+    sha256: string;
+  };
   horizon: {
     file: string;
     width: number;
@@ -65,6 +74,12 @@ export interface WorldManifest {
     sampleKm: number;
     silhouetteBias: number;
   };
+  /**
+   * What the source had under each published tile, one character each (F54).
+   * Absent on every world built before it, which `WorldCoverage.from` answers
+   * null for rather than guessing.
+   */
+  coverage?: CoverageRecord;
   /** Named places along the route, in country-grid metres. */
   anchors: Record<string, WorldAnchor>;
   /** Where a flight begins in this corridor, and which way it faces. */

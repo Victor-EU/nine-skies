@@ -108,7 +108,7 @@ npm run check     # typecheck + tests + content validation
 make routes       # fly every authored route over real ground
 make challenges   # fly every authored challenge, and price what it asks for
 make ground       # the two elevation grids, and what is authored over them
-make test         # 729 TypeScript tests and 139 Python tests
+make test         # 746 TypeScript tests and 152 Python tests
 ```
 
 `make routes` is the half of content validation a parser cannot do: every
@@ -121,7 +121,7 @@ per kilometre — so the same check runs on a fresh clone, in CI and on the
 machine with the rasters, and prints the same metres (D21). A section carries
 the waypoints it was cut from, so editing a route invalidates it and says
 which waypoint moved; a machine that does have a world re-cuts and compares.
-695 of the 729 TypeScript tests run without the world; the thirty-four that do
+704 of the 746 TypeScript tests run without the world; the forty-two that do
 not are the ones whose subject is the world itself. The HUD's own suite is in
 the first group: it flies Expedition 1 at sixty frames a second over the
 committed section and counts what each readout says (F46).

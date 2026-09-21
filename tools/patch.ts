@@ -56,7 +56,13 @@ import { reversalWidthM } from "../engine/src/sim/flight.ts";
 import { MODE_IAS_MS, type SpeedMode } from "../engine/src/sim/scale.ts";
 import { projectAlbers } from "../engine/src/terrain/worldGrid.ts";
 import { flownCourse, placesOf } from "./challenge.ts";
-import { drawnGap, type Corridor, type GroundField, type Waypoint } from "./corridor.ts";
+import {
+  drawnGap,
+  unvouchedGround,
+  type Corridor,
+  type GroundField,
+  type Waypoint,
+} from "./corridor.ts";
 import { PUBLIC_KEY_FILE, type Signer, type Verifier } from "./attest.ts";
 
 export const PATCH_VERSION = 1;
@@ -295,7 +301,17 @@ export function cutPatch(
   // The third refusal, and the same one a section has: this patch would be a
   // faithful cut of a surface the game does not draw here. See `cutSection`
   // for why it refuses rather than quietly cutting from the finer grid.
-  const gap = drawnGap(corridor, patchPoints({ rows }));
+  const cells = patchPoints({ rows });
+  const blank = unvouchedGround(corridor, cells);
+  if (blank.over > 0)
+    return {
+      problem:
+        `${blank.over} of ${blank.of} cells read 0 m inside tiles the source only ` +
+        `partly reached; the patch would commit sea level there and the challenge ` +
+        `would be flown over it (F44, F54)`,
+    };
+
+  const gap = drawnGap(corridor, cells);
   if (gap.over > 0)
     return {
       problem:

@@ -21,7 +21,7 @@ function manifest(tx0: number, ty0: number, tx1: number, ty1: number): WorldMani
     tileSamples: TILE_SAMPLES,
     country: { tilesX: 105, tilesY: 69, originXM: -3_456_000, originYM: 1_792_000 },
     window: { tx0, ty0, tx1, ty1 },
-    heights: { file: "heights.bin", tiles, bytes: tiles * STRIDE * 2, sha256: "" },
+    heights: { file: "heights.bin", tiles, tilesWithLand: tiles, bytes: tiles * STRIDE * 2, sha256: "" },
     horizon: { file: "horizon.bin", width: 9, height: 5, sampleKm: 8, silhouetteBias: 0.6 },
     anchors: {},
     start: { eastM: 0, northM: 0, altitudeM: 1200, headingRad: 0 },

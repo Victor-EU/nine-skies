@@ -6349,3 +6349,127 @@ depend on which hero areas were published when it was cut, and leaving it means
 no authored content may enter a hero area at all, including the gorge the GDD
 names. The guard makes the choice arrive when the first piece of content needs
 it, and that is all it does.
+
+## F54 — The mirror has been saying where the water is since stage 1, and nothing had read it; one blue cell in twelve is sea
+
+*21 September 2026, on `real-elevation-pipeline`.*
+
+The build plan listed this as *engineering, and it waits on the same
+full-country build as D14* — with one clause at the end saying otherwise: *a
+per-tile coverage record in the manifest would be the cheap half of it.* That
+clause is right and the wait was not. The cheap half needs no download, no
+second source and no country build. It needs a file that has been on disk since
+the first `make acquire`.
+
+### What Copernicus already told us
+
+GLO-30 publishes a one-degree cell only where there is something to publish.
+`acquire.py` has known this since stage 1 — its own docstring says *"Cells
+present in the bucket. Ocean-only cells are simply absent"* — and 263 of the
+2,232 cells over China are absent for that reason. **Nine of this corridor's
+340**, and they are exactly where you would put them by hand:
+
+| Absent from the mirror | |
+| --- | --- |
+| 25 N 120 E · 26 N 121-122 E · 27 N 122 E | East China Sea, off Zhejiang |
+| 32 N 122 E · 33 N 121-122 E · 34 N 121-122 E | Yellow Sea, off Jiangsu |
+
+That is the publisher's own statement about where the water is, and it was
+being thrown away at the mosaic. `warp_window` even says so in a comment:
+*"The destination is already zeroed, so anywhere the warp does not reach is
+sea."* It is not. Most of where the warp does not reach is where nobody asked
+it to go.
+
+### Four states, because three of them are not water
+
+`coverage.py` classifies every published tile by the cells under it. A 64 km
+tile against 111 km cells straddles them, so the mixed cases get their own
+names rather than being folded into the nearest clean one:
+
+| | Tiles | With land | |
+| --- | ---: | ---: | --- |
+| `d` every cell fetched | 783 | 782 | its zeros are elevations |
+| `o` no cell in the mirror | **45** | **0** | open ocean |
+| `c` fetched one side, absent the other | 31 | 14 | a shoreline at one degree |
+| `e` a cell exists that this build did not fetch | 296 | 127 | nothing may be concluded |
+
+**45 of 45, with nothing tuned to make it so.** The mirror's claim about water
+and the heightfield the warp produced agree completely, which is the only
+reason the map is allowed to draw blue at all — and `make tiles` now refuses to
+publish a world where they disagree, rather than painting a blue rectangle over
+a mountain. Proved by claiming one plainly-land tile is ocean: the build stops.
+
+`UNREACHED` beating everything is the ordering that matters. A tile with one
+unfetched cell and three absent ones is a tile nothing may be concluded about;
+calling it a coast because most of it is missing would be the map painting the
+corner of a rectangle blue all over again.
+
+### What the map actually gains
+
+F45's frame, re-measured with the record read. Same 89,088 cells, same 39.2 %
+that was one colour:
+
+| | cells | % of frame | % of the blue |
+| --- | ---: | ---: | ---: |
+| land | 54,150 | 60.8 % | |
+| outside the window | 15,168 | 17.0 % | 43.4 % |
+| inside it, never fetched | 14,700 | 16.5 % | 42.1 % |
+| **open ocean** | **2,880** | **3.2 %** | **8.2 %** |
+| coast, still ambiguous | 1,792 | 2.0 % | 5.1 % |
+| fetched and reading zero | 398 | 0.4 % | 1.1 % |
+
+F45 said five of every six blue cells were not water and estimated 5,882 of
+them were sea "east of Shanghai". The measured answer is **2,880** — the
+eyeball was twice as generous as the source. **Eleven blue cells in twelve are
+not water**, and the twelfth is now blue for a reason that can be named.
+
+`SEA` is back in `palette.ts` after F45 took it out, and it is drawn for the
+`ocean` state and nothing else. `unrecorded` is not `ocean` and must never
+become it by default, which is the test that fails when the default slips.
+It clears 10 dE from the no-data grey, the panel and every stop of the land
+ramp through all four eyes — checked by putting it in `baseSamples`, so every
+mark on the map was swept against it without anybody remembering to.
+
+What this does **not** do is draw a coastline. The ocean inside a fetched
+raster is a real zero in a real cell, and at 1 km with a `max` reduction the
+shore is a land sample anyway. That is `coast`, it is 31 tiles, and it is still
+phase 2's water mask.
+
+### And then the record found something that was never about the map
+
+A corridor window is the bounding rectangle of a *curved* quadrilateral, so its
+edges are published tiles, inside the window, partly made of samples no raster
+ever reached. `covers()` says yes. `groundAt` says 0 m. A route across one is
+flown over sea level and clears everything above it — F44's failure a stage
+earlier, and this is the first time anything could see it.
+
+Flown out to the window's north-west corner: **209 stations reading 0 m from
+km 2,302**, on a route whose ground rises to 5,284 m. Nothing before this could
+tell those zeros from the genuine sea-level zeros at km 66 outside Shanghai,
+and a section would have been cut and signed with both in it.
+
+**Neither half of the test is enough and that is measured, not argued.** The
+tile record is 64 km and says a tile is *partly* unfetched — on that route
+1,166 of 1,167 stations over such tiles are over real ground, so a tile-level
+refusal is 1,166 false positives. The elevation alone cannot say either,
+because zero is a real elevation for most of the eastern third of this
+corridor. Together: a zero inside a tile the source only partly reached.
+Removing either half fails a different test — the first stops the guard finding
+the hole, the second makes it refuse every route that starts at the coast.
+
+`cutSection` and `cutPatch` refuse it, which is not the decision F53 left open:
+there is no open question about whether ground nobody fetched is ground.
+
+### What it cost
+
+**746 TypeScript tests in 62 files, up from 729**, 704 of them with
+`dist-world/` moved aside; **152 Python tests, up from 139**. The world's
+elevation is untouched — `sea-to-sky-1km.tif` rebuilt byte-for-byte identical
+through a full `make grid`, and `heights.bin` still hashes to
+`ec5a5e1b83247978…` — so nothing a committed section is signed against moved,
+and the section and the patch both re-cut `unchanged`.
+
+One thing the manifest had been publishing since the first corridor and the
+engine's type had never declared: `heights.tilesWithLand`. It is in the type
+now, which is how the 232 blank tiles could be checked against the four states
+adding up to them.

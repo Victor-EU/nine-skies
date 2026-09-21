@@ -22,6 +22,7 @@
  */
 import { Color } from "three";
 import { elevationRampSrgb } from "../terrain/palette.js";
+import type { TileCoverage } from "../terrain/coverage.js";
 
 /** 0-255, the space a canvas composites in. */
 export type Rgb = readonly [number, number, number];
@@ -49,7 +50,7 @@ export function css(rgb: Rgb, alpha = 1): string {
  * Ground the pipeline has published no elevation for.
  *
  * The map used to paint this blue and call it the sea, and the measurement
- * that followed is why there is no sea colour in this file at all (F45).
+ * that followed is why the sea colour was taken out of this file (F45).
  * **39.2 % of the frame the map draws was blue, and five cells in six of it
  * were not water.** Three different things were arriving as one colour:
  *
@@ -60,13 +61,12 @@ export function css(rgb: Rgb, alpha = 1): string {
  *     the corners of a rectangle drawn around a corridor, where no source
  *     raster was ever fetched.
  *
- * Nothing published separates them. GLO-30 writes the ocean as zero and
- * absent data as zero, and the corridor manifest records how many of its
- * tiles have land but not which. So the map says the only thing it knows: it
- * has no elevation here. The coastline still reads, because it is the edge of
- * the land; what is missing is the claim that the other side of it is water,
- * and that claim needs a water mask - phase 2's rivers and lakes, workstream
- * A step 7 - rather than a better guess.
+ * **Two of the three are separated now** (F54): the mirror publishes a
+ * one-degree cell only where there is something to publish, so a cell absent
+ * from it is open ocean, and `coverage.py` puts one character per tile in the
+ * manifest. `SEA` below is that claim and nothing else; this stays the colour
+ * for everything the pipeline cannot vouch for, which is still every zero
+ * inside a fetched raster.
  *
  * The tone is measured away from all three of the things it can touch:
  * 11.3 dE from the panel behind the map, 39.2 from the lowest land, and
@@ -78,6 +78,25 @@ export function css(rgb: Rgb, alpha = 1): string {
  * is the shoreline itself rather than anywhere a player flies.
  */
 export const NO_DATA: Rgb = [40, 43, 48];
+
+/**
+ * Water the source itself says is water.
+ *
+ * Drawn only where the mirror has no one-degree cell at all, which for GLO-30
+ * is open ocean and is the publisher's statement rather than our inference -
+ * 45 of this corridor's 1,155 tiles, every one of which the built heightfield
+ * agrees has no land in it. It is deliberately not drawn for a zero inside a
+ * fetched raster: the ocean and a sea-level field are the same number there,
+ * and separating them needs the water mask phase 2's rivers and lakes brings.
+ * So the shore this draws is a one-degree shore, and the coastline a player
+ * reads is still the edge of the land.
+ *
+ * Measured like everything else here: it clears 10 dE from `NO_DATA`, from
+ * the panel behind the map and from every stop of the land ramp, through all
+ * four eyes `cvd.ts` simulates. A blue that a protanope could not tell from
+ * the no-data grey would put the fault back where F45 found it.
+ */
+export const SEA: Rgb = [22, 58, 96];
 
 /**
  * The land, from the shared elevation ramp - lifted toward the map's dark
@@ -100,14 +119,23 @@ export function landShade(elevationM: number): Rgb {
 /**
  * What a cell of the base is painted.
  *
- * Zero is the pipeline's "nothing here", whatever the reason, so it is the
- * one value that is not an elevation. Everything else is land, including
- * everything below sea level: Ayding Lake is -154 m, has a card written for
- * it and a golden probe in the pipeline pointed at it, and the old base
- * tested `m <= 0` and drew China's lowest exposed land as ocean.
+ * Zero is still not an elevation - everything else is land, including
+ * everything below sea level, because Ayding Lake is -154 m, has a card
+ * written for it and a golden probe pointed at it, and the old base tested
+ * `m <= 0` and drew China's lowest exposed land as ocean.
+ *
+ * What decides between the two readings of zero is the tile's coverage and
+ * never the number itself (F54). `ocean` is the one state that licenses blue,
+ * and a world with no coverage record gets none: `unrecorded` is not `ocean`
+ * and must never be allowed to become it by default.
+ *
+ * An `ocean` tile that somehow holds an elevation is drawn as land. That is a
+ * contradiction between the mirror and the warp rather than a case to handle,
+ * and it should be visible if it ever happens instead of being painted over.
  */
-export function baseShade(elevationM: number): Rgb {
-  return elevationM === 0 ? NO_DATA : landShade(elevationM);
+export function baseShade(elevationM: number, coverage: TileCoverage = "unrecorded"): Rgb {
+  if (elevationM !== 0) return landShade(elevationM);
+  return coverage === "ocean" ? SEA : NO_DATA;
 }
 
 /**
@@ -176,11 +204,16 @@ export const PANEL: Rgb = [8, 12, 18];
 /**
  * Every elevation the base can be, for a legibility sweep.
  *
- * The no-data tone is in it, because a mark has to be visible over that too -
- * and today two cells in five of this map are it.
+ * The no-data tone and the sea are both in it, because a mark has to be
+ * visible over those too - and two cells in five of this map are one or the
+ * other. Adding a ground here is how a new colour gets checked against every
+ * mark without anybody remembering to: `SEA` arrived that way (F54).
  */
 export function baseSamples(): { label: string; rgb: Rgb }[] {
-  const out = [{ label: "no data", rgb: NO_DATA }];
+  const out = [
+    { label: "no data", rgb: NO_DATA },
+    { label: "sea", rgb: SEA },
+  ];
   for (const m of [1, 500, 1000, 2000, 3650, 5000, 6600]) {
     out.push({ label: `${m.toLocaleString()} m`, rgb: landShade(m) });
   }

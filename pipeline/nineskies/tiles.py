@@ -35,6 +35,7 @@ from . import grid
 from . import places
 from .acquire import data_root
 from .grid import CORRIDORS
+from . import coverage
 from .mosaic import corridor_window
 
 #: Named places along the Sea to Sky route, as the GDD lists it. The pipeline
@@ -185,6 +186,41 @@ def build(corridor: str = "sea-to-sky", out_dir: Path | None = None) -> Path:
     sidecar = root / "work" / f"{corridor}-sources.json"
     source = json.loads(sidecar.read_text()) if sidecar.exists() else {"unrecorded": True}
 
+    # Coverage rides in on the same sidecar but is published beside `source`
+    # rather than inside it: it is a statement about these tiles, not about
+    # the rasters, and `cutFrom.sourceSha256` reads that object by name (D24).
+    #
+    # Checked against the window rather than trusted, because a sidecar left
+    # behind by a build of a different extent would line up character for
+    # character with the wrong tiles and say nothing about it.
+    cover = source.pop("coverage", None)
+    if cover is not None and len(cover["tiles"]) != window.count:
+        raise SystemExit(
+            f"{sidecar} records {len(cover['tiles'])} tiles of coverage for a "
+            f"{window.count}-tile window; re-run nineskies.mosaic"
+        )
+
+    # The corroboration, and the only reason the map is allowed to draw water.
+    # `o` is the mirror's claim that there is nothing here but sea; these are
+    # the tiles the warp produced. If they ever disagree, the claim is wrong
+    # somewhere and the right thing is to stop rather than to publish a blue
+    # rectangle over a mountain. 45 of 45 today, with nothing tuned to make
+    # it so (F54).
+    if cover is not None:
+        contradictions = [
+            coverage.tile_at(window, n)
+            for n, state in enumerate(cover["tiles"])
+            if state == coverage.OCEAN and bool(land[n])
+        ]
+        if contradictions:
+            named = ", ".join(f"{tx},{ty}" for tx, ty in contradictions[:8])
+            raise SystemExit(
+                f"{len(contradictions)} tile(s) the mirror has no source cell for "
+                f"hold land in the built grid, so one of the two is wrong: {named}"
+            )
+        ocean = cover["counts"].get(coverage.OCEAN, 0)
+        print(f"  coverage: {ocean} tile(s) of open ocean, none of them holding land")
+
     manifest = {
         "version": 1,
         "corridor": corridor,
@@ -225,6 +261,7 @@ def build(corridor: str = "sea-to-sky", out_dir: Path | None = None) -> Path:
             "sha256": digest(horizon_path),
         },
         "source": source,
+        "coverage": cover if cover is not None else {"unrecorded": True},
         "anchors": anchors,
         "start": {
             "eastM": anchors["shanghai"]["eastM"],

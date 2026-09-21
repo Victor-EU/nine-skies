@@ -21,6 +21,7 @@ import {
   loadHeroCover,
   type HeroCover,
 } from "../../engine/src/terrain/heroSource.js";
+import { WorldCoverage } from "../../engine/src/terrain/coverage.js";
 import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
 import { HorizonRing } from "../../engine/src/terrain/horizonRing.js";
 import {
@@ -508,6 +509,14 @@ const mapBounds = world
       northM1: (world.manifest.window.ty1 + 2) * TILE_KM * 1000,
     }
   : { eastM0: 0, northM0: 0, eastM1: COUNTRY_EAST_KM * 1000, northM1: COUNTRY_NORTH_KM * 1000 };
+
+/**
+ * What the source had under each tile, so the map can draw water where there
+ * is water and say nothing where it does not know (F54). Null on the stand-in
+ * world and on any corridor built before the record existed, and null means
+ * no blue rather than a guess.
+ */
+const mapCoverage = world ? WorldCoverage.from(world.manifest) : null;
 
 /** Expeditions this profile has arrived at, which is one of the two unlocks. */
 const finished = new Set(profile.runs.filter((r) => r.arrived).map((r) => r.expeditionId));
@@ -1541,6 +1550,7 @@ function frame(now: number): void {
       track,
       aircraft: flight,
       showLine: true,
+      coverage: mapCoverage,
       // The other half of the clock. The HUD says Beijing; this says what the
       // sun is doing at this longitude, which is the pair the GDD asks for
       // and only makes sense with a map under it (F47).

@@ -75,6 +75,19 @@ attach to shipped assets.
    never straddles a file boundary. Reduction is mean plus 0.25 of (max - mean)
    — see finding F12 for why not cubic, and `grid.py` for why the constants are
    frozen rather than computed.
+   - **It also records what the source reached, which is the only reason the
+     map can draw water** (D53, F54). GLO-30 writes the ocean as zero and a
+     destination nobody warped into is zero, so a blank tile has meant three
+     things at once since the first corridor. Copernicus publishes a
+     one-degree cell only where there is something to publish, so a cell
+     absent from `tileList.txt` is open ocean — nine of this corridor's 340,
+     all of them offshore. `coverage.py` turns that into one character per
+     tile in the manifest: 783 fully fetched, 45 open ocean, 31 shoreline,
+     296 the corners of a rectangle drawn around a curved quadrilateral.
+     `tiles.py` refuses to publish a world where the mirror says ocean and
+     the warp says land; it is 45 of 45 today with nothing tuned to make it
+     so. What this does *not* settle is the ocean inside a fetched raster,
+     which is stage 3's business and is why `c` has its own name.
 3. **Hydro-condition** — burn HydroSHEDS centrelines, enforce monotonic
    downstream elevation, flatten named lakes to their real surface heights.
    **Not built, and the probe that guards it does not fail without it** (F48).

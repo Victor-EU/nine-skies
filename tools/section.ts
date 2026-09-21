@@ -44,6 +44,7 @@ import type { Expedition } from "../content/schema.ts";
 import {
   drawnGap,
   firstUncoveredKm,
+  unvouchedGround,
   measureAlong,
   profileAlong,
   stationsAlong,
@@ -185,7 +186,8 @@ export function cutSection(
   // (D23, D24). Refusing makes the choice arrive at the moment the first
   // route needs it; cutting quietly would make it arrive as a route that
   // cleared in CI (F51, F53).
-  const gap = drawnGap(corridor, stationsAlong(projected));
+  const stations = stationsAlong(projected);
+  const gap = drawnGap(corridor, stations);
   if (gap.over > 0)
     return {
       problem:
@@ -194,6 +196,20 @@ export function cutSection(
         `ground ${gap.worstM.toFixed(0)} m from what the player flies over at its ` +
         `worst (${gap.countryM.toFixed(0)} m against ${gap.heroM.toFixed(0)} m). ` +
         `Which grid content is cut from is an open decision (F51, F53)`,
+    };
+
+  // And the fifth, which is not a decision at all: a zero nothing stands
+  // behind is not an elevation. A station reading 0 m inside a tile the
+  // source only partly reached is a hole, and a section holding it lets the
+  // route clear everything above it (F44, F54).
+  const blank = unvouchedGround(corridor, stations);
+  if (blank.over > 0)
+    return {
+      problem:
+        `${blank.over} of ${blank.of} stations read 0 m inside tiles the source ` +
+        `only partly reached, from km ${blank.firstAt} — the section would hold ` +
+        `sea level there and the route would clear it. Widen the corridor box ` +
+        `and rebuild, or move the route inside what was fetched`,
     };
 
   const profiled = profileAlong(corridor, projected);

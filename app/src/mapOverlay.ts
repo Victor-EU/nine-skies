@@ -36,6 +36,7 @@
  * now.
  */
 import type { HorizonField } from "../../engine/src/terrain/horizonField.js";
+import type { WorldCoverage } from "../../engine/src/terrain/coverage.js";
 import { MapView, HEIHE_TENGCHONG, type MapBounds } from "../../engine/src/map/view.js";
 import { bandOf, type FlownTrack } from "../../engine/src/map/track.js";
 import { projectAlbers } from "../../engine/src/terrain/worldGrid.js";
@@ -74,6 +75,11 @@ export interface MapScene {
   readonly track: FlownTrack;
   readonly aircraft: { eastM: number; northM: number; headingRad: number };
   readonly showLine: boolean;
+  /**
+   * What the pipeline had under each tile, or null where nothing says (F54).
+   * The map draws water only where this does, and nowhere else.
+   */
+  readonly coverage: WorldCoverage | null;
   /**
    * One line across the top of the panel. The GDD puts the local solar time
    * here rather than on the HUD - "the map overlay adds local solar time
@@ -137,12 +143,23 @@ export class MapBase {
     this.canvas = document.createElement("canvas");
   }
 
-  /** The offscreen picture for these bounds, built if it is not current. */
-  imageFor(field: HorizonField, bounds: MapBounds): HTMLCanvasElement {
+  /**
+   * The offscreen picture for these bounds, built if it is not current.
+   *
+   * `coverage` is what decides whether a zero is the sea or a hole (F54), and
+   * it is null on the stand-in world and on any corridor built before the
+   * record existed. Null means no blue: the map goes back to saying only that
+   * it has no elevation here, which is what it said between F45 and F54.
+   */
+  imageFor(
+    field: HorizonField,
+    bounds: MapBounds,
+    coverage: WorldCoverage | null = null,
+  ): HTMLCanvasElement {
     const cell = field.sampleKm * 1000;
     const w = Math.max(1, Math.round((bounds.eastM1 - bounds.eastM0) / cell));
     const h = Math.max(1, Math.round((bounds.northM1 - bounds.northM0) / cell));
-    const key = `${w}x${h}@${bounds.eastM0},${bounds.northM0}`;
+    const key = `${w}x${h}@${bounds.eastM0},${bounds.northM0}/${coverage ? "c" : "-"}`;
     if (key === this.key) return this.canvas;
 
     this.canvas.width = w;
@@ -153,7 +170,11 @@ export class MapBase {
       // North is up on screen and northing grows upward, so the rows flip.
       const northM = bounds.northM0 + (h - 1 - y) * cell;
       for (let x = 0; x < w; x++) {
-        const [r, g, b] = baseShade(field.sampleM(bounds.eastM0 + x * cell, northM));
+        const eastM = bounds.eastM0 + x * cell;
+        const [r, g, b] = baseShade(
+          field.sampleM(eastM, northM),
+          coverage?.at(eastM, northM) ?? "unrecorded",
+        );
         const i = (y * w + x) * 4;
         image.data[i] = Math.round(r);
         image.data[i + 1] = Math.round(g);
@@ -195,7 +216,7 @@ export function drawMap(
   const topLeft = view.project(scene.bounds.eastM0, scene.bounds.northM1);
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(
-    base.imageFor(field, scene.bounds),
+    base.imageFor(field, scene.bounds, scene.coverage),
     topLeft.x,
     topLeft.y,
     (scene.bounds.eastM1 - scene.bounds.eastM0) * view.scale,

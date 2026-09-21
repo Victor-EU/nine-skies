@@ -40,8 +40,8 @@ from rasterio.enums import Resampling
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject, transform as transform_points
 
-from . import grid, sources
-from .acquire import data_root, tile_name
+from . import coverage, grid, sources
+from .acquire import data_root, load_tile_list, tile_name
 from .grid import CORRIDORS
 
 SOURCE_ARCSEC = 3600  # GLO-30 cells per degree below 50 N
@@ -177,6 +177,24 @@ def build(
     vrt_path = work / f"{corridor}.vrt"
     vrt_path.write_text(vrt_xml(tiles, box))
 
+    window = corridor_window(box)
+    print(
+        f"window {window} · {window.count} tiles · "
+        f"{window.width_samples} x {window.height_samples} samples"
+    )
+
+    # Which tiles the source reached, and what the rest of them are (F54).
+    # Here rather than in the tiler because this is the last stage that can
+    # see a one-degree cell: past the warp there are no cells, only an array
+    # of zeros that used to mean three different things.
+    mirror = load_tile_list(root / "source" / "tileList.txt")
+    fetched = {(lat, lon) for lat, lon, _ in tiles}
+    cover = coverage.measure(window, fetched, mirror)
+    print(
+        "  coverage: "
+        + " · ".join(f"{n} {coverage.LEGEND[s].split(',')[0]}" for s, n in cover.counts.items())
+    )
+
     # What this grid was actually made of, beside the grid itself. `tiles.py`
     # folds it into the corridor manifest, so the chain from the mirror's
     # ETag to a signed route section has no gap in it (D24).
@@ -187,16 +205,11 @@ def build(
                 "bucket": record.get("bucket", ""),
                 "tiles": len(names),
                 "sha256": sources.digest_of(names, record["digests"]),
+                "coverage": cover.as_json(),
             },
             indent=2,
         )
         + "\n"
-    )
-
-    window = corridor_window(box)
-    print(
-        f"window {window} · {window.count} tiles · "
-        f"{window.width_samples} x {window.height_samples} samples"
     )
 
     print("  warping mean ...", flush=True)

@@ -157,6 +157,7 @@ describe("a corridor that does not match its own manifest", () => {
       covers: () => true,
       sampleAtKm: () => 100,
       hero: null,
+      coverage: null,
     };
     const result = cutSection(seaToSky(), lying, throwaway().sign);
     expect("problem" in result).toBe(true);

@@ -16,6 +16,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { HeroCover } from "../engine/src/terrain/heroSource.ts";
+import { WorldCoverage, type CoverageRecord } from "../engine/src/terrain/coverage.ts";
 import { loadHeroCoverFrom } from "./heroCover.ts";
 
 const TILE_SAMPLES = 65;
@@ -28,6 +29,8 @@ export interface CorridorManifest {
   readonly anchors: Record<string, { lat: number; lon: number; eastM: number; northM: number }>;
   readonly start: { eastM: number; northM: number; altitudeM: number; headingRad: number };
   readonly heights: { tiles: number; sha256: string };
+  /** What the source reached under each tile (D53, F54); absent before it. */
+  readonly coverage?: CoverageRecord;
   /**
    * The source rasters this world was built from (D24), or `unrecorded: true`
    * for a world built before they were.
@@ -101,6 +104,16 @@ export interface Corridor extends GroundField {
    * than the clearance any route is checked to keep.
    */
   drawnAt(eastM: number, northM: number): number;
+  /**
+   * What the source had under each tile (F54), or null on a world built
+   * before the record existed.
+   *
+   * `covers` answers whether a *tile* was published, which is not the same
+   * question: the window is a rectangle around a lon/lat box and its corners
+   * are published tiles full of zeros that no raster was ever fetched for.
+   * 296 of this corridor's 1,155 are like that.
+   */
+  readonly coverage: WorldCoverage | null;
 }
 
 export function loadCorridor(dir: string): Corridor | null {
@@ -138,6 +151,7 @@ export function loadCorridor(dir: string): Corridor | null {
   const corridor: Corridor = {
     manifest,
     hero,
+    coverage: WorldCoverage.from(manifest),
     heightsSha256: createHash("sha256").update(bytes).digest("hex"),
     sampleAtKm: (i, j) => (inWindow(i, j) ? sampleAt(i, j) : null),
     drawnAt: (eastM, northM) => hero?.groundAt(eastM, northM) ?? corridor.groundAt(eastM, northM),
@@ -331,6 +345,58 @@ export function drawnGap(corridor: Corridor, points: readonly Waypoint[]): Drawn
     countryM,
     heroM,
   };
+}
+
+/**
+ * Zeros the pipeline cannot vouch for.
+ *
+ * `covers` cannot catch these and was never meant to. A corridor window is the
+ * bounding rectangle of a curved quadrilateral, so tiles along its edge are
+ * published, inside the window, and partly made of samples no raster ever
+ * reached - and a route across one of those samples is flown over sea level
+ * and clears everything above it. That is F44's failure a stage earlier:
+ * silent, and green. Measured on a route out to the window's north-west
+ * corner, one station reads 0 m where the plateau around it reads 3,900 to
+ * 5,100.
+ *
+ * **Both halves of the test are needed and neither is enough.** The tile
+ * record is 64 km and says a tile is partly unfetched, not which samples
+ * are - on that route 1,166 of 1,167 stations over such tiles are over real
+ * ground. The elevation alone cannot say either, because zero is a real
+ * elevation over most of the east of this corridor. Together they are exact
+ * for the purpose: a zero inside a tile the source only partly reached is a
+ * zero nothing published stands behind.
+ *
+ * `d` and `o` tiles are excluded because their zeros *are* vouched for -
+ * fetched ground at sea level in the first, open ocean in the second.
+ *
+ * `recorded` is the difference between "none found" and "nothing to look at":
+ * a world built before F54 reports zero for the second reason.
+ */
+export interface UnvouchedGround {
+  readonly recorded: boolean;
+  readonly of: number;
+  readonly over: number;
+  /** Index of the first such point in the list given, or -1. */
+  readonly firstAt: number;
+}
+
+export function unvouchedGround(
+  corridor: Corridor,
+  points: readonly Waypoint[],
+): UnvouchedGround {
+  const cover = corridor.coverage;
+  if (cover === null) return { recorded: false, of: points.length, over: 0, firstAt: -1 };
+  let over = 0;
+  let firstAt = -1;
+  points.forEach((p, i) => {
+    const state = cover.at(p.eastM, p.northM);
+    if (state === "data" || state === "ocean") return;
+    if (corridor.groundAt(p.eastM, p.northM) !== 0) return;
+    over++;
+    if (firstAt < 0) firstAt = i;
+  });
+  return { recorded: true, of: points.length, over, firstAt };
 }
 
 /** The first kilometre station this corridor has no tiles under, or -1. */
