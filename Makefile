@@ -6,6 +6,7 @@
 #   make hero                       # the 90 m hero areas (stage 6)
 #   make siting                     # every shipped coordinate, against the source
 #   make probes                     # golden probes against what is built
+#   make hydro                      # where the water cannot go, and the river it has
 #   make sources                    # record the source raster digests
 #   make sections                   # re-cut the committed route sections
 #   make patches                    # re-cut the committed ground under each challenge
@@ -30,7 +31,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles hero siting probes sources sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles hero siting probes hydro sources sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -72,6 +73,20 @@ probes: $(PY)
 		--report docs/probe-report.md
 	$(PIPELINE) -m nineskies.probe --area all \
 		--report docs/probe-report-hero.md
+
+## Stage 3's measurement half, which is all of stage 3 that needs no
+## download. Priority-floods the built grid to find where water cannot
+## leave, then follows the drainage tree the fill grew along to the grid's
+## own largest river -- a centreline the Yangtze probe has never had, and
+## which is checked against nine places sited independently of it (D55, F56).
+##
+## A report and never a gate. The centreline finds 1,980 uphill kilometres
+## in a river the seven-waypoint chord passes clean, and a probe that fails
+## on purpose is not a probe: what carves them is stage 3 proper, which
+## still wants the fetch.
+hydro: $(PY)
+	$(PIPELINE) -m nineskies.hydro --corridor $(CORRIDOR) \
+		--report docs/hydro-report.md
 
 ## The projection table the engine checks itself against (D22). Needs PROJ
 ## rather than a built world: it is the pipeline publishing the one thing only
@@ -124,7 +139,7 @@ patches:
 cut-key:
 	npm run content:cut-key
 
-world: acquire sources grid tiles hero siting probes sections patches ground gorges
+world: acquire sources grid tiles hero siting probes hydro sections patches ground gorges
 	@echo "world built: $(WORLD_OUT)"
 
 ## The other gate: every authored route flown over real ground. Needs no flag

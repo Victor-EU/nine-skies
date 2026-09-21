@@ -6688,3 +6688,261 @@ anything, and it is the case that catches the transform seeded with `Infinity`.
 was re-cut: this reads the world that is built and writes a report. The one
 edit outside the new files is a comment in `test/sim/reversal.test.ts` that
 repeated F43's "roughly 2 km between its walls".
+
+## F56 — The lake half of stage 3 was already true, the river half is worse than anybody had measured, and the centreline the probe has been missing was in the grid the whole time
+
+*21 September 2026, on `real-elevation-pipeline`.*
+
+Stage 3 is the one unbuilt stage between two built ones, and the build plan
+has it blocked on a fetch nobody has made: HydroSHEDS for the centrelines,
+plus a named-lake elevation table. That is true of the *carve*. It is not true
+of everything the stage claims, and the way to find out which parts is to take
+the three bullets one at a time against the corridor that is already on disk.
+
+One of the three turns out to be done. One turns out to be much larger than
+the number standing in for it. And the thing the plan says only a download can
+provide — a centreline — was derivable from the grid in fifteen seconds.
+
+### Flatten named lakes: the source is not noisy, it is exactly flat
+
+> *Flatten named lakes to a table of real surface elevations (Qinghai 3,196 m,
+> Namtso 4,718 m, Poyang 13 m, …) rather than to the DEM minimum, which is
+> noisy.*
+
+The premise is checkable and it is wrong for this source. Eight lakes inside
+the Sea to Sky corridor, grown cell by cell from an anchor with a **purely
+local** rule — a neighbour joins if it is within 0.05 m of the cell it joins
+from, so nothing bounds how far the far shore is allowed to drift:
+
+| lake | km² | level | span | std dev | distinct values |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Namtso | 1,808 | 4,725.50 m | 0.00 m | 0.000 | **1** |
+| Tai | 1,773 | 0.50 m | 0.00 m | 0.000 | **1** |
+| Siling Co | 1,214 | 4,544.50 m | 0.00 m | 0.000 | **1** |
+| Poyang | 1,204 | 11.50 m | 0.04 m | 0.001 | 2 |
+| Hongze | 904 | 8.50 m | 0.06 m | 0.005 | 14 |
+| Chao | 669 | 6.50 m | 0.00 m | 0.000 | **1** |
+| Ngoring Hu | 457 | 4,272.00 m | 0.00 m | 0.000 | **1** |
+| Gyaring Hu | 436 | 4,292.00 m | 0.00 m | 0.000 | **1** |
+
+Six of the eight are **a single float32 value across their whole surface**.
+Namtso is 1,808 km² of water and one number. Copernicus flattens water bodies
+in production, and stage 2 preserves it exactly, for a reason worth stating
+because it is not luck: the reduction is mean plus 0.25 of (max − mean), and
+over a flat surface max *is* mean, so the bias adds nothing. Measured over
+Namtso and Poyang, the bias adds a median of **0.00 m on the water** and never
+more than 0.49 m.
+
+So the Qinghai Lake golden probe's flatness half — *flat across the polygon,
+±2 m, std dev < 1 m* — passes on every lake in this corridor **before any
+conditioning at all**, and would have passed on the day stage 2 first ran.
+
+What the bias does touch is the shore. The first ring of cells outside the
+water, at the two lakes re-warped twice to separate the two:
+
+| | rim cells | median lift | p90 | max |
+| --- | ---: | ---: | ---: | ---: |
+| Namtso, a plain mean | 252 | 1.78 m | 15.07 m | 74.53 m |
+| Namtso, as built at 0.25 | 252 | **5.25 m** | 36.76 m | 127.22 m |
+| Poyang, a plain mean | 542 | 0.46 m | 8.33 m | 61.69 m |
+| Poyang, as built at 0.25 | 542 | **3.44 m** | 21.18 m | 94.10 m |
+
+The bias roughly triples the lip at the median. That is the bias doing its job
+— a shore cell is half hillside and the silhouette bias exists to keep
+hillsides — and it is worth knowing rather than fixing.
+
+**What a lake table would actually do is move the level**, and the numbers it
+would move it to are the ones this repository has learned twice not to trust.
+The plan's table says Namtso 4,718 m; the source says **4,725.50**, flat to the
+bit over 1,808 km². It says Poyang 13 m; the source says **11.50**, and
+Poyang's surface swings by many metres between seasons, so 13 is not a constant
+of nature to correct a measurement with. Overwriting a measured, internally
+consistent, exactly flat surface with a remembered figure is the same move as
+`tiger-leaping-gorge` at 26.87 N (F49) and its replacement 1,260 m up the wall
+(F50), in an elevation instead of a coordinate. **The lake table's job is to
+check the source and to name where it disagrees, not to overwrite it.**
+
+### An eighth of the corridor has nowhere for water to go
+
+The second bullet is monotonic descent, and until now the only number under it
+was a chord of seven waypoints. A priority-flood answers the whole-grid
+question directly: fill every pit to the lowest saddle it can escape over, and
+`filled − ground` is how deep the water stands where it cannot leave.
+
+| | sea-to-sky, 1 km |
+| --- | ---: |
+| Cells with no outlet | 598,780 of 4,735,745 — **12.64 %** |
+| Separate closed basins | 74,019 |
+| …of 10 km² or more | 5,407 |
+| Water to fill them | 30,120 km³ |
+| Deepest | 918.8 m |
+
+The connectivity is not a detail and is worth one line of its own. At four
+neighbours the same grid reads **19.51 %** in 161,964 basins, because a channel
+running diagonally through a single cell has no four-connected path at all.
+Two thirds of the difference between those two numbers is the arithmetic and
+not the world, which is why flow routing is D8 everywhere it is done seriously
+and why this is.
+
+The largest basin is the one that matters to this game:
+
+| km² | deepest | mean | floor | at |
+| ---: | ---: | ---: | ---: | --- |
+| **98,062** | 340.9 m | 113.5 m | **157.5 m** | 29.891 N, 107.735 E |
+| 27,567 | 17.6 m | 4.9 m | 13.5 m | 30.053 N, 115.252 E |
+| 8,207 | 163.2 m | 60.1 m | 3,354.0 m | 34.217 N, 101.476 E |
+
+Ninety-eight thousand square kilometres with its floor at 157.5 m is the middle
+Yangtze and the Sichuan Basin above it, **sealed**. At 1 km the river's way out
+through the Three Gorges is not resolved, so nothing upstream of it drains to
+anywhere. The floor is the reservoir's own level, which `siting.py` measured
+independently at 158 m (F52). Expedition 1 flies the length of it.
+
+And the number that stops this being a to-do list: **a closed basin is not by
+itself a fault.** Namtso is 2,545 km² of closed basin 36.3 m deep in this
+table, and Namtso is endorheic in life — nothing drains out of it. A
+resampling artefact and a real closed basin are identical from inside the
+grid. Telling them apart is precisely what a mapped river network is for, so
+the 12.64 % is **the price of the stage** and not a bug list. Nothing here is
+carved, and filling everything would drain the plateau.
+
+### The centreline was in the grid
+
+The third bullet is where the surprise is. The plan says the centreline comes
+from HydroSHEDS. But HydroSHEDS was itself derived from SRTM this way, and a
+mosaicked grid is already a complete statement about where water would run.
+
+Priority-flood does the work twice over if one array is kept. The flood grows
+outward from the map edge in order of water level, so the cell a given cell is
+*first reached from* is a valid receiver — never higher, and on a path to the
+edge. Recording that parent turns the fill into a drainage tree in the same
+pass. Sum the tree and you have catchment area; walk up it always taking the
+larger catchment and you have the grid's largest river. Fifteen seconds over
+4.7 million cells, and no fetch.
+
+**Is it the Yangtze?** Nothing in that arithmetic knows what a Yangtze is, so
+the answer has to come from outside it. Nine places this repository already
+ships — five measured onto the water off the source's own 30 m (F50, F52), four
+city centres — against the derived stem:
+
+| km upstream | place | on channel | km to stem | place reads | stem reads |
+| ---: | --- | :---: | ---: | ---: | ---: |
+| 0 | `shanghai` | — | 115.2 | 9.8 m | 1.3 m |
+| 954 | `wuhan` | — | 18.5 | 19.0 m | 29.2 m |
+| 1,370 | `yichang` | — | 1.0 | 72.5 m | 58.9 m |
+| 1,445 | `xiling-gorge` | yes | **0.5** | 355.2 m | 237.3 m |
+| 1,541 | `wu-gorge` | yes | **0.2** | 258.4 m | 283.3 m |
+| 1,581 | `qutang-gorge` | yes | **0.4** | 525.9 m | 364.9 m |
+| 1,986 | `chongqing` | — | 2.3 | 223.1 m | 250.3 m |
+| 3,479 | `tiger-leaping-gorge` | yes | **0.7** | 2,144.4 m | 2,144.4 m |
+| 3,524 | `shigu` | yes | 2.1 | 1,826.0 m | 1,987.0 m |
+
+Four of the five channel places inside a kilometre and a half, and **all nine
+in order, coast first**. The three gorges arrive 96 km and 40 km apart in the
+order `siting.py` sited them. It is the Yangtze.
+
+`shigu` is the one miss, at 2.1 km and 161 m above the place, and it is the
+best line in the table. Shigu is where the Jinsha climbs 221 m in the 41 km
+below it at 1 km resolution — the failure F49 and F50 measured, and the reason
+the seventh golden probe had to move to the 90 m hero grid to pass at all. **The
+one place the derived channel loses the river is the one place the river is
+already known to be lost.** A channel derived from heights is only as good as
+the heights, and here it fails exactly where they do.
+
+### What the chord could not see
+
+Now the two can be put side by side. Same grid, same run, and the chord read
+through `GridSampler.walk` with the probe's own 2 km channel search rather than
+through anything written for this:
+
+| | the chord, as written | the chord at 1 km | the centreline |
+| --- | ---: | ---: | ---: |
+| Samples | 7 | 3,364 | 4,233 |
+| Length | 3,363 km | 3,363 km | **5,335 km** |
+| Steps that climb going downstream | 0 | 954 (28.4 %) | **1,980 (46.8 %)** |
+| Total ascent | 0 m | 55,649 m | **90,841 m** |
+| Worst single step | — | 548.1 m | 394.1 m |
+| Channel search needed | 2 km | 2 km | **none** |
+| Verdict | pass | *not evidence* | would fail |
+
+F48 established that the middle column is a trap: a straight reach from Tiger
+Leaping Gorge to Chongqing crosses mountains the Yangtze goes around, so
+walking it finely measures the shortcut and not the river. That objection does
+not reach the right-hand column, where every cell is on the grid's own channel.
+**1,980 uphill kilometres in a river with 5,077 m of net fall** — the gross
+ascent is 1,789 % of the drop — and **3,963 of the centreline's 4,233 cells,
+93.6 %, stand under a closed basin's water**, the deepest by 419.1 m. That is
+the GDD's *"rivers are carved, not painted"* costed out.
+
+Two smaller things fall out of the same table.
+
+The middle column is F48's own measurement recomputed rather than quoted, and
+it does not reproduce: F48 read 3,382 samples, 942 climbs and 56,988 m. The
+whole of the difference is one waypoint. `tiger-leaping-gorge` was still 71 km
+from the gorge when F48 ran, and F49 and F50 moved it. Put that coordinate back
+and this code reproduces F48 **to the metre** — 3,382, 942, 56,988 m — which is
+worth more than agreement would have been, because it dates the drift.
+
+And the `channel search needed` row is the quiet one. The 2 km search exists
+because a 1 km cell straddling a gorge reports the wall as readily as the
+water; `sample.channel_m` has always called it a measurement aid and named
+stage 3's centreline as what replaces it. It is a **proxy for a centreline**,
+and this is the first measurement in the repository able to put the proxy
+beside the thing it stands in for. The centreline needs none of it.
+
+### Inside a flat, the tie-break draws the channel
+
+One implementation decision earned a test of its own, because the first
+version of it was quietly wrong.
+
+Every cell inside a filled basin has the same water level, so the comparison
+that orders them is the tie-break — and the tie-break is therefore what draws
+the channel across a flat. Breaking on the cell's index makes the flood scan;
+breaking on arrival order makes it cross as a breadth-first wave from the point
+it entered, which is the shortest way over. The fills are **bit-identical**
+either way. The channels are not:
+
+| | arrival order | cell index |
+| --- | ---: | ---: |
+| Derived stem passes `chongqing` | **2.3 km** | 28.2 km |
+| Derived stem's own mouth, from Shanghai | **34.3 km** | 115.2 km |
+| Derived stem, cells | 4,233 | 5,511 |
+| Uphill steps | 1,980 | 2,646 |
+
+Both are correct fills and only one of the two trees is a river. The invariant
+is testable without any of that: on a flat plateau walled in but for one entry,
+a cell's depth in the drainage tree must equal its Chebyshev distance from the
+entry. Arrival order gives exactly that — worst excess **0** hops over an 11 × 11
+plateau — and cell index gives a worst excess of 2 and a deepest path of 11 hops
+where the wave gives 9.
+
+### What this does not do, and what still needs the fetch
+
+It does not carve. Nothing in the world moved: `make hydro` reads the grid that
+is built and writes `docs/hydro-report.md`, and `make world` runs it after the
+probes. The Yangtze golden probe keeps `stride_km = None` and its
+seven-waypoint chord, because a probe that fails 1,980 times on purpose is not
+a gate — the centreline is evidence *for* stage 3 and cannot stand in for it.
+
+What still needs HydroSHEDS is the half this cannot reach: which of 74,019
+closed basins is a clipped meander and which is a lake that has never had an
+outlet. That is external knowledge and the report says so where it would
+otherwise be tempting to guess. What has changed is that the fetch now has a
+price list in front of it instead of a sentence.
+
+### What it cost
+
+**175 Python tests, up from 152** — 23 new, all of them on grids small enough
+to know the answer to by hand, which is the point: the corridor measurement is
+4.7 million cells and unverifiable by eye. Three of the twenty-three failed
+first and all three were the fixture rather than the code: a spillway that did
+not reach the edge, a "diagonal escape" that ran uphill over its own sill, and
+an off-by-one in the breadth-first invariant.
+
+`pipeline/nineskies/hydro.py` is the module and `docs/hydro-report.md` the
+report; `make hydro`, and in `make world` after `probes`. The 761 TypeScript
+tests are untouched — nothing in the engine, the content or the manifest moved,
+and no artefact was re-cut. The one number this finding leaves behind for
+somebody else is the run cost: 13 s over the corridor's 4.7 M cells, which at
+the full country's 29.7 M is the first thing here that will want a second look
+in phase 2.
