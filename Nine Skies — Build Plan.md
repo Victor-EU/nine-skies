@@ -7,7 +7,7 @@ Companion to *Nine Skies — Game Design Document*. The GDD says what the game i
 ## Progress — 21 September 2026
 
 Phase 0 is complete and phase 1's engineering is built; G1 waits on a cohort, not on code.
-This is the state only — what each item measured is in `docs/prototype-findings.md` (F1–F54)
+This is the state only — what each item measured is in `docs/prototype-findings.md` (F1–F55)
 and in the decisions table.
 
 | Built | |
@@ -17,7 +17,7 @@ and in the decisions table.
 | Simulation | Density, piston lapse, temperature, flight, floating origin (F4, F5) |
 | G1 instrument | Drama, compression and pacing toggles — and the finding that only drama is a question (F14–F16) |
 | Routes | `flyRoute`, altitude floor and arrival checks, Expedition 1 authored and flying at 36.7 min (F17–F23, F31) |
-| Content tooling | Schema, validator, fact-check sheet, and the `teaches` / `sessions` / `discoveries` / `ground` reports (F28, F29, F37, F53) |
+| Content tooling | Schema, validator, fact-check sheet, and the `teaches` / `sessions` / `discoveries` / `ground` / `gorges` reports (F28, F29, F37, F53, F55) |
 | Frame cost | GPU timer queries at seven stations; whole frame 2.13 ms of 33.3 on an M3 at 5.94 Mpx (D25, D27, F30, F34) |
 | Input | One binding table, keyboard and gamepad reading it (F33) |
 | Comfort | Field of view and camera bank, text size, metric/imperial; smoothing measured and deliberately absent (D28, D41, F35, F45) |
@@ -48,9 +48,9 @@ of which are blocked on something other than writing (F43).
 **Waiting on a decision, not on engineering:** the items at the end of *Immediate next actions* —
 the terrain clamp, two questionnaire items, whether the cohort is screened for colour vision and
 whether the elevation ramp moves because of it, two region-shape schema questions, the
-co-location rule, the pacing field, the two resumes, Wulingyuan, which of the two gorges the
-aeroplane can be turned inside is worth authoring for, which grid authored content is cut from,
-and whether the journal reader is built before the cards it would read.
+co-location rule, the pacing field, the two resumes, Wulingyuan, which gorge the GDD's *thread
+a gorge* is authored for now that only one of the two can be turned inside, which grid authored
+content is cut from, and whether the journal reader is built before the cards it would read.
 **Waiting on hardware:** an M1 capture, and a gamepad held in a hand.
 **Waiting on a download nobody has made:** stage 3 — the hydro-conditioning that makes
 *"rivers are carved, not painted"* true — needs the HydroSHEDS river network, and the
@@ -137,17 +137,31 @@ The GDD leaves these open or implies something the build cannot use as written. 
 
 ```
 nine-skies/
-  pipeline/     Python 3.12 + GDAL/rasterio; offline, produces /dist/world
-  engine/       TypeScript + three.js; terrain, atmosphere, streaming, flight
-  game/         TypeScript; HUD, journal, map, expedition runner, challenges
-  content/      YAML cards, expedition routes, challenge defs, locale files
-  tools/        Route editor, landmark placer, card previewer (web, dev-only)
-  app/          Vite app shell, service worker, save layer
-  desktop/      Electron wrapper, Steam integration
+  pipeline/     Python 3.13, numpy + rasterio and no system GDAL; offline,
+                produces dist-world/<corridor>
+  engine/       TypeScript + three.js; terrain, atmosphere, streaming, flight —
+                and the game systems this plan gave `game/`: hud, map, journal,
+                discovery, expedition, challenge, save, input
+  app/          Vite app shell, HUD markup, the map's canvas, the frame-cost probe
+  content/      YAML cards, expedition routes, challenge defs — and the ground
+                committed beside them, sections and patches
+  tools/        27 scripts that measure, cut and report, driven by `make` and
+                `npm run content:*` under vite-node
   test/         Golden data tests, sim unit tests, budget-proxy tests
+  docs/         The findings log and every generated report
+  desktop/      Electron wrapper, Steam integration — phase 4, not built
 ```
 
-TypeScript strict throughout; Vitest for units; Playwright for the scripted flight replays. Pipeline outputs are content-hashed and immutable so the CDN and service worker can cache them forever. One command (`make world CORRIDOR=sea-to-sky`) rebuilds any subset of the world from source rasters, because a pipeline nobody can re-run is a pipeline nobody will fix.
+**Two npm workspaces rather than a package per directory: `engine` and `app`.** `game/` was
+never created; the systems it named sit in `engine/src` beside the terrain most of them read —
+the map draws the horizon field the impostor already has (D36), the challenge gate flies an
+autopilot over committed ground (D39), the journal counts what a route passed (D34). `tools/`
+is not the route editor, landmark placer and card previewer this line first named: every
+authoring question so far has been answered by a measurement and a report rather than by a GUI,
+so what is there measures and cuts. And there is no service worker yet — the save layer is
+`engine/src/save`, IndexedDB and an autosave (D33).
+
+TypeScript strict throughout, `exactOptionalPropertyTypes` included; Vitest for everything, units and flights alike. **The scripted flight replays are not Playwright and no longer want to be**: a replay needs ground rather than a browser, so every authored route and every authored challenge is flown headless in the test suite over ground committed beside it (D21, D23, D39) — which is what lets CI fly them with no world at all. Pipeline outputs are content-hashed and immutable so the CDN and service worker can cache them forever. One command (`make world CORRIDOR=sea-to-sky`) rebuilds any subset of the world from source rasters, because a pipeline nobody can re-run is a pipeline nobody will fix.
 
 ## Workstream A — Data pipeline
 
@@ -233,7 +247,7 @@ Costed in megapixels rather than a resolution name since D27: the floor is a Ret
 
 | Cost | Budget |
 | --- | --- |
-| Terrain (≤ 4 draw calls, ≤ 1.2 M tris) | 8 ms |
+| Terrain (**≤ 8 draw calls and ≤ 1.2 M triangles for the whole scene** is the budget `test/budget` holds, and the 4 this line carried predates both the impostor and the second lattice: measured 3 draws and 252k triangles on the country grid alone, **5 and 712k with the gorge under the aeroplane**, of which the hero area is 460k and should be, F51) | 8 ms |
 | Sky, atmosphere, post | 6 ms |
 | Cities (instanced) | 3 ms |
 | Weather particles | 2 ms |
@@ -386,10 +400,10 @@ The `A[Atmosphere] --> G1` edge above is no longer load-bearing and the diagram 
 
 | Layer | Method | Runs |
 | --- | --- | --- |
-| Pipeline | Six golden elevation/hydrology probes, plus a checksum on the tile manifest and a digest per source raster checked against the mirror's ETag (D24). Where a route flies over a probe's coordinates, that probe also runs against the committed section — with no world, in CI (D23) | Every pipeline commit |
+| Pipeline | Seven golden elevation/hydrology probes — the seventh reads the 90 m hero grid and is unpassable on the 1 km one, where the Jinsha runs uphill (F49, F50) — plus a checksum on the tile manifest and a digest per source raster checked against the mirror's ETag (D24). Where a route flies over a probe's coordinates, that probe also runs against the committed section — with no world, in CI (D23) | Every pipeline commit |
 | Simulation | Unit tests on density, power, temperature composition, balloon drift | Every commit |
 | Content | Schema, word counts, coordinate bounds, duplicate triggers, source presence, and — on a machine with a world — whether anything authored is over a hero area, which is ground the game draws at 90 m and every committed artefact is cut from at 1 km (D52, F53). What a route teaches, what a session contains and which cards a route flies past are reported rather than gated — `content:teaches`, `content:sessions`, `content:discoveries` — because the fix for a disagreement is a writing decision (F28, F29, F37) — and so is `content:gorges`, which prices the GDD's *thread a gorge* against the ground rather than against a recollection (D54, F55) | Every commit |
-| Performance | **Budget proxies in CI** — draw calls, triangles, texture memory, resident tile count on a scripted replay of three routes; fail on regression | Every commit |
+| Performance | **Budget proxies in CI** — draw calls, triangles, texture memory and resident tile count at three stations on the Sea to Sky corridor (coast, basin, plateau), and the same budget held over one hero area, over two, and over the hole each cuts in the country grid (F51); fail on regression. Three stations on one route rather than three routes, because one route is authored | Every commit |
 | Performance (real) | GPU timer queries per pass at seven committed stations, forced 1080p, on the named floor device (D25, `__ns.frameCost()`). Every capture reports its own resolution and refuses to be read as a measurement if the instrument check fails | Every milestone |
 | Expedition integrity | Automated autopilot replay of all nine routes: assert the aircraft is never lower than the ground (D17, built in phase 1 for Sea to Sky), that the hand-off budget the route advertises is one it actually has (D18), that the altitude band between floor and arrival ceiling stays open the whole way so the route can be arrived at and not just survived (D19), and that every beat fires exactly once and in order (asserted against the authored route since F38). The first and third run at content validation rather than nightly — `validateRoute`, two flights and a floor, about three seconds a route | Every commit — the ground is committed with the route (D21) and signed by the machine that cut it (D23) |
 | Player | G1 and G2 protocols above; a third informal pass mid-production | At gates |
@@ -533,4 +547,4 @@ Pulled in this order, top first, when a gate is at risk. Each rung names what it
 
 - [x] **The engine cannot read a hero tile yet** — **done, 21 September 2026, and it was a rendering job after all.** The estimate above was wrong in its last clause and right in the rest. A hero tile is asked for by position, and the overlap rule turned out to be forced rather than chosen: over the gorge area **hero − country spans −764.5 m to +390.0 m**, so neither grid can be drawn over the other and the country grid is cut away wherever a hero area draws. What could not be talked out of one lattice was the engine — a texture array has one size for every layer in it, the texel stride is a vertex attribute, `uTileWorldSize` is one uniform — so there are two of everything and one rebase point between them. It costs **5 draws and 712k triangles** over the gorge against 3 and 252k, inside a budget of 8 and 1,200k, and the rim reads back at mean 71.4 m / worst 339.4 m against the cutter's own 71.3 / 333.2 from the other side. 709 TypeScript tests, up from 686 (D49, F51)
 
-- [ ] **Stage 3 is the one unbuilt stage between two built ones, and it needs a download** — *engineering, and the blocker is a fetch rather than a decision.* `make grid` (stage 2) and `make tiles` (stages 4–5) both run; hydro-conditioning between them does not exist, so no river in this world has been carved and the GDD's *"rivers are carved, not painted"* is still a sentence. What it needs is the HydroSHEDS v1 river network plus the named-lake elevation table, and `acquire.py` knows only about Copernicus GLO-30 — there is no acquire step for a second source, and the digest machinery (D24) that refuses to build from bytes it cannot name would have to learn one. F48 measured what stands in for it meanwhile: the Yangtze probe passes at every channel search radius including none, reads 0.0037 % of the grid, and cannot be walked more finely because its polyline is a chord of 3,380 km against a river of 6,300. Two of the seven golden probes are checks on this stage — Qinghai Lake's flatness and the Yangtze's monotonicity at a real spacing — and neither can be what it claims until it runs. A third was: the Jinsha through Tiger Leaping Gorge could have been passed here by carving the channel back down at 1 km, and stage 6 answered it at 90 m instead (F50). That is a real answer and not the same answer — the gorge is right in the hero area and still 221 m wrong everywhere the country grid is all there is.
+- [ ] **Stage 3 is the one unbuilt stage between two built ones, and it needs a download** — *engineering, and the blocker is a fetch rather than a decision.* `make grid` (stage 2) and `make tiles` (stages 4–5) both run; hydro-conditioning between them does not exist, so no river in this world has been carved and the GDD's *"rivers are carved, not painted"* is still a sentence. What it needs is the HydroSHEDS v1 river network plus the named-lake elevation table, and `acquire.py` knows only about Copernicus GLO-30 — there is no acquire step for a second source, and the digest machinery (D24) that refuses to build from bytes it cannot name would have to learn one. F48 measured what stands in for it meanwhile: the Yangtze probe passes at every channel search radius including none, reads 0.0037 % of the grid, and cannot be walked more finely because its polyline is a chord of 3,380 km against a river of 6,300. Two of the seven golden probes are checks on this stage — Qinghai Lake's flatness and the Yangtze's monotonicity at a real spacing — and neither can be what it claims until it runs. A third was: the Jinsha through Tiger Leaping Gorge could have been passed here by carving the channel back down at 1 km, and stage 6 answered it at 90 m instead (F50). That is a real answer and not the same answer — the gorge is right in the hero area and still 221 m wrong everywhere the country grid is all there is. F55 adds one more thing waiting on it, and it is not a probe: `make gorges` prices a gorge at the places `places.py` names, and the narrowest point of a 190 km reach is not among them by construction — finding it wants the centreline this stage carves rather than a chord between two anchors (D45, F55).
