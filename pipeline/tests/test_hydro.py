@@ -231,6 +231,19 @@ class TestTheBasins(unittest.TestCase):
         self.assertEqual(basin.cells, 1)
         self.assertAlmostEqual(basin.volume_km3, 10.0 * 1e-3, places=9)
 
+    def test_hydrosheds_looked_at_what_was_deeper_and_larger_than_ten(self):
+        """Both bounds are strict, as its documentation writes them (F59)."""
+
+        def basin(cells: int, deepest_m: float) -> hydro.Depression:
+            return hydro.Depression(cells, deepest_m, deepest_m / 2, 0.0, 0, 0)
+
+        at_1km = [basin(11, 10.5), basin(10, 50.0), basin(500, 10.0), basin(12, 12.0)]
+        self.assertEqual(hydro.inspected(at_1km, 1000.0), [at_1km[0], at_1km[3]])
+        # The same rule in square kilometres, not in cells: 1,235 cells of 90 m
+        # are 10.0035 km² and 1,234 are 9.9954.
+        at_90m = [basin(1235, 20.0), basin(1234, 20.0)]
+        self.assertEqual(hydro.inspected(at_90m, 90.0), [at_90m[0]])
+
 
 @unittest.skipUnless(HAVE_NUMPY, "numpy not installed")
 class TestTheSill(unittest.TestCase):

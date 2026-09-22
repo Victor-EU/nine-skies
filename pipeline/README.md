@@ -57,13 +57,26 @@ Other layers, all small by comparison:
 | Land cover | ESA WorldCover 2021 v200 | CC BY 4.0 |
 | Climate | CHELSA V2.1 monthly tas / pr | CC BY 4.0 |
 | Wind | ERA5 monthly means, 10 m u/v | Copernicus licence |
-| Rivers | HydroSHEDS v1 river network | Attribution |
+| Rivers | one of three, undecided (F59) | HydroSHEDS v1 agreement, CC BY 4.0 with ODbL columns, or public domain |
 | Coasts, lakes, cities | Natural Earth 10 m | Public domain |
 | Population | GHSL GHS-POP R2023A | CC BY 4.0 |
 
 Build plan D8 and D9 pick these deliberately: CHELSA over WorldClim and Natural
 Earth over OSM, because both alternatives carry share-alike terms that would
 attach to shipped assets.
+
+This table said "Attribution" for HydroSHEDS until somebody read its terms
+(F59). They are a bespoke agreement, and downloading the data accepts it, so
+the rivers row is a decision rather than a source:
+
+```bash
+make vectors                                         # the price list, and one request per source to check it
+make vectors FETCH=ne-lakes ACCEPT=public-domain     # a download names the licence it is made under
+```
+
+Each candidate is pinned to the digest its own publisher serves, so the bytes
+that arrive are the bytes that were priced, and a fetch whose `ACCEPT` is not
+that source's licence is refused before any request is made (D60).
 
 ## Stages
 
@@ -95,8 +108,11 @@ attach to shipped assets.
    cells of the corridor's 4.7 million; it passes at every channel search
    radius including a bare point sample, and it cannot be walked more finely
    because the polyline is a chord across country rather than a centreline.
-   The centreline is what stage 3 brings, and nobody has downloaded
-   HydroSHEDS yet. Until then the probe report prints what its pass covers.
+   The grid's own drainage tree yields a centreline with no download
+   (`make hydro`, F56). What is still missing is outside knowledge: which
+   closed basin is a lake and which an artefact. No river network has been
+   fetched, because choosing one is choosing a licence (`make vectors`,
+   F59). Until then the probe report prints what its pass covers.
 4. **Tile** — 64 km tiles, 65 x 65 Int16 metres, shared edge row and column.
 5. **Horizon field** — one 8 km country raster, 841 x 553 Int16 (930 kB),
    reduced from the 1 km grid with the silhouette bias (mean + 0.6 x

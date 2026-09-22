@@ -8,6 +8,7 @@
 #   make probes                     # golden probes against what is built
 #   make hydro                      # where the water cannot go, and the river it has
 #   make sources                    # record the source raster digests
+#   make vectors                    # stage 3's river network, priced; nothing fetched
 #   make sections                   # re-cut the committed route sections
 #   make patches                    # re-cut the committed ground under each challenge
 #   make cut-key                    # generate this machine's cutting key
@@ -31,7 +32,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles hero siting probes hydro sources sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles hero siting probes hydro sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -55,6 +56,16 @@ acquire: $(PY)
 ## corridor is always built from nameable bytes.
 sources: $(PY)
 	$(PIPELINE) -m nineskies.sources --corridor $(CORRIDOR)
+
+## Stage 3's river network and D9's other vectors, priced rather than fetched
+## (F59, D60). With no arguments: the price list — bytes, the publisher's own
+## digest, the licence and what it asks — and one request per source to check
+## each publisher still serves the bytes that were priced. Nothing is
+## downloaded. FETCH=<id> ACCEPT=<licence> downloads one, and refuses unless
+## ACCEPT names that source's licence: for two of the three candidates the
+## download is the acceptance, so it is never a side effect of `make world`.
+vectors: $(PY)
+	$(PIPELINE) -m nineskies.vectors $(if $(FETCH),--fetch $(FETCH) --accept "$(ACCEPT)",--check)
 
 ## Stage 2 — mosaic and reproject to Albers 1 km.
 grid: $(PY)

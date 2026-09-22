@@ -425,6 +425,25 @@ class Depression:
         return self.cells * self.mean_m * 1e-3
 
 
+#: The sinks HydroSHEDS put in front of a person: deeper than 10 m and larger
+#: than 10 km² (Technical Documentation v1.4, section 3.3). Each was checked by
+#: eye against mapped rivers and lakes and kept or filled. Every other sink it
+#: filled without looking. Applied here, the rule says how much of the closed
+#: area a mapped network is needed for at all (F59).
+INSPECTED_DEPTH_M = 10.0
+INSPECTED_KM2 = 10.0
+
+
+def inspected(basins: Sequence[Depression], resolution_m: float) -> list[Depression]:
+    """The basins HydroSHEDS' own rule would have had somebody look at."""
+    cell_km2 = (resolution_m / 1000) ** 2
+    return [
+        basin
+        for basin in basins
+        if basin.deepest_m > INSPECTED_DEPTH_M and basin.cells * cell_km2 > INSPECTED_KM2
+    ]
+
+
 def depressions(
     heights: np.ndarray, drainage: Drainage, min_cells: int = 1
 ) -> list[Depression]:
@@ -698,6 +717,10 @@ def render(result: dict, corridor: str) -> str:
     transform = result["transform"]
     heights = result["heights"]
     big = [b for b in basins if b.cells >= 10]
+    looked_at = inspected(basins, result["resolution_m"])
+    cell_km2 = (result["resolution_m"] / 1000) ** 2
+    looked_at_km2 = sum(b.cells for b in looked_at) * cell_km2
+    closed_km2 = result["pit_cells"] * cell_km2
     share = 100 * result["pit_cells"] / result["cells"]
 
     lines = [
@@ -722,6 +745,8 @@ def render(result: dict, corridor: str) -> str:
         f"{_thousands(result['cells'])} ({share:.2f} %) |",
         f"| Separate closed basins | {_thousands(len(basins))} |",
         f"| …of 10 km² or more | {_thousands(len(big))} |",
+        f"| …that HydroSHEDS' own rule would have looked at | "
+        f"{_thousands(len(looked_at))}, {_thousands(looked_at_km2)} km² |",
         f"| Water to fill them | {_thousands(result['pit_volume_km3'])} km³ |",
         f"| Deepest | {result['deepest_m']:,.1f} m |",
         "",
@@ -912,6 +937,18 @@ def render(result: dict, corridor: str) -> str:
         than a substitute for it: filling every basin would drain the plateau, and
         the largest basin in the table is the reach the game's own expedition
         follows. Nothing here is carved."""
+    )
+    lines += _para(
+        f"""How much of it needs a map is measurable, because HydroSHEDS drew the
+        line itself. It filled every sink shallower than
+        {INSPECTED_DEPTH_M:.0f} m or smaller than {INSPECTED_KM2:.0f} km² without
+        looking, and checked the rest by eye against mapped rivers and lakes.
+        Applied to this grid, that leaves **{_thousands(len(looked_at))} of the
+        {_thousands(len(basins))} basins**, {_thousands(looked_at_km2)} km² of the
+        {_thousands(closed_km2)} km² that is closed, for a mapped network to
+        decide. The fetch that would decide them is priced in F59: three sources,
+        three licences, and for two of them downloading is accepting the terms, so
+        it is a decision before it is a download."""
     )
     lines += _para(
         """The centreline is the second thing stage 3 would replace rather than

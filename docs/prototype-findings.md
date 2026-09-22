@@ -5476,6 +5476,13 @@ dataset rather than a decision, so it is engineering — but it is a download,
 and the acquire step for it does not exist. Until it does, this probe covers
 what the table above says it covers and the report says so on every run.
 
+> **Corrected, 22 September 2026.** It is a decision. HydroSHEDS is not
+> published under an attribution licence. It comes under a bespoke agreement,
+> and downloading the data accepts that agreement. There are three river
+> networks the stage could read, under three licences, so which one to fetch
+> is a licence choice before it is a download. The acquire step exists now,
+> and it will not run until the command names the licence it accepts. See F59.
+
 ## F49 — The anchor named after the world's deepest gorge was 71 km from it, and the 1 km grid runs the Yangtze uphill through the real one
 
 **Question.** F48 left stage 3 blocked on a download, so the next stage that
@@ -7438,3 +7445,215 @@ same to the byte across three runs. `tools/gorgeReport.ts` no longer blames
 the 90 m cell alone for the sill; it points at the probe report, which
 answers that question. A hero area whose source is not on disk says so above
 its sills instead of printing a table that looks complete.
+
+## F59 — Stage 3's fetch is a licence before it is a download: three river networks priced, and HydroSHEDS' own rule leaves 3,710 of the 74,019 closed basins for any of them to decide
+
+*22 September 2026, on `real-elevation-pipeline`.*
+
+Every engineering item left in the build plan waits on something other than
+engineering. The one nearest the critical path is stage 3's carve. F48 filed
+it as a fetch of a public dataset rather than a decision, blocked only
+because the acquire step for it did not exist. So the acquire step was the
+item. Pricing it meant reading the licence, and the licence turned out to be
+the larger cost.
+
+### What the fetch is
+
+Three sources carry what stage 3 is still missing: which closed basin is a
+clipped meander, and which is a lake that never had an outlet. Each file was
+priced by a HEAD request, or through figshare's metadata API, which is where
+figshare publishes its checksums. No data file was downloaded.
+
+| Source | File | Bytes | The publisher's own digest |
+| --- | --- | ---: | --- |
+| HydroRIVERS v1.0, Asia | `HydroRIVERS_v10_as_shp.zip` | 90,510,995 | SHA-1 `71a92a2d…`, as `x-bz-content-sha1` |
+| RiverATLAS v1.0 | `RiverATLAS_Data_v10_shp.zip` | 2,418,581,202 | MD5 `7a6d7422…`, through the figshare API |
+| Natural Earth rivers, 1:10m | `ne_10m_rivers_lake_centerlines.zip` | 2,079,507 | MD5 `686e256c…`, as the ETag |
+| Natural Earth lakes, 1:10m | `ne_10m_lakes.zip` | 2,349,685 | MD5 `06c43024…`, as the ETag |
+
+Every publisher hands over a checksum, as S3 did for GLO-30 (D24), and each
+does it differently. data.hydrosheds.org is Backblaze B2 behind Cloudflare,
+and B2 serves the SHA-1 of a file uploaded in one piece. The *global*
+HydroRIVERS file, 544 MB, is served with `x-bz-content-sha1: none`. That is
+B2's large-file upload, and it is the same shape as the multipart ETag D24
+guards against: a file with no whole-file digest. The regional file has one.
+figshare's download link answered a HEAD with a 202 and no length. Its API
+publishes `computed_md5` for every file in the article. Natural Earth is S3
+behind CloudFront, where a single-part upload's ETag is its MD5. Whether each
+digest agrees with its bytes can only be checked by downloading them, so that
+check happens on arrival.
+
+One thing about the publishers was in no documentation. data.hydrosheds.org
+answers Python's default agent, `Python-urllib/3`, with a 403, and any other
+agent with the file; curl gets a 200 from the same URL. The pipeline names
+itself, `nineskies-pipeline/1`, rather than borrowing a browser's name.
+
+### What downloading it agrees to
+
+**HydroRIVERS** is covered by the HydroSHEDS version 1 License Agreement,
+Appendix A of the HydroSHEDS Technical Documentation v1.4 (April 2022).
+HydroRIVERS' own documentation says the same agreement covers it. The
+summary line, free for commercial use, is true, and it is not the whole of
+it. Exercising any right in the data accepts the agreement, and the product
+page says downloading does. What it asks of a build that ships something
+made from the data:
+
+- distribution only inside a derivative work, never stand-alone, and only
+  to end users under an end-user licence at least as protective (2.1.2);
+- no reverse engineering, with the same restriction passed to end users,
+  and the data protected against unauthorised copying as carefully as the
+  licensee's own confidential information (2.1.3);
+- WWF's copyright statement in the product's documentation or metadata
+  (2.2, Exhibit B);
+- WWF owns modifications and improvements of the data, however developed (3);
+- the licensee indemnifies WWF against claims from its own or its end
+  users' use (5.2);
+- WWF may terminate the licence at its sole discretion, and end-user
+  licences already granted survive it (7.1, 7.2);
+- two years of records of sales and of each end user's identity and
+  address, open to WWF's inspection (10.7).
+
+**RiverATLAS** is the same reach network with the same HydroRIVERS columns,
+plus 281 environmental attributes, published as part of HydroATLAS.
+HydroATLAS is licensed CC BY 4.0 *as a collective database*. Its technical
+documentation (v1.0.1, 4.1) then says its parts keep their own licences.
+Every attribute column is CC BY 4.0 or ODbL 1.0, named column by column in
+the catalog, and permission was obtained wherever an original licence
+differed. It also says the underpinning datasets in their original format
+are unaffected. That is why HydroRIVERS as its own download is still under
+the agreement above. Which of the two licences covers the reach geometry
+inside RiverATLAS is not stated column by column. ODbL is the share-alike
+licence D9 turned OpenStreetMap down for, so the file carries columns this
+build must not use.
+
+**Natural Earth** is public domain: no permission is needed and no credit is
+required.
+
+This is not a legal reading, and nothing here settles one. Does a carved
+elevation tile *incorporate* the licensed data? Can a free web build meet
+2.1.2 and 10.7? Both belong to the build plan's licence review, which has
+been open since phase 0 and is due at the end of phase 1. What this finding
+corrects is what the repository believed. F48 called the fetch a fetch of a
+public dataset rather than a decision. The pipeline README listed HydroSHEDS
+as *Attribution*. D9 chose HydroSHEDS beside Natural Earth because it has no
+share-alike terms. That is true, and it is not what the terms are about.
+
+### What each carries
+
+| | HydroRIVERS, Asia | RiverATLAS | Natural Earth |
+| --- | --- | --- | --- |
+| Endorheic flag | `ENDORHEIC`, and `NEXT_DOWN = 0` where a network ends | the same columns | none |
+| Stream order | Strahler, classical and by discharge | the same | a scale rank |
+| Names | none | none | yes |
+| Drawn from | 15″ flow directions, every reach draining 10 km² or 0.1 m³/s | the same | World Data Bank 2, adjusted by hand to SRTM Plus relief; the basic rivers work well to about 1:30 million, by its publisher's account |
+| Download | Asia alone, 90.5 MB | the whole globe, 2.42 GB | 4.4 MB with the lakes |
+| Licence | the HydroSHEDS agreement | CC BY 4.0 as a collection, ODbL columns inside | public domain |
+
+The endorheic flag is the outside knowledge the fetch was always for.
+HydroSHEDS' natural sinks were decided by a person, checking each candidate
+by eye against mapped rivers and lakes, and its documentation counts more
+than 16,000 of them worldwide. Natural Earth has no such flag. It can only
+decide a basin its rivers cross or end in, or its lakes fill. How far its
+lines sit from the channels this grid draws is unmeasured until it is
+fetched.
+
+### How much of the question there is
+
+HydroSHEDS drew its own line for which sinks deserved a look (Technical
+Documentation v1.4, 3.3). A sink deeper than 10 m *and* larger than 10 km²
+was put in front of a person, and every other sink was filled without
+looking. Applied to this grid:
+
+| Closed basins | Basins | km² |
+| --- | ---: | ---: |
+| filled without looking | 70,309 | 203,579 |
+| looked at, 10–100 km² | 3,275 | 89,890 |
+| looked at, 100–1,000 km² | 392 | 97,911 |
+| looked at, over 1,000 km² | 43 | 207,400 |
+
+So "which of 74,019" is **3,710 of them**, covering 395,201 km² of the
+598,780 km² that is closed. The 43 largest hold more than half of that area.
+The first is the middle Yangtze, sealed at 1 km, and every candidate draws
+the Yangtze. HydroSHEDS applied the rule at 3″ and this applies it at 1 km,
+so the count is a price rather than a verdict. `make hydro` prints it.
+
+### What was built
+
+`pipeline/nineskies/vectors.py` is the acquire step F48 said was missing,
+for one file per source.
+
+- **The price list as data.** Each candidate is pinned to its bytes and to
+  its publisher's own digest as measured when priced, with its licence and
+  the licence's terms paraphrased section by section. `make vectors` prints
+  the list with no network, then sends one request per source to check that
+  each publisher still serves the priced bytes. All four do today.
+- **A fetch that names its licence.** `make vectors FETCH=<id>
+  ACCEPT=<licence>` refuses before any request unless `ACCEPT` is that
+  source's licence. For two of the three sources the download is the
+  acceptance. The acceptance is always in a command somebody typed, and never
+  a side effect of `make world`, which does not call this (D60).
+- **The pin is the check.** A HEAD that disagrees with the pin refuses
+  before the download, because a file replaced under the same name is a
+  different source. Bytes that do not hash to the pin are never written, not
+  even as a part-file. A file already on disk that hashes to the pin is not
+  asked for again.
+- **The record names the terms.** A fetch writes
+  `pipeline/sources/vectors.json`, one line per source: the bytes, both
+  digests, and the licence it was accepted under. It does not exist yet,
+  because nothing has been fetched.
+
+`hydro.inspected` is HydroSHEDS' rule, and `docs/hydro-report.md` prints
+its count. The pipeline README's licence row is corrected.
+
+### What it changes
+
+Stage 3's carve is blocked on a decision, and the decision is the user's:
+which licence the build takes on, at what download cost. Priced:
+
+- **HydroRIVERS**, 90.5 MB. Exactly the data, under the agreement above,
+  accepted by whoever runs the fetch.
+- **RiverATLAS**, 2.42 GB, 27 times the bytes. The same network under a
+  licence written for reuse, as far as its documentation says. The
+  geometry's own licence is not stated column by column, and the file
+  carries ODbL columns that must not be used.
+- **Natural Earth**, 4.4 MB. No terms at all, and D9 already names it for
+  coasts and lakes. It has no endorheic flag and no stream order, and its
+  publisher rates the basic rivers to about 1:30 million.
+
+The recommendation is to fetch Natural Earth first, because D9 wants it
+anyway and it binds nothing. Then measure what it decides of the 43 largest
+basins, and how far its lines sit from the grid's own channels. Put the
+HydroSHEDS agreement into the licence review with one question: can a free
+web build meet 2.1.2 and 10.7? Choose between RiverATLAS and HydroRIVERS
+only if Natural Earth leaves the large basins undecided. Whichever is
+chosen, the choice is a word in a command, and the record says which
+licence was taken.
+
+The licence review has one of its four sources read now, and the reading is
+not the one the repository assumed. The other three — CHELSA and ERA5, GHSL
+and Copernicus — are still unread.
+
+As a decision (D60): a source whose download accepts terms is fetched only
+by a command that names them, and it is pinned to its publisher's own
+digest when it is priced, not when it arrives.
+
+### What it cost
+
+**224 Python tests, up from 206.** Seventeen are on the fetch, against a
+local server that plays each publisher, so none touches the network. Each
+property was checked by breaking it:
+
+- with the gate removed, three tests fail;
+- with the pin comparison removed, one fails;
+- with the HEAD before the download removed, four fail.
+
+One more test holds HydroSHEDS' rule at both bounds, at 90 m as well as at
+1 km. It uses strict bounds, as the documentation writes them. A first
+count with *at least* 10 km² gave 4,073.
+
+Pricing used HEAD requests and figshare's metadata API, never a GET of a
+data file. `data/source/` holds what it held before. Reading the terms meant
+fetching three technical documents (HydroRIVERS, HydroSHEDS and HydroATLAS,
+0.5, 0.5 and 3.5 MB), which were read and not kept in the repository.
+`make hydro` is the same to the byte across two runs. It differs from the
+committed report by its date and by the new row and paragraph.
