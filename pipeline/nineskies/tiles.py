@@ -143,11 +143,38 @@ def digest(path: Path) -> str:
     return sha.hexdigest()
 
 
+def conditioning(corridor: str) -> dict:
+    """What stage 3 did, checked against the grid stage 2 wrote since.
+
+    The tiles are cut from stage 3's grid, never from stage 2's (F61). A
+    conditioned grid left behind by an older stage 2 would line up cell for
+    cell with the new one and say nothing about it, so the record stage 3
+    wrote names the stage 2 grid it was made from and this refuses a
+    mismatch rather than publishing it.
+    """
+    from . import carve
+
+    work = data_root() / "work"
+    stage2 = work / f"{corridor}-1km.tif"
+    grid_path, record_path = carve.conditioned_path(corridor), carve.record_path(corridor)
+    for needed in (stage2, grid_path, record_path):
+        if not needed.exists():
+            raise SystemExit(f"{needed} missing; run `make grid carve` first")
+    record = json.loads(record_path.read_text())
+    if record.get("fromSha256") != digest(stage2):
+        raise SystemExit(
+            f"{grid_path.name} was conditioned from a different {stage2.name} than the one "
+            f"on disk; run `make carve` again"
+        )
+    return record
+
+
 def build(corridor: str = "sea-to-sky", out_dir: Path | None = None) -> Path:
+    from . import carve
+
     root = data_root()
-    grid_path = root / "work" / f"{corridor}-1km.tif"
-    if not grid_path.exists():
-        raise SystemExit(f"{grid_path} missing; run nineskies.mosaic first")
+    record = conditioning(corridor)
+    grid_path = carve.conditioned_path(corridor)
 
     with rasterio.open(grid_path) as ds:
         array = ds.read(1)
@@ -261,6 +288,16 @@ def build(corridor: str = "sea-to-sky", out_dir: Path | None = None) -> Path:
             "sha256": digest(horizon_path),
         },
         "source": source,
+        # Stage 3's inputs and the one digest over them, which every section
+        # and patch cut from this world carries into its signature beside the
+        # rasters' (D24, F61).
+        "conditioning": {
+            key: record[key]
+            for key in (
+                "rule", "radiusCells", "vectors", "sha256", "channels",
+                "cellsCarved", "cellsRaised", "cellsLowered", "lakesKept",
+            )
+        },
         "coverage": cover if cover is not None else {"unrecorded": True},
         "anchors": anchors,
         "start": {

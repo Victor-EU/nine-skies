@@ -15,11 +15,11 @@ reaches it, and it is the control — a broad valley on the same river, 41 km up
 
 | Place | Area | 90 m ground | 1 km grid | wall within 1 km | within 4 km |
 | --- | --- | ---: | ---: | ---: | ---: |
-| `qutang-gorge` | three-gorges | 158 m | 462 m (+304) | +837 m | +1,247 m |
-| `wu-gorge` | three-gorges | 160 m | 433 m (+273) | +964 m | +1,358 m |
-| `xiling-gorge` | three-gorges | 158 m | 419 m (+261) | +702 m | +1,397 m |
-| `tiger-leaping-gorge` | tiger-leaping-gorge | 1,807 m | 2,197 m (+390) | +900 m | +2,869 m |
-| `shigu` | tiger-leaping-gorge | 1,819 m | 1,852 m (+34) | +182 m | +1,136 m |
+| `qutang-gorge` | three-gorges | 158 m | 190 m (+32) | +837 m | +1,247 m |
+| `wu-gorge` | three-gorges | 160 m | 354 m (+194) | +964 m | +1,358 m |
+| `xiling-gorge` | three-gorges | 158 m | 173 m (+15) | +702 m | +1,397 m |
+| `tiger-leaping-gorge` | tiger-leaping-gorge | 1,807 m | 1,910 m (+103) | +900 m | +2,869 m |
+| `shigu` | tiger-leaping-gorge | 1,819 m | 1,845 m (+26) | +182 m | +1,136 m |
 
 ## Turning room, height by height
 
@@ -29,28 +29,28 @@ floor. **0** means the aeroplane is inside the ground at that height.
 
 | Place | Height | 90 m room | 1 km room | reversal at `low` |
 | --- | ---: | ---: | ---: | ---: |
-| `qutang-gorge` | +100 m | 0.80 km | **0** km | 4.02 km |
-| `qutang-gorge` | +200 m | 1.02 km | **0** km | 4.06 km |
-| `qutang-gorge` | +400 m | 1.45 km | 0.80 km | 4.14 km |
-| `qutang-gorge` | +800 m | 2.42 km | 3.54 km | 4.31 km |
+| `qutang-gorge` | +100 m | 0.80 km | 0.51 km | 4.02 km |
+| `qutang-gorge` | +200 m | 1.02 km | 0.97 km | 4.06 km |
+| `qutang-gorge` | +400 m | 1.45 km | 1.66 km | 4.14 km |
+| `qutang-gorge` | +800 m | 2.42 km | 3.78 km | 4.31 km |
 | `qutang-gorge` | +1,600 m | 28.44+ km | 30.42+ km | 4.69 km |
 | `wu-gorge` | +100 m | 0.74 km | **0** km | 4.02 km |
 | `wu-gorge` | +200 m | 0.97 km | **0** km | 4.06 km |
-| `wu-gorge` | +400 m | 1.61 km | 1.26 km | 4.14 km |
+| `wu-gorge` | +400 m | 1.61 km | 1.45 km | 4.14 km |
 | `wu-gorge` | +800 m | 4.45 km | 11.68 km | 4.32 km |
 | `wu-gorge` | +1,600 m | 26.24 km | 32.97 km | 4.69 km |
-| `xiling-gorge` | +100 m | 0.90 km | **0** km | 4.02 km |
-| `xiling-gorge` | +200 m | 1.15 km | **0** km | 4.06 km |
-| `xiling-gorge` | +400 m | 1.80 km | 1.21 km | 4.14 km |
+| `xiling-gorge` | +100 m | 0.90 km | 0.54 km | 4.02 km |
+| `xiling-gorge` | +200 m | 1.15 km | 1.02 km | 4.06 km |
+| `xiling-gorge` | +400 m | 1.80 km | 1.85 km | 4.14 km |
 | `xiling-gorge` | +800 m | 5.25 km | 6.05 km | 4.31 km |
 | `xiling-gorge` | +1,600 m | 31.65 km | 32.55 km | 4.69 km |
 | `tiger-leaping-gorge` | +100 m | 0.36 km | **0** km | 4.76 km |
-| `tiger-leaping-gorge` | +200 m | 0.65 km | **0** km | 4.81 km |
-| `tiger-leaping-gorge` | +400 m | 1.15 km | **0** km | 4.92 km |
-| `tiger-leaping-gorge` | +800 m | 2.35 km | 2.17 km | 5.13 km |
+| `tiger-leaping-gorge` | +200 m | 0.65 km | 0.76 km | 4.81 km |
+| `tiger-leaping-gorge` | +400 m | 1.15 km | 1.41 km | 4.92 km |
+| `tiger-leaping-gorge` | +800 m | 2.35 km | 2.29 km | 5.13 km |
 | `tiger-leaping-gorge` | +1,600 m | 5.47 km | 6.73 km | 5.60 km |
-| `shigu` | +100 m | 1.71 km | 1.05 km | 4.77 km |
-| `shigu` | +200 m | 2.20 km | 2.05 km | 4.82 km |
+| `shigu` | +100 m | 1.71 km | 1.21 km | 4.77 km |
+| `shigu` | +200 m | 2.20 km | 2.10 km | 4.82 km |
 | `shigu` | +400 m | 3.14 km | 3.48 km | 4.92 km |
 | `shigu` | +800 m | 5.37 km | 6.29 km | 5.14 km |
 | `shigu` | +1,600 m | 26.63 km | 28.53 km | 5.60 km |

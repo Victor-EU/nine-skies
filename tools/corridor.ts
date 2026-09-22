@@ -36,6 +36,12 @@ export interface CorridorManifest {
    * for a world built before they were.
    */
   readonly source?: { bucket?: string; tiles?: number; sha256?: string; unrecorded?: boolean };
+  /**
+   * What stage 3 carved this world with (F61): the Natural Earth rivers and
+   * lakes by their recorded digests, the rule for the other basins, and one
+   * digest over all of it. Absent for a world built before stage 3 ran.
+   */
+  readonly conditioning?: { rule?: string; radiusCells?: number; sha256?: string };
 }
 
 /**

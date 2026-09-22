@@ -65,7 +65,8 @@ import {
 } from "./corridor.ts";
 import { PUBLIC_KEY_FILE, type Signer, type Verifier } from "./attest.ts";
 
-export const PATCH_VERSION = 1;
+/** 2 added the digest of what stage 3 carved the world with (F61). */
+export const PATCH_VERSION = 2;
 
 /**
  * How far a patch may sit from the world it was cut from, metres.
@@ -103,6 +104,8 @@ export interface GroundPatch {
     readonly heightsSha256: string;
     /** The source rasters behind that heightfield (D24). */
     readonly sourceSha256: string;
+    /** What stage 3 carved the world with (F61); see `RouteSection`. */
+    readonly conditionedSha256: string;
   };
   /** Every place the challenge names, so a moved one can be named back. */
   readonly places: readonly PatchPlace[];
@@ -223,7 +226,7 @@ export function attestation(patch: Omit<GroundPatch, "signature">): string {
   return [
     `nineskies/patch v${patch.version}`,
     patch.challenge,
-    `${cutFrom.corridor} ${cutFrom.resolutionM} m ${cutFrom.heightsSha256} ${cutFrom.sourceSha256}`,
+    `${cutFrom.corridor} ${cutFrom.resolutionM} m ${cutFrom.heightsSha256} ${cutFrom.sourceSha256} ${cutFrom.conditionedSha256}`,
     patch.places.map((p) => `${p.what} ${p.lat} ${p.lon}`).join(" | "),
     patch.course.map((p) => `${p.eastKm} ${p.northKm}`).join(" | "),
     `margin ${patch.marginKm} km, clipped ${patch.clippedByWorld}`,
@@ -330,6 +333,7 @@ export function cutPatch(
       resolutionM: corridor.manifest.resolutionM,
       heightsSha256: corridor.heightsSha256,
       sourceSha256: corridor.manifest.source?.sha256 ?? "unrecorded",
+      conditionedSha256: corridor.manifest.conditioning?.sha256 ?? "unconditioned",
     },
     places: placesOf(c),
     course: course.map((p) => ({ eastKm: round(p.eastM / 1000, 3), northKm: round(p.northM / 1000, 3) })),

@@ -161,6 +161,36 @@ def measure(window: grid.TileWindow, fetched: set, mirror: set) -> Coverage:
     )
 
 
+def sample_states(window: grid.TileWindow, fetched: set, mirror: set):
+    """One state per sample, from the one-degree cell under its own centre.
+
+    A level finer than a tile's, for a stage that changes the ground rather
+    than one that draws it. A tile on the rim of a corridor is `UNREACHED`
+    because some cell under it was never fetched, but the samples inside it
+    that stand on a fetched cell are real ground: 247,922 of them in this
+    corridor, 5.2 % of its grid, the Yangtze's own headwaters among them
+    (F61). A sample reads `DATA` if its cell was fetched, `OCEAN` if the
+    mirror has no such cell, and `UNREACHED` otherwise. Nothing here is
+    `COAST`: that is a tile straddling two of these, and a sample does not.
+    """
+    import numpy as np
+
+    transform = grid.transform_for(window)
+    xs = transform.c + (np.arange(window.width_samples) + 0.5) * transform.a
+    ys = transform.f + (np.arange(window.height_samples) + 0.5) * transform.e
+    east, north = np.meshgrid(xs, ys)
+    lats, lons = grid.unproject(east.ravel(), north.ravel())
+    lat = np.floor(np.asarray(lats)).astype(int)
+    lon = np.floor(np.asarray(lons)).astype(int)
+    states = np.full(lat.size, UNREACHED, dtype="<U1")
+    code = lat * 1000 + lon
+    have = np.array(sorted(la * 1000 + lo for la, lo in fetched), dtype=int)
+    known = np.array(sorted(la * 1000 + lo for la, lo in mirror), dtype=int)
+    states[~np.isin(code, known)] = OCEAN
+    states[np.isin(code, have)] = DATA
+    return states.reshape(window.height_samples, window.width_samples)
+
+
 def sample_mask(window: grid.TileWindow, tiles: str, state: str = DATA):
     """Which samples of a window's grid stand only on tiles in `state`.
 
@@ -169,6 +199,9 @@ def sample_mask(window: grid.TileWindow, tiles: str, state: str = DATA):
     sample a guess, which is `classify`'s rule for a tile one level down.
     Rows run north to south, as the raster's do, while the record counts
     tiles south to north; `index_of` is the only thing here that knows it.
+
+    `state` may name several states, `DATA + COAST` for instance: a sample
+    is in the mask when every tile under it is in one of them.
     """
     import numpy as np
 
@@ -179,7 +212,7 @@ def sample_mask(window: grid.TileWindow, tiles: str, state: str = DATA):
     for ty in range(window.ty0, window.ty1):
         for tx in range(window.tx0, window.tx1):
             good[window.ty1 - 1 - ty, tx - window.tx0] = (
-                tiles[index_of(window, tx, ty)] == state
+                tiles[index_of(window, tx, ty)] in state
             )
 
     def touched(samples: int, tiles_along: int):

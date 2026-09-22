@@ -46,7 +46,7 @@ describe("200 km is a different amount of flying in each mode", () => {
 });
 
 describe("and the ground inside it is not the same kind of ground", () => {
-  it("holds 57 m of relief over the plain and 4,464 m through the Hengduan", () => {
+  it("holds 58 m of relief over the plain and 4,463 m through the Hengduan", () => {
     const g = section.groundM;
     let flattest = Infinity;
     let roughest = 0;
@@ -56,9 +56,11 @@ describe("and the ground inside it is not the same kind of ground", () => {
       flattest = Math.min(flattest, relief);
       roughest = Math.max(roughest, relief);
     }
-    expect(flattest).toBeCloseTo(57, 0);
-    expect(roughest).toBeCloseTo(4464, 0);
-    // Seventy-eight times. An axis fitted to the window would draw the first
+    // 56.9 m and 4,464.2 m before stage 3 carved and filled the ground under
+    // the route (F61).
+    expect(flattest).toBeCloseTo(57.6, 1);
+    expect(roughest).toBeCloseTo(4463.3, 1);
+    // Seventy-seven times. An axis fitted to the window would draw the first
     // at the full height of the widget (F14's mistake, a new instrument).
     expect(roughest / flattest).toBeGreaterThan(70);
   });

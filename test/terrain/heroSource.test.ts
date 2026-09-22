@@ -364,17 +364,21 @@ describe.skipIf(!built)("the gorge the country grid gets wrong", () => {
     expect(hero.covers(at.eastM, at.northM)).toBe(true);
   });
 
-  it("puts the aeroplane 390 m lower than the 1 km grid did", () => {
+  it("puts the aeroplane 103 m lower than the 1 km grid does", () => {
     // F49 moved this coordinate onto the water and F50 measured what the
     // country grid does with it: at 1 km the Jinsha climbs 221 m downstream
     // of Shigu. This is the same fault seen from the cockpit - the ground
-    // under the waypoint, as the HUD and the terrain clamp read it.
+    // under the waypoint, as the HUD and the terrain clamp read it. Stage 3
+    // carved the Jinsha through the country grid here (F61), which took it
+    // from 2,197.2 m to 1,910.0: down to the lowest ground upstream, Shigu's,
+    // and no further, so it still stands 103 m over the water the 90 m grid
+    // draws.
     const { at } = world();
     const coarse = fly(false).groundElevationM(at.eastM, at.northM)!;
     const fine = fly(true).groundElevationM(at.eastM, at.northM)!;
-    expect(coarse).toBeCloseTo(2197.2, 0);
+    expect(coarse).toBeCloseTo(1910.0, 0);
     expect(fine).toBeCloseTo(1807.3, 0);
-    expect(coarse - fine).toBeGreaterThan(380);
+    expect(coarse - fine).toBeGreaterThan(100);
   });
 
   it("is drawn whole, and the country grid is cut where it is", () => {
@@ -418,14 +422,17 @@ describe.skipIf(!built)("the second area, on the Yangtze", () => {
   it("puts the reservoir back on the water", () => {
     // The three coordinates were measured off the source at 30 m, where the
     // pool behind the Three Gorges dam is flat at 156-158 m for 190 km. The
-    // 1 km grid fills that trench in: it reads 433 m at this waypoint, which
-    // is 275 m of water the player would be flying inside (F52).
+    // 1 km grid filled that trench in: it read 433 m at this waypoint, 275 m
+    // of water the player would be flying inside (F52). Stage 3 cut the
+    // Yangtze's channel through it at the reservoir's level (F61), but the
+    // channel is a cell wide and this waypoint is not on it: 354 m, still
+    // 194 m of water.
     const { gorges } = world();
     const coarse = fly(false).groundElevationM(gorges.eastM, gorges.northM)!;
     const fine = fly(true).groundElevationM(gorges.eastM, gorges.northM)!;
-    expect(coarse).toBeCloseTo(433.0, 0);
+    expect(coarse).toBeCloseTo(353.9, 0);
     expect(fine).toBeCloseTo(159.8, 0);
-    expect(coarse - fine).toBeGreaterThan(260);
+    expect(coarse - fine).toBeGreaterThan(190);
   });
 
   it("reads the same surface the content tooling reads", () => {
@@ -439,7 +446,7 @@ describe.skipIf(!built)("the second area, on the Yangtze", () => {
     const cockpit = fly(true).groundElevationM(gorges.eastM, gorges.northM)!;
     expect(corridor.drawnAt(gorges.eastM, gorges.northM)).toBeCloseTo(cockpit, 6);
     // And it is the fine answer that both give, not the coarse one.
-    expect(corridor.groundAt(gorges.eastM, gorges.northM) - cockpit).toBeGreaterThan(260);
+    expect(corridor.groundAt(gorges.eastM, gorges.northM) - cockpit).toBeGreaterThan(190);
   });
 
   it("is twelve tiles by three, drawn whole", () => {

@@ -328,12 +328,18 @@ class TestWhatTheMonotonicProbeCannotSee(unittest.TestCase):
         self.assertIsNone(self.yangtze.stride_km)
         self.assertIn("meander", self.yangtze.note)
 
-    def test_the_source_note_does_not_claim_a_stage_that_has_not_run(self):
-        # It used to read "monotonicity enforced in stage 3". There is no
-        # stage 3 in the Makefile, in `nineskies/`, or in any built artefact,
-        # so that sentence was provenance for a number that had none.
-        self.assertNotIn("stage 3", self.yangtze.source)
-        self.assertIn("no centreline data", self.yangtze.source)
+    def test_the_source_note_says_what_the_waypoints_are(self):
+        # It once read "monotonicity enforced in stage 3" when there was no
+        # stage 3 in the Makefile, in `nineskies/` or in any built artefact,
+        # which was provenance for a number that had none. Stage 3 runs now
+        # (F61), so the note may say the grid under the waypoints was carved;
+        # it still has to say the waypoints were placed by hand, because the
+        # carve did not place them and enforces nothing at them.
+        from nineskies import carve
+
+        self.assertTrue(callable(carve.condition))
+        self.assertIn("placed by hand", self.yangtze.source)
+        self.assertNotIn("enforced", self.yangtze.source)
 
 
 class TestNamedPlaces(unittest.TestCase):

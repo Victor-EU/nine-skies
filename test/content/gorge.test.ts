@@ -168,14 +168,21 @@ describe.skipIf(!built)("the gorges this world has", () => {
   });
 
   it("puts the aeroplane underground on the 1 km grid where the 90 m grid has a gorge", () => {
-    // The coarse grid reads the reservoir 260-300 m above its own surface, so
-    // a hundred metres over the water is inside the hill it draws there. This
-    // is why measuring a gorge on the country grid answers a question about
+    // The coarse grid read the reservoir 260-300 m above its own surface, so
+    // a hundred metres over the water was inside the hill it drew there.
+    // Stage 3 cut the Yangtze's channel through it at the reservoir's level
+    // (F61), and a slot a cell wide is room of a kind: at Qutang and Xiling
+    // the 1 km grid now has some, less than the gorge the 90 m grid draws,
+    // and at Wu Gorge, off the channel, it still has none. Either way,
+    // measuring a gorge on the country grid answers a question about
     // resampling rather than about a gorge.
-    for (const id of ["qutang-gorge", "wu-gorge", "xiling-gorge"]) {
+    const wu = find("wu-gorge", reaches()).rungs[0]!;
+    expect(wu.coarse.roomM).toBe(0);
+    expect(wu.fine.roomM).toBeGreaterThan(0);
+    for (const id of ["qutang-gorge", "xiling-gorge"]) {
       const first = find(id, reaches()).rungs[0]!;
-      expect(first.coarse.roomM).toBe(0);
-      expect(first.fine.roomM).toBeGreaterThan(0);
+      expect(first.coarse.roomM).toBeGreaterThan(0);
+      expect(first.coarse.roomM).toBeLessThan(first.fine.roomM);
     }
   });
 

@@ -60,10 +60,11 @@ describe.skipIf(!hasGround)("the terrain clamp, over real ground", () => {
       (MODE_IAS_MS.cruise * groundGain("cruise", DEFAULT_PACING));
     // A third of one per cent - a fifth of a degree - and it only falls.
     expect(flyable).toBeCloseTo(0.0033, 4);
-    // And the route's steepest kilometre is a third of a gradient: 2,271 m to
-    // 2,899 m, thirty-two degrees, on the way onto the plateau.
+    // And the route's steepest kilometre is two thirds of a gradient: 2,256 m
+    // to 2,899 m, thirty-three degrees, on the way onto the plateau. Stage 3
+    // cut the river at its foot 16 m lower than stage 2 had it (F61).
     const steepest = steepestClimbGradient(profile);
-    expect(steepest).toBeCloseTo(0.628, 3);
+    expect(steepest).toBeCloseTo(0.644, 3);
     expect(steepest / flyable).toBeGreaterThan(190);
   });
 

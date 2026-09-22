@@ -125,6 +125,52 @@ class TestTheSampleMask(unittest.TestCase):
             coverage.sample_mask(self.WINDOW, self.TILES[:3])
 
 
+@unittest.skipUnless(HAVE_PROJ, "needs rasterio for the inverse projection")
+class TestTheSampleStates(unittest.TestCase):
+    """A sample's own cell, a level finer than its tile's (F61)."""
+
+    WINDOW = grid.TileWindow(60, 20, 62, 22)
+
+    def cell_of(self, row: int, col: int) -> tuple[int, int]:
+        x, y = grid.transform_for(self.WINDOW) * (col + 0.5, row + 0.5)
+        lats, lons = grid.unproject([x], [y])
+        return int(lats[0] // 1), int(lons[0] // 1)
+
+    def every_cell(self) -> set:
+        return set().union(*coverage.cells_under(self.WINDOW))
+
+    def test_every_cell_fetched_is_every_sample_ground(self):
+        cells = self.every_cell()
+        states = coverage.sample_states(self.WINDOW, cells, cells)
+        self.assertEqual(states.shape, (self.WINDOW.height_samples, self.WINDOW.width_samples))
+        self.assertTrue((states == coverage.DATA).all())
+
+    def test_a_sample_is_what_the_cell_under_its_centre_is(self):
+        cells = self.every_cell()
+        unfetched, absent = self.cell_of(0, 0), self.cell_of(128, 128)
+        self.assertNotEqual(unfetched, absent)
+        mirror = cells - {absent}
+        states = coverage.sample_states(self.WINDOW, mirror - {unfetched}, mirror)
+        self.assertEqual(states[0, 0], coverage.UNREACHED)
+        self.assertEqual(states[128, 128], coverage.OCEAN)
+        self.assertEqual(set(states.ravel().tolist()), set(coverage.DATA + coverage.OCEAN + coverage.UNREACHED))
+
+    def test_nothing_a_tile_calls_ground_is_less_than_ground_here(self):
+        # The finer answer only ever adds ground: a sample every tile under
+        # which was wholly fetched stands on a fetched cell.
+        cells = sorted(self.every_cell())
+        fetched = set(cells[: len(cells) // 2])
+        tiles = "".join(
+            coverage.classify(under, fetched, set(cells))
+            for under in coverage.cells_under(self.WINDOW)
+        )
+        coarse = coverage.sample_mask(self.WINDOW, tiles)
+        fine = coverage.sample_states(self.WINDOW, fetched, set(cells)) == coverage.DATA
+        self.assertTrue(coarse.any())
+        self.assertFalse((coarse & ~fine).any())
+        self.assertGreater(int(fine.sum()), int(coarse.sum()))
+
+
 class TestTheCellsUnderATile(unittest.TestCase):
     def test_a_tile_touches_the_cells_its_own_corners_are_in(self):
         window = grid.TileWindow(60, 20, 61, 21)

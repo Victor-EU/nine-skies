@@ -31,6 +31,7 @@ to anyone they allow to redistribute it (article 6).
 
 ## Rivers and lakes — Natural Earth
 
-The 1:10m rivers, lake centrelines and lakes read by `make rivers`, version
-5.0.0, fetched by `make vectors`. Natural Earth is in the public domain and asks
-for no credit; made with Natural Earth.
+The 1:10m rivers, lake centrelines and lakes, version 5.0.0, fetched by `make
+vectors`. Stage 3 carves the rivers into every world `make world` builds and
+keeps the lakes at their level (`make carve`), so the elevation above is also
+made with Natural Earth. It is in the public domain and asks for no credit.

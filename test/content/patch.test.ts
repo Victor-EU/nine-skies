@@ -79,6 +79,7 @@ describe("the patch committed for the high airfield", () => {
     expect(patch.cutFrom.resolutionM).toBe(1000);
     expect(patch.cutFrom.heightsSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(patch.cutFrom.sourceSha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(patch.cutFrom.conditionedSha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("is as wide as the aeroplane's own turn and no wider", () => {

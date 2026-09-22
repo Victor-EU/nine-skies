@@ -71,6 +71,9 @@ describe("the section committed for Expedition 1", () => {
     // digest; `pipeline/tests/test_sources.py` is what checks it still means
     // the same set the committed record describes.
     expect(section.cutFrom.sourceSha256).toMatch(/^[0-9a-f]{64}$/);
+    // And what stage 3 carved it with (F61): the same rasters carved with
+    // other vectors or another rule are another world.
+    expect(section.cutFrom.conditionedSha256).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("holds one station per kilometre of route, plus the end", () => {
@@ -196,6 +199,11 @@ describe("a section whose ground has been edited", () => {
       cutFrom: { ...section.cutFrom, sourceSha256: "f".repeat(64) },
     };
     expect(verifySection(relabelled, seaToSky(), verify)).toMatch(/signature does not match/);
+    const recarved = {
+      ...section,
+      cutFrom: { ...section.cutFrom, conditionedSha256: "e".repeat(64) },
+    };
+    expect(verifySection(recarved, seaToSky(), verify)).toMatch(/signature does not match/);
   });
 
   it("is refused for a single decimetre, not just for a mountain", () => {

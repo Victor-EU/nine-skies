@@ -199,8 +199,9 @@ describe.skipIf(!signable)("a route down the reservoir", () => {
     expect(gap.areas).toEqual(["three-gorges"]);
     // And the number the refusal quotes is a real disagreement, not a rim
     // artefact: the reservoir the player flies down against the ground the
-    // 1 km grid fills it in with.
-    expect(gap.worstM).toBeGreaterThan(300);
+    // 1 km grid draws there -- over 300 m before stage 3, and 243 m after it
+    // cut a channel a cell wide down the reservoir (F61).
+    expect(gap.worstM).toBeGreaterThan(240);
     expect(gap.countryM).toBeGreaterThan(gap.heroM);
   });
 

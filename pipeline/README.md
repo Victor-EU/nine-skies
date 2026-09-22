@@ -26,8 +26,8 @@ python3 -m venv pipeline/.venv
 pipeline/.venv/bin/python -m pip install -r pipeline/requirements.txt
 ```
 
-Stage 3 reads its shapefiles with `shapefile.py` rather than `fiona` (F60); later
-stages will add `brotli`.
+Stage 3 reads its shapefiles with `shapefile.py` rather than `fiona` (F60), and
+needs nothing but numpy for the carve; later stages will add `brotli`.
 
 ## Acquiring the source data
 
@@ -53,18 +53,20 @@ He headwaters, and reprojection reads outside the cells it writes.
 
 Other layers, all small by comparison:
 
-| Layer | Source | Licence |
+| Layer | Source | Licence, as read (F62) |
 | --- | --- | --- |
-| Land cover | ESA WorldCover 2021 v200 | CC BY 4.0 |
-| Climate | CHELSA V2.1 monthly tas / pr | CC BY 4.0 |
-| Wind | ERA5 monthly means, 10 m u/v | Copernicus licence |
-| Rivers | Natural Earth 10 m rivers and lakes, fetched (F60); basins it misses are filled (D62) | Public domain |
+| Land cover | ESA WorldCover 2021 v200 | CC BY 4.0, with a prescribed credit line |
+| Climate | CHELSA V2.1 monthly tas / pr | CC0 1.0 — public domain; a citation is requested |
+| Wind | ERA5 monthly means, 10 m u/v | CC BY 4.0 since 2 July 2025; the download needs a Climate Data Store account and the licence accepted in its holder's name |
+| Rivers | Natural Earth 10 m rivers and lakes, fetched (F60); carved by stage 3 (F61) | Public domain |
 | Coasts, lakes, cities | Natural Earth 10 m | Public domain |
-| Population | GHSL GHS-POP R2023A | CC BY 4.0 |
+| Population | GHSL R2023A GHS-POP, GHS-BUILT-S, GHS-BUILT-H | CC BY 4.0; GHS-BUILT-H is derived from JAXA's AW3D30, whose own terms ask for credit and notice of commercial use |
 
 Build plan D8 and D9 pick these deliberately: CHELSA over WorldClim and Natural
 Earth over OSM, because both alternatives carry share-alike terms that would
-attach to shipped assets.
+attach to shipped assets. Every row was read from its publisher on 22
+September 2026 (F62); until then this table had CHELSA as CC BY 4.0, which it
+is not, and WorldCover's licence had never been read at all.
 
 This table said "Attribution" for HydroSHEDS until somebody read its terms
 (F59). They are a bespoke agreement, and downloading the data accepts it, so
@@ -108,21 +110,22 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      the warp says land; it is 45 of 45 today with nothing tuned to make it
      so. What this does *not* settle is the ocean inside a fetched raster,
      which is stage 3's business and is why `c` has its own name.
-3. **Hydro-condition** — burn HydroSHEDS centrelines, enforce monotonic
-   downstream elevation, flatten named lakes to their real surface heights.
-   **Not built, and the probe that guards it does not fail without it** (F48).
-   The Yangtze golden probe is seven hand-placed waypoints 500 km apart, 175
-   cells of the corridor's 4.7 million; it passes at every channel search
-   radius including a bare point sample, and it cannot be walked more finely
-   because the polyline is a chord across country rather than a centreline.
-   The grid's own drainage tree yields a centreline with no download
-   (`make hydro`, F56). What is still missing is outside knowledge: which
-   closed basin is a lake and which an artefact. Choosing a river network
-   was choosing a licence (`make vectors`, F59); Natural Earth is fetched,
-   and `make rivers` measures what it decides (F60): the basins its lines
-   cross, 214,935 km² of them, and not the 3,000 it touches nowhere, which
-   are filled while its lakes are kept (D62). Until stage 3 carves, the
-   probe report prints what its pass covers.
+3. **Hydro-condition** (`make carve`, `carve.py`, D62, D63, F61) — the
+   mapped rivers carved, the mapped lakes kept, every other closed basin
+   filled. Each run of a Natural Earth river over ground the source reached
+   is followed down the valley it lies in — the way water would take through
+   the cells within 5 km of the line — and cut, lower only, until it runs
+   downhill; nothing inside a mapped lake is cut below the lake's own floor,
+   and a lake still closed afterwards keeps its basin. Writes
+   `sea-to-sky-1km-conditioned.tif` beside stage 2's grid, which is what the
+   tiles, the golden probes and the hero areas' seam check now read, and a
+   record naming the vector files by digest, which the manifest and every
+   signed section and patch carry (D24). `docs/carve-report.md` prices the
+   rule for the other basins three ways, because filling them is the
+   largest thing the stage does: 387,919 cells raised, up to 542 m.
+   `make hydro` and `make rivers` go on measuring stage 2's grid, the
+   before. Needs the two Natural Earth files from `make vectors`, which
+   `make world` reads and never fetches (D60).
 4. **Tile** — 64 km tiles, 65 x 65 Int16 metres, shared edge row and column.
 5. **Horizon field** — one 8 km country raster, 841 x 553 Int16 (930 kB),
    reduced from the 1 km grid with the silhouette bias (mean + 0.6 x

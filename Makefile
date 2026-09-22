@@ -7,6 +7,7 @@
 #   make siting                     # every shipped coordinate, against the source
 #   make probes                     # golden probes against what is built
 #   make hydro                      # where the water cannot go, and the river it has
+#   make carve                      # stage 3: the mapped rivers carved, the mapped lakes kept
 #   make sources                    # record the source raster digests
 #   make vectors                    # stage 3's river network, priced; nothing fetched
 #   make rivers                     # what the fetched rivers decide of the grid's closed basins
@@ -33,7 +34,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles hero siting probes hydro rivers sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles hero siting probes hydro rivers sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -70,15 +71,29 @@ vectors: $(PY)
 
 ## Stage 3's first mapped rivers against the grid (F60): what Natural Earth
 ## decides of the closed basins `make hydro` finds, and how far its lines sit
-## from where the grid runs its water. Needs a built world and the two
-## Natural Earth files from `make vectors`; not part of `make world`, which
-## must never depend on a download someone has to accept (D60).
+## from where the grid runs its water -- stage 2's grid, before stage 3 acts on
+## the answer. Needs a built world and the two Natural Earth files from `make
+## vectors`; not part of `make world`, which reads those files for stage 3 but
+## never fetches them (D60).
 rivers: $(PY)
 	$(PIPELINE) -m nineskies.rivers --corridor $(CORRIDOR) --report docs/rivers-report.md
 
 ## Stage 2 — mosaic and reproject to Albers 1 km.
 grid: $(PY)
 	$(PIPELINE) -m nineskies.mosaic --corridor $(CORRIDOR)
+
+## Stage 3 — hydro-conditioning (D62, D63, F61). Every Natural Earth river is
+## followed down the valley it lies in and cut, lower only, until it runs
+## downhill; nothing in a mapped lake is cut below the lake's floor, and a
+## lake still closed afterwards keeps its basin; every other closed basin
+## gets the rule `carve.RULE` names. Writes the grid the tiles are cut from
+## beside stage 2's, which `hydro` and `rivers` go on measuring as the
+## before, and a report that prices every rule for the other basins.
+##
+## Needs the two Natural Earth files from `make vectors` and refuses without
+## them, naming the command; `world` never fetches them itself (D60).
+carve: $(PY)
+	$(PIPELINE) -m nineskies.carve --corridor $(CORRIDOR) --report docs/carve-report.md
 
 ## Stages 4 and 5 — cut 64 km tiles and reduce the horizon field.
 tiles: $(PY)
@@ -96,16 +111,15 @@ probes: $(PY)
 	$(PIPELINE) -m nineskies.probe --area all \
 		--report docs/probe-report-hero.md
 
-## Stage 3's measurement half, which is all of stage 3 that needs no
-## download. Priority-floods the built grid to find where water cannot
-## leave, then follows the drainage tree the fill grew along to the grid's
-## own largest river -- a centreline the Yangtze probe has never had, and
-## which is checked against nine places sited independently of it (D55, F56).
+## Stage 2's grid before stage 3, measured the way stage 3 was priced (D55,
+## F56). Priority-floods it to find where water cannot leave, then follows
+## the drainage tree the fill grew along to the grid's own largest river --
+## a centreline checked against nine places sited independently of it.
 ##
 ## A report and never a gate. The centreline finds 1,980 uphill kilometres
 ## in a river the seven-waypoint chord passes clean, and a probe that fails
-## on purpose is not a probe: what carves them is stage 3 proper, which
-## still wants the fetch.
+## on purpose is not a probe: what carves them is `carve`, whose report asks
+## the same questions of the grid the tiles are cut from (F61).
 hydro: $(PY)
 	$(PIPELINE) -m nineskies.hydro --corridor $(CORRIDOR) \
 		--report docs/hydro-report.md
@@ -161,7 +175,7 @@ patches:
 cut-key:
 	npm run content:cut-key
 
-world: acquire sources grid tiles hero siting probes hydro sections patches ground gorges
+world: acquire sources grid carve tiles hero siting probes hydro sections patches ground gorges
 	@echo "world built: $(WORLD_OUT)"
 
 ## The other gate: every authored route flown over real ground. Needs no flag

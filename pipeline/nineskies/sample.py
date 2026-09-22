@@ -77,8 +77,8 @@ class GridSampler:
         """The lowest cell in a square window — where a river actually is.
 
         A 1 km cell straddling a gorge reports the wall as readily as the
-        water. Until stage 3 burns HydroSHEDS centrelines, this is how a river
-        waypoint finds its own channel; it is a measurement aid, not a fix, and
+        water. This is how a river waypoint finds its own channel, on stage 3's
+        grid as on stage 2's (F61); it is a measurement aid, not a fix, and
         `probe.py` reports both numbers so the difference stays visible.
 
         **Square, not round**, so the corners reach `radius_km * sqrt(2)` — a

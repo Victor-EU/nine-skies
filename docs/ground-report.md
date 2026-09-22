@@ -14,8 +14,8 @@ over ground the aeroplane actually meets.
 
 | Area | Points | Mean gap | 90 m above 1 km | where | 1 km above 90 m | where |
 | --- | ---: | ---: | ---: | --- | ---: | --- |
-| tiger-leaping-gorge | 51,245 | 72.2 m | **374 m** | 2983, 1086 km | 695 m | 2982, 1087 km |
-| three-gorges | 76,867 | 74.5 m | **301 m** | 3926, 1492 km | 512 m | 3885, 1491 km |
+| tiger-leaping-gorge | 51,245 | 72.0 m | **557 m** | 2982, 1086 km | 523 m | 2981, 1065 km |
+| three-gorges | 76,867 | 77.2 m | **628 m** | 4000, 1503 km | 568 m | 3886, 1490 km |
 
 ## What is authored over them
 

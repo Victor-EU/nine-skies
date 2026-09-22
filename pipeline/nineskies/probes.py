@@ -102,8 +102,9 @@ class MonotonicProbe:
 
     A probe that cannot be made stricter is not a strict probe. This one reads
     175 cells of the corridor's 4.7 million, and the claim it can support is
-    the narrow one in `stride_km` below. The wide claim needs stage 3, which
-    is where the centreline comes from and which has never run.
+    the narrow one in `stride_km` below. The wide claim needs a centreline,
+    and stage 3's carved channels are one (F61); what the probe should check
+    along it is an open decision rather than a missing stage.
     """
 
     name: str
@@ -114,9 +115,10 @@ class MonotonicProbe:
     #: How finely the polyline may honestly be walked, kilometres. `None`
     #: means "at the waypoints and nowhere else", which is the only honest
     #: setting for a chord: densifying it would fail on terrain the river is
-    #: not in, and would read as a pipeline bug. Stage 3 replaces the chord
-    #: with a HydroSHEDS centreline, and this becomes a number that turns the
-    #: probe into the check it has always claimed to be.
+    #: not in, and would read as a pipeline bug. Stage 3 has carved a
+    #: centreline along Natural Earth's line (F61); walking it instead of the
+    #: chord is what would make this a number and the probe the check it has
+    #: always claimed to be.
     stride_km: float | None = None
     #: Which built artefact this can be read from, on the same rule as a point
     #: probe. A river through a gorge cannot pass at 1 km for the same reason
@@ -245,17 +247,18 @@ MONOTONIC_PROBES: tuple[MonotonicProbe, ...] = (
             places.at("shanghai"),
         ),
         phase="corridor",
-        # Not "monotonicity enforced in stage 3": stage 3 has never run, and
-        # a source note that describes a stage nobody has built reads as
-        # provenance for a number that has none (F48). What these seven
-        # coordinates are is a hand-placed chord along the river's course.
-        source="Waypoints placed by hand along the river's course; no "
-        "centreline data and no hydro-conditioning in the build yet",
+        # Not "monotonicity enforced in stage 3": what these seven coordinates
+        # are is a hand-placed chord along the river's course, and stage 3 is
+        # what the grid under them has been through, not where they came from
+        # (F48, F61).
+        source="Waypoints placed by hand along the river's course, read on "
+        "the grid stage 3 carved along Natural Earth's line (F61)",
         stride_km=None,
         note="Seven waypoints 500 km apart, 175 cells of 4.7 M. It cannot "
         "see a clipped meander between two of them, which is the failure "
         "stage 3 exists to prevent, and it passes at every channel search "
-        "radius including none.",
+        "radius including none. The sill table under it is what says whether "
+        "anything between them runs down (F58, F61).",
     ),
     MonotonicProbe(
         name="Jinsha through Tiger Leaping Gorge",
@@ -273,10 +276,10 @@ MONOTONIC_PROBES: tuple[MonotonicProbe, ...] = (
         "reads 1,817 m at Shigu and 1,776 m in the gorge -- both waypoints "
         "on the channel, which F50 is about",
         stride_km=None,
-        note="Unpassable at 1 km, where it reads +221 m uphill against the "
-        "source's -41 m. Needs the 90 m hero grid from stage 6, or stage 3 "
-        "carving the channel back down at 1 km, and it is the check that "
-        "says which of those two the world still needs. Both its waypoints "
+        note="Unpassable on stage 2's 1 km grid, where it reads +221 m uphill "
+        "against the source's -41 m. Read on the 90 m hero grid from stage 6, "
+        "which stage 3 does not carve, and printed beside the 1 km grid stage 3 "
+        "does (F61). Both its waypoints "
         "are `on_channel` places, so the report holds them to the water "
         "rather than trusting the 2 km search to find it (F50).",
     ),

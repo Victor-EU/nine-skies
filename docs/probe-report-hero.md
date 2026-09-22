@@ -16,7 +16,7 @@ The seventh golden probe reads this ground and cannot pass at 1 km: the Jinsha c
 
 **It passes at the cells it reads, and its one reach is dammed on this grid:** every path from that reach's upstream cell to its downstream one crosses a sill 119 m above the upstream cell, so none of them runs downhill. *What this verdict covers*, below, says where (F58).
 
-The channel minimum is what is checked, over a square window 2 km to a side's half-width — so 2.83 km into the corners. A 1 km cell straddling a gorge reports the wall as readily as the water. A waypoint quoted to two decimals is ±550 m from where it means, which is why the two on the channel carry four. The point sample beside it is what the search is worth: the gap between the columns *is* the damage resampling does to a river, and stage 3 exists to carve it back. What the search must never be is the thing producing the verdict — F50 found this probe reading the Jinsha only because a 2 km disc reached it from a waypoint 1,260 m up the gorge wall, with the minimum sitting at the rim of the disc at every resolution. Both its waypoints are on the water now, and the sweep below is where that shows.
+The channel minimum is what is checked, over a square window 2 km to a side's half-width — so 2.83 km into the corners. A 1 km cell straddling a gorge reports the wall as readily as the water. A waypoint quoted to two decimals is ±550 m from where it means, which is why the two on the channel carry four. The point sample beside it is what the search is worth: the gap between the columns *is* the damage resampling does to a river, which stage 3 carves back where a mapped river runs (F61). What the search must never be is the thing producing the verdict — F50 found this probe reading the Jinsha only because a 2 km disc reached it from a waypoint 1,260 m up the gorge wall, with the minimum sitting at the rim of the disc at every resolution. Both its waypoints are on the water now, and the sweep below is where that shows.
 
 | Waypoint | Point sample | Channel minimum | Drop |
 | --- | ---: | ---: | ---: |
@@ -25,7 +25,7 @@ The channel minimum is what is checked, over a square window 2 km to a side's ha
 
 #### What this verdict covers
 
-The check above reads **4,418 cells of 394,497** — 1.1199 % of the built grid — at 2 waypoints with a 2 km search around each. Unpassable at 1 km, where it reads +221 m uphill against the source's -41 m. Needs the 90 m hero grid from stage 6, or stage 3 carving the channel back down at 1 km, and it is the check that says which of those two the world still needs. Both its waypoints are `on_channel` places, so the report holds them to the water rather than trusting the 2 km search to find it (F50).
+The check above reads **4,418 cells of 394,497** — 1.1199 % of the built grid — at 2 waypoints with a 2 km search around each. Unpassable on stage 2's 1 km grid, where it reads +221 m uphill against the source's -41 m. Read on the 90 m hero grid from stage 6, which stage 3 does not carve, and printed beside the 1 km grid stage 3 does (F61). Both its waypoints are `on_channel` places, so the report holds them to the water rather than trusting the 2 km search to find it (F50).
 
 **Along the lowest ground there is, rather than along the chord.** The check compares one cell near each waypoint, the lowest in its window. Between two of them the ground has a *sill*: the highest ground on the lowest path that joins them, found by flooding from one cell until the water reaches the other, eight neighbours to a cell. Every path between the two crosses it, so a sill above the upstream cell means that nothing between the two cells this check compares runs downhill, however finely it is walked. A sill level with its upstream cell proves nothing the other way: the lowest path never stands above where it started, and it can still fall and rise on the way.
 
@@ -88,7 +88,7 @@ These probes have data built for this phase but cannot be read from this artefac
 | Probe | Needs | Why |
 | --- | --- | --- |
 | Lhasa | country grid | sampled from another artefact |
-| Yangtze, source to mouth | country grid | Seven waypoints 500 km apart, 175 cells of 4.7 M. It cannot see a clipped meander between two of them, which is the failure stage 3 exists to prevent, and it passes at every channel search radius including none. |
+| Yangtze, source to mouth | country grid | Seven waypoints 500 km apart, 175 cells of 4.7 M. It cannot see a clipped meander between two of them, which is the failure stage 3 exists to prevent, and it passes at every channel search radius including none. The sill table under it is what says whether anything between them runs down (F58, F61). |
 
 ## Qutang, Wu and Xiling gorges
 
@@ -138,7 +138,7 @@ These probes have data built for this phase but cannot be read from this artefac
 | Probe | Needs | Why |
 | --- | --- | --- |
 | Lhasa | country grid | sampled from another artefact |
-| Yangtze, source to mouth | country grid | Seven waypoints 500 km apart, 175 cells of 4.7 M. It cannot see a clipped meander between two of them, which is the failure stage 3 exists to prevent, and it passes at every channel search radius including none. |
+| Yangtze, source to mouth | country grid | Seven waypoints 500 km apart, 175 cells of 4.7 M. It cannot see a clipped meander between two of them, which is the failure stage 3 exists to prevent, and it passes at every channel search radius including none. The sill table under it is what says whether anything between them runs down (F58, F61). |
 
 ## Areas the build plan names that have no coordinate
 

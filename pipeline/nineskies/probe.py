@@ -315,8 +315,8 @@ def run(
             f"it means, which is why the two on the channel carry four. The "
             f"point sample beside it is what the search "
             f"is worth: the gap between the columns *is* the damage "
-            f"resampling does to a river, and stage 3 exists to carve it "
-            f"back. What the search must never be is the thing producing the "
+            f"resampling does to a river, which stage 3 carves back where a "
+            f"mapped river runs (F61). What the search must never be is the thing producing the "
             f"verdict — F50 found this probe reading the Jinsha only because "
             f"a 2 km disc reached it from a waypoint 1,260 m up the gorge "
             f"wall, with the minimum sitting at the rim of the disc at every "
@@ -722,7 +722,12 @@ def main(argv: list[str] | None = None) -> int:
         args.grid_kind = "hero"
         path = args.grid or data_root() / "work" / f"hero-{args.area}.tif"
     else:
-        path = args.grid or data_root() / "work" / f"{args.corridor}-1km.tif"
+        # The world the tiles are cut from, which is stage 3's grid and not
+        # stage 2's: a probe that passed on the grid before conditioning
+        # would be a probe of a world nobody ships (F61).
+        from .carve import conditioned_path
+
+        path = args.grid or conditioned_path(args.corridor)
     sampler = GridSampler(path)
     failures, lines = run(sampler, args.phase, args.grid_kind)
 

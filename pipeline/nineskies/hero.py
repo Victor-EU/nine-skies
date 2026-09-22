@@ -494,7 +494,10 @@ def cut(
         if not (west <= xs[0] <= east and south <= ys[0] <= north):
             raise SystemExit(f"{area.id} does not contain {place_id}")
 
-    gaps = boundary_disagreement(area, array, work / f"{corridor}-1km.tif")
+    # Against stage 3's grid, which is the one drawn beside this area (F61).
+    from .carve import conditioned_path
+
+    gaps = boundary_disagreement(area, array, conditioned_path(corridor))
     if gaps is None:
         print("  boundary vs the country grid: no country grid here, unchecked")
     else:

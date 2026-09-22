@@ -55,11 +55,12 @@ import { projectedWaypoints } from "./expedition.ts";
 import { PUBLIC_KEY_FILE, type Signer, type Verifier } from "./attest.ts";
 
 /**
- * 2 added the signature (D23), 3 the source digest (D24). An older section
- * is not read rather than read leniently: the value of both fields is that
- * there is no path around them to fall back to.
+ * 2 added the signature (D23), 3 the source digest (D24), 4 the digest of
+ * what stage 3 carved the world with (F61). An older section is not read
+ * rather than read leniently: the value of these fields is that there is no
+ * path around them to fall back to.
  */
-export const SECTION_VERSION = 3;
+export const SECTION_VERSION = 4;
 
 /**
  * How far the recomputed leg lengths may sit from the stored ones, km.
@@ -92,6 +93,14 @@ export interface RouteSection {
      * them was corroborated against the mirror's own ETag when it was taken.
      */
     readonly sourceSha256: string;
+    /**
+     * The digest of stage 3's inputs (F61) -- the vector files it carved the
+     * rivers and kept the lakes with, and the rule it gave every other basin
+     * -- or "unconditioned" for a world built without it. The rasters alone
+     * no longer determine the ground: the same rasters carved with another
+     * rule are another world, and a section should say which.
+     */
+    readonly conditionedSha256: string;
   };
   readonly waypoints: readonly SectionWaypoint[];
   readonly legEndKm: readonly number[];
@@ -116,7 +125,7 @@ export function attestation(section: Omit<RouteSection, "signature">): string {
   return [
     `nineskies/section v${section.version}`,
     section.expedition,
-    `${cutFrom.corridor} ${cutFrom.resolutionM} m ${cutFrom.heightsSha256} ${cutFrom.sourceSha256}`,
+    `${cutFrom.corridor} ${cutFrom.resolutionM} m ${cutFrom.heightsSha256} ${cutFrom.sourceSha256} ${cutFrom.conditionedSha256}`,
     section.waypoints.map((w) => `${w.id} ${w.lat} ${w.lon}`).join(" | "),
     `${section.legEndKm.join(" ")} of ${section.lengthKm}`,
     section.groundM.join(" "),
@@ -221,6 +230,7 @@ export function cutSection(
       resolutionM: corridor.manifest.resolutionM,
       heightsSha256: corridor.heightsSha256,
       sourceSha256: corridor.manifest.source?.sha256 ?? "unrecorded",
+      conditionedSha256: corridor.manifest.conditioning?.sha256 ?? "unconditioned",
     },
     waypoints: waypointsOf(expedition),
     legEndKm: profiled.legEndKm.map((km) => round(km, 3)),

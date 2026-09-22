@@ -7843,3 +7843,356 @@ It is not in `make world`, which must never depend on a download somebody
 has to accept (D60). This finding made two downloads, 4.4 MB, both public
 domain and both approved. The GLO-30 licence was read from the Copernicus
 data space, a 0.5 MB document not kept in the repository.
+
+## F61 — Stage 3 carves: every mapped river runs downhill down its own valley, the Yangtze probe's five dams are gone and the mapped lakes keep their level; the fill D62 chose is the largest thing the stage does, and was kept with its price known
+
+*22 September 2026, on `real-elevation-pipeline`.*
+
+F60 left the carve as the next engineering item, and D62 had given every
+closed basin a rule before it started:
+
+- a basin a mapped river crosses is carved along the river;
+- one a mapped lake lies in keeps its level;
+- every other one is filled.
+
+This finding builds that as stage 3 (`carve.py`, `make carve`). It sits
+between the grid and the tiles, so every world, probe, section and patch is
+now cut from its output, and it is measured the way stage 2 was.
+
+One clause cost more than F60 said it would. F60 priced filling the
+untouched basins as costing nothing, meaning no download and no licence. On
+ground the game draws it is the largest change the stage makes. That was put
+to the user with the numbers, and the user kept it.
+
+### How a river is carved (D63)
+
+**The channel is the valley, not the line.** Natural Earth is drawn at
+1:10 million. It is a cell or two off its valleys in the mountains (F60), and
+further where it has been simplified. So each run of mapped line over
+measured ground is given a band of cells either side of it. A priority-flood
+from the run's lower end grows up through the band, ordered by water level
+and then by each cell's own height, and the path it takes to the upper end
+is the channel. Inside a hollow the flood finds the floor before the walls,
+and it leaves by the lowest way there is. Runs are cut lowest first, and any
+channel already cut is a place a later one may end, which is how a
+tributary finds its river.
+
+**The band is 5 km, because that is where the deepest cut stops falling.**
+Swept over the corridor with nothing else changed:
+
+| Band | Cells cut | km³ | Deepest | Cut over 1,000 m | Channel from line, median / 90th / worst |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 km | 27,753 | 2,153 | 2,660 m | 64 | 1 / 1 / 2 cells |
+| 2 km | 27,900 | 1,963 | 2,660 m | 31 | 1 / 2 / 3 |
+| 3 km | 28,212 | 1,896 | 2,009 m | 6 | 1 / 2 / 4 |
+| 4 km | 28,183 | 1,883 | 1,166 m | 2 | 1 / 2 / 5 |
+| **5 km** | 28,208 | 1,877 | 968 m | 0 | 1 / 2 / 6 |
+| 6 km | 28,333 | 1,874 | 968 m | 0 | 1 / 3 / 7 |
+| 8 km | 28,442 | 1,886 | 968 m | 0 | 1 / 3 / 9 |
+
+At 2 km, the width this plan once wrote down for the burn, the deepest cut
+is **2,660 m** at 29.77 N 95.36 E. Natural Earth draws the Yarlung straight
+across the neck of the Great Bend, which the river goes round, and the
+channel follows it through a 4,018 m ridge from floor at 1,358 m to floor at
+1,232. At 5 km the deepest cut is 968 m, in the Dadu's own gorge between Hanyuan
+and Jinkouhe, and the channel still stays within two cells of the line for nine
+cells in ten. (The sweep predates measuring coverage a sample at a time,
+below, which lengthened the runs; the final numbers are in the next section.)
+
+**Lower only, and never below the water.** Every cell on a channel is
+lowered to the lowest ground upstream of it on the same channel, and no
+further. Stage 2's reduction is mean plus a quarter of (max − mean), which
+is never below the lowest 30 m pixel in a cell, and in a cell a river runs
+through, the water is the lowest pixel. So a 1 km cell can only ever read a valley floor high, never low,
+and the lowest ground upstream of a point is never below where the river
+really runs.
+
+**Other choices:**
+
+- **Direction comes from each run's own two ends**, each read as the lowest
+  ground within 5 km of it, not from the river system. A system is joined by
+  a tolerance, and one mistaken join would turn a whole river round.
+- **No fixed burn depth and no stream order.** Natural Earth carries a scale
+  rank, not an order (F59), and a constant cut would lower ground everywhere
+  a river already runs downhill.
+- **A channel is four-connected.** Where the path steps diagonally, the lower
+  of the two cells beside the step is cut too. The surface the game draws
+  between four samples puts the two cells across a diagonal step in the
+  middle of the channel as a dam, even though eight-neighbour water would
+  pass.
+- **A lake is protected.** Inside a mapped lake's outline nothing is cut
+  below the lake's lowest ground, and a river's band never enters a lake the
+  river does not itself touch. That is what keeps the unnamed river rising
+  on Yamdrok's rim (F60) from draining Yamdrok.
+
+### Where the source reached, a sample at a time
+
+The first runs measured coverage by tile, as the rivers report does (F54,
+F60). A tile on the corridor's rim is `UNREACHED` if any one-degree cell
+under it was never fetched. But the samples in it that stand on a fetched
+cell are real ground: **247,922 of them, 5.2 % of the grid**. Among them was
+the Tongtian, the Yangtze's own headwaters near 34.5 N. There the derived
+river still climbed 27 steps, because the carve had stopped at the tile's
+edge.
+
+`coverage.sample_states` now asks the cell under each sample's own centre.
+3,536,331 samples are fetched ground, against 3,329,409 for the tile rule's
+fully fetched and coastal tiles. Ocean samples are all exactly zero, and
+only 3,433 unfetched samples read anything else.
+Water that reaches the sea or unfetched ground leaves the world there, and
+nothing there is changed. The tile rule still decides what the map draws,
+where a guess is the fault F54 was about.
+
+### What it did
+
+`docs/carve-report.md`, the same to the byte across two runs:
+
+- **98 channels** from 98 runs of mapped line, 37,241 cells of channel.
+  **29,832 cells cut**, 1,929 km³, the deepest **968 m**. 644 cells are cut
+  by more than 300 m, the deepest where a valley is narrower than a cell: the Dadu,
+  the Salween, the Jinsha at 27.27 N (Tiger Leaping Gorge), the Yalong, the
+  Wu, and the Yangtze at 31.02 N 109.62 E (Qutang).
+- **None of the Yangtze probe's six reaches is dammed.** On stage 2's grid
+  five were: by 18, 175, 287, 27 and 13 m (F58).
+- **The grid's own largest river** climbs 7 steps and 5 m, where it climbed
+  1,980 steps and 90,841 m. It meets all five channel places within 1.5 km,
+  Shigu included, where before it met four. 391 of its cells still stand
+  under water, all in the basins of kept lakes: 374 by less than 0.3 m on
+  the lower Yangtze, and 17 by up to 2.1 m at the Dongting outlet.
+- **0.75 % of the corridor has no outlet** (35,607 cells in 183 basins),
+  where 12.64 % had (598,780 cells in 74,019 basins). Every one of the 183
+  holds a kept lake.
+- **50 lakes are kept.** 58 mapped lakes stand on measured ground and 10 of
+  them lie on a carved channel. The 50 still closed afterwards keep their
+  basins: Tai, Hongze, Poyang, Namtso, Gaoyou, Chao, Dongting, Yamdrok,
+  Qiandao and 41 more. Chao is D62's named failure, kept closed because the
+  river it drains by is not drawn.
+
+### The fill costs more than F60 said
+
+Measured on the same carved grid, each rule for the basins no mapped river
+drains and no mapped lake lies in:
+
+| Rule | Cells raised | Cells lowered | km³ | Deepest | Moved over 100 m |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| **fill** (D62) | 387,919 | 0 | 11,750 | 542 m | 25,472 |
+| leave | 0 | 0 | 0 | 0 m | 0 |
+| breach | 0 | 193,316 | 4,548 | 542 m | 8,196 |
+
+**Fill** raises every hollow to the lowest point of its rim, which is
+HydroSHEDS' default for sinks nobody inspected. It is right for a grid
+whose job is to route water. On ground that is drawn, it pours a flat floor
+into each valley the 1 km grid sealed. The deepest is 542 m, at 27.81 N
+92.50 E in the eastern Himalaya, and 8.2 % of the grid moves.
+
+**Breach** lowers each hollow's lowest way out to its floor instead. That
+restores a sealed valley, but it also cuts an outlet for a real closed
+basin. **Leave** keeps every hollow stage 2 made where no mapped river runs:
+79,511 closed basins, the kept lakes' 183 among them. It is the only rule
+that is right for a basin that really has no outlet.
+
+The corridor is not where the difference matters most. Natural Earth draws
+no lake in the Turpan depression, and none at the Tarim's end, where its
+river stops inside the basin. Under fill the full-country build raises both
+to their rims, and the Turpan golden probe (−154 m ± 15) fails. The Qaidam
+and Junggar have lakes it draws, and are kept.
+
+> **Decided, 22 September 2026.** Fill, as D62 has it, with these prices in
+> front of the decision. The Turpan and Tarim consequence is recorded against
+> phase 2 rather than solved here.
+
+### What else moved
+
+**Expedition 1 is unchanged where it binds.** 712 of its 2,932 stations
+moved: 611 raised, by up to 270 m at km 1,140, and 101 lowered, by up to
+288 m at km 2,290. It still clears by 333 m at km 2,366 and arrives 264 m up.
+The section was re-cut and re-signed.
+
+**The high airfield** changed in 87 of its 1,726 cells, by up to 178 m. It
+still flies: done in 69 s, lowest 45 m above the ground.
+
+**The 1 km grid through the gorges came down, and the two grids disagree
+more** (`docs/ground-report.md`, `docs/gorge-report.md`).
+
+| Place | 1 km before | 1 km after | 90 m grid |
+| --- | ---: | ---: | ---: |
+| Qutang | 462 m | 190 m | 158 m |
+| Wu | 433 m | 354 m | 160 m |
+| Xiling | 419 m | 173 m | 158 m |
+| Tiger Leaping Gorge | 2,197 m | 1,910 m | 1,807 m |
+
+Wu's coordinate is a cell off the carved channel.
+
+At a hundred metres over the water, the 1 km grid now has room at Qutang
+(0.51 km) and Xiling (0.54 km), where it had none. The 90 m grid is still
+the one the gorge questions are measured on.
+
+The cut goes the other way too. The 90 m ground now stands up to **557 m**
+above the 1 km ground at Tiger Leaping Gorge, where it stood 374 m, and
+**628 m** in the Three Gorges, where it stood 301 m: the 1 km channel is
+cut down beside walls the 90 m grid draws. A route cut from the 1 km grid
+through a hero area would be checked against ground that much lower than
+what is drawn. So *which grid authored content is cut from* costs more
+than it did.
+
+**The hero seams hold.** Tiger Leaping Gorge's edge stands mean 71.6 m and
+worst 352.8 m from the country grid it is dropped into, against 71.3 / 333.2
+before. The Three Gorges' stands 83.0 m and 330.1 m, against 80.1 / 330.1.
+Both are well inside 900 m of skirt.
+
+**The Jinsha probe would pass at 1 km now, and by nothing.** Its two channel
+cells both read 1,826 m on stage 3's grid, where the source falls 41 m. It
+stays on the 90 m grid. Stage 3 does not carve that grid, so the 1,935 m
+sill 119 m over Shigu is still there (F58).
+
+**The route's steepest kilometre** starts 16 m lower, 2,255.5 m to 2,899.2 m.
+It now out-climbs the aeroplane 196 times over, against 191.
+
+### What a world now says about itself
+
+- The conditioned grid is `sea-to-sky-1km-conditioned.tif`, beside stage 2's.
+- `hydro` and `rivers` go on measuring stage 2's grid as the before.
+- Stage 3 writes a record of the rule, the band and the two vector files'
+  SHA-256 as `make vectors` recorded them, with one digest over all of it.
+  The manifest carries it.
+- A section (now v4) and a patch (v2) sign that digest beside the rasters'
+  (D24), so the same rasters carved with another rule are a different world
+  in every signature.
+- The tiler refuses a conditioned grid made from a different stage 2 grid.
+
+### What it cost
+
+**276 Python tests, up from 252:**
+
+- 21 on the carve, on valleys, dams, lakes and rules small enough to work by
+  hand;
+- 3 on per-sample coverage;
+- 0 net from the probe tests, where one was rewritten because stage 3 now
+  exists.
+
+**782 TypeScript tests.** Seven were re-pinned because they measure the 1 km
+ground and stage 3 changed it:
+
+- the three gorge readings;
+- Tiger Leaping Gorge from the cockpit;
+- the reservoir route's drawn gap;
+- the map profile's relief;
+- the terrain clamp's steepest kilometre.
+
+Each comment keeps the stage 2 value beside the new one.
+
+`make carve` takes about two minutes, most of it the report pricing all
+three rules. The hydrology report's numbers are the same to the byte after
+`hydro.flood` learned outlets and a preference; only its text moved, to say
+that it is the before. Nothing was downloaded.
+
+## F62 — Every source the plan names can travel with an open build under its own terms; CHELSA is public domain rather than CC BY, ERA5 has to be downloaded by a person with an account, and one GHSL layer carries JAXA's terms inside it
+
+*22 September 2026, on `real-elevation-pipeline`.*
+
+The licence review had three sources unread after F60: CHELSA, ERA5 and
+GHSL. A fourth, ESA WorldCover, was never on the review's list at all. The
+pipeline README called it CC BY 4.0, which is how it described HydroSHEDS
+until F59 read it. All four were read today from their publishers' own
+pages, against the test D61 sets: can data derived from the source travel in
+public under the source's own terms? "In public" here means three things:
+beside MIT code in a public repository, in a free web build, and inside a
+paid desktop build on Steam. Nothing was downloaded, no account was made and
+nothing was accepted. The texts read are kept outside the repository.
+
+| Layer | Source | The README said | The publisher says | To get it |
+| --- | --- | --- | --- | --- |
+| Climate | CHELSA V2.1 climatologies, tas and pr | CC BY 4.0 | **CC0 1.0**, a public-domain dedication | open, no account |
+| Wind | ERA5 monthly means, 10 m u/v | "Copernicus licence" | **CC BY 4.0**, since 2 July 2025 | a Climate Data Store account, and the licence accepted in the holder's name |
+| Population, built-up | GHSL R2023A: GHS-POP, GHS-BUILT-S, GHS-BUILT-H | CC BY 4.0 | CC BY 4.0 | open, no account |
+| Land cover | ESA WorldCover 2021 v200 | CC BY 4.0 | CC BY 4.0 | open: AWS without signing, and Zenodo |
+
+### What each one asks
+
+**CHELSA asks for nothing.** Both the CHELSA site and its EnviDat record
+(DOI 10.16904/envidat.228) give the climatologies as CC0 1.0. That waives
+every right for any purpose, commercial use included, and asks nothing in
+return. The publisher does ask for a citation, Karger et al. (2017) in
+*Scientific Data*, but as a request rather than a condition. CC BY 4.0
+appears on the CHELSA site only against its drought indices, which may be
+where the README's line came from. D8 chose CHELSA over WorldClim to avoid
+share-alike, and the reason stands: WorldClim is CC BY-SA, and CHELSA is not
+even attribution.
+
+**ERA5 is open data behind a closed door.** On 2 July 2025 the Climate Data
+Store replaced the *Licence to use Copernicus Products* with CC BY 4.0 for
+everything it serves. ECMWF announced this on 13 June and confirmed on 2 July
+that it had been implemented. But getting the data is not open:
+
+- the store's terms of use say "Download of Content requires prior
+  registration";
+- the dataset's download form refuses a request until the licence is accepted
+  on the dataset's own page;
+- those terms bind the account holder personally. A licence accepted there
+  "only applies to its named holder", the terms change when a new version is
+  posted, and disputes go to arbitration in London.
+
+So the data can travel with an open build. The fetch cannot be a pipeline
+step or anything done on the user's behalf, because it is an account and an
+acceptance in a person's name. The store prescribes the credit as its own
+sentence: "Generated using or contains modified Copernicus Climate Change
+Service information" and the year, followed by a sentence disclaiming the
+Commission's and ECMWF's responsibility, and the dataset's citation (DOI
+10.24381/cds.f17050d7). NCAR's GDEX (d633001) mirrors the monthly means under
+CC BY 4.0; whether it needs a login was not checked.
+
+**GHSL is CC BY 4.0, and one of its layers is not only GHSL's.**
+
+- The GHSL site gives its data as CC BY 4.0, "for any purpose, including
+  commercial uses".
+- The JRC Data Catalogue gives the Commission's reuse notice instead.
+  Commission Decision C(2019) 1655 adopted CC BY 4.0 as that notice's open
+  licence, so the two statements agree.
+- Credit means citing the release's reference paper and each product's own
+  DOI; the site calls a generic citation of the website "inappropriate".
+- GHS-POP rests on CIESIN's census grid, GPW v4.11, which is also CC BY 4.0.
+- **GHS-BUILT-H is derived from JAXA's AW3D30**, among others. It holds the
+  building heights the city baker was going to read. JAXA's data policy asks
+  anyone who distributes a derivative to credit JAXA, and anyone who uses the
+  data commercially to notify JAXA in advance. Nothing in GHSL's texts says
+  whether that reaches GHSL's own users. The paid build is the case it would
+  bind.
+
+**WorldCover is CC BY 4.0** and is provided "without restriction of use".
+It asks for a credit line of its own: "© ESA WorldCover project 2021 /
+Contains modified Copernicus Sentinel data (2021) processed by ESA WorldCover
+consortium". The website's terms-of-use footer is VITO's and speaks of
+personal, non-commercial use of the site's own information. Nothing ties it
+to the data served from AWS or Zenodo.
+
+### One clause the paid build should know about
+
+CC BY 4.0 section 2(a)(5)(B) forbids applying technical protection to "the
+Licensed Material" where that restricts what a recipient may do with it. The
+game would ship textures and buffers baked from these sources, which is
+*adapted* material, and the adapted-material clause (3(a)(4)) asks only that
+the adapter's own licence not stop recipients complying. So the clause's
+wording does not reach a baked atlas. It would reach a file that was only
+converted from one format to another, which section 2(a)(4) says never
+becomes adapted material. Whether anything shipped is only a format change
+is a question for when stages 7–9 exist, and whether Steam's protection
+touches data files at all is a fact about Steam. Both are recorded here and
+decided nowhere.
+
+### What it changes
+
+- **The licence review has read every source the plan names**, and every
+  one can travel with an MIT build under its own terms (D61). Two questions
+  it leaves are the user's rather than a reader's:
+  - who downloads ERA5, since it takes an account and an acceptance in a
+    named person's hands;
+  - whether the city baker reads GHS-BUILT-H, given JAXA's notice clause.
+    The alternatives are to notify JAXA before a paid build, or to derive
+    heights some other way.
+- **The pipeline README's source table is corrected.** CHELSA is CC0, not
+  CC BY 4.0, and ERA5 is CC BY 4.0 rather than "Copernicus licence". Each row
+  now says what the publisher says, with a pointer here.
+- **D8's reason is corrected to match.**
+- **`NOTICE.md` is unchanged.** It lists what the repository's data is
+  produced from, and nothing from these four has been built yet. Each
+  source's credit joins it with the stage that first reads it.
