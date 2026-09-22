@@ -231,6 +231,22 @@ class TestTheBasins(unittest.TestCase):
         self.assertEqual(basin.cells, 1)
         self.assertAlmostEqual(basin.volume_km3, 10.0 * 1e-3, places=9)
 
+    def test_labels_name_the_same_basins_in_the_same_order(self):
+        """One search, so a question about a basin's cells cannot disagree with it."""
+        heights = np.full((9, 13), 100.0, dtype="float32")
+        heights[3:5, 2:4] = 60.0
+        heights[6, 9] = 90.0
+        drainage = hydro.flood(heights)
+        labels, found = hydro.basins(heights, drainage)
+        self.assertEqual(found, hydro.depressions(heights, drainage))
+        self.assertEqual(
+            [int((labels == n + 1).sum()) for n in range(len(found))], [b.cells for b in found]
+        )
+        labels, found = hydro.basins(heights, drainage, min_cells=2)
+        self.assertEqual(len(found), 1)
+        self.assertEqual(int(labels[6, 9]), 0)
+        self.assertEqual(int(labels[3, 2]), 1)
+
     def test_hydrosheds_looked_at_what_was_deeper_and_larger_than_ten(self):
         """Both bounds are strict, as its documentation writes them (F59)."""
 

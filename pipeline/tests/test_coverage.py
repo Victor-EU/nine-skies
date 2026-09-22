@@ -103,6 +103,28 @@ class TestTheRecord(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_PROJ, "needs rasterio for the inverse projection")
+@unittest.skipUnless(HAVE_PROJ, "numpy not installed")
+class TestTheSampleMask(unittest.TestCase):
+    """What a measurement may read, one sample at a time (F60)."""
+
+    # Two tiles by two, the south-east one never fetched. The record runs
+    # south to north; the mask, like the raster, runs north to south.
+    WINDOW = grid.TileWindow(0, 0, 2, 2)
+    TILES = coverage.DATA + coverage.UNREACHED + coverage.DATA + coverage.DATA
+
+    def test_a_sample_is_measured_only_if_every_tile_it_touches_was_fetched(self):
+        mask = coverage.sample_mask(self.WINDOW, self.TILES)
+        self.assertEqual(mask.shape, (129, 129))
+        self.assertTrue(mask[0, 0] and mask[63, 100] and mask[100, 63] and mask[64, 0])
+        # The south-east tile, and both edges it shares with fetched tiles.
+        self.assertFalse(mask[128, 128] or mask[100, 100])
+        self.assertFalse(mask[64, 100] or mask[100, 64] or mask[64, 64])
+
+    def test_a_record_for_another_window_is_refused(self):
+        with self.assertRaises(ValueError):
+            coverage.sample_mask(self.WINDOW, self.TILES[:3])
+
+
 class TestTheCellsUnderATile(unittest.TestCase):
     def test_a_tile_touches_the_cells_its_own_corners_are_in(self):
         window = grid.TileWindow(60, 20, 61, 21)

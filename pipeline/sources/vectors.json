@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "digests": {
+    "ne-lakes": {"bytes": 2349685, "licence": "public-domain", "md5": "06c430248e291f69d856f4d7f9967968", "sha256": "0803a06f9c3cb4671d89b68c48b142aad9366ba40f665245e12a913fbc61722a", "url": "https://naciscdn.org/naturalearth/10m/physical/ne_10m_lakes.zip"},
+    "ne-rivers": {"bytes": 2079507, "licence": "public-domain", "md5": "686e256cbb714e63ab7728aeda7a269d", "sha256": "ded71b01870855ccfe19b51f2ec14c9bb48fae23c0e9f3c11974d426433b5c38", "url": "https://naciscdn.org/naturalearth/10m/physical/ne_10m_rivers_lake_centerlines.zip"}
+  }
+}

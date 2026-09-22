@@ -7657,3 +7657,189 @@ fetching three technical documents (HydroRIVERS, HydroSHEDS and HydroATLAS,
 0.5, 0.5 and 3.5 MB), which were read and not kept in the repository.
 `make hydro` is the same to the byte across two runs. It differs from the
 committed report by its date and by the new row and paragraph.
+
+## F60 — Natural Earth draws the big rivers where the valleys are and decides the basins they cross, and touches none of the others; an open-source build rules HydroSHEDS out and keeps GLO-30
+
+*22 September 2026, on `real-elevation-pipeline`.*
+
+The user took F59's recommendation, fetch Natural Earth first, and decided
+the project is MIT-licensed open source. This finding acts on both. The two
+Natural Earth files were fetched through `make vectors`, its first fetch, and
+then measured against the grid. The licence review now has an answer to
+check each source against.
+
+### The fetch
+
+Both files arrived and hashed to the MD5 their publisher serves as the ETag:
+2,079,507 bytes of rivers and 2,349,685 of lakes. So the ETag is the MD5 here,
+measured on arrival rather than assumed. `pipeline/sources/vectors.json`
+records both, with `licence: public-domain` beside the digests.
+
+The files hold more than the dataset's page lists: 1,473 river lines and 1,355
+lake outlines, each with a `name_zh` among twenty-odd languages. The pipeline
+has no vector driver, so `shapefile.py` reads the two formats with the
+standard library and numpy, in 0.08 s for both files. The README had expected
+fiona here, which would have brought a native library with it.
+
+Only 78 of the river lines touch this corridor, 9 of them centrelines drawn
+through lakes. At 1:10 million that is the big rivers and little else.
+
+### Where its lines sit
+
+Against the five places sited on the water from the 30 m source,
+independently of both the map and the grid:
+
+| Place | Natural Earth | The grid's own river (F56) |
+| --- | ---: | ---: |
+| `qutang-gorge` | 0.43 km | 0.4 km |
+| `wu-gorge` | 0.22 km | 0.2 km |
+| `xiling-gorge` | 0.29 km | 0.5 km |
+| `tiger-leaping-gorge` | 0.59 km | 0.7 km |
+| `shigu` | 1.72 km | 2.1 km |
+
+Four of five are inside 1.5 km, as with the grid's own river, and neither
+reaches Shigu.
+
+Against the grid's own large channels, those with a thousand square kilometres
+or more draining through them, on fetched ground only: across 31,416 km of
+mapped line the median offset is **1.02 km** and 69 % is within 2 km. The
+mountain rivers sit on the grid's valleys:
+
+- the Dadu, median 0.70 km, 98 % within 2 km;
+- the Yalong, 0.69 km, 94 %;
+- the Mekong, 0.66 km, 97 %;
+- the Jinsha, 0.87 km, 88 %.
+
+The lowland ones do not:
+
+- the Yangtze, median 1.89 km, 50 % within 2 km;
+- the Jialing, 1.23 km, 46 %;
+- the Tuo, 2.54 km, 36 %.
+
+That is where the grid's channel is the flood's tie-break across a sealed
+basin (D56), so the lowland offset measures the grid as much as the map. It is
+also the ground a carve is for.
+
+### What it decides
+
+Of the 3,710 basins HydroSHEDS' rule would have had a person look at (F59),
+3,436 stand wholly on fetched ground. A sample on a tile any part of which
+was never fetched is a zero nobody measured (F54), so the other 274 are left
+out rather than decided.
+
+| Natural Earth | Basins | km² |
+| --- | ---: | ---: |
+| a mapped river system ends inside it | 1 | 27 |
+| a mapped river crosses its rim twice or more | 423 | 214,935 |
+| a mapped lake lies in it | 10 | 10,255 |
+| a mapped river crosses its rim once | 2 | 30 |
+| nothing mapped touches it | 3,000 | 143,342 |
+
+By area it decides most of the question: 225,217 km² of 368,589, or 61 %. By
+count it decides almost none of it: 3,000 of 3,436 basins are touched by
+nothing it draws. Of the 36 basins over 1,000 km²:
+
+- 20 are crossed by a named river. They include the sealed middle Yangtze
+  (the Yangtze, Min, Jialing, Wu, Tuo and Dadu) and the Dongting flats (the
+  Yangtze, Han, Xiang and Yuan, with Dongting Lake in them).
+- 4 hold a mapped lake and no mapped river, Namtso and Chao Lake among them.
+- 12 are silent.
+
+The file carries no direction. 20 of the 77 lines wholly inside the corridor
+run uphill from first vertex to last. And 186 of the 280 line ends near the
+corridor meet no other line exactly; a quarter of those lie within a
+kilometre of one, because Natural Earth stops some tributaries short of the
+river they join. So direction is read off the ground. Lines whose ends come
+within 2 km of each other are one system, and a system's mouth is its lowest
+free end. A mouth can be named only for a system wholly on fetched ground,
+and 6 are.
+
+Two of the 36 large basins read wrongly, one for each kind of error the
+method has:
+
+- **Yamdrok** (2,717 km²) reads as crossed. An unnamed tributary of the
+  Yarlung rises on its rim at 4,669 m. It runs along the rim, in and out
+  seven times, then down to within 0.7 km of the Yarlung at 4,357 m. A river
+  that wanders along a basin's rim crosses it as often as one passing
+  through, and Yamdrok Tso has no outlet.
+- **Chao Lake** (2,095 km²) reads as a lake with no river. It drains to the
+  Yangtze through a river Natural Earth does not draw. At this scale, a lake
+  with no mapped river is not evidence of a sink.
+
+`make rivers` writes all of it to `docs/rivers-report.md`, including the 36
+large basins one by one with the names that decided each.
+
+### What it changes
+
+**Stage 3's carve has a source** for the rivers Natural Earth draws. The
+basins those rivers cross hold 214,935 km², the sealed middle Yangtze and the
+Dongting flats among them. In the mountains the lines sit within a cell of
+the grid's own valleys. The carve itself is engineering and is next.
+
+**The lake question is not answered.** 3,000 basins covering 143,342 km² are
+silent, and a lake with no mapped river is no evidence of a sink. HydroRIVERS
+answers exactly that question, and it is ruled out. Its agreement requires:
+
+- an end-user licence at least as protective as its own;
+- protection of the data against copying;
+- two years of records of each end user's identity and address (F59).
+
+An MIT-licensed open-source project can give none of these. RiverATLAS
+carries the same network under CC BY 4.0, at 2.42 GB, but the reach
+geometry's own licence is not stated column by column. The other way out is
+HydroSHEDS' own default for the sinks it did not inspect: fill them. Which
+of the two to take is the user's.
+
+> **Decided, 22 September 2026.** Neither: fill them, but keep the lakes
+> Natural Earth draws. That is wrong where a real closed lake is too small
+> for it to draw, and at Chao Lake, which drains through a river it leaves
+> out. See D62.
+
+**The licence review has its criterion.** The code is MIT; data keeps its
+source's terms. GLO-30 as the AWS mirror serves it is under the licence for
+COP-DEM-GLO-30-F, *Full, Free & Open*. That licence grants reproduction,
+distribution, communication to the public and adaptation, free of charge,
+worldwide and without limit in time. In return it asks for:
+
+- a credit notice, with its own wording for modified data (6a, 6b);
+- a sentence disclaiming the programme's liability, in any licence or notice
+  that covers redistribution (6c);
+- no implied endorsement (6d);
+- the same obligations passed to anyone given the right to redistribute (6e);
+- the licensee's own protection of the programme against claims (7).
+
+None of that stands in the way of an open-source world. `LICENSE` (MIT) and
+`NOTICE.md` (the data's own terms, with the notices written out) are added,
+and the copyright line names the repository's git author. Natural Earth
+needs no notice. CHELSA, ERA5 and GHSL are still unread.
+
+**The game credits nobody for its ground.** Article 6(a) asks for the notice
+wherever the data is communicated to the public, and an open release does
+that. The screen it belongs on is the pause menu the GDD names, which is not
+built, so it is recorded rather than done.
+
+> **Decided, 22 September 2026.** Not in the game: the credit goes on the
+> game's website, live by the first public build, and `NOTICE.md` keeps it
+> with the source.
+
+### What it cost
+
+**252 Python tests, up from 224.** The new tests are:
+
+- 10 on the shapefile reader, against files written byte by byte from the
+  specification;
+- 15 on the measurement, on a 40 × 60 km slope with four pits whose verdicts
+  are known;
+- 2 on the coverage mask's shared-edge rule;
+- 1 on `hydro.basins`, which now returns labels beside the list.
+
+The hydrology report is unchanged to the byte by the last of those. One of
+the fifteen failed first, and it was the fixture: the test lake was drawn
+with its rings turned the wrong way round, and a shapefile writes outer rings
+clockwise.
+
+`make rivers` takes about 13 s and is the same to the byte across two runs.
+It is not in `make world`, which must never depend on a download somebody
+has to accept (D60). This finding made two downloads, 4.4 MB, both public
+domain and both approved. The GLO-30 licence was read from the Copernicus
+data space, a 0.5 MB document not kept in the repository.

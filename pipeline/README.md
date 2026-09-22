@@ -26,7 +26,8 @@ python3 -m venv pipeline/.venv
 pipeline/.venv/bin/python -m pip install -r pipeline/requirements.txt
 ```
 
-Later stages will add `shapely`, `fiona` and `brotli`.
+Stage 3 reads its shapefiles with `shapefile.py` rather than `fiona` (F60); later
+stages will add `brotli`.
 
 ## Acquiring the source data
 
@@ -57,7 +58,7 @@ Other layers, all small by comparison:
 | Land cover | ESA WorldCover 2021 v200 | CC BY 4.0 |
 | Climate | CHELSA V2.1 monthly tas / pr | CC BY 4.0 |
 | Wind | ERA5 monthly means, 10 m u/v | Copernicus licence |
-| Rivers | one of three, undecided (F59) | HydroSHEDS v1 agreement, CC BY 4.0 with ODbL columns, or public domain |
+| Rivers | Natural Earth 10 m rivers and lakes, fetched (F60); basins it misses are filled (D62) | Public domain |
 | Coasts, lakes, cities | Natural Earth 10 m | Public domain |
 | Population | GHSL GHS-POP R2023A | CC BY 4.0 |
 
@@ -72,11 +73,17 @@ the rivers row is a decision rather than a source:
 ```bash
 make vectors                                         # the price list, and one request per source to check it
 make vectors FETCH=ne-lakes ACCEPT=public-domain     # a download names the licence it is made under
+make rivers                                          # what the fetched rivers decide of the closed basins
 ```
 
 Each candidate is pinned to the digest its own publisher serves, so the bytes
 that arrive are the bytes that were priced, and a fetch whose `ACCEPT` is not
-that source's licence is refused before any request is made (D60).
+that source's licence is refused before any request is made (D60). Natural
+Earth is fetched; HydroRIVERS is ruled out, because its agreement cannot be
+met by an MIT-licensed open-source project (F60). The files are shapefiles,
+read by `shapefile.py` with the standard library and numpy rather than a
+vector driver. What the data itself asks of anyone who redistributes it is in
+`NOTICE.md`.
 
 ## Stages
 
@@ -110,9 +117,12 @@ that source's licence is refused before any request is made (D60).
    because the polyline is a chord across country rather than a centreline.
    The grid's own drainage tree yields a centreline with no download
    (`make hydro`, F56). What is still missing is outside knowledge: which
-   closed basin is a lake and which an artefact. No river network has been
-   fetched, because choosing one is choosing a licence (`make vectors`,
-   F59). Until then the probe report prints what its pass covers.
+   closed basin is a lake and which an artefact. Choosing a river network
+   was choosing a licence (`make vectors`, F59); Natural Earth is fetched,
+   and `make rivers` measures what it decides (F60): the basins its lines
+   cross, 214,935 km² of them, and not the 3,000 it touches nowhere, which
+   are filled while its lakes are kept (D62). Until stage 3 carves, the
+   probe report prints what its pass covers.
 4. **Tile** — 64 km tiles, 65 x 65 Int16 metres, shared edge row and column.
 5. **Horizon field** — one 8 km country raster, 841 x 553 Int16 (930 kB),
    reduced from the 1 km grid with the silhouette bias (mean + 0.6 x

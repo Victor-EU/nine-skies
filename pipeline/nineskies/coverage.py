@@ -159,3 +159,40 @@ def measure(window: grid.TileWindow, fetched: set, mirror: set) -> Coverage:
         tiles="".join(states),
         counts={s: states.count(s) for s in STATES if states.count(s)},
     )
+
+
+def sample_mask(window: grid.TileWindow, tiles: str, state: str = DATA):
+    """Which samples of a window's grid stand only on tiles in `state`.
+
+    A sample on a tile edge is shared by up to four tiles, and it is in the
+    mask only if every one of them is -- one unfetched neighbour makes the
+    sample a guess, which is `classify`'s rule for a tile one level down.
+    Rows run north to south, as the raster's do, while the record counts
+    tiles south to north; `index_of` is the only thing here that knows it.
+    """
+    import numpy as np
+
+    across, down = window.tiles_x, window.tiles_y
+    if len(tiles) != across * down:
+        raise ValueError(f"{len(tiles)} states for a window of {across * down} tiles")
+    good = np.zeros((down, across), dtype=bool)  # tile rows, north first
+    for ty in range(window.ty0, window.ty1):
+        for tx in range(window.tx0, window.tx1):
+            good[window.ty1 - 1 - ty, tx - window.tx0] = (
+                tiles[index_of(window, tx, ty)] == state
+            )
+
+    def touched(samples: int, tiles_along: int):
+        at = np.arange(samples)
+        high = np.minimum(at // grid.TILE_CELLS, tiles_along - 1)
+        low = np.where((at % grid.TILE_CELLS == 0) & (at > 0), at // grid.TILE_CELLS - 1, high)
+        return np.minimum(low, tiles_along - 1), high
+
+    row_low, row_high = touched(window.height_samples, down)
+    col_low, col_high = touched(window.width_samples, across)
+    return (
+        good[np.ix_(row_low, col_low)]
+        & good[np.ix_(row_low, col_high)]
+        & good[np.ix_(row_high, col_low)]
+        & good[np.ix_(row_high, col_high)]
+    )

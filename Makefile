@@ -9,6 +9,7 @@
 #   make hydro                      # where the water cannot go, and the river it has
 #   make sources                    # record the source raster digests
 #   make vectors                    # stage 3's river network, priced; nothing fetched
+#   make rivers                     # what the fetched rivers decide of the grid's closed basins
 #   make sections                   # re-cut the committed route sections
 #   make patches                    # re-cut the committed ground under each challenge
 #   make cut-key                    # generate this machine's cutting key
@@ -32,7 +33,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid tiles hero siting probes hydro sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid tiles hero siting probes hydro rivers sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -66,6 +67,14 @@ sources: $(PY)
 ## download is the acceptance, so it is never a side effect of `make world`.
 vectors: $(PY)
 	$(PIPELINE) -m nineskies.vectors $(if $(FETCH),--fetch $(FETCH) --accept "$(ACCEPT)",--check)
+
+## Stage 3's first mapped rivers against the grid (F60): what Natural Earth
+## decides of the closed basins `make hydro` finds, and how far its lines sit
+## from where the grid runs its water. Needs a built world and the two
+## Natural Earth files from `make vectors`; not part of `make world`, which
+## must never depend on a download someone has to accept (D60).
+rivers: $(PY)
+	$(PIPELINE) -m nineskies.rivers --corridor $(CORRIDOR) --report docs/rivers-report.md
 
 ## Stage 2 — mosaic and reproject to Albers 1 km.
 grid: $(PY)

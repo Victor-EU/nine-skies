@@ -1,0 +1,36 @@
+# Notices
+
+The code in this repository is MIT-licensed (see `LICENSE`). The data the
+pipeline builds worlds from is not, and neither is the data derived from it:
+each keeps its source's own terms, whichever file it ends up in. What each
+source asks, and why the rivers are not HydroSHEDS, is in
+`docs/prototype-findings.md` (F59, F60).
+
+## Elevation — Copernicus DEM GLO-30
+
+Elevation data committed here — the route sections in `content/sections/`,
+the challenge ground in `content/patches/`, images rendered from either — and
+every world `make world` builds, are produced using Copernicus WorldDEM-30:
+
+> produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus
+> Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European
+> Union and ESA; all rights reserved
+
+> The organisations in charge of the Copernicus programme by law or by
+> delegation do not incur any liability for any use of the Copernicus
+> WorldDEM-30.
+
+The source is the public GLO-30 release on the AWS Open Data mirror, under the
+licence for COP-DEM-GLO-30-F, *Full, Free & Open*:
+<https://dataspace.copernicus.eu/sites/default/files/media/files/2025-06/copernicus_contributing_mission_data_access_v2_cop_dem_licenses.pdf>.
+It grants reproduction, distribution, communication to the public and
+adaptation, free of charge and worldwide. Anyone who redistributes the data,
+modified or not, carries the two notices above, must not suggest that the
+Copernicus programme endorses what they do, and passes the same obligations on
+to anyone they allow to redistribute it (article 6).
+
+## Rivers and lakes — Natural Earth
+
+The 1:10m rivers, lake centrelines and lakes read by `make rivers`, version
+5.0.0, fetched by `make vectors`. Natural Earth is in the public domain and asks
+for no credit; made with Natural Earth.

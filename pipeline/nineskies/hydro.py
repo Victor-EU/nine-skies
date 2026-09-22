@@ -447,10 +447,20 @@ def inspected(basins: Sequence[Depression], resolution_m: float) -> list[Depress
 def depressions(
     heights: np.ndarray, drainage: Drainage, min_cells: int = 1
 ) -> list[Depression]:
-    """Connected closed basins, largest first.
+    """Connected closed basins, largest first."""
+    return basins(heights, drainage, min_cells)[1]
+
+
+def basins(
+    heights: np.ndarray, drainage: Drainage, min_cells: int = 1
+) -> tuple[np.ndarray, list[Depression]]:
+    """Connected closed basins, largest first, and which cell is in which.
 
     Connected on the same eight neighbours the flow is, because a basin that
-    a diagonal splits in two is one basin to the water.
+    a diagonal splits in two is one basin to the water. The label of a cell
+    is its basin's place in the list plus one, and 0 outside every basin
+    counted -- so a question about one basin's cells is `labels == n + 1`
+    rather than a second search that could disagree with this one (F60).
     """
     from collections import deque
 
@@ -458,13 +468,14 @@ def depressions(
     flat = np.asarray(heights, dtype="float32")
     depth = drowning(flat, drainage)
     pit = depth > DROWNED_M
-    seen = np.zeros(pit.shape, dtype=bool)
+    found_at = np.zeros(pit.shape, dtype="int32")
     found: list[Depression] = []
     for start in np.argwhere(pit):
         row0, col0 = int(start[0]), int(start[1])
-        if seen[row0, col0]:
+        if found_at[row0, col0]:
             continue
-        seen[row0, col0] = True
+        mark = len(found) + 1
+        found_at[row0, col0] = mark
         queue = deque([(row0, col0)])
         cells: list[tuple[int, int]] = []
         while queue:
@@ -476,12 +487,10 @@ def depressions(
                     0 <= row2 < height
                     and 0 <= col2 < width
                     and pit[row2, col2]
-                    and not seen[row2, col2]
+                    and not found_at[row2, col2]
                 ):
-                    seen[row2, col2] = True
+                    found_at[row2, col2] = mark
                     queue.append((row2, col2))
-        if len(cells) < min_cells:
-            continue
         rows = np.array([c[0] for c in cells])
         cols = np.array([c[1] for c in cells])
         values = depth[rows, cols]
@@ -496,8 +505,13 @@ def depressions(
                 col=int(cols[deepest]),
             )
         )
-    found.sort(key=lambda d: (-d.cells, -d.deepest_m))
-    return found
+    # Stable, so ties keep discovery order exactly as the list always has.
+    order = sorted(range(len(found)), key=lambda i: (-found[i].cells, -found[i].deepest_m))
+    kept = [i for i in order if found[i].cells >= min_cells]
+    relabel = np.zeros(len(found) + 1, dtype="int32")
+    for place, i in enumerate(kept):
+        relabel[i + 1] = place + 1
+    return relabel[found_at], [found[i] for i in kept]
 
 
 # --------------------------------------------------------- the built world
