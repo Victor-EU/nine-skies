@@ -164,6 +164,91 @@ def flood(heights: np.ndarray) -> Drainage:
     )
 
 
+@dataclass(frozen=True)
+class Sill:
+    """The highest ground on the lowest path between two cells.
+
+    Every path between the two crosses ground at least this high -- the
+    river's, a chord's, any other -- so it is a bound rather than a search
+    result, and it holds on the bilinear surface between cell centres as
+    well as on the cells: a point of that surface is a weighted mean of four
+    mutually adjacent cells, so ground below a level anywhere on it means a
+    cell below that level beside it. A sill above the upstream cell is
+    therefore a proof that nothing between the two runs downhill.
+    """
+
+    level_m: float
+    #: The cell that sets it: the first cell at `level_m` on the lowest path,
+    #: walking from the source. A flat-topped sill has others beside it.
+    at: int
+    #: One lowest path, source first. Not unique, and not the shortest.
+    path: tuple[int, ...]
+
+
+def sill(heights: np.ndarray, source: int, target: int) -> Sill | None:
+    """Flood from one cell until the water reaches the other, and say how high.
+
+    The same priority-flood as `flood`, from one cell rather than the map
+    edge, with the same eight neighbours and the same arrival tie-break, and
+    it stops as soon as it arrives: a cell's level is final the first time
+    the flood reaches it, because nothing popped later is lower.
+
+    **A cell with no value is not ground.** NaN compares false against every
+    level, so left alone it would be crossed at whatever the water already
+    stood at -- a hole the flood walks straight through. It is a wall
+    instead, which is what lets a raster clipped to an area's footprint be
+    flooded without its corners becoming a way round. `None` when nothing
+    joins the two.
+    """
+    return sills(heights, [(source, target)])[0]
+
+
+def sills(heights: np.ndarray, pairs: Iterable[tuple[int, int]]) -> list[Sill | None]:
+    """`sill` for several pairs of cells on one grid, read once."""
+    height, width = heights.shape
+    flat = np.asarray(heights, dtype="float64").ravel().tolist()
+    return [_sill(flat, height, width, int(a), int(b)) for a, b in pairs]
+
+
+def _sill(flat: list[float], height: int, width: int, source: int, target: int) -> Sill | None:
+    if flat[source] != flat[source] or flat[target] != flat[target]:
+        return None
+    if source == target:
+        return Sill(level_m=flat[source], at=source, path=(source,))
+
+    seen = bytearray(len(flat))
+    parent = [-1] * len(flat)
+    seen[source] = 1
+    heap: list[tuple[float, int, int]] = [(flat[source], 0, source)]
+    arrival = 1
+    push, pop = heapq.heappush, heapq.heappop
+    while heap:
+        level, _, index = pop(heap)
+        row, col = divmod(index, width)
+        for drow, dcol in NB8:
+            row2, col2 = row + drow, col + dcol
+            if 0 <= row2 < height and 0 <= col2 < width:
+                other = row2 * width + col2
+                if seen[other]:
+                    continue
+                seen[other] = 1
+                own = flat[other]
+                if own != own:
+                    continue
+                parent[other] = index
+                if other == target:
+                    path = [other]
+                    while path[-1] != source:
+                        path.append(parent[path[-1]])
+                    path.reverse()
+                    top = max(flat[i] for i in path)
+                    at = next(i for i in path if flat[i] == top)
+                    return Sill(level_m=top, at=at, path=tuple(path))
+                push(heap, (own if own > level else level, arrival, other))
+                arrival += 1
+    return None
+
+
 def drowning(heights: np.ndarray, drainage: Drainage) -> np.ndarray:
     """How deep the water stands over each cell of a closed depression.
 

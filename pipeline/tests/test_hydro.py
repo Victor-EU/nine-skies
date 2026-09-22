@@ -233,6 +233,138 @@ class TestTheBasins(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_NUMPY, "numpy not installed")
+class TestTheSill(unittest.TestCase):
+    """The lowest crossing between two cells, which is what a probe's pass
+    between two waypoints is bounded by (F58)."""
+
+    @staticmethod
+    def valley(dam: float | None = None) -> "np.ndarray":
+        # A valley running west to east, its floor falling from 50 to 43,
+        # between walls at 200. A dam across it at column 4 when asked.
+        heights = np.full((5, 9), 200.0)
+        heights[2, 1:8] = np.arange(50.0, 43.0, -1.0)
+        if dam is not None:
+            heights[1:4, 4] = dam
+        return heights
+
+    @staticmethod
+    def index(heights, row, col):
+        return row * heights.shape[1] + col
+
+    def test_a_valley_that_falls_has_its_sill_at_the_start(self):
+        heights = self.valley()
+        found = hydro.sill(heights, self.index(heights, 2, 1), self.index(heights, 2, 7))
+        self.assertEqual(found.level_m, 50.0)
+        self.assertEqual(found.at, self.index(heights, 2, 1))
+
+    def test_a_dam_is_the_sill_and_is_where_the_sill_is(self):
+        heights = self.valley(dam=80.0)
+        found = hydro.sill(heights, self.index(heights, 2, 1), self.index(heights, 2, 7))
+        self.assertEqual(found.level_m, 80.0)
+        # On the dam, in whichever of its three cells the path went over: a
+        # flat-topped sill has more than one place a path can cross it.
+        self.assertEqual(found.at % heights.shape[1], 4)
+
+    def test_the_sill_is_the_lowest_way_over_and_not_the_lowest_cell_of_the_dam(self):
+        # A notch at 60 in a dam at 80, one row off the valley floor. The way
+        # over is through the notch, so the sill is 60 and it is there -- the
+        # dam's own lowest cell on the floor row is not what a path crosses.
+        heights = self.valley(dam=80.0)
+        heights[1, 4] = 60.0
+        found = hydro.sill(heights, self.index(heights, 2, 1), self.index(heights, 2, 7))
+        self.assertEqual(found.level_m, 60.0)
+        self.assertEqual(divmod(found.at, heights.shape[1]), (1, 4))
+
+    def test_the_level_is_the_same_whichever_end_it_is_flooded_from(self):
+        heights = self.valley(dam=80.0)
+        a, b = self.index(heights, 2, 1), self.index(heights, 2, 7)
+        self.assertEqual(hydro.sill(heights, a, b).level_m, hydro.sill(heights, b, a).level_m)
+
+    def test_the_path_is_a_path_and_its_highest_cell_is_the_sill(self):
+        heights = self.valley(dam=80.0)
+        heights[1, 4] = 60.0
+        a, b = self.index(heights, 2, 1), self.index(heights, 2, 7)
+        found = hydro.sill(heights, a, b)
+        self.assertEqual((found.path[0], found.path[-1]), (a, b))
+        width = heights.shape[1]
+        for first, second in zip(found.path, found.path[1:]):
+            (r1, c1), (r2, c2) = divmod(first, width), divmod(second, width)
+            self.assertLessEqual(max(abs(r1 - r2), abs(c1 - c2)), 1)
+        self.assertEqual(max(heights.ravel()[list(found.path)]), found.level_m)
+        self.assertIn(found.at, found.path)
+
+    def test_it_is_the_minimax_and_not_just_a_path(self):
+        # Against the definition, on grids too irregular to reason about by
+        # hand: the least level at which the two cells are joined by cells no
+        # higher than it, found by trying every level there is.
+        from collections import deque
+
+        def joined_at(heights, a, b, level):
+            h, w = heights.shape
+            flat = heights.ravel()
+            if flat[a] > level or flat[b] > level:
+                return False
+            seen, queue = {a}, deque([a])
+            while queue:
+                cell = queue.popleft()
+                if cell == b:
+                    return True
+                r, c = divmod(cell, w)
+                for dr, dc in hydro.NB8:
+                    r2, c2 = r + dr, c + dc
+                    other = r2 * w + c2
+                    if 0 <= r2 < h and 0 <= c2 < w and other not in seen and flat[other] <= level:
+                        seen.add(other)
+                        queue.append(other)
+            return False
+
+        rng = np.random.default_rng(58)
+        for _ in range(40):
+            heights = rng.integers(0, 30, size=(7, 8)).astype("float64")
+            a, b = (int(i) for i in rng.choice(heights.size, 2, replace=False))
+            expected = min(v for v in np.unique(heights) if joined_at(heights, a, b, v))
+            self.assertEqual(hydro.sill(heights, a, b).level_m, expected)
+
+    def test_eight_neighbours_here_too(self):
+        # A wall at 90 with one diagonal gap. At four neighbours the only way
+        # over is the wall; at eight the gap is a way through.
+        heights = np.full((4, 4), 90.0)
+        heights[0, 0] = heights[1, 1] = heights[2, 2] = heights[3, 3] = 10.0
+        found = hydro.sill(heights, 0, 15)
+        self.assertEqual(found.level_m, 10.0)
+
+    def test_a_cell_with_no_value_is_a_wall_and_not_a_hole(self):
+        # A dam of NaN with a gap at 70. Left to compare, NaN would be crossed
+        # at the level the water already stood at, and the sill would read 50.
+        heights = self.valley()
+        heights[:, 4] = np.nan
+        heights[0, 4] = 70.0
+        a, b = self.index(heights, 2, 1), self.index(heights, 2, 7)
+        self.assertEqual(hydro.sill(heights, a, b).level_m, 200.0)
+        heights[1, 4] = 70.0
+        self.assertEqual(hydro.sill(heights, a, b).level_m, 70.0)
+
+    def test_nothing_joins_two_cells_across_a_wall_of_nothing(self):
+        heights = self.valley()
+        heights[:, 4] = np.nan
+        self.assertIsNone(hydro.sill(heights, self.index(heights, 2, 1), self.index(heights, 2, 7)))
+        self.assertIsNone(hydro.sill(heights, self.index(heights, 2, 4), self.index(heights, 2, 7)))
+
+    def test_a_cell_to_itself_is_its_own_sill(self):
+        heights = self.valley()
+        found = hydro.sill(heights, 20, 20)
+        self.assertEqual((found.level_m, found.at, found.path), (heights.ravel()[20], 20, (20,)))
+
+    def test_several_reaches_at_once_are_each_reach_alone(self):
+        heights = self.valley(dam=80.0)
+        pairs = [(19, 25), (25, 19), (21, 22)]
+        self.assertEqual(
+            [s.level_m for s in hydro.sills(heights, pairs)],
+            [hydro.sill(heights, a, b).level_m for a, b in pairs],
+        )
+
+
+@unittest.skipUnless(HAVE_NUMPY, "numpy not installed")
 class TestTheSeaTrim(unittest.TestCase):
     def test_only_the_leading_run_is_dropped(self):
         # A stem that starts offshore, climbs, and dips below the sea line

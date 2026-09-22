@@ -4384,6 +4384,13 @@ is a local change of scale rather than a change of speed.
 > conclusion survives and gets worse — `approach` does not fit inside this
 > gorge either, and the ordering of the two candidate gorges reverses. See
 > F55.
+>
+> **And again, 22 September 2026.** *"It can only be flown straight
+> through"* is wrong too, in the other direction: both gorges can be flown
+> through, and not straight — the aeroplane follows their bends at `low`,
+> under their walls, in flights found by a search over the stick through
+> `step` itself. What this section shows cannot be done is turning round. See
+> F57.
 
 F38 had already written the general form of this down — *a corridor narrower
 than the aeroplane's own turn is not a corridor* — and a gorge is exactly
@@ -6626,6 +6633,15 @@ Wu Gorge the aeroplane can reverse at `low` eight hundred metres over the
 water with a wall still standing 164 m above it, and from cruise at +825 m
 with 139 m of wall. That is a gorge run flown inside a gorge.
 
+> **Corrected, 22 September 2026.** Tiger Leaping Gorge is not "the one the
+> GDD's challenge is named for": the GDD names no gorge for the challenge, and
+> the one it names for threading at all is Qutang, in Expedition 5. And
+> "cannot be threaded" holds for the reading measured here — turning round
+> inside the gorge. Flown *through* at `low`, it is threaded at 1,985 m, 722 m
+> under its near rim, and the whole Three Gorges reach is threaded fifty
+> metres over the water. The narrowest place on that reach is 0.36 km, at the
+> head of Qutang rather than at any of the three points above. See F57.
+
 ### The two directions of the grid disagreement are dangerous for different checks
 
 F53 measured the 90 m and 1 km grids against each other and named the
@@ -6946,3 +6962,479 @@ and no artefact was re-cut. The one number this finding leaves behind for
 somebody else is the run cost: 13 s over the corridor's 4.7 M cells, which at
 the full country's 29.7 M is the first thing here that will want a second look
 in phase 2.
+
+## F57 — Both gorges can be flown through at `low`, which is how the GDD writes *thread*, and neither can be turned round in; the Three Gorges pass is bound by a bend rather than by the narrowest place, and the 90 m grid dams the Jinsha between the seventh probe's two points
+
+*22 September 2026, on `real-elevation-pipeline`.*
+
+F55 measured the room to turn round at the five places the two hero areas
+were cut to hold, and ended on what it could not reach: *a course is flown
+between them, and the narrowest place on the water is what binds; finding it
+wants the channel centreline stage 3 would bring.* F56 then showed that a
+centreline does not have to be downloaded. So this walks one, through each
+area, on the 90 m ground the game draws.
+
+The narrowest place is found, and it is where F55 expected it to matter
+least: at the head of Qutang Gorge, half the width of any of the three sited
+points. But walking the course asked a question the turning room cannot
+answer. The GDD's word is *thread*, and a thread is passed through, not turned
+round in. Measured that way, **both gorges can be threaded at `low` today**:
+the whole Three Gorges reach, 164 km of it, is flown 50 m over the water in
+three and a half minutes, and Tiger Leaping Gorge is flown under walls standing
+seven hundred metres above the aeroplane. Neither can be turned round in below
+the rim, anywhere on either course, except at the one reach of Wu Gorge F55
+already found.
+
+### What the GDD asks, in its own words
+
+Three sentences in the design say what a gorge is for, and none of them is
+about turning round:
+
+- the challenge list: *thread a gorge at low speed*;
+- Expedition 5, *Yichang → the gorges → Chongqing, low and slow*, whose
+  challenge column reads **"Threading Qutang Gorge at low altitude"**;
+- and the speed modes: low speed *"is for a few minutes in a gorge, not for
+  crossing anything."*
+
+F43 read *thread* as the aircraft manoeuvred inside a channel against a
+full-bank reversal, and F55 measured that reading and kept it: *it has to
+contain the aeroplane because threading means turning round in the gorge*
+(D54). That is one reading. The plainer one — the one a needle is threaded by
+— is a pass, and a pass needs no reversal. It needs the aeroplane to follow the
+channel's bends with the turn it has. Neither reading is this finding's to
+choose; both are now priced.
+
+**F55 also said Tiger Leaping Gorge is "the one the GDD's challenge is named
+for". It is not.** The GDD names no gorge for the challenge, and the one gorge
+it names for threading at all is Qutang. Tiger Leaping Gorge is a landmark and
+a hero area, and it is the gorge this repository reached for from F43 on.
+Corrected there and in the test that repeated it.
+
+### The course, from the places and not from a table
+
+`tools/reach.ts`. A hero area is cut to hold named places on a river, so the
+river is the lowest ground that joins them, and no table of reaches is kept
+anywhere — publishing an area over places on a river measures that river,
+which is D46's rule applied once more.
+
+A flood outward from the places, in order of height, reaches the area's edge
+first at one crossing; the first edge cell it reaches five kilometres clear of
+all of that crossing is the other end, and the lower end is downstream.
+Between them the course keeps to the middle of the lowest ground that joins
+them — F56's priority-flood, seeded at the outlet alone, because seeded at
+every edge cell it would split a flat reservoir between its two ends and drain
+half of it upstream.
+
+| Area | Course | Upstream end | Downstream end | Places along it |
+| --- | ---: | --- | --- | --- |
+| `three-gorges` | 166.1 km | 158 m, west edge | 155 m, east edge | Qutang km 23.4 (69 m off), Wu 60.3 (183 m), Xiling 153.3 (55 m) |
+| `tiger-leaping-gorge` | 103.2 km | 1,834 m, west edge | 1,607 m, north edge | Shigu km 31.3 (163 m off), Tiger Leaping Gorge 81.0 (117 m) |
+
+Nobody told it which way either river runs, and both come out right: the
+Yangtze west to east through all three gorges in order, the Jinsha down to
+Shigu and then north-east through the gorge.
+
+### The narrowest place, which is what F55 wanted
+
+The turning room at every station of the course, level at each height over
+the water — the same air the pass below is flown in. The narrowest leaves out a
+kilometre at each end, where the area's edge rather than the ground can be what
+stops a disc.
+
+| `three-gorges` | Narrowest | Where | Reversal at `low` | Fits over | Under a wall |
+| --- | ---: | --- | ---: | ---: | ---: |
+| +100 m | **0.36 km** | km 21.2, 2.1 km above `qutang-gorge` | 4.02 km | 0 km | 0 km |
+| +200 m | 0.51 km | km 20.9 | 4.06 km | 0 km | 0 km |
+| +400 m | 0.97 km | km 81.6, 21.4 km below `wu-gorge` | 4.14 km | 20.5 km | 0 km |
+| +800 m | 2.42 km | km 23.2, at `qutang-gorge` | 4.31 km | 151.6 km | 1.6 km |
+
+At a hundred metres over the water the three sited gorges read 0.74 to
+0.90 km (F55). The course's narrowest is **0.36 km — half the narrowest of
+them** — at the head of Qutang, the gate the gorge is named for, two kilometres
+above the point `siting.py` chose because it had the most wall within a
+kilometre rather than the least water. And the turn round does not fit
+**anywhere on 166 km** at a hundred or two hundred metres. At four hundred it
+fits over twenty kilometres, none of them with a wall standing over the
+aeroplane; at eight hundred it fits almost everywhere and has a wall above it
+for 1.6 km, which is F55's Wu Gorge result seen from the whole reach.
+
+Tiger Leaping Gorge, level over its own sill (below): the turn fits under a
+wall over 0.4 km of 103 at +100 m and 0.9 km at +200 and +400, near its lower
+end where the valley opens.
+
+### Flying it through
+
+The other reading is answered by flying it. A search over the stick, through
+`flight.ts`'s own `step`, at `low`, level: each roll input is held for eight
+frames of 1/30 s, bank lags the stick exactly as it does in the game, and
+contact is any frame whose ground — the bilinear 90 m surface the game draws —
+plus the 25 m bounce reaches the aeroplane. It runs from a kilometre inside one
+end of the course to a line across it a kilometre inside the other. *Room
+either side* is how far to each side of the track the ground must also stay
+clear: the flights the search finds graze the ground, because it asks for
+clearance rather than comfort, so this is the number that says how exactly a
+pass would have to be flown.
+
+| Area | Level | Flown with | Takes | Under a wall |
+| --- | ---: | ---: | ---: | ---: |
+| `three-gorges` | 208 m (+50 over the water) | 25 m either side | 3 min 31 s | 99 % |
+| `three-gorges` | 258 m (+100) | 50 m either side | 3 min 31 s | 99 % |
+| `three-gorges` | 358 m (+200) | 100 m either side | 3 min 32 s | 90 % |
+| `tiger-leaping-gorge` | 1,985 m (+50 over the sill) | 0 m | 1 min 58 s | 91 % |
+| `tiger-leaping-gorge` | 2,035 m (+100) | 25 m either side | 1 min 58 s | 82 % |
+| `tiger-leaping-gorge` | 2,135 m (+200) | 100 m either side | 1 min 58 s | 59 % |
+
+A hundred metres either side is the widest the report asks for. *Under a wall*
+is the share of the course with ground within a kilometre standing above the
+aeroplane. So the whole Three Gorges reach is threaded fifty metres over the
+reservoir with 650–910 m of wall above at the three sited gorges, and in three
+and a half minutes, which is the GDD's *"a few minutes in a gorge"* measured
+rather than guessed. Tiger Leaping Gorge is threaded at 1,985 m — 178 m over
+its water and **722 m under its near rim**. It is the gorge F55 said cannot be
+threaded at any speed this game can offer. It cannot be *turned round in*; it
+can be flown through.
+
+### What binds a pass is a bend before it is the narrowest place
+
+Widen the room either side one step past the widest flown, and the searches
+over the Three Gorges get furthest to the same place at both +50 and +100 m:
+**km 69.3–69.5**, nine kilometres below the Wu Gorge anchor. It is not narrow — 0.76 km at +100 m, twice the narrowest. It
+is a bend: the course's radius there is 1.3 to 1.5 km over a 1.4 km chord,
+against the aeroplane's own steady full-bank turn at `low` of **1.88 km**, so
+a pass has to cut across the channel's width to make it. The narrowest place,
+at the head of Qutang, sits on a straight of 2.9 km radius, and a pass goes
+through it at +100 m with fifty metres either side.
+
+The narrows do bind, later. Asked for a hundred metres either side at +50 m,
+the search does not get past **km 20.8** — the head of Qutang — and the same
+at 150 m and +100. So F55's *the narrowest place binds* is true of a turn
+round, and of a pass flown with a lot of room to spare; for the pass the
+numbers above describe, the bend binds first. The two readings of *thread* are
+bound by different places on the same river. In Tiger Leaping Gorge they
+coincide: the pass stops being found at km 76.8–77.6, which is the narrowest
+place, and that is the next section.
+
+### The 90 m grid has dammed the Jinsha
+
+The lowest path between the two ends of the Tiger Leaping Gorge course rises
+to **1,935 m at km 77.0**, four kilometres above the gorge's anchor. That is
+**116 m over the water at Shigu** and 128 m over it at the gorge: every path
+between those two places on this grid crosses it, so no water released at
+Shigu reaches the gorge without rising 116 m first. The 90 m cell is wider
+than the gorge floor, and a bias of 0.40 averages the walls into it.
+
+The seventh golden probe reads the river at exactly those two places, and it
+falls between them — −80 m on the channel, −11 m as a point sample — so it
+passes, as F50 recorded. It cannot see the sill for the reason F48 gave about
+the Yangtze probe: a probe that reads a river at two points is silent about
+what lies between them. The probe report already walks its chord more finely
+and prints *would fail* at 25 km spacing, and blames the chord for crossing
+country. The chord is not the whole of it. Along the lowest ground there is,
+the grid still climbs.
+
+The dam is the grid's and not the gorge's, and that was measured rather than
+assumed. On the source's own 30 m, the lowest ground within 300 m of the sill
+is **1,780 m — 155 m under it** — and from km 70 to km 85 the 30 m floor beside
+the course falls from 1,800 m to 1,705 m, never within 130 m of 1,935. The
+Jinsha does not climb there. The 90 m cell straddling it does.
+
+This is also what sets the lowest pass through the gorge. The sill plus the
+bounce is **1,960 m**, and no level flight below it joins the two ends of the
+course — that one is a proof rather than a search result, because every path
+crosses the sill. The 1,985 m pass is 25 m above it. So the lowest pass
+through Tiger Leaping Gorge on the ground the game draws is set by a dam the
+source does not have, and whatever stage 3 or a finer grid does to that
+cell moves it.
+
+> **Corrected, 22 September 2026.** The source has the dam too. Both numbers
+> above stand — the lowest 30 m ground within 300 m of the sill is 1,780 m,
+> and the floor beside the course falls from 1,800 m to 1,705 m — and neither
+> says what it was read as saying. The lowest ground near a sill is the water
+> below it as readily as a way through it, which is the window-minimum fault
+> F50 found in the probe itself. Asked of a flood instead, every path on the
+> source's own cells between the two cells the probe compares crosses
+> **1,868 m** at the same place, 52 m over the water at Shigu; the 1,780 m is
+> 250 m downstream of it. The 90 m grid raises that dam by 67 m rather than
+> making it, and a finer grid lowers it without removing it — 1,909 m at
+> 60 m, 1,881 m at 30 m. Only a carve removes it. See F58.
+
+### What a search can say, and what it cannot
+
+A flight the search finds is replayed from its first frame, with nothing from
+the search but the stick inputs, before it is printed. So *flown* means the
+model flies it, and a test replays one independently to hold that true.
+
+*Not found* is not a proof, and this was measured rather than assumed. The
+search keeps one state per 90 m cell, 3° of heading and 7.5° of bank, and in a
+channel a few cells wide the state it drops can be the one that fits. At +50 m
+over the Three Gorges one search order found **no** flight with nothing either
+side and **did** find one with 25 m either side — which is a strictly harder
+question. So the search is run in two orders, middle of the channel first and
+shortest line first, because each finds flights the other prunes; the ladder
+is climbed down from the widest margin, because a flight with room either side
+is a flight with less; and *not found* in the report means neither order found
+one. How far they got is printed beside it, because the place has held where
+the verdict has not: one step past the widest margin flown it is km 69.3–69.5
+in the Three Gorges and 76.8–77.6 in Tiger Leaping Gorge, at every level, and
+further out it is the head of Qutang.
+
+What the search does promise is that it cannot thread what the flight model
+cannot fly. A synthetic channel that turns a right angle in 450 m, against a
+turn kilometres across, is searched to exhaustion and not flown; the same
+corner with room to swing through it is.
+
+### What went wrong first
+
+Four things, all in how the question was asked rather than in the answer.
+
+**A pilot measures itself.** The first attempt flew the course with a
+pursuit autopilot chasing a point ahead on the water. It touched a wall at
+every height up to +800 m and every lookahead from 0.5 to 3 km, where the
+search then found the same reach flown at +50 — the bank lag makes a pursuit
+pilot oscillate, and its verdict was about the pilot. That is why the pass is
+a search over the stick and not a controller.
+
+**The edge is not ground.** A run started on the area's edge failed its first
+frame, because the room-either-side check reached outside the area, where there
+is no 90 m ground. Started instead a kilometre in along the steepest line
+towards the outlet, it failed against the bank that line hugs. It starts on the
+course now, which keeps to the middle.
+
+**A finish is a line, not a place.** With the finish as the cells within a
+kilometre of the outlet, a flight covered 165 of 166 km at +50 m and stalled
+0.1 km short, against a target pressed into the area's corner. The finish is a
+line across the course now.
+
+**One crossing is not two ends.** The first rule took the ends to be any two
+edge cells five kilometres apart, and a synthetic flat meeting the edge along
+eight kilometres produced a course running up the edge from one to the other.
+The real areas never do this — their crossings are three and eight cells wide
+— but a lake at an edge would. The second end is now clear of *all* of the
+first crossing, and each end is the middle of its crossing's lowest cells.
+
+### What it changes, and what it does not
+
+It changes the decision, not the build. The build plan's *the gorge is
+narrower than the aeroplane's own turn* item had both candidate gorges priced
+for a turn round. It now has both priced for a pass as well, and the pass is
+available in both: the GDD's own Qutang Gorge, and the gorge F55 wrote off.
+Which reading the challenge means is the user's, and so is everything F43 and
+F55 listed under it.
+
+Nothing is authorable because of it. A patch is cut from the 1 km grid, and
+`cutPatch` refuses to write one over a hero area (D52, F53), so no gorge
+challenge — pass or turn — reaches content until *which grid is authored
+content cut from* is answered.
+
+The seventh golden probe's report does not yet print the sill between its
+waypoints beside its verdict, which is what F48 made the corridor probe do. The
+gorge report prints it on every `make world`; the probe report should too.
+Recorded, not done here.
+
+### What it cost
+
+**782 TypeScript tests in 64 files, up from 761 in 63** — 21 new, 15 of them
+on synthetic ground that needs no world, because a river that falls, a dam
+across one, a flat reservoir and a right angle too tight to turn are the cases
+whose answers are knowable without measuring anything; 729 pass with
+`dist-world/` moved aside. Two of the twenty-one failed first, and both were the
+fourth mistake above. A fifth fault was found by reading the code rather than
+running it: a crossing that turns the corner the edge is numbered from was split
+in two and its middle put on the wrong edge. No real area has one; the test
+that holds it fails on the old code, which was checked rather than assumed.
+
+`tools/reach.ts` is the course, the walk and the search; `tools/gorgeReport.ts`
+writes all of it into `docs/gorge-report.md` beside F55's table, which is now
+titled for both readings. `make gorges` takes **3 min 13 s**, almost all of it
+searches, and is the slowest report `make world` runs. Nothing in the pipeline
+moved and no artefact was re-cut. The report is the same to the byte across
+three runs: the search has no randomness and its budget is counted in states,
+not seconds. `tools/gorge.ts` gained one helper, `heroAreas`, so the two tools
+read each area onto the same lattice the same way.
+
+## F58 — The seventh probe passes at the two cells it reads and on no path between them, on the grid and on the source it was cut from; five of the Yangtze probe's six reaches are dammed at 1 km; and the hero report had been counting its reads in kilometre cells
+
+*22 September 2026, on `real-elevation-pipeline`.*
+
+F57 left one engineering item: F48 made the corridor probe print what its
+pass covers, and the seventh probe's report should print the sill between
+its two waypoints beside its *pass*. It does now, and so does the sixth
+probe's. Doing it corrected F57 about whose dam the Jinsha's is, and it
+found a coverage figure in the same report that was 88 times too small.
+
+### What a pass between two waypoints covers
+
+A monotonic check compares one cell near each waypoint — the lowest in a
+2 km window — and passes if each is no higher than the last. Between two such
+cells the ground has a **sill**: the highest ground on the lowest path that
+joins them. Every path between the two crosses it: the river's, a chord's,
+any other. So a sill above the upstream cell proves that **nothing between
+the two cells runs downhill**, however finely it is walked. That is the
+hydrology result F48's chord walk said it could not be, because a chord
+crosses country the river goes around. A sill does not depend on the chord.
+It also bounds paths across the bilinear surface between cell centres, not
+only paths along the cells. A point of that surface is a weighted mean of
+four cells that all touch each other, so ground below a level anywhere on
+the surface means a cell below it beside that point.
+
+The sill is F56's priority-flood started from one cell instead of from the
+map edge. It stops at the other cell, since a cell's level is final the
+first time the flood reaches it. Neighbours and tie-breaks are the same as
+F56's. The one difference is that NaN is a wall. Left to compare, NaN would be
+crossed at whatever level the water already stood at.
+
+### The seventh probe
+
+| Reach | Read on | Compared | Sill | Over the upstream cell | Where the sill is |
+| --- | --- | ---: | ---: | ---: | --- |
+| `shigu` → `tiger-leaping-gorge` | the hero grid, 90 m | 1,816 m → 1,736 m | 1,935 m | 119 m | 27.1825 N, 100.1055 E, 3.7 km from the gorge |
+| | the source, 1″ | 1,816 m → 1,724 m | 1,868 m | 52 m | 27.1825 N, 100.1050 E, 3.7 km from the gorge |
+
+The probe passes, and it should: it compares two cells and they fall, by
+80 m. What a reader can learn from that pass about the river between them is
+nothing. On the ground the game draws, every path from the cell it reads at
+Shigu to the cell it reads in the gorge climbs 119 m first. That is F57's
+sill measured from the probe's own cells. F57's figure was 116 m because it
+was measured against the course station nearest Shigu, at 1,819 m, not
+against the lowest cell in Shigu's window, at 1,816 m.
+
+### The source has it too, and F57 said it did not
+
+F57 called the dam *the grid's and not the gorge's* on two numbers. The
+lowest 30 m ground within 300 m of the sill is 1,780 m, and the 30 m floor
+beside the course falls from 1,800 m to 1,705 m. Both numbers are right.
+Neither shows a way through, because the lowest ground near a sill is the
+water below it as readily as a path past it. That is the fault F50 found in
+the probe: a window's minimum finds the water from anywhere, including from
+the wrong side of a dam. The 1,780 m cell is 248 m from the source's own sill,
+on the far side of it, and reaching it from Shigu means crossing 1,868 m.
+The same flood, run on the source's own cells, gives the table's second row.
+Its sill is 47 m from the grid's.
+
+At 30 m the head of the gorge is a V-shaped trough. Its floor along the
+lowest path rises from 1,817 m to 1,868 m and falls to 1,780 m. For about
+4 km — 136 cells — that path stands more than 10 m over the water at Shigu.
+The Jinsha does not climb there. Copernicus GLO-30 is a radar surface model,
+not a hydrologically conditioned one. Nothing in it promises that a river
+runs downhill, and here it does not see the water. That is F52's finding about Wulingyuan's pillars from the other side: the
+source does not resolve the feature.
+
+So the grid did not make the dam; it raised it. Re-cut at other cells and
+biases from the same source, the sill falls toward the source's own 1,868 m
+and never goes away:
+
+| Cell | Bias 0 | Bias 0.4, as shipped |
+| --- | ---: | ---: |
+| 90 m | 1,908 m (+92) | 1,935 m (+119) |
+| 60 m | 1,888 m (+72) | 1,909 m (+93) |
+| 30 m | 1,875 m (+59) | 1,881 m (+65) |
+
+The 90 m, 0.4 row reproduces the built grid to the decimetre, which is the
+check that the re-cut is the build's. Two things follow. First, the lowest
+pass through Tiger Leaping Gorge is set by a dam the source has as well,
+and the 60 m grid F50 priced would lower that dam by 25 m without removing
+it. Second, *the Jinsha between Shigu and the gorge runs downhill* is not
+true of any grid made from this source, including the source itself. It
+needs stage 3's carve. That is F48's conclusion about the Yangtze probe,
+reached one river over and two grids finer.
+
+### Five of the Yangtze probe's six reaches are dammed at 1 km
+
+The sixth probe uses the same report code, so it prints the same table.
+Nothing here is new about the world; F52 and F56 already measured the
+filled reservoir and the closed basins. What is new is that the probe now
+says it, next to its own pass:
+
+| Reach | Compared | Sill | Over the upstream cell | Where the sill is |
+| --- | ---: | ---: | ---: | --- |
+| headwaters → upper Jinsha | 5,722 m → 3,507 m | 5,722 m | 0 m | the upstream cell itself |
+| upper Jinsha → `tiger-leaping-gorge` | 3,507 m → 2,011 m | 3,524 m | 18 m | 6.0 km from the upper Jinsha waypoint |
+| `tiger-leaping-gorge` → `chongqing` | 2,011 m → 211 m | 2,186 m | 175 m | 6.0 km from the gorge |
+| `chongqing` → `yichang` | 211 m → 49 m | 498 m | 287 m | 10.1 km from `wu-gorge` |
+| `yichang` → `wuhan` | 49 m → 18 m | 76 m | 27 m | 16.9 km below Yichang |
+| `wuhan` → `shanghai` | 18 m → 7 m | 31 m | 13 m | 29.96 N, 115.39 E |
+
+The Three Gorges reach is the largest. On the 1 km grid, every path from
+Chongqing's cell to Yichang's climbs to 498 m, 10 km from Wu Gorge. That is
+F52's reservoir, which reads 80–140 m too high at 1 km, seen as a dam. The
+first reach's sill is its own upstream cell, the headwater cell the probe
+starts on, at 5,722 m. That rules a dam out and says nothing more: a path that never stands
+above its start can still fall and rise on the way.
+
+### The hero report counted its reads in kilometre cells
+
+*What this verdict covers* told the hero report's reader that the check
+reads **50 cells of 394,497**. It reads 4,418. The line converted the
+channel search's 2 km into cells using `grid.RESOLUTION_M`, the frozen 1,000
+that F50 removed from the sampler, and on the 1 km grid it happens to be
+right (5 × 5 × 7 = 175). It survived F50 because it was a count kept beside
+the search, not one taken from it. It is F46's `inlandKm` and F50's search
+radius once more: a unit that is right by coincidence on the one artefact
+anyone had looked at. The count now comes from the windows the search
+reads. There is one definition of the window, and every window read in the
+sampler uses it.
+
+### What was tried and is not in the report
+
+**Whether any path runs downhill at all** would seem to be the exact
+question, and a breadth-first search over steps that never rise answers it
+cheaply. It answers *no* before it starts. Each cell the check compares is
+the lowest in its window. From five of the seven upstream cells, across
+both grids, there is not even a first step, and from the other two the
+search stops within 37 cells. The probe's own cells are pits by
+construction.
+
+**The least total climb of any path** is the other exact measure: the path
+that climbs least, and how much it climbs in all. Measured once: on the hero
+grid, 403 m in 69 rises, the largest 44 m; on the source, 259 m in 92 rises,
+the largest 15.5 m. So the sill is not the only obstruction, and a carve has
+to enforce descent along the whole reach rather than breach one dam. It is
+not printed. At 1 km it costs about 40 s, against 5.7 s for the whole
+gate. It also
+counts every rise the size of the surface model's noise, so on the source it
+measures roughness as much as dams. The sill is the proof, and the least
+climb is only a size.
+
+### What it changes
+
+No verdict. Both probes pass, both are printed beside their sills, and the
+sentence under each result says how many of its reaches are dammed. Should a
+river probe check the sill rather than two cells? That is a question about
+what a golden probe is for, so it is the user's. Priced: today the seventh
+would fail on every grid in the build and on its own source, and the sixth
+on five of six reaches. Nothing short of stage 3 passes either one. Until
+then the sill is printed and not checked, which is what F48 did with the
+chord walk.
+
+The rule, as a decision (D59): whether water, or ground below a level,
+joins two places is asked of a flood, never of the lowest ground near them.
+The source a grid is checked against is read on its own cells, never
+warped, since a warp is the resampling under test.
+
+### What it cost
+
+**206 Python tests, up from 175.** The 31 new tests are:
+
+- 11 on the sill, including a check against the definition itself — the
+  lowest level at which the two cells are joined, found by trying every
+  level — on forty irregular grids.
+- 19 on real synthetic rasters for the sampler's windows, the source read
+  and the report, written to a temporary directory rather than faked,
+  because the arithmetic between a file and a report is what is under test.
+- One more on the fake raster in `test_probes.py`, where a probe half on an
+  artefact now prints *not on this artefact* for its reach instead of
+  measuring from nowhere.
+
+The fake had to learn the new surface to keep the half-on test running.
+
+`hydro.py` gained `sill` and `sills`. `sample.py` gained one window
+definition, the cell `channel_m` reads, a count of the cells read, and
+`SourceSampler`: the area's own VRT, read over the area's projected
+footprint, with NaN outside it. `sample.py` also moved its point transforms
+to `@`. `affine` 3 warns on `*`, and the new tests are the first to drive
+the sampler with a real raster, so they were the first to show the
+warning. `make probes` takes **5.7 s, up from 0.6 s**. Both reports are the
+same to the byte across three runs. `tools/gorgeReport.ts` no longer blames
+the 90 m cell alone for the sill; it points at the probe report, which
+answers that question. A hero area whose source is not on disk says so above
+its sills instead of printing a table that looks complete.

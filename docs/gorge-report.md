@@ -1,4 +1,4 @@
-# Room to turn round, gorge by gorge
+# Room to turn round, and room to fly through
 
 A full-bank reversal needs a level disc of its own diameter with no ground in
 it. This is the diameter of the largest such disc the aeroplane's own position
@@ -84,11 +84,93 @@ Nothing here is a gate. Which of the flight model, the speed modes and the
 challenge moves is the build plan's open question, and these are the numbers it
 was missing rather than an answer to it.
 
-What this does **not** say is what a whole reach does. These are the sited
-points above, and a course is flown between them; the narrowest place on the
-water is what binds, and finding it wants the channel centreline stage 3 would
-bring (D45, F48). A chord between two of these is not that centreline.
+## The whole reach
+
+Everything above is five points, and a course is flown between them. This walks
+the river through each area instead. There is no table of reaches: an area is
+cut to hold named places on a river, so the course is the lowest ground that
+joins them, run out to the area's edge at both ends and kept to its middle. A
+flood from the places reaches the edge first at one crossing; the first edge
+cell it reaches 5 km clear of all of that crossing is the other. The lower
+end is downstream.
+
+| Area | Course | Upstream end | Downstream end | Sill | Places along it |
+| --- | ---: | --- | --- | --- | --- |
+| `tiger-leaping-gorge` | 103.2 km | 1,834 m, west edge | 1,607 m, north edge | 1,935 m at km 77.0 | `shigu` km 31.3 (163 m off) · `tiger-leaping-gorge` km 81.0 (117 m off) |
+| `three-gorges` | 166.1 km | 158 m, west edge | 155 m, east edge | 158 m at km 0.0 | `qutang-gorge` km 23.4 (69 m off) · `wu-gorge` km 60.3 (183 m off) · `xiling-gorge` km 153.3 (55 m off) |
+
+The **sill** is the highest ground the lowest path between the two ends has to
+cross. Every path crosses it, so no level flight below it plus the bounce joins
+the ends at all, which makes it the one floor here that is a proof rather than a
+search result.
+
+`tiger-leaping-gorge`: **the sill is not the river.** The lowest path between
+the two ends rises to 1,935 m at km 77.0, which is 116 m over the water at
+`shigu` and 128 m over the water at `tiger-leaping-gorge`. Nothing on this grid
+can drain through that, and a probe that reads the river at two points on either
+side of it cannot see it (F48). Whose sill it is, the grid's or the source's, is
+not something the lowest ground near it can say; the probe report floods the
+source the area was cut from between the same probe's cells and prints the
+answer beside its pass (F58).
+
+`three-gorges`: the sill is the upstream end itself — nothing on the lowest path
+between the ends stands above the water where the river enters — so water can
+drain the whole way on this grid, and a level over the sill is a height over the
+water.
+
+### The narrowest place, and where a turn round fits
+
+The turning room of the table above at every station of the course, level at
+each height over the sill — the same air the run below is searched in. The
+narrowest leaves out 1 km at each end, where the area's edge rather than the
+ground can be what stops a disc. *Under a wall* is the part of *fits over* with
+ground within a kilometre standing above the aeroplane: a turn made in the gorge
+rather than over it.
+
+| Area | Level | Narrowest | Where | Reversal at `low` | Fits over | Under a wall |
+| --- | ---: | ---: | --- | ---: | ---: | ---: |
+| `tiger-leaping-gorge` | 2,035 m (+100) | 0.25 km | km 76.8, 4.1 km above `tiger-leaping-gorge` | 4.83 km | 5.9 km | 0.4 km |
+| `tiger-leaping-gorge` | 2,135 m (+200) | 0.54 km | km 77.6, 3.3 km above `tiger-leaping-gorge` | 4.88 km | 7.5 km | 0.9 km |
+| `tiger-leaping-gorge` | 2,335 m (+400) | 1.02 km | km 77.2, 3.8 km above `tiger-leaping-gorge` | 4.98 km | 8.9 km | 0.9 km |
+| `tiger-leaping-gorge` | 2,735 m (+800) | 2.10 km | km 91.3, 10.3 km below `tiger-leaping-gorge` | 5.20 km | 80.0 km | 0.0 km |
+| `three-gorges` | 258 m (+100) | 0.36 km | km 21.2, 2.1 km above `qutang-gorge` | 4.02 km | 0.0 km | 0.0 km |
+| `three-gorges` | 358 m (+200) | 0.51 km | km 20.9, 2.5 km above `qutang-gorge` | 4.06 km | 0.0 km | 0.0 km |
+| `three-gorges` | 558 m (+400) | 0.97 km | km 81.6, 21.4 km below `wu-gorge` | 4.14 km | 20.5 km | 0.0 km |
+| `three-gorges` | 958 m (+800) | 2.42 km | km 23.2, at `qutang-gorge` | 4.31 km | 151.6 km | 1.6 km |
+
+### Flying it through
+
+The other reading of *thread*. A pass needs no reversal: it needs the aeroplane
+to follow the channel's bends with the turn it has. So it is answered by flying
+it — a search over the stick through `flight.ts`'s own `step`, at `low`, level,
+each roll input held for 8 frames of 1/30 s, from 1 km inside one end of
+the course to 1 km inside the other, with contact wherever the ground the game
+draws plus the bounce reaches the aeroplane. *Room either side* is how far to
+each side of the track the ground must also stay clear. The flights the search
+finds graze the ground, because it asks for clearance and not comfort, so this
+is the number that says how exactly a run would have to be flown — and a flight
+with room either side is a flight with less, so the widest of 0, 25, 50, 100 m flown
+at a level settles every margin under it.
+
+A flight it finds is replayed from its first frame before it is printed, so
+*flown* means the model flies it. *Not found* is not a proof: the search keeps
+one state per 90 m cell, 3° of heading and 7.5° of bank, and in a channel a few
+cells wide the state it dropped can be the one that fits. It is run in two
+orders — middle of the channel first, and shortest line first — because each
+finds flights the other prunes, and *not found* means neither did. How far
+they got is printed beside it, because the place has held where the verdict
+has not.
+
+| Area | Level | Flown with | Takes | Not found with | Stalled at | Under a wall |
+| --- | ---: | ---: | ---: | ---: | --- | ---: |
+| `tiger-leaping-gorge` | 1,985 m (+50) | **0 m** either side | 1 min 58 s | 25 m | km 76.8, 4.1 km above `tiger-leaping-gorge` (both orders, 400,000 states each) | 91 % |
+| `tiger-leaping-gorge` | 2,035 m (+100) | **25 m** either side | 1 min 58 s | 50 m | km 77.6, 3.3 km above `tiger-leaping-gorge` (both orders, 400,000 states each) | 82 % |
+| `tiger-leaping-gorge` | 2,135 m (+200) | **100 m** either side | 1 min 58 s | — | — | 59 % |
+| `three-gorges` | 208 m (+50) | **25 m** either side | 3 min 31 s | 50 m | km 69.5, 9.2 km below `wu-gorge` (both orders, 400,000 states each) | 99 % |
+| `three-gorges` | 258 m (+100) | **50 m** either side | 3 min 31 s | 100 m | km 69.3, 9.0 km below `wu-gorge` (both orders, 400,000 states each) | 99 % |
+| `three-gorges` | 358 m (+200) | **100 m** either side | 3 min 32 s | — | — | 90 % |
 
 Nor is a gorge challenge authorable today whatever these numbers say: a patch is
 cut from the 1 km grid, `cutPatch` refuses to write one over a hero area, and
-the left-hand column of the table above is why that refusal is right (D52, F53).
+the 1 km column of the turning-room table above is why that refusal is right
+(D52, F53).

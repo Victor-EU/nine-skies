@@ -11,13 +11,13 @@ from __future__ import annotations
 import argparse
 import math
 import sys
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from . import places, probes
+from . import hydro, places, probes
 from .acquire import data_root
-from .grid import RESOLUTION_M
-from .sample import GridSampler
+from .sample import GridSampler, SourceSampler
 
 #: How far a river waypoint may be from the cell that holds its channel.
 CHANNEL_RADIUS_KM = 2.0
@@ -83,10 +83,124 @@ def on_this_artefact(sampler: GridSampler, probe) -> tuple[bool, int, int]:
     return missing == 0, missing, len(points)
 
 
+@dataclass(frozen=True)
+class Reach:
+    """Two consecutive cells a monotonic check compares, and the sill between.
+
+    `None` throughout when the check cannot read one of the two here: a
+    probe half on an artefact still runs, and still fails, and its table
+    should say where rather than crash on the half it cannot see.
+    """
+
+    first: int
+    on: str
+    upstream_m: float | None = None
+    downstream_m: float | None = None
+    sill_m: float | None = None
+    #: (lat, lon) of the cell that sets the sill, and whether it is the
+    #: upstream cell itself.
+    where: tuple[float, float] | None = None
+    at_upstream: bool = False
+
+    @property
+    def over_m(self) -> float | None:
+        """How far the sill stands over the upstream cell; never below zero."""
+        if self.sill_m is None or self.upstream_m is None:
+            return None
+        return self.sill_m - self.upstream_m
+
+
+def reaches(sampler, probe, source: SourceSampler | None = None) -> list[Reach]:
+    """The sill between each two consecutive cells a monotonic check compares.
+
+    **What a pass covers, from the ground rather than from the chord.** The
+    check reads one cell near each waypoint and asks that each is no higher
+    than the last. Between two of those cells every path -- the river's, the
+    chord's, any other -- crosses the sill, so a sill above the upstream cell
+    means no path between them runs downhill on this grid, however finely it
+    is walked (F58). The chord walk cannot say that, because the chord
+    crosses country the river goes around, and a denser chord fails on
+    ground that is not river.
+
+    With `source`, the same question is asked of the source cells a hero area
+    was cut from, between the lowest of them inside the same two windows the
+    grid's check reads. A sill in both is the source's; what differs between
+    the two is what the grid added.
+    """
+    rasters: list[tuple[str, object, list[int | None]]] = [(
+        f"this grid, {sampler.resolution_m:,.0f} m",
+        sampler,
+        [sampler.channel_cell(lat, lon, CHANNEL_RADIUS_KM) for lat, lon in probe.waypoints],
+    )]
+    if source is not None:
+        cells: list[int | None] = []
+        for lat, lon in probe.waypoints:
+            box = sampler.window_m(lat, lon, CHANNEL_RADIUS_KM)
+            cells.append(None if box is None else source.lowest_within(*box))
+        rasters.append((source.LABEL, source, cells))
+
+    out: list[Reach] = []
+    for label, raster, cells in rasters:
+        pairs = list(zip(cells, cells[1:]))
+        readable = [(a, b) for a, b in pairs if a is not None and b is not None]
+        found = iter(hydro.sills(raster.array, readable))
+        flat = raster.array.ravel()
+        for first, (a, b) in enumerate(pairs):
+            if a is None or b is None:
+                out.append(Reach(first, label))
+                continue
+            crossing = next(found)
+            if crossing is None:
+                out.append(Reach(first, label, float(flat[a]), float(flat[b])))
+                continue
+            out.append(Reach(
+                first, label, float(flat[a]), float(flat[b]), crossing.level_m,
+                raster.cell_latlon(crossing.at), crossing.at == a,
+            ))
+    return out
+
+
+def dammed(found: list[Reach], on: str) -> list[Reach]:
+    """The reaches on one raster whose sill stands above their upstream cell.
+
+    From half a metre, which is where the table's whole metres stop printing
+    zero: a reach reported as dammed by 0 m would contradict itself on the
+    page. It is a threshold on what is called a dam, not on what is printed.
+    """
+    return [r for r in found if r.on == on and (r.over_m or 0.0) >= 0.5]
+
+
+def _km(a: tuple[float, float], b: tuple[float, float]) -> float:
+    """Great-circle kilometres, which is plenty for saying where a sill is."""
+    lat1, lon1, lat2, lon2 = map(math.radians, (*a, *b))
+    h = (math.sin((lat2 - lat1) / 2) ** 2
+         + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2)
+    return 2 * 6371.0088 * math.asin(math.sqrt(h))
+
+
+def _nearest(point: tuple[float, float], probe, first: int) -> str:
+    """Where a sill is, against the nearest thing a reader can find.
+
+    The reach's own two waypoints and every place in `places.py`, so a sill
+    in a sited gorge is named by the gorge rather than by its distance from
+    a city a hundred kilometres off. A waypoint that is a place is named by
+    its id; one that is not, by its number.
+    """
+    named: list[tuple[str, tuple[float, float]]] = []
+    for k in (first, first + 1):
+        waypoint = tuple(probe.waypoints[k])
+        ids = [p.id for p in places.PLACES if (p.lat, p.lon) == waypoint]
+        named.append((f"`{ids[0]}`" if ids else f"waypoint {k + 1}", waypoint))
+    named += [(f"`{p.id}`", (p.lat, p.lon)) for p in places.PLACES]
+    name, where = min(named, key=lambda item: _km(point, item[1]))
+    return f"{_km(point, where):.1f} km from {name}"
+
+
 def run(
     sampler: GridSampler,
     phase: probes.Phase = "corridor",
     grid: probes.Grid = "country",
+    source: SourceSampler | None = None,
 ) -> tuple[list[str], list[str]]:
     """Returns (failures, report lines)."""
     failures: list[str] = []
@@ -158,6 +272,40 @@ def run(
             f"{'FAIL' if problem else 'pass'} |"
         )
         lines.append("")
+        found = reaches(sampler, probe, source)
+        grid_label = found[0].on if found else ""
+        dams = dammed(found, grid_label)
+        readable = [r for r in found if r.on == grid_label and r.sill_m is not None]
+        verdict = "passes" if not problem else "fails"
+        if dams:
+            worst = max(r.over_m for r in dams)
+            if len(readable) == 1:
+                which = "its one reach is"
+            elif len(dams) == len(readable):
+                which = f"all {len(readable)} of its reaches are"
+            else:
+                which = f"{len(dams)} of its {len(readable)} reaches are"
+            crossing = (
+                f"every path from that reach's upstream cell to its downstream "
+                f"one crosses a sill {worst:,.0f} m above the upstream cell"
+                if len(dams) == 1
+                else f"in each, every path from the upstream cell to the "
+                f"downstream one crosses a sill above the upstream cell, by as "
+                f"much as {worst:,.0f} m"
+            )
+            lines.append(
+                f"**It {verdict} at the cells it reads, and {which} dammed on "
+                f"this grid:** {crossing}, so none of them runs downhill. "
+                f"*What this verdict covers*, below, says where (F58)."
+            )
+        elif readable:
+            lines.append(
+                f"**It {verdict} at the cells it reads**, and no reach between "
+                f"them crosses a sill above its upstream cell on this grid — "
+                f"which rules out a dam, and does not by itself make any path "
+                f"run downhill (F58)."
+            )
+        lines.append("")
         lines.append(
             f"The channel minimum is what is checked, over a square window "
             f"{CHANNEL_RADIUS_KM:.0f} km to a side's half-width — so "
@@ -186,7 +334,7 @@ def run(
                 f"| {lat:.4f} N, {lon:.4f} E | {r:,.0f} m | {c:,.0f} m | {drop} |"
             )
         lines.append("")
-        lines.extend(monotonic_sensitivity(sampler, probe))
+        lines.extend(monotonic_sensitivity(sampler, probe, found))
 
     place_failures, place_lines = named_places(sampler)
     failures.extend(place_failures)
@@ -237,19 +385,21 @@ def run(
     return failures, lines
 
 
-def monotonic_sensitivity(sampler: GridSampler, probe) -> list[str]:
-    """What the pass above is worth, as two sweeps and a coverage figure.
+def monotonic_sensitivity(sampler: GridSampler, probe, found: list[Reach]) -> list[str]:
+    """What the pass above is worth: a coverage figure, the sills, two sweeps.
 
     A verdict with no sensitivity beside it reads as a fact about the world.
-    These two tables say which parts of it are facts about the probe, and
-    they are printed on a pass as readily as on a failure -- a probe that
-    only explains itself when it fails has already been believed (F48).
+    These tables say which parts of it are facts about the probe, and they
+    are printed on a pass as readily as on a failure -- a probe that only
+    explains itself when it fails has already been believed (F48).
     """
     lines: list[str] = ["#### What this verdict covers", ""]
 
+    # Counted from the windows the search reads, not from a cell size beside
+    # it: this line used to take the 1 km grid's constant, and on the 90 m
+    # grid it said 50 cells where the search read 4,418 (F58).
     cells = sampler.array.size
-    reach = 2 * int(CHANNEL_RADIUS_KM * 1000 / RESOLUTION_M) + 1
-    read = len(probe.waypoints) * reach * reach
+    read = sampler.cells_read(probe.waypoints, CHANNEL_RADIUS_KM)
     lines.append(
         f"The check above reads **{read:,} cells of {cells:,}** — "
         f"{read / cells * 100:.4f} % of the built grid — at {len(probe.waypoints)} "
@@ -258,15 +408,20 @@ def monotonic_sensitivity(sampler: GridSampler, probe) -> list[str]:
     )
     lines.append("")
 
+    lines.extend(sill_table(probe, found))
+
     lines.append(
         f"**Walked more finely, along the same chord.** The {len(probe.waypoints)} "
         f"waypoints are a hand-placed line across country, not a centreline, "
         f"so the straight reach between two of them crosses ground the river "
         f"goes around. Read this as the spacing at which the chord stops "
         f"being a river, and not as a hydrology result: it is why the probe "
-        f"cannot simply be densified, and why stage 3 is the fix. A "
-        f"two-waypoint probe fails it sooner than a seven-waypoint one for "
-        f"the same reason a short chord is no straighter than a long one."
+        f"cannot simply be densified. The sills above are the hydrology "
+        f"result — they do not depend on the chord — and a reach dammed "
+        f"there fails at every spacing along every path, which is why stage "
+        f"3 is the fix. A two-waypoint probe fails the walk sooner than a "
+        f"seven-waypoint one for the same reason a short chord is no "
+        f"straighter than a long one."
     )
     lines.append("")
     lines.append("| Spacing | Samples | Uphill steps | Total uphill | Verdict |")
@@ -303,6 +458,63 @@ def monotonic_sensitivity(sampler: GridSampler, probe) -> list[str]:
         problem = probe.check(profile)
         label = "point sample" if radius <= 0 else f"{radius:,.0f} km"
         lines.append(f"| {label} | {'FAIL' if problem else 'pass'} |")
+    lines.append("")
+    return lines
+
+
+def sill_table(probe, found: list[Reach]) -> list[str]:
+    """The sills between the cells a monotonic check compares, as a table."""
+    if not found:
+        return []
+    labels = list(dict.fromkeys(r.on for r in found))
+    lines = [
+        "**Along the lowest ground there is, rather than along the chord.** "
+        "The check compares one cell near each waypoint, the lowest in its "
+        "window. Between two of them the ground has a *sill*: the highest "
+        "ground on the lowest path that joins them, found by flooding from "
+        "one cell until the water reaches the other, eight neighbours to a "
+        "cell. Every path between the two crosses it, so a sill above the "
+        "upstream cell means that nothing between the two cells this check "
+        "compares runs downhill, however finely it is walked. A sill level "
+        "with its upstream cell proves nothing the other way: the lowest path "
+        "never stands above where it started, and it can still fall and rise "
+        "on the way.",
+        "",
+    ]
+    if len(labels) > 1:
+        lines += [
+            "The source rows ask the same question of the 1″ cells this area "
+            "was cut from, over the same footprint, between the lowest source "
+            "cells inside the same two windows. A sill in both is the "
+            "source's; the difference between the two is what the grid added "
+            "to it (F58).",
+            "",
+        ]
+    lines += [
+        "| Reach | Read on | Compared | Sill | Over the upstream cell | Where the sill is |",
+        "| --- | --- | ---: | ---: | ---: | --- |",
+    ]
+    for label in labels:
+        for r in (r for r in found if r.on == label):
+            reach = f"{r.first + 1} → {r.first + 2}"
+            if r.upstream_m is None or r.downstream_m is None:
+                lines.append(f"| {reach} | {label} | — | — | — | not on this artefact |")
+                continue
+            compared = f"{r.upstream_m:,.0f} m → {r.downstream_m:,.0f} m"
+            if r.sill_m is None or r.where is None:
+                lines.append(f"| {reach} | {label} | {compared} | — | — | nothing joins them |")
+                continue
+            if r.at_upstream:
+                where = "the upstream cell itself"
+            else:
+                where = (
+                    f"{r.where[0]:.4f} N, {r.where[1]:.4f} E, "
+                    f"{_nearest(r.where, probe, r.first)}"
+                )
+            lines.append(
+                f"| {reach} | {label} | {compared} | {r.sill_m:,.0f} m | "
+                f"{r.over_m:,.0f} m | {where} |"
+            )
     lines.append("")
     return lines
 
@@ -430,7 +642,25 @@ def run_every_hero_area(args) -> int:
     ]
     for area in built:
         sampler = GridSampler(data_root() / "work" / f"hero-{area.id}.tif")
-        area_failures, lines = run(sampler, args.phase, "hero")
+        # The source the area was cut from, for the sills' control rows. The
+        # mosaic `hero.cut` wrote is the one read, so it is the same cells.
+        # Without it the rows are missing and the report says so, rather than
+        # printing a table that looks complete (F52's rule about silence).
+        vrt = data_root() / "work" / f"hero-{area.id}.vrt"
+        missing = hero.missing_cells(area)
+        source = SourceSampler(vrt, sampler) if vrt.exists() and not missing else None
+        area_failures, lines = run(sampler, args.phase, "hero", source)
+        if source is None:
+            why = (
+                f"{len(missing)} of its source cells {'is' if len(missing) == 1 else 'are'} not on disk"
+                if missing
+                else "its source mosaic is not on disk"
+            )
+            lines = [
+                f"The source this area was cut from cannot be read here — {why} "
+                f"— so any sill below is printed without the source's beside it (F58).",
+                "",
+            ] + lines
         failures.extend(area_failures)
         body += [
             f"## {area.name}",

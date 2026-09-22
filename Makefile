@@ -18,7 +18,7 @@
 #   make atlas                      # what the journal can show, and what it cannot yet
 #   make challenges                 # every authored challenge flown, and whether it can be done
 #   make ground                     # the two grids, and what is authored over them
-#   make gorges                     # room to turn round, gorge by gorge
+#   make gorges                     # room to turn round in a gorge, and to fly through it
 #   make stations                   # re-cut where the frame budget is measured
 #   make test                       # every suite, TypeScript and Python
 #
@@ -67,7 +67,9 @@ tiles: $(PY)
 ## The gate: golden probes against every built grid, with a report each.
 ## Both, because a probe deferred from the 1 km grid to the 90 m one is only
 ## answered on the second -- run one of these and the seventh probe is
-## invisible again, which is the failure F49 found in the first place.
+## invisible again, which is the failure F49 found in the first place. The
+## hero report also reads each area's source mosaic, so the sill under a river
+## probe's pass has the source's beside it (F58).
 probes: $(PY)
 	$(PIPELINE) -m nineskies.probe --corridor $(CORRIDOR) \
 		--report docs/probe-report.md
@@ -193,15 +195,20 @@ ground:
 	npm run content:ground
 
 ## Whether the GDD's *thread a gorge at low speed* has a gorge to be threaded
-## in. A full-bank reversal needs a level disc of its own diameter with no
-## ground in it, so this measures the largest such disc the aeroplane's own
-## position lies inside, at heights above the water, on both grids.
+## in, both ways of reading *thread*. Turning round: a full-bank reversal needs
+## a level disc of its own diameter with no ground in it, so this measures the
+## largest such disc the aeroplane's own position lies inside, at heights above
+## the water, on both grids -- at the places, and then at every station of the
+## river's course through each area. Flying through: a search over the stick,
+## through the flight model's own step, for any flight down the whole course.
+## The searches make it the slowest report here, three or four minutes.
 ##
-## A report and never a gate: every number feeds the open question of which of
-## the flight model, the speed modes and the challenge moves (F43, F55). Needs
-## the 90 m cover -- on the 1 km grid a hundred metres over the Three Gorges is
-## inside the hill that grid draws there, so the answer would be about
-## resampling rather than about a gorge.
+## A report and never a gate: every number feeds the open question of which
+## reading the challenge means and which of the flight model, the speed modes
+## and the challenge moves (F43, F55, F57). Needs the 90 m cover -- on the 1 km
+## grid a hundred metres over the Three Gorges is inside the hill that grid
+## draws there, so the answer would be about resampling rather than about a
+## gorge.
 gorges:
 	npm run content:gorges
 

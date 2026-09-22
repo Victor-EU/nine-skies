@@ -196,9 +196,10 @@ describe.skipIf(!built)("the gorges this world has", () => {
     };
     // Wu Gorge: the reversal fits under a wall that still stands over it.
     expect(below(find("wu-gorge", rs))).toBe(true);
-    // Tiger Leaping Gorge, which is the one the GDD's challenge is named for:
-    // the turn first fits well above the rim, which is a turn made in the open
-    // air over a gorge rather than in one.
+    // Tiger Leaping Gorge, the one this repository always reached for -- the
+    // GDD names Qutang, not this one (F57): the turn first fits well above the
+    // rim, which is a turn made in the open air over a gorge rather than in
+    // one. Flying *through* it is another question, and `reach.test.ts` asks.
     expect(below(find("tiger-leaping-gorge", rs))).toBe(false);
   });
 });

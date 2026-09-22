@@ -2,8 +2,10 @@
  * How wide the aeroplane's own turn is, on the ground (F43).
  *
  * The number matters twice over: it is the floor under any corridor a route
- * or a challenge may ask to be flown, and it is why *thread a gorge* is not a
- * challenge this flight model can express.
+ * or a challenge may ask to be flown, and it is why *thread a gorge*, read as
+ * turning round inside one, is not a challenge this flight model can express
+ * in either gorge the world has (F55). Read as flying through, it is -- a
+ * pass needs the bends followed, not a reversal, and both are flown (F57).
  */
 import { describe, expect, it } from "vitest";
 import { reversalWidthM } from "../../engine/src/sim/flight.js";

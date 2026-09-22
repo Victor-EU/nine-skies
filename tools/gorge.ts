@@ -35,10 +35,13 @@
  * `BOUNCE_CLEARANCE_M` above the ground, so a cell is in the way when
  * `ground + 25 >= A`.
  *
- * The disc must contain the aeroplane because *threading a gorge* means
- * turning round in the gorge. The largest disc anywhere in the reachable air
- * is a different and much larger number -- at 400 m over the reservoir it is
- * 4.9 km against 1.45, and it sits in open country forty kilometres away.
+ * The disc must contain the aeroplane because this measures *turning round*
+ * in the gorge, which is how F43 read *threading* one. The largest disc
+ * anywhere in the reachable air is a different and much larger number -- at
+ * 400 m over the reservoir it is 4.9 km against 1.45, and it sits in open
+ * country forty kilometres away. The other reading of *thread* -- flying
+ * through, which needs the bends followed rather than a reversal -- is
+ * `reach.ts`'s, and it is the one the GDD's own words read as (F57).
  *
  * **Where the measurement stops.** Outside a hero area there is no 90 m
  * ground, and ground nobody has at 90 m is not ground known to be clear, so
@@ -168,9 +171,9 @@ export class AreaTurning {
   private constructor(
     readonly area: string,
     readonly bounds: AreaBounds,
-    private readonly ground: Float32Array,
-    private readonly w: number,
-    private readonly h: number,
+    readonly ground: Float32Array,
+    readonly w: number,
+    readonly h: number,
   ) {}
 
   /** Read a field onto the area's lattice. `at` answers in real metres. */
@@ -342,6 +345,23 @@ function reversalOf(turn: (typeof TURNS)[number], altitudeM: number): number {
 }
 
 /**
+ * Each published hero area, read once onto its own 90 m lattice.
+ *
+ * Ground beyond the area is `Infinity` rather than zero: there is no 90 m
+ * ground there, and nothing measured here may mistake that for a sea.
+ */
+export function heroAreas(corridor: Corridor): AreaTurning[] {
+  const hero = corridor.hero;
+  if (!hero) return [];
+  return hero.bounds().map((bounds) => {
+    const id =
+      hero.areaAt((bounds.eastM0 + bounds.eastM1) / 2, (bounds.northM0 + bounds.northM1) / 2) ??
+      "unnamed";
+    return AreaTurning.sample(id, bounds, (e, n) => hero.groundAt(e, n) ?? Infinity);
+  });
+}
+
+/**
  * Every named place the 90 m grid covers, and the room it has to turn round.
  *
  * The subjects are not a list in this file. A hero area is cut to hold named
@@ -359,15 +379,8 @@ export function reachesOf(corridor: Corridor): Reach[] {
   const hero = corridor.hero;
   if (!hero) return [];
 
-  const areas: AreaTurning[] = [];
-  const coarse: AreaTurning[] = [];
-  for (const bounds of hero.bounds()) {
-    const id =
-      hero.areaAt((bounds.eastM0 + bounds.eastM1) / 2, (bounds.northM0 + bounds.northM1) / 2) ??
-      "unnamed";
-    areas.push(AreaTurning.sample(id, bounds, (e, n) => hero.groundAt(e, n) ?? Infinity));
-    coarse.push(AreaTurning.sample(id, bounds, (e, n) => corridor.groundAt(e, n)));
-  }
+  const areas = heroAreas(corridor);
+  const coarse = areas.map((a) => AreaTurning.sample(a.area, a.bounds, (e, n) => corridor.groundAt(e, n)));
 
   const out: Reach[] = [];
   for (const [place, anchor] of Object.entries(corridor.manifest.anchors)) {

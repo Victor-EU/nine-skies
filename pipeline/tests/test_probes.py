@@ -45,14 +45,32 @@ class TestAProbeThatCannotRead(unittest.TestCase):
     GORGE = MONOTONIC_PROBES[-1]
 
     class Raster:
-        """The sampler surface `probe.run` uses, over a rule about lat/lon."""
+        """The sampler surface `probe.run` uses, over a rule about lat/lon.
+
+        One cell per waypoint of the gorge probe, west then east, which is
+        all a reach between them needs: the sills are flooded on a real
+        array, and a waypoint off the raster has no cell to flood from.
+        """
 
         resolution_m = 90.0
-        #: `monotonic_sensitivity` prints coverage as a share of the raster.
-        array = type("Cells", (), {"size": 591_745})()
 
         def __init__(self, covers):
+            import numpy
+
             self.covers = covers
+            self.waypoints = tuple(MONOTONIC_PROBES[-1].waypoints)
+            self.array = numpy.array([[500.0 - lat for lat, _ in self.waypoints]])
+
+        def channel_cell(self, lat, lon, radius_km):
+            if not self.covers(lat, lon):
+                return None
+            return self.waypoints.index((lat, lon))
+
+        def cells_read(self, points, radius_km):
+            return sum(1 for lat, lon in points if self.covers(lat, lon))
+
+        def cell_latlon(self, index):
+            return self.waypoints[index]
 
         def elevation_m(self, lat, lon):
             return 500.0 - lat if self.covers(lat, lon) else float("nan")
@@ -133,6 +151,16 @@ class TestAProbeThatCannotRead(unittest.TestCase):
         self.assertTrue(
             any("off the edge of this artefact" in f for f in failures), failures
         )
+
+    @unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
+    def test_a_reach_it_can_only_half_read_says_so_rather_than_measuring(self):
+        # A sill from one cell to nowhere is not a number, and a reach with
+        # half its ends off the artefact says where rather than crashing.
+        from nineskies import probe
+
+        _, lines = probe.run(self.half(), "corridor", "hero")
+        self.assertIn("| 1 → 2 | this grid, 90 m | — | — | — | not on this artefact |", lines)
+        self.assertFalse(any("dammed on this grid" in line for line in lines))
 
     @unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
     def test_what_a_probe_reads_is_asked_of_the_probe(self):
