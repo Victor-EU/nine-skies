@@ -132,7 +132,7 @@ class TestTheSampleStates(unittest.TestCase):
     WINDOW = grid.TileWindow(60, 20, 62, 22)
 
     def cell_of(self, row: int, col: int) -> tuple[int, int]:
-        x, y = grid.transform_for(self.WINDOW) * (col + 0.5, row + 0.5)
+        x, y = grid.transform_for(self.WINDOW) @ (col + 0.5, row + 0.5)
         lats, lons = grid.unproject([x], [y])
         return int(lats[0] // 1), int(lons[0] // 1)
 

@@ -41,6 +41,15 @@ disagreement between LODs". So the cut measures that disagreement along its
 own boundary and refuses to write a hero area that exceeds it. The guarantee
 is checked rather than assumed, which is the only reason a non-nesting grid is
 allowed to exist here.
+
+**Stage 3 runs on every area as it is cut** (D64, F63). An area is cut from
+the source and not from the country grid, so the carve that conditions the
+country grid never reached one, and the Jinsha crossed a sill 119 m over
+Shigu on the grid the seventh probe reads (F58). `condition` gives each area
+the same stage with the same inputs: its mapped rivers carved down their own
+valleys from where each enters the area to where it leaves, its mapped lakes
+kept, and every other closed basin the rule D62 decided. What is written, the
+probes read and the engine draws is the conditioned area.
 """
 
 from __future__ import annotations
@@ -445,12 +454,54 @@ def digest(path: Path) -> str:
     return sha.hexdigest()
 
 
+def condition(area: HeroArea, array, path: Path, rule: str | None = None):
+    """Stage 3 on one area as stage 6 cuts it: (the area as cut, what stage 3 did).
+
+    The same stage the country grid gets, with the same vectors and rule and
+    the same band in metres -- 56 cells here -- walked at a quarter of this
+    grid's cell (D64). Every sample is measured, since `cut` refuses an area
+    with a source cell missing, so the only way out of the area is its edge.
+    """
+    import numpy as np
+
+    from . import carve
+
+    heights = np.asarray(array, dtype="float32")
+    measured = np.ones(heights.shape, dtype=bool)
+    source = carve.ground_over(heights, transform_for(area), measured, path)
+    result = carve.condition(
+        heights, source.lines, source.lakes, measured, source.ground.cells,
+        rule=rule or carve.RULE,
+        radius=carve.radius_cells(RESOLUTION_M),
+        step=RESOLUTION_M / 4,
+    )
+    return source, result
+
+
+@dataclass
+class Cut:
+    """One area as written, and what stage 3 did to it on the way (F63).
+
+    `source` is a `carve.Corridor` and `result` a `carve.Conditioned`, named
+    as `object` because this module imports `carve` -- and through it numpy --
+    only inside the functions that cut, so that the lattice above keeps
+    running on a bare interpreter.
+    """
+
+    area: HeroArea
+    out_dir: Path
+    source: object
+    result: object
+    #: The area's edge against the country grid, as cut and as written.
+    seam: tuple[dict | None, dict | None]
+
+
 def cut(
     area_id: str,
     corridor: str = "sea-to-sky",
     out_dir: Path | None = None,
     bias: float = SILHOUETTE_BIAS,
-) -> Path:
+) -> Cut:
     import rasterio
     from rasterio.crs import CRS
     from rasterio.enums import Resampling
@@ -459,9 +510,9 @@ def cut(
 
     area = BY_ID[area_id]
     root = data_root()
-    source = root / "source" / "cop30"
+    cop30 = root / "source" / "cop30"
 
-    missing = missing_cells(area, source)
+    missing = missing_cells(area, cop30)
     if missing:
         raise SystemExit(
             f"{area.id}: {len(missing)} source cell(s) not on disk, so nothing "
@@ -472,7 +523,7 @@ def cut(
 
     box = source_box(area)
     tiles = [
-        (lat, lon, source / f"{tile_name(lat, lon)}.tif") for lat, lon in box.cells()
+        (lat, lon, cop30 / f"{tile_name(lat, lon)}.tif") for lat, lon in box.cells()
     ]
     work = root / "work"
     work.mkdir(parents=True, exist_ok=True)
@@ -482,7 +533,38 @@ def cut(
     print(f"{area.id}: {area.count} tiles at {RESOLUTION_M} m, bias {bias}", flush=True)
     mean = warp(vrt_path, area, Resampling.average)
     peak = warp(vrt_path, area, Resampling.max)
-    array = mean + bias * (peak - mean)
+    as_cut = mean + bias * (peak - mean)
+
+    # Stage 3, as the country grid had it (D64). Everything below reads the
+    # conditioned area: the contract, the seam, the raster and the tiles.
+    from . import carve
+
+    tif_path = work / f"hero-{area.id}.tif"
+    source, result = condition(area, as_cut, tif_path)
+    array = result.heights
+    done = carve.counts(source.heights, result)
+
+    # One world, one rule. The country grid this area is dropped into was
+    # conditioned by the same stage earlier, and a build that changed the rule
+    # or the vectors in between would draw two rules across one seam.
+    record = carve.record_path(corridor)
+    if record.exists():
+        problem = carve.differs(
+            json.loads(record.read_text()),
+            result.rule,
+            carve.inputs(result.rule, result.radius)["vectors"],
+        )
+        if problem:
+            raise SystemExit(
+                f"{area.id}: {problem}, so nothing was cut. Run `make carve` and "
+                f"`make hero` from the same rule and the same `make vectors`."
+            )
+    print(
+        f"  stage 3: {done['channels']} channel(s), {done['cellsCarved']:,} cells cut, "
+        f"{done['lakesKept']} lake(s) kept, rule {result.rule}: {done['cellsRaised']:,} raised, "
+        f"{done['cellsLowered']:,} lowered",
+        flush=True,
+    )
 
     # The contract: an area holds the places it is named for. Checked against
     # the ground, not just the bounds -- a place inside the rectangle but
@@ -495,9 +577,8 @@ def cut(
             raise SystemExit(f"{area.id} does not contain {place_id}")
 
     # Against stage 3's grid, which is the one drawn beside this area (F61).
-    from .carve import conditioned_path
-
-    gaps = boundary_disagreement(area, array, conditioned_path(corridor))
+    gaps_as_cut = boundary_disagreement(area, as_cut, carve.conditioned_path(corridor))
+    gaps = boundary_disagreement(area, array, carve.conditioned_path(corridor))
     if gaps is None:
         print("  boundary vs the country grid: no country grid here, unchecked")
     else:
@@ -516,7 +597,6 @@ def cut(
     # The working raster, beside the country grid's own and for the same
     # reason: the golden probes read a GeoTIFF, so the artefact that lets the
     # deferred probe finally run has to be one. `dist-world` gets the tiles.
-    tif_path = work / f"hero-{area.id}.tif"
     with rasterio.open(
         tif_path, "w", driver="GTiff", height=area.height_samples,
         width=area.width_samples, count=1, dtype="float32",
@@ -526,7 +606,8 @@ def cut(
         ds.write(array.astype("float32"), 1)
         ds.update_tags(bias=str(bias), area=area.id, resolution_m=str(RESOLUTION_M),
                        hx0=str(area.hx0), hy0=str(area.hy0),
-                       hx1=str(area.hx1), hy1=str(area.hy1))
+                       hx1=str(area.hx1), hy1=str(area.hy1),
+                       stage3=result.rule, radius=str(result.radius))
 
     out_dir = out_dir or Path(__file__).resolve().parents[2] / "dist-world" / corridor / "hero"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -566,6 +647,8 @@ def cut(
         },
         "boundary": gaps or {"unchecked": True},
         "elevationM": {"min": int(cut_array.min()), "max": int(cut_array.max())},
+        # What stage 3 read and did, as the country manifest carries it (F61).
+        "conditioning": {**carve.inputs(result.rule, result.radius), **done},
     }
     manifest_path = out_dir / f"{area.id}.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
@@ -575,7 +658,7 @@ def cut(
         f"{cut_array.min()}..{cut_array.max()} m · {manifest_path.name} · "
         f"probe with --grid {tif_path}"
     )
-    return out_dir
+    return Cut(area=area, out_dir=out_dir, source=source, result=result, seam=(gaps_as_cut, gaps))
 
 
 def write_index(out_dir: Path) -> Path:
@@ -625,6 +708,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--area", default=None, help="one area id; default every ready one")
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--list", action="store_true", help="what is sited, ready, missing")
+    parser.add_argument(
+        "--report", type=Path, default=None,
+        help="where to write what stage 3 did to each area cut (F63)",
+    )
     args = parser.parse_args(argv)
 
     if args.list:
@@ -641,8 +728,16 @@ def main(argv: list[str] | None = None) -> int:
     if not chosen:
         print("no hero area has all its source cells on disk", file=sys.stderr)
         return 1
-    for area in chosen:
-        cut(area.id, args.corridor, args.out)
+    done = [cut(area.id, args.corridor, args.out) for area in chosen]
+    if args.report:
+        from . import carve
+
+        text = carve.render_areas([
+            carve.measure_area(c.area.id, c.area.name, c.source, c.result, c.seam) for c in done
+        ])
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(text)
+        print(text)
     return 0
 
 

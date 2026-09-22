@@ -42,6 +42,20 @@ how a tributary finds its river.
 the two cells beside the step is cut too. On eight neighbours a diagonal
 step drains, but the surface the game draws between four samples does not:
 the two cells across the step stand in the middle of it as a dam.
+
+**Where a line leaves the grid, the channel meets the river's own crossing.**
+A line is drawn at 1:10 million and crosses a grid's edge where it happens to
+be, which on a 90 m hero area was 2.4 km from the Jinsha and 276 m up its
+wall. So an end on the grid's own edge is moved to where the river crosses:
+the lowest ground on the edge inside the band where it leaves, and where it
+enters, the first such ground the flood from the lower end settles -- the
+lowest way in, never one over a ridge. Nothing is changed on the corridor,
+where no measured cell is on the edge (F63).
+
+**Any grid, not only the corridor's.** Stage 6 cuts its hero areas from the
+source rather than from this grid, so the same stage runs on each of them
+as it is cut: `ground_over` reads the vectors over any grid, and the band and
+the walk are set by the grid's cell (D64).
 """
 
 from __future__ import annotations
@@ -59,14 +73,26 @@ import numpy as np
 
 from . import coverage, hydro, rivers
 
-#: How far either side of a mapped line its valley is looked for, in cells.
-#: Measured rather than chosen (F61): at 2 -- the width this plan once wrote
-#: down for the burn -- Natural Earth's line across the neck of the Yarlung's
-#: Great Bend is cut as a 2,660 m trench through the ridge the river goes
-#: round. The deepest cut falls as the band widens and stops falling at 5,
-#: at 968 m in the Dadu's own gorge, while the channel still stays within two
-#: cells of the line for nine cells in ten.
-RADIUS_CELLS = 5
+#: How far either side of a mapped line its valley is looked for. Measured
+#: rather than chosen (F61): at 2 km -- the width this plan once wrote down
+#: for the burn -- Natural Earth's line across the neck of the Yarlung's Great
+#: Bend is cut as a 2,660 m trench through the ridge the river goes round. The
+#: deepest cut falls as the band widens and stops falling at 5 km, at 968 m in
+#: the Dadu's own gorge, while the channel still stays within two cells of the
+#: line for nine cells in ten. It is how far the map can be from its valley,
+#: which is a fact about the map rather than a grid, so a finer grid looks as
+#: far in more cells: 56 on a 90 m hero area, where both areas' channels reach
+#: the river's own crossings from 5 km and not from 4 (F63).
+RADIUS_M = 5000.0
+
+
+def radius_cells(resolution_m: float) -> int:
+    """The band, in cells of a grid this fine."""
+    return int(round(RADIUS_M / resolution_m))
+
+
+#: The band on stage 2's 1 km grid.
+RADIUS_CELLS = radius_cells(1000.0)
 
 #: What happens to a closed basin no mapped river drains and no mapped lake
 #: lies in. The three the report prices side by side.
@@ -171,34 +197,44 @@ def valley(
     heights: np.ndarray,
     allowed: np.ndarray,
     seeds: Sequence[int],
-    start: int,
+    start: int | Sequence[int],
 ) -> list[int] | None:
     """The way water leaves `start` for the nearest seed through allowed cells.
 
     A priority-flood from the seeds, ordered by water level, then by the
     cell's own height, then by arrival; the answer is the tree it grows,
-    read from `start` back to the seed that reached it. `None` if no seed
-    can reach it. Indices are flat into `heights`.
+    read from `start` back to the seed that reached it. `start` may be
+    several cells, and then it is the first of them the flood settles: the
+    one reached at the lowest level, and the lowest of those. `None` if no
+    seed can reach one. Indices are flat into `heights`.
     """
     height, width = heights.shape
     flat = np.asarray(heights, dtype="float64").ravel()
     ok = np.asarray(allowed).ravel()
-    if not ok[start]:
+    one = isinstance(start, (int, np.integer))
+    wanted = {int(s) for s in ([start] if one else start) if ok[int(s)]}
+    if not wanted:
         return None
     parent: dict[int, int] = {}
     heap: list[tuple[float, float, int, int]] = []
     arrival = 0
-    seed_set = set()
     for seed in sorted(set(int(s) for s in seeds)):
         if ok[seed]:
-            seed_set.add(seed)
             parent[seed] = -1
             heap.append((flat[seed], flat[seed], arrival, seed))
             arrival += 1
     heapq.heapify(heap)
     push, pop = heapq.heappush, heapq.heappop
-    while heap and start not in parent:
+    # Stopped when a wanted cell is settled rather than first reached, so that
+    # of several the lowest wins. A cell's parent is fixed when it is first
+    # reached, so for a single one the way is the same either way.
+    while heap:
         level, _, _, index = pop(heap)
+        if index in wanted:
+            path = [index]
+            while parent[path[-1]] >= 0:
+                path.append(parent[path[-1]])
+            return path
         row, col = divmod(index, width)
         for drow, dcol in hydro.NB8:
             row2, col2 = row + drow, col + dcol
@@ -210,12 +246,7 @@ def valley(
                 own = flat[other]
                 push(heap, (own if own > level else level, own, arrival, other))
                 arrival += 1
-    if start not in parent:
-        return None
-    path = [start]
-    while parent[path[-1]] >= 0:
-        path.append(parent[path[-1]])
-    return path
+    return None
 
 
 def four_connected(path: Sequence[int], heights: np.ndarray, allowed: np.ndarray) -> list[int]:
@@ -247,6 +278,13 @@ def channels(
     A run looks for its valley within `radius` cells of its own line, on
     measured ground, and not inside a lake it does not itself touch. It ends
     at the lowest cell near its lower end, or at any channel already cut.
+
+    An end on the grid's own edge is where the river leaves the grid or
+    enters it, and the line is not where it does (F63). The lower end is
+    then the lowest ground on the edge within `radius` of the line's own;
+    the upper, the first ground on the edge within `radius` of the line's
+    own that the flood from the lower end settles -- the lowest way in, and
+    never one reached over a ridge the river's own way is lower than.
     """
     height, width = heights.shape
     flat = heights.ravel()
@@ -259,6 +297,11 @@ def channels(
     cut = np.zeros(flat.size, dtype=bool)
     made: list[Channel] = []
     lost: list[Run] = []
+
+    def on_edge(index: int) -> bool:
+        row, col = divmod(int(index), width)
+        return row in (0, height - 1) or col in (0, width - 1)
+
     for run in order:
         cells = np.asarray(run.cells)
         own = set(int(k) for k in flat_lakes[cells] if k > 0)
@@ -282,10 +325,28 @@ def channels(
             row, col = divmod(int(index), lw)
             return (row + r0) * width + (col + c0)
 
-        end = lowest_near(local, here(run.cells[-1]), radius, band)
+        # The grid's own edge, where it falls inside this band.
+        rim = np.zeros(band.shape, dtype=bool)
+        rim[0, :] |= r0 == 0
+        rim[-1, :] |= r1 == height
+        rim[:, 0] |= c0 == 0
+        rim[:, -1] |= c1 == width
+        rim &= band
+
+        last, first = here(run.cells[-1]), here(run.cells[0])
+        end = lowest_near(local, last, radius, rim if on_edge(run.cells[-1]) else band)
         already = cut.reshape(height, width)[r0:r1, c0:c1] & band
         seeds = [end] + np.flatnonzero(already.ravel()).tolist()
-        path = valley(local, band, seeds, here(run.cells[0]))
+        start: int | list[int] = first
+        if on_edge(run.cells[0]):
+            row, col = divmod(first, lw)
+            near = np.zeros(band.shape, dtype=bool)
+            near[max(0, row - radius):row + radius + 1, max(0, col - radius):col + radius + 1] = True
+            # A seed among them would be a way in that is already the way out:
+            # a run too short to leave the edge it starts on.
+            ways_in = set(np.flatnonzero((near & rim).ravel()).tolist()) - set(seeds)
+            start = sorted(ways_in) or first
+        path = valley(local, band, seeds, start)
         if path is None:
             lost.append(run)
             continue
@@ -457,12 +518,17 @@ def condition(
     cells_of: Callable[[np.ndarray, np.ndarray], np.ndarray],
     rule: str = RULE,
     radius: int = RADIUS_CELLS,
+    step: float = rivers.STEP_M,
 ) -> Conditioned:
-    """Stage 3 on one grid: carve the rivers, keep the lakes, apply the rule."""
+    """Stage 3 on one grid: carve the rivers, keep the lakes, apply the rule.
+
+    `radius` is the band in this grid's cells and `step` the walk along a
+    line, a quarter of one: both default to stage 2's 1 km grid.
+    """
     if rule not in RULES:
         raise ValueError(f"no rule called {rule!r}; the rules are {', '.join(RULES)}")
     heights = np.asarray(heights, dtype="float32")
-    found = runs(lines, cells_of, heights, measured, radius)
+    found = runs(lines, cells_of, heights, measured, radius, step)
     made, lost = channels(heights, found, measured, lakes, radius)
     floors = lake_floors(lakes, heights, measured)
     carved = carve(heights, made, lakes, floors)
@@ -529,7 +595,8 @@ def inputs(rule: str, radius: int) -> dict:
 
 @dataclass
 class Corridor:
-    """One corridor's stage 2 grid and everything stage 3 reads beside it."""
+    """One grid before stage 3 and everything stage 3 reads beside it: a
+    corridor's stage 2 grid, or a hero area as stage 6 cuts it."""
 
     heights: np.ndarray
     transform: object
@@ -540,6 +607,39 @@ class Corridor:
     lakes: np.ndarray
     lake_names: list[str]
     path: Path
+
+    @property
+    def resolution_m(self) -> float:
+        return abs(self.transform.a)
+
+    @property
+    def cell_km2(self) -> float:
+        """One cell's area; a metre of ground over it is a thousandth of this in km³."""
+        return (self.resolution_m / 1000) ** 2
+
+
+def ground_over(
+    heights: np.ndarray, transform, measured: np.ndarray, path: Path, tags: dict | None = None
+) -> Corridor:
+    """Any grid, and the fetched rivers and lakes over it.
+
+    Refused, naming the command, unless `make vectors` fetched both files and
+    they are the bytes it recorded (D60).
+    """
+    ground = rivers.Grid(heights=heights, transform=transform, fetched=measured)
+    box = rivers.extent(ground)
+    lake_shapes = rivers.load(rivers.LAKES)
+    return Corridor(
+        heights=heights,
+        transform=transform,
+        tags=tags or {},
+        measured=measured,
+        ground=ground,
+        lines=rivers.lines_from(rivers.load(rivers.RIVERS), box=box),
+        lakes=rivers.lakes_raster(lake_shapes, ground, box=box),
+        lake_names=[rivers.name_of(shape.record) for shape in lake_shapes],
+        path=path,
+    )
 
 
 def load(corridor: str) -> Corridor:
@@ -582,20 +682,7 @@ def load(corridor: str) -> Corridor:
     measured = states == coverage.DATA
     if measured.shape != heights.shape:
         raise SystemExit(f"coverage is {measured.shape} and the grid is {heights.shape}")
-    ground = rivers.Grid(heights=heights, transform=transform, fetched=measured)
-    box = rivers.extent(ground)
-    lake_shapes = rivers.load(rivers.LAKES)
-    return Corridor(
-        heights=heights,
-        transform=transform,
-        tags=tags,
-        measured=measured,
-        ground=ground,
-        lines=rivers.lines_from(rivers.load(rivers.RIVERS), box=box),
-        lakes=rivers.lakes_raster(lake_shapes, ground, box=box),
-        lake_names=[rivers.name_of(shape.record) for shape in lake_shapes],
-        path=path,
-    )
+    return ground_over(heights, transform, measured, path, tags)
 
 
 def write(corridor: str, source: Corridor, result: Conditioned) -> tuple[Path, dict]:
@@ -608,20 +695,43 @@ def write(corridor: str, source: Corridor, result: Conditioned) -> tuple[Path, d
     with rasterio.open(out, "w", **profile) as dataset:
         dataset.write(result.heights.astype("float32"), 1)
         dataset.update_tags(**source.tags, stage3=result.rule, radius=str(result.radius))
-    lowered = source.heights - result.carved
-    changed = result.heights - result.carved
     record = {
         **inputs(result.rule, result.radius),
         "from": source.path.name,
         "fromSha256": file_digest(source.path),
+        **counts(source.heights, result),
+    }
+    record_path(corridor).write_text(json.dumps(record, indent=2) + "\n")
+    return out, record
+
+
+def differs(record: dict, rule: str, vectors: dict) -> str | None:
+    """What a conditioning record disagrees with these inputs about, or None.
+
+    One world is carved one way. A hero area is conditioned by this stage as
+    stage 6 cuts it (D64), and the country grid it is dropped into was
+    conditioned by the same stage earlier, so a build that changed the rule or
+    re-fetched the vectors between the two would draw two rules across one
+    seam. The band is not compared: it is in cells of its own grid.
+    """
+    if record.get("rule") != rule:
+        return f"the grid beside it was carved with rule {record.get('rule')!r} and this is {rule!r}"
+    if record.get("vectors") != vectors:
+        return "the grid beside it was carved from other river and lake files than these"
+    return None
+
+
+def counts(before: np.ndarray, result: Conditioned) -> dict:
+    """What stage 3 did to a grid, as its record and a manifest carry it."""
+    lowered = before - result.carved
+    changed = result.heights - result.carved
+    return {
         "channels": len(result.channels),
         "cellsCarved": int((lowered > hydro.DROWNED_M).sum()),
         "cellsRaised": int((changed > hydro.DROWNED_M).sum()),
         "cellsLowered": int((changed < -hydro.DROWNED_M).sum()),
         "lakesKept": len(result.kept),
     }
-    record_path(corridor).write_text(json.dumps(record, indent=2) + "\n")
-    return out, record
 
 
 # ------------------------------------------------------------------ measure
@@ -705,7 +815,7 @@ def price(source: Corridor, result: Conditioned) -> list[Cost]:
             rule=rule,
             raised=int((change > hydro.DROWNED_M).sum()),
             lowered=int((change < -hydro.DROWNED_M).sum()),
-            km3=float(moved.sum() * 1e-3),
+            km3=float(moved.sum() * 1e-3 * source.cell_km2),
             deepest_m=float(moved.ravel()[deepest]),
             at=_where(source.transform, deepest, width) if moved.ravel()[deepest] > 0 else None,
             over_100=int((moved > 100).sum()),
@@ -741,7 +851,7 @@ def river_rows(source: Corridor, result: Conditioned) -> list[RiverRow]:
             cut=int((cut > hydro.DROWNED_M).sum()),
             deepest_m=float(cut.max()),
             at=_where(source.transform, deepest, width),
-            km3=float(cut.sum() * 1e-3),
+            km3=float(cut.sum() * 1e-3 * source.cell_km2),
         ))
     return sorted(rows, key=lambda r: (-r.deepest_m, r.name))
 
@@ -793,7 +903,7 @@ def measure(corridor: str, source: Corridor, result: Conditioned, out: Path) -> 
         "lost": [r.name for r in result.lost],
         "channel_cells": int(result.river.sum()),
         "carved_cells": int((lowered > hydro.DROWNED_M).sum()),
-        "carved_km3": float(lowered.sum() * 1e-3),
+        "carved_km3": float(lowered.sum() * 1e-3 * source.cell_km2),
         "carved_deepest": float(lowered.max()),
         "carved_over_300": int((lowered > 300).sum()),
         "rivers": river_rows(source, result),
@@ -994,6 +1104,271 @@ def render(result: dict) -> str:
         1 km grid sealed -- and cutting an outlet for a real closed basin that no
         mapped lake marks."""
     )
+    return "\n".join(lines) + "\n"
+
+
+# ------------------------------------------------------------- hero areas
+
+#: How near a carved channel a moved cell is counted as the river's own
+#: ground in the hero report: the distance a river probe searches.
+NEAR_RIVER_M = 2000.0
+
+
+def _distance_m(cells: np.ndarray, to: np.ndarray, width: int, resolution_m: float) -> np.ndarray:
+    """Metres from each cell's centre to the nearest of `to`'s; inf if `to` is empty."""
+    cells = np.asarray(cells, dtype=np.int64)
+    if not len(to):
+        return np.full(len(cells), np.inf)
+    ty, tx = np.divmod(np.asarray(to, dtype=np.int64), width)
+    out = np.empty(len(cells))
+    for k in range(0, len(cells), 2048):
+        cy, cx = np.divmod(cells[k:k + 2048], width)
+        d2 = (cy[:, None] - ty[None, :]) ** 2 + (cx[:, None] - tx[None, :]) ** 2
+        out[k:k + 2048] = np.sqrt(d2.min(axis=1)) * resolution_m
+    return out
+
+
+def _edge(index: int, shape: tuple[int, int]) -> str:
+    height, width = shape
+    row, col = divmod(int(index), width)
+    sides = [side for side, on in (("north", row == 0), ("south", row == height - 1),
+                                   ("west", col == 0), ("east", col == width - 1)) if on]
+    return " and ".join(sides) + " edge" if sides else "inside the area"
+
+
+def measure_area(
+    area_id: str,
+    name: str,
+    source: Corridor,
+    result: Conditioned,
+    seam: tuple[dict | None, dict | None] = (None, None),
+) -> dict:
+    """What stage 3 did to one hero area as stage 6 cut it (F63).
+
+    `source` is the area as cut, before stage 3, and `seam` its edge against
+    the country grid before and after, as `hero.boundary_disagreement` reads
+    it.
+    """
+    shape = source.heights.shape
+    width = shape[1]
+    before = source.heights.astype("float64")
+    after = result.heights.astype("float64")
+    lowered = before - result.carved
+    cut_at = int(np.argmax(lowered))
+    river_cells = np.flatnonzero(result.river.ravel())
+
+    found_rivers = []
+    for ch in result.channels:
+        way_in, way_out = ch.cells[0], ch.cells[-1]
+        offsets = _distance_m(np.asarray(ch.cells), np.asarray(ch.run.cells), width,
+                              source.resolution_m) / 1000
+        found_rivers.append({
+            "name": ch.run.name,
+            "cells": len(ch.cells),
+            "cut": int((lowered.ravel()[ch.cells] > hydro.DROWNED_M).sum()),
+            "enters": (_where(source.transform, way_in, width), _edge(way_in, shape),
+                       float(before.ravel()[way_in]), float(after.ravel()[way_in])),
+            "leaves": (_where(source.transform, way_out, width), _edge(way_out, shape),
+                       float(before.ravel()[way_out]), float(after.ravel()[way_out])),
+            "offset_km": (float(np.median(offsets)), float(np.percentile(offsets, 90)),
+                          float(offsets.max())),
+            "sill_was": hydro.sill(source.heights, way_in, way_out),
+            "sill_now": hydro.sill(result.heights, way_in, way_out),
+        })
+
+    changed = after - result.carved
+    moved = np.flatnonzero(np.abs(changed.ravel()) > hydro.DROWNED_M)
+    near = _distance_m(moved, river_cells, width, source.resolution_m) <= NEAR_RIVER_M
+    drainage = hydro.flood(result.carved)
+    _, decided = hydro.basins(result.carved, drainage)
+    largest = []
+    for basin in decided[:5]:
+        index = basin.row * width + basin.col
+        largest.append({
+            "km2": basin.cells * source.cell_km2,
+            "deepest_m": basin.deepest_m,
+            "floor_m": basin.floor_m,
+            "at": _where(source.transform, index, width),
+            "from_river_km": float(_distance_m(np.array([index]), river_cells, width,
+                                               source.resolution_m)[0]) / 1000,
+        })
+    kept_cells = np.isin(source.lakes, result.kept) & source.measured
+    return {
+        "id": area_id,
+        "name": name,
+        "shape": shape,
+        "resolution_m": source.resolution_m,
+        "cell_km2": source.cell_km2,
+        "inputs": inputs(result.rule, result.radius),
+        "lost": [r.name for r in result.lost],
+        "rivers": found_rivers,
+        "carved_cells": int((lowered > hydro.DROWNED_M).sum()),
+        "carved_km3": float(lowered.sum() * 1e-3 * source.cell_km2),
+        "carved_deepest": float(lowered.ravel()[cut_at]),
+        "carved_at": _where(source.transform, cut_at, width),
+        "moved_near": int(near.sum()),
+        "moved_near_deepest": float(np.abs(changed.ravel()[moved[near]]).max()) if near.any() else 0.0,
+        "largest": largest,
+        "lakes_kept": [source.lake_names[k - 1] for k in result.kept],
+        "before": closed(source.heights, kept_cells, result.outlets),
+        "costs": price(source, result),
+        "seam": seam,
+    }
+
+
+def render_areas(areas: Sequence[dict]) -> str:
+    """`docs/carve-report-hero.md`: stage 3 on every hero area cut."""
+    from datetime import date
+
+    from .hydro import _para
+
+    first = areas[0]["inputs"] if areas else inputs(RULE, 0)
+    rule = first["rule"]
+    lines = [
+        "# Stage 3 — hero areas, 90 m grid",
+        "",
+        f"{date.today().isoformat()} · {len(areas)} areas · Natural Earth rivers "
+        f"`{first['vectors'][rivers.RIVERS][:12]}…` and lakes "
+        f"`{first['vectors'][rivers.LAKES][:12]}…` · valleys looked for within "
+        f"{RADIUS_M / 1000:.0f} km of each line, {first['radiusCells']} cells · other closed "
+        f"basins: **{rule}** · inputs `{first['sha256'][:12]}…`",
+        "",
+    ]
+    lines += _para(
+        """Generated by `python -m nineskies.hero`. Stage 6 cuts each hero area from
+        the source rather than from the country grid, so stage 3 on the country grid
+        (`docs/carve-report.md`) never reached one, and the Jinsha crossed a sill in
+        Tiger Leaping Gorge on the grid the seventh golden probe reads (F58). Each
+        area is conditioned now as it is cut, by the same stage with the same inputs
+        (D62, D63, D64): every mapped river carved down its own valley, lower only,
+        from where it enters the area to where it leaves; every mapped lake kept;
+        every other closed basin given the rule above. The band is the country
+        grid's, in metres. The probes read what this writes
+        (`docs/probe-report-hero.md`)."""
+    )
+    for area in areas:
+        height, width = area["shape"]
+        total = height * width
+        costs = {c.rule: c for c in area["costs"]}
+        chosen = costs[area["inputs"]["rule"]]
+        verb = {FILL: "raised", LEAVE: "left", BREACH: "lowered"}[area["inputs"]["rule"]]
+        lines += [f"## {area['name']}", "", f"`{area['id']}` · {width} × {height} samples at "
+                  f"{area['resolution_m']:.0f} m", ""]
+        unchanged = total - area["carved_cells"] - chosen.raised - chosen.lowered
+        cut_where = f" at {area['carved_at'][0]:.2f} N {area['carved_at'][1]:.2f} E" if area["carved_cells"] else ""
+        rule_where = f" at {chosen.at[0]:.2f} N {chosen.at[1]:.2f} E" if chosen.at else ""
+        lines += [
+            "| | cells | km³ | deepest |",
+            "| --- | ---: | ---: | ---: |",
+            f"| Cut along mapped rivers | {_n(area['carved_cells'])} | {area['carved_km3']:,.2f} | "
+            f"{_n(area['carved_deepest'])} m{cut_where} |",
+            f"| Other closed basins, {verb} | {_n(chosen.raised + chosen.lowered)} | "
+            f"{chosen.km3:,.2f} | {_n(chosen.deepest_m)} m{rule_where} |",
+            f"| Unchanged | {_n(unchanged)} of {_n(total)} | — | — |",
+            "",
+        ]
+
+        lines += ["### The rivers", ""]
+        if not area["rivers"]:
+            lines += _para("No mapped river crosses this area, so nothing is carved.")
+        else:
+            lines += [
+                "| River | Enters | Leaves | Channel | From the line: median, 90th, worst | "
+                "Sill between its ends, as cut | Conditioned |",
+                "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+            ]
+            for r in area["rivers"]:
+                (lat0, lon0), side0, was0, _ = r["enters"]
+                (lat1, lon1), side1, was1, now1 = r["leaves"]
+                leaves = f"{_n(was1)} m" + (f" → {_n(now1)} m" if abs(now1 - was1) >= 0.5 else "")
+
+                def sill(found, start: float) -> str:
+                    if found is None:
+                        return "nothing joins them"
+                    over = found.level_m - start
+                    return (f"{_n(found.level_m)} m, where it enters" if over < 0.5
+                            else f"{_n(found.level_m)} m, {_n(over)} m over where it enters")
+
+                lo, p90, worst = r["offset_km"]
+                lines.append(
+                    f"| {r['name']} | {_n(was0)} m, {side0}, {lat0:.4f} N {lon0:.4f} E | "
+                    f"{leaves}, {side1}, {lat1:.4f} N {lon1:.4f} E | {_n(r['cells'])} cells, "
+                    f"{_n(r['cut'])} cut | {lo:.2f}, {p90:.2f}, {worst:.2f} km | "
+                    f"{sill(r['sill_was'], was0)} | {sill(r['sill_now'], r['enters'][3])} |"
+                )
+            lines += [""]
+            lines += _para(
+                """The channel is the way a flood from where the river leaves grows up
+                the valley to where it enters, through the cells within the band of the
+                line; where the line crosses the area's edge is not where the river does,
+                so each end is moved to the river's own crossing (F63). The *sill* is the
+                highest ground on the lowest path between the channel's two ends: every
+                path between them crosses it, so one above where the river enters is a
+                dam nothing drains through."""
+            )
+        lost = area["lost"]
+        if lost:
+            lines += _para(f"No way down its band was found for: {', '.join(sorted(set(lost)))}.")
+        if area["lakes_kept"]:
+            lines += _para(f"Kept as closed lakes: {', '.join(area['lakes_kept'])}.")
+
+        before, after = area["before"], chosen.still_closed
+        lines += ["### Where the water can go", ""]
+        lines += [
+            "| From the area's edge | as cut | conditioned |",
+            "| --- | ---: | ---: |",
+            f"| Cells with no outlet | {_n(before.cells)} ({100 * before.cells / total:.2f} %) | "
+            f"{_n(after.cells)} ({100 * after.cells / total:.2f} %) |",
+            f"| Closed basins | {_n(before.basins)} | {_n(after.basins)} |",
+            "",
+        ]
+        lines += _para(
+            f"""The area's edge is the only way out: every sample is measured, because
+            the cut refuses an area with a source cell missing. Of the cells the rule
+            moved, {_n(area['moved_near'])} are within {NEAR_RIVER_M / 1000:.0f} km of a
+            carved channel -- the distance a river probe searches -- by at most
+            {area['moved_near_deepest']:,.1f} m. The five largest basins it decided, as
+            they stood after the carve:"""
+        )
+        lines += [
+            "| km² | deepest | floor | lat | lon | from the river |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for b in area["largest"]:
+            far = "—" if not np.isfinite(b["from_river_km"]) else f"{b['from_river_km']:.1f} km"
+            lines.append(
+                f"| {b['km2']:,.2f} | {b['deepest_m']:,.1f} m | {_n(b['floor_m'])} m | "
+                f"{b['at'][0]:.4f} N | {b['at'][1]:.4f} E | {far} |"
+            )
+        lines += [""]
+
+        lines += ["### What the rule for the other basins costs", ""]
+        lines += [
+            "| Rule | cells raised | cells lowered | km³ | deepest | moved over 100 m | still closed |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for rule_name in RULES:
+            c = costs[rule_name]
+            where = f" at {c.at[0]:.2f} N {c.at[1]:.2f} E" if c.at else ""
+            label = f"**{rule_name}**" if rule_name == area["inputs"]["rule"] else rule_name
+            lines.append(
+                f"| {label} | {_n(c.raised)} | {_n(c.lowered)} | {c.km3:,.2f} | "
+                f"{_n(c.deepest_m)} m{where} | {_n(c.over_100)} | "
+                f"{_n(c.still_closed.cells)} cells, {_n(c.still_closed.basins)} basins |"
+            )
+        lines += [""]
+
+        was, now = area["seam"]
+        lines += ["### The seam", ""]
+        if was is None or now is None:
+            lines += _para("No country grid on this machine to measure the area's edge against.")
+        else:
+            lines += _para(
+                f"""The area's edge against the country grid it is dropped into stands
+                mean {was['meanM']:,.1f} m and worst {was['worstM']:,.1f} m from it as cut,
+                and mean {now['meanM']:,.1f} m and worst {now['worstM']:,.1f} m conditioned,
+                against {now['skirtDepthM']:,.0f} m of skirt."""
+            )
     return "\n".join(lines) + "\n"
 
 

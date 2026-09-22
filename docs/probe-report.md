@@ -90,5 +90,5 @@ These probes have data built for this phase but cannot be read from this artefac
 
 | Probe | Needs | Why |
 | --- | --- | --- |
-| Jinsha through Tiger Leaping Gorge | hero grid | Unpassable on stage 2's 1 km grid, where it reads +221 m uphill against the source's -41 m. Read on the 90 m hero grid from stage 6, which stage 3 does not carve, and printed beside the 1 km grid stage 3 does (F61). Both its waypoints are `on_channel` places, so the report holds them to the water rather than trusting the 2 km search to find it (F50). |
+| Jinsha through Tiger Leaping Gorge | hero grid | Unpassable on stage 2's 1 km grid, where it reads +221 m uphill against the source's -41 m. Read on the 90 m hero grid, which stage 6 cuts from the source and stage 3 then carves as it does the 1 km grid (F61, F63), so its sill table prints the carve's answer beside the source that carve was applied to. Both its waypoints are `on_channel` places, so the report holds them to the water rather than trusting the 2 km search to find it (F50). |
 

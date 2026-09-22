@@ -3,7 +3,7 @@
 #
 #   make world                      # the phase 0 corridor, end to end
 #   make world CORRIDOR=china       # the full country (phase 2, ~70 GB)
-#   make hero                       # the 90 m hero areas (stage 6)
+#   make hero                       # the 90 m hero areas (stage 6), carved too
 #   make siting                     # every shipped coordinate, against the source
 #   make probes                     # golden probes against what is built
 #   make hydro                      # where the water cannot go, and the river it has
@@ -135,8 +135,15 @@ reference: $(PY)
 ## where the Jinsha runs 221 m uphill through Tiger Leaping Gorge (F49, F50).
 ## `--list` says which areas are sited, which have their source cells, and
 ## which the build plan names but nothing has ever given a checked coordinate.
+##
+## Each area is cut from the source and then conditioned by stage 3, exactly
+## as the country grid is (D62, D63, D64, F63) -- an area cut and left alone
+## kept the sill the carve exists to remove. The report says what that did to
+## each one and prices the rule for its other basins; it needs the same two
+## Natural Earth files `carve` does.
 hero: $(PY)
-	$(PIPELINE) -m nineskies.hero --corridor $(CORRIDOR)
+	$(PIPELINE) -m nineskies.hero --corridor $(CORRIDOR) \
+		--report docs/carve-report-hero.md
 
 ## Where a coordinate goes, measured off the source rather than recalled.
 ## `probes` asks the same question of the built world, which is 1 km ground

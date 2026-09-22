@@ -329,16 +329,21 @@ describe.skipIf(!built)("the rivers this world has", () => {
     expect(walk.fitsKm).toBe(0);
   });
 
-  it("finds the 90 m grid has dammed the Jinsha between Shigu and Tiger Leaping Gorge", () => {
+  it("finds nothing damming the Jinsha now that stage 3 carves this grid too", () => {
+    // It did dam it, and this test asserted the dam: the lowest path between
+    // the ends rose to 1,935 m at km 77.0, which is 116 m over the water at
+    // Shigu, and every path between the two places the seventh golden probe
+    // reads crossed it (F57, F58). Stage 3 reached this grid in F63 and cut
+    // it. What is left is the upstream end itself - the highest ground on the
+    // lowest path is where the river enters the area, 15 m over the water at
+    // Shigu because it is 27 km upstream of it.
     const r = find("tiger-leaping-gorge");
     const { course, water } = r;
-    const shigu = course.places.find((p) => p.place === "shigu")!;
-    const gorge = course.places.find((p) => p.place === "tiger-leaping-gorge")!;
-    // The seventh golden probe reads the river at these two places and it
-    // falls between them. Between them, every path crosses this.
-    expect(course.sillM - water.shigu!).toBeGreaterThan(100);
-    expect(course.sillKm).toBeGreaterThan(shigu.km);
-    expect(course.sillKm).toBeLessThan(gorge.km);
+    expect(course.sillKm).toBe(0);
+    expect(course.sillM).toBe(course.stations[0]!.groundM);
+    expect(course.sillM - water.shigu!).toBeLessThan(50);
+    // ...and the river falls from the one place to the other, as the probe says.
+    expect(water["tiger-leaping-gorge"]!).toBeLessThan(water.shigu!);
   });
 
   it("flies the whole Three Gorges reach at low, a hundred metres over the water", () => {
@@ -362,10 +367,13 @@ describe.skipIf(!built)("the rivers this world has", () => {
   }, 30_000);
 
   it("flies Tiger Leaping Gorge through at low, under its rim, where it cannot turn round", () => {
+    // Two hundred metres over the sill rather than a hundred, because stage 3
+    // took the sill down 101 m to the upstream end (F63): this is 2,034 m,
+    // within a metre of the 2,035 m this asked for before, and the same air.
     const r = find("tiger-leaping-gorge");
     const hero = world().hero!;
     const run = flyCourse(turningOf("tiger-leaping-gorge"), r.course, (e, n) => hero.groundAt(e, n), {
-      altitudeM: r.course.sillM + 100,
+      altitudeM: r.course.sillM + 200,
       marginM: 0,
     });
     expect(run.flown).toBe(true);

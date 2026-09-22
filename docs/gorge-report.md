@@ -18,7 +18,7 @@ reaches it, and it is the control — a broad valley on the same river, 41 km up
 | `qutang-gorge` | three-gorges | 158 m | 190 m (+32) | +837 m | +1,247 m |
 | `wu-gorge` | three-gorges | 160 m | 354 m (+194) | +964 m | +1,358 m |
 | `xiling-gorge` | three-gorges | 158 m | 173 m (+15) | +702 m | +1,397 m |
-| `tiger-leaping-gorge` | tiger-leaping-gorge | 1,807 m | 1,910 m (+103) | +900 m | +2,869 m |
+| `tiger-leaping-gorge` | tiger-leaping-gorge | 1,804 m | 1,910 m (+106) | +903 m | +2,872 m |
 | `shigu` | tiger-leaping-gorge | 1,819 m | 1,845 m (+26) | +182 m | +1,136 m |
 
 ## Turning room, height by height
@@ -45,10 +45,10 @@ floor. **0** means the aeroplane is inside the ground at that height.
 | `xiling-gorge` | +800 m | 5.25 km | 6.05 km | 4.31 km |
 | `xiling-gorge` | +1,600 m | 31.65 km | 32.55 km | 4.69 km |
 | `tiger-leaping-gorge` | +100 m | 0.36 km | **0** km | 4.76 km |
-| `tiger-leaping-gorge` | +200 m | 0.65 km | 0.76 km | 4.81 km |
-| `tiger-leaping-gorge` | +400 m | 1.15 km | 1.41 km | 4.92 km |
-| `tiger-leaping-gorge` | +800 m | 2.35 km | 2.29 km | 5.13 km |
-| `tiger-leaping-gorge` | +1,600 m | 5.47 km | 6.73 km | 5.60 km |
+| `tiger-leaping-gorge` | +200 m | 0.65 km | 0.74 km | 4.81 km |
+| `tiger-leaping-gorge` | +400 m | 1.15 km | 1.37 km | 4.91 km |
+| `tiger-leaping-gorge` | +800 m | 2.35 km | 2.26 km | 5.13 km |
+| `tiger-leaping-gorge` | +1,600 m | 5.47 km | 6.66 km | 5.59 km |
 | `shigu` | +100 m | 1.71 km | 1.21 km | 4.77 km |
 | `shigu` | +200 m | 2.20 km | 2.10 km | 4.82 km |
 | `shigu` | +400 m | 3.14 km | 3.48 km | 4.92 km |
@@ -73,9 +73,9 @@ fits above the rim is a turn made out of the gorge.
 | `xiling-gorge` | low, settled | **+750 m** | 4.29 km | 4.72 km | 48 m above the near rim, 647 m below the far one |
 | `xiling-gorge` | low, from cruise | **+800 m** | 5.14 km | 5.25 km | 98 m above the near rim, 597 m below the far one |
 | `xiling-gorge` | approach, settled | **+525 m** | 2.10 km | 2.17 km | 177 m below the near rim |
-| `tiger-leaping-gorge` | low, settled | **+1,625 m** | 5.61 km | 6.30 km | 725 m above the near rim, 1,244 m below the far one |
-| `tiger-leaping-gorge` | low, from cruise | **+1,725 m** | 6.93 km | 7.10 km | 825 m above the near rim, 1,144 m below the far one |
-| `tiger-leaping-gorge` | approach, settled | **+900 m** | 2.59 km | 2.68 km | level with the near rim |
+| `tiger-leaping-gorge` | low, settled | **+1,625 m** | 5.61 km | 6.30 km | 722 m above the near rim, 1,247 m below the far one |
+| `tiger-leaping-gorge` | low, from cruise | **+1,725 m** | 6.93 km | 7.10 km | 822 m above the near rim, 1,147 m below the far one |
+| `tiger-leaping-gorge` | approach, settled | **+900 m** | 2.59 km | 2.68 km | 3 m below the near rim |
 | `shigu` | low, settled | **+775 m** | 5.12 km | 5.18 km | 593 m above the near rim, 361 m below the far one |
 | `shigu` | low, from cruise | **+975 m** | 6.35 km | 8.79 km | 793 m above the near rim, 161 m below the far one |
 | `shigu` | approach, settled | **+250 m** | 2.42 km | 2.45 km | 68 m above the near rim, 886 m below the far one |
@@ -96,7 +96,7 @@ end is downstream.
 
 | Area | Course | Upstream end | Downstream end | Sill | Places along it |
 | --- | ---: | --- | --- | --- | --- |
-| `tiger-leaping-gorge` | 103.2 km | 1,834 m, west edge | 1,607 m, north edge | 1,935 m at km 77.0 | `shigu` km 31.3 (163 m off) · `tiger-leaping-gorge` km 81.0 (117 m off) |
+| `tiger-leaping-gorge` | 105.1 km | 1,834 m, west edge | 1,581 m, north edge | 1,834 m at km 0.0 | `shigu` km 31.7 (59 m off) · `tiger-leaping-gorge` km 82.3 (41 m off) |
 | `three-gorges` | 166.1 km | 158 m, west edge | 155 m, east edge | 158 m at km 0.0 | `qutang-gorge` km 23.4 (69 m off) · `wu-gorge` km 60.3 (183 m off) · `xiling-gorge` km 153.3 (55 m off) |
 
 The **sill** is the highest ground the lowest path between the two ends has to
@@ -104,14 +104,10 @@ cross. Every path crosses it, so no level flight below it plus the bounce joins
 the ends at all, which makes it the one floor here that is a proof rather than a
 search result.
 
-`tiger-leaping-gorge`: **the sill is not the river.** The lowest path between
-the two ends rises to 1,935 m at km 77.0, which is 116 m over the water at
-`shigu` and 128 m over the water at `tiger-leaping-gorge`. Nothing on this grid
-can drain through that, and a probe that reads the river at two points on either
-side of it cannot see it (F48). Whose sill it is, the grid's or the source's, is
-not something the lowest ground near it can say; the probe report floods the
-source the area was cut from between the same probe's cells and prints the
-answer beside its pass (F58).
+`tiger-leaping-gorge`: the sill is the upstream end itself — nothing on the
+lowest path between the ends stands above the water where the river enters — so
+water can drain the whole way on this grid, and a level over the sill is a
+height over the water.
 
 `three-gorges`: the sill is the upstream end itself — nothing on the lowest path
 between the ends stands above the water where the river enters — so water can
@@ -129,10 +125,10 @@ rather than over it.
 
 | Area | Level | Narrowest | Where | Reversal at `low` | Fits over | Under a wall |
 | --- | ---: | ---: | --- | ---: | ---: | ---: |
-| `tiger-leaping-gorge` | 2,035 m (+100) | 0.25 km | km 76.8, 4.1 km above `tiger-leaping-gorge` | 4.83 km | 5.9 km | 0.4 km |
-| `tiger-leaping-gorge` | 2,135 m (+200) | 0.54 km | km 77.6, 3.3 km above `tiger-leaping-gorge` | 4.88 km | 7.5 km | 0.9 km |
-| `tiger-leaping-gorge` | 2,335 m (+400) | 1.02 km | km 77.2, 3.8 km above `tiger-leaping-gorge` | 4.98 km | 8.9 km | 0.9 km |
-| `tiger-leaping-gorge` | 2,735 m (+800) | 2.10 km | km 91.3, 10.3 km below `tiger-leaping-gorge` | 5.20 km | 80.0 km | 0.0 km |
+| `tiger-leaping-gorge` | 1,934 m (+100) | 0.18 km | km 78.0, 4.3 km above `tiger-leaping-gorge` | 4.78 km | 0.0 km | 0.0 km |
+| `tiger-leaping-gorge` | 2,034 m (+200) | 0.25 km | km 78.2, 4.1 km above `tiger-leaping-gorge` | 4.83 km | 6.0 km | 0.4 km |
+| `tiger-leaping-gorge` | 2,234 m (+400) | 0.72 km | km 79.1, 3.3 km above `tiger-leaping-gorge` | 4.93 km | 8.4 km | 1.0 km |
+| `tiger-leaping-gorge` | 2,634 m (+800) | 1.66 km | km 79.6, 2.8 km above `tiger-leaping-gorge` | 5.15 km | 66.1 km | 0.7 km |
 | `three-gorges` | 258 m (+100) | 0.36 km | km 21.2, 2.1 km above `qutang-gorge` | 4.02 km | 0.0 km | 0.0 km |
 | `three-gorges` | 358 m (+200) | 0.51 km | km 20.9, 2.5 km above `qutang-gorge` | 4.06 km | 0.0 km | 0.0 km |
 | `three-gorges` | 558 m (+400) | 0.97 km | km 81.6, 21.4 km below `wu-gorge` | 4.14 km | 20.5 km | 0.0 km |
@@ -163,9 +159,9 @@ has not.
 
 | Area | Level | Flown with | Takes | Not found with | Stalled at | Under a wall |
 | --- | ---: | ---: | ---: | ---: | --- | ---: |
-| `tiger-leaping-gorge` | 1,985 m (+50) | **0 m** either side | 1 min 58 s | 25 m | km 76.8, 4.1 km above `tiger-leaping-gorge` (both orders, 400,000 states each) | 91 % |
-| `tiger-leaping-gorge` | 2,035 m (+100) | **25 m** either side | 1 min 58 s | 50 m | km 77.6, 3.3 km above `tiger-leaping-gorge` (both orders, 400,000 states each) | 82 % |
-| `tiger-leaping-gorge` | 2,135 m (+200) | **100 m** either side | 1 min 58 s | — | — | 59 % |
+| `tiger-leaping-gorge` | 1,884 m (+50) | — | — | 0 m | km 4.5, 27.2 km above `shigu` (both orders tried every state they kept) | 95 % |
+| `tiger-leaping-gorge` | 1,934 m (+100) | — | — | 0 m | km 33.9, 2.1 km below `shigu` (both orders tried every state they kept) | 94 % |
+| `tiger-leaping-gorge` | 2,034 m (+200) | **25 m** either side | 1 min 58 s | 50 m | km 78.9, 3.4 km above `tiger-leaping-gorge` (both orders, 400,000 states each) | 88 % |
 | `three-gorges` | 208 m (+50) | **25 m** either side | 3 min 31 s | 50 m | km 69.5, 9.2 km below `wu-gorge` (both orders, 400,000 states each) | 99 % |
 | `three-gorges` | 258 m (+100) | **50 m** either side | 3 min 31 s | 100 m | km 69.3, 9.0 km below `wu-gorge` (both orders, 400,000 states each) | 99 % |
 | `three-gorges` | 358 m (+200) | **100 m** either side | 3 min 32 s | — | — | 90 % |

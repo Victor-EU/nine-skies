@@ -112,11 +112,128 @@ class TestTheValley(unittest.TestCase):
         made, _ = carve.channels(heights, found, g.fetched, lakes, radius=1)
         self.assertFalse(any(lakes.ravel()[c] for c in made[0].cells))
 
+    def test_of_several_ways_in_the_flood_settles_the_lowest(self):
+        # Two cells to start from, one of them lower: the flood reaches both
+        # and the way back is from the lower. This is what picks a river's own
+        # crossing of an edge out of the cells near a line's (F63).
+        heights = np.full((5, 9), 500.0, dtype="float32")
+        heights[2, :] = 100.0
+        heights[1, 8], heights[2, 8] = 400.0, 300.0
+        allowed = np.ones(heights.shape, dtype=bool)
+        path = carve.valley(heights, allowed, [2 * 9 + 0], [1 * 9 + 8, 2 * 9 + 8])
+        self.assertEqual(path[0], 2 * 9 + 8)
+
+    def test_a_way_in_over_a_ridge_loses_to_one_the_river_reaches(self):
+        """The rule that keeps a low cell on the edge from becoming a trench.
+
+        A notch on the same edge stands lower than the river's own crossing
+        and is walled off from it. Taken as the way in, everything downstream
+        of it would be cut to its floor; reached only over the wall, it is
+        settled long after the river's own way in.
+        """
+        heights = np.full((11, 15), 1000.0, dtype="float32")
+        heights[5, :] = 300.0 - 5.0 * np.arange(15)  # the valley, west to east
+        heights[1, 0] = 100.0  # a notch on the west edge, lower and walled off
+        allowed = np.ones(heights.shape, dtype=bool)
+        path = carve.valley(heights, allowed, [5 * 15 + 14], [1 * 15 + 0, 5 * 15 + 0])
+        self.assertEqual(path[0], 5 * 15 + 0)
+
     def test_a_diagonal_step_is_made_four_connected(self):
         heights = np.full((5, 5), 100.0, dtype="float32")
         heights[1, 2] = 50.0
         path = carve.four_connected([1 * 5 + 1, 2 * 5 + 2], heights, np.ones((5, 5), bool))
         self.assertEqual(path, [6, 7, 12])  # (1,2) is lower than (2,1)
+
+
+def crossing_valley() -> np.ndarray:
+    """A valley crossing the grid from the west edge to the east, walled at
+    1,000 m, its floor falling 5 m a cell and stepping one row north every
+    four — so it meets each edge several rows from where a line a couple of
+    cells off it does, which is the hero areas' own geometry (F63)."""
+    heights = np.full((13, 25), 1000.0, dtype="float32")
+    for col in range(25):
+        heights[10 - col // 4, col] = 300.0 - 5.0 * col
+    return heights
+
+
+class TestWhereALineLeavesTheGrid(unittest.TestCase):
+    """The ends of a channel whose line runs off the edge (F63).
+
+    A line drawn at 1:10 million crosses an edge where it happens to, which
+    on a 90 m hero area was 2.4 km from the Jinsha and 300 m up its wall. The
+    river's own crossing is the ground's answer to the same question.
+    """
+
+    def channel(self, heights, points, radius=4):
+        g = ground(heights)
+        drawn = line(g, "V", points)
+        found = carve.runs([drawn], g.cells, heights, g.fetched, radius)
+        made, lost = carve.channels(heights, found, g.fetched,
+                                    np.zeros(heights.shape, dtype=int), radius)
+        self.assertEqual(lost, [])
+        return made[0], drawn, g
+
+    def test_an_end_on_the_edge_is_the_river_s_own_crossing(self):
+        heights = crossing_valley()
+        made, _, g = self.channel(heights, [(6, 0), (8, 24)])
+        self.assertEqual(made.cells[0], at(g, 10, 0))  # the line crosses at row 6
+        self.assertEqual(made.cells[-1], at(g, 4, 24))  # ...and at row 8
+        self.assertNotEqual(made.cells[0], made.run.cells[0])
+        # ...and the whole floor between them is the channel.
+        on_floor = {(10 - col // 4) * 25 + col for col in range(25)}
+        self.assertTrue(on_floor <= set(made.cells))
+
+    def test_an_end_the_line_keeps_inside_the_grid_is_still_the_line_s(self):
+        # Nothing about the corridor moves: its lines stop where the source
+        # stops, which is never on the grid's edge (F63).
+        heights = crossing_valley()
+        made, drawn, g = self.channel(heights, [(6, 1), (8, 23)])
+        self.assertEqual(made.cells[0], made.run.cells[0])
+        self.assertEqual(made.cells[0], at(g, 6, 1))
+
+    def test_the_channel_is_cut_to_the_edge_it_leaves_by(self):
+        """The last cells of a river rising to the edge are cut, rather than
+        left as a pit for the rule to fill."""
+        heights = crossing_valley()
+        heights[4, 24] = 255.0  # the floor rises 70 m in its last cell
+        made, _, g = self.channel(heights, [(6, 0), (8, 24)])
+        carved = carve.carve(heights, [made], np.zeros(heights.shape, dtype=int), {})
+        upstream = float(heights[5, 23])  # the lowest ground above the rise
+        self.assertEqual(made.cells[-1], at(g, 4, 24))
+        self.assertAlmostEqual(float(carved[4, 24]), upstream, places=3)
+
+
+class TestOneWorldOneRule(unittest.TestCase):
+    """What stops a hero area being carved one way and the grid around it
+    another, which nothing else would say (F63)."""
+
+    RECORD = {"rule": carve.FILL, "radiusCells": 5, "vectors": {"ne-rivers": "aa", "ne-lakes": "bb"}}
+
+    def test_the_same_rule_and_the_same_files_agree(self):
+        self.assertIsNone(carve.differs(self.RECORD, carve.FILL, self.RECORD["vectors"]))
+
+    def test_another_rule_is_named(self):
+        said = carve.differs(self.RECORD, carve.BREACH, self.RECORD["vectors"])
+        self.assertIn(carve.FILL, said or "")
+        self.assertIn(carve.BREACH, said or "")
+
+    def test_other_vectors_are_named(self):
+        self.assertIsNotNone(carve.differs(self.RECORD, carve.FILL, {"ne-rivers": "cc"}))
+
+    def test_the_band_is_not_compared_because_it_is_in_cells(self):
+        # 5 on the country grid, 56 on a hero area: the same 5 km.
+        record = {**self.RECORD, "radiusCells": carve.radius_cells(90.0)}
+        self.assertIsNone(carve.differs(record, carve.FILL, self.RECORD["vectors"]))
+
+
+class TestTheBand(unittest.TestCase):
+    def test_the_band_is_a_distance_and_not_a_count_of_cells(self):
+        # 5 km, measured on the 1 km grid (F61) and applied to a 90 m one by
+        # looking as far in more cells (F63).
+        self.assertEqual(carve.RADIUS_M, 5000.0)
+        self.assertEqual(carve.radius_cells(1000.0), carve.RADIUS_CELLS)
+        self.assertEqual(carve.RADIUS_CELLS, 5)
+        self.assertEqual(carve.radius_cells(90.0), 56)
 
 
 class TestTheCarve(unittest.TestCase):

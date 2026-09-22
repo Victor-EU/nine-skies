@@ -364,20 +364,21 @@ describe.skipIf(!built)("the gorge the country grid gets wrong", () => {
     expect(hero.covers(at.eastM, at.northM)).toBe(true);
   });
 
-  it("puts the aeroplane 103 m lower than the 1 km grid does", () => {
+  it("puts the aeroplane 106 m lower than the 1 km grid does", () => {
     // F49 moved this coordinate onto the water and F50 measured what the
     // country grid does with it: at 1 km the Jinsha climbs 221 m downstream
     // of Shigu. This is the same fault seen from the cockpit - the ground
     // under the waypoint, as the HUD and the terrain clamp read it. Stage 3
     // carved the Jinsha through the country grid here (F61), which took it
     // from 2,197.2 m to 1,910.0: down to the lowest ground upstream, Shigu's,
-    // and no further, so it still stands 103 m over the water the 90 m grid
-    // draws.
+    // and no further. Carving the hero area as well (F63) took the fine
+    // reading from 1,807.3 m to 1,804.0, so the gap is 106 m rather than 103:
+    // both grids came down and the coarse one had further to come.
     const { at } = world();
     const coarse = fly(false).groundElevationM(at.eastM, at.northM)!;
     const fine = fly(true).groundElevationM(at.eastM, at.northM)!;
     expect(coarse).toBeCloseTo(1910.0, 0);
-    expect(fine).toBeCloseTo(1807.3, 0);
+    expect(fine).toBeCloseTo(1804.0, 0);
     expect(coarse - fine).toBeGreaterThan(100);
   });
 

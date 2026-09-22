@@ -75,6 +75,8 @@ export interface HeroManifest {
   heights: { file: string; tiles: number; bytes: number; sha256: string };
   boundary: { meanM?: number; worstM?: number; skirtDepthM?: number; unchecked?: boolean };
   elevationM: { min: number; max: number };
+  /** What stage 3 read and did to this area as it was cut (F63). */
+  conditioning?: { rule?: string; radiusCells?: number; sha256?: string };
 }
 
 /** A rectangle of the world, in metres from the country grid's south-west corner. */

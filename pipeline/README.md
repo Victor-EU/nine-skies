@@ -110,7 +110,7 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      the warp says land; it is 45 of 45 today with nothing tuned to make it
      so. What this does *not* settle is the ocean inside a fetched raster,
      which is stage 3's business and is why `c` has its own name.
-3. **Hydro-condition** (`make carve`, `carve.py`, D62, D63, F61) — the
+3. **Hydro-condition** (`make carve`, `carve.py`, D62, D63, D64, F61, F63) — the
    mapped rivers carved, the mapped lakes kept, every other closed basin
    filled. Each run of a Natural Earth river over ground the source reached
    is followed down the valley it lies in — the way water would take through
@@ -125,7 +125,11 @@ vector driver. What the data itself asks of anyone who redistributes it is in
    largest thing the stage does: 387,919 cells raised, up to 542 m.
    `make hydro` and `make rivers` go on measuring stage 2's grid, the
    before. Needs the two Natural Earth files from `make vectors`, which
-   `make world` reads and never fetches (D60).
+   `make world` reads and never fetches (D60). **Stage 6 runs the same stage
+   on each hero area as it cuts it** (F63), since an area is cut from the
+   source and this one never reaches it; the band is 5 km there too, which is
+   56 cells, and where a line leaves a grid the channel is taken to the
+   river's own crossing of the edge rather than to the line's.
 4. **Tile** — 64 km tiles, 65 x 65 Int16 metres, shared edge row and column.
 5. **Horizon field** — one 8 km country raster, 841 x 553 Int16 (930 kB),
    reduced from the 1 km grid with the silhouette bias (mean + 0.6 x
@@ -140,6 +144,13 @@ vector driver. What the data itself asks of anyone who redistributes it is in
    downstream from Shigu to Tiger Leaping Gorge, where the source runs it
    down 41. On this grid the probe passes — −80 m on the channel, −11 m as a
    bare point sample.
+   - **Each area is conditioned by stage 3 as it is cut** (D64, F63), because
+     it is cut from the source rather than from the conditioned country grid.
+     Without it the gorge kept a 1,935 m sill, 119 m over the cell the probe
+     reads at Shigu, which is now gone; the Yangtze through the Three Gorges
+     needed no cut. `make hero` writes `docs/carve-report-hero.md`, which
+     prices the rule for each area's other basins, and each area's manifest
+     carries the record stage 3 wrote.
    - The cell size is measured, not inherited. 100 m is the only resolution
      that nests in the 1 km grid, and it still loses: both probes that read
      this artefact pass across a bias window of 0.25–0.45 at 90 m and at the

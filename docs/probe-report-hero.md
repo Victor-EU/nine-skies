@@ -4,6 +4,8 @@
 
 This is the artefact stage 6 exists to produce a verdict on. The seventh golden probe cannot pass on the 1 km grid the game ships — the Jinsha climbs 221 m through Tiger Leaping Gorge there, where the source runs it down 41 — so it is deferred to this grid on F12's rule and this is where it is answered (F49, F50).
 
+Each area is cut from the source and then conditioned by stage 3, as the country grid is: its mapped rivers carved down their own valleys and its other closed basins filled (`docs/carve-report-hero.md`, F63). So a sill below is what the carve left, and the source row beside it is the ground it was applied to.
+
 ## Tiger Leaping Gorge and the first bend
 
 `tiger-leaping-gorge` · 24 tiles of 129 x 129 at 90 m · hero tiles 256,89–260,95 · holds shigu, tiger-leaping-gorge
@@ -14,18 +16,18 @@ The seventh golden probe reads this ground and cannot pass at 1 km: the Jinsha c
 | --- | ---: | ---: | --- |
 | Jinsha through Tiger Leaping Gorge | monotonic non-increasing | 2 waypoints | pass |
 
-**It passes at the cells it reads, and its one reach is dammed on this grid:** every path from that reach's upstream cell to its downstream one crosses a sill 119 m above the upstream cell, so none of them runs downhill. *What this verdict covers*, below, says where (F58).
+**It passes at the cells it reads**, and no reach between them crosses a sill above its upstream cell on this grid — which rules out a dam, and does not by itself make any path run downhill (F58).
 
 The channel minimum is what is checked, over a square window 2 km to a side's half-width — so 2.83 km into the corners. A 1 km cell straddling a gorge reports the wall as readily as the water. A waypoint quoted to two decimals is ±550 m from where it means, which is why the two on the channel carry four. The point sample beside it is what the search is worth: the gap between the columns *is* the damage resampling does to a river, which stage 3 carves back where a mapped river runs (F61). What the search must never be is the thing producing the verdict — F50 found this probe reading the Jinsha only because a 2 km disc reached it from a waypoint 1,260 m up the gorge wall, with the minimum sitting at the rim of the disc at every resolution. Both its waypoints are on the water now, and the sweep below is where that shows.
 
 | Waypoint | Point sample | Channel minimum | Drop |
 | --- | ---: | ---: | ---: |
 | 26.8747 N, 99.9625 E | 1,818 m | 1,816 m | — |
-| 27.2107 N, 100.1253 E | 1,807 m | 1,736 m | -80 m |
+| 27.2107 N, 100.1253 E | 1,804 m | 1,736 m | -80 m |
 
 #### What this verdict covers
 
-The check above reads **4,418 cells of 394,497** — 1.1199 % of the built grid — at 2 waypoints with a 2 km search around each. Unpassable on stage 2's 1 km grid, where it reads +221 m uphill against the source's -41 m. Read on the 90 m hero grid from stage 6, which stage 3 does not carve, and printed beside the 1 km grid stage 3 does (F61). Both its waypoints are `on_channel` places, so the report holds them to the water rather than trusting the 2 km search to find it (F50).
+The check above reads **4,418 cells of 394,497** — 1.1199 % of the built grid — at 2 waypoints with a 2 km search around each. Unpassable on stage 2's 1 km grid, where it reads +221 m uphill against the source's -41 m. Read on the 90 m hero grid, which stage 6 cuts from the source and stage 3 then carves as it does the 1 km grid (F61, F63), so its sill table prints the carve's answer beside the source that carve was applied to. Both its waypoints are `on_channel` places, so the report holds them to the water rather than trusting the 2 km search to find it (F50).
 
 **Along the lowest ground there is, rather than along the chord.** The check compares one cell near each waypoint, the lowest in its window. Between two of them the ground has a *sill*: the highest ground on the lowest path that joins them, found by flooding from one cell until the water reaches the other, eight neighbours to a cell. Every path between the two crosses it, so a sill above the upstream cell means that nothing between the two cells this check compares runs downhill, however finely it is walked. A sill level with its upstream cell proves nothing the other way: the lowest path never stands above where it started, and it can still fall and rise on the way.
 
@@ -33,7 +35,7 @@ The source rows ask the same question of the 1″ cells this area was cut from, 
 
 | Reach | Read on | Compared | Sill | Over the upstream cell | Where the sill is |
 | --- | --- | ---: | ---: | ---: | --- |
-| 1 → 2 | this grid, 90 m | 1,816 m → 1,736 m | 1,935 m | 119 m | 27.1825 N, 100.1055 E, 3.7 km from `tiger-leaping-gorge` |
+| 1 → 2 | this grid, 90 m | 1,816 m → 1,736 m | 1,816 m | 0 m | the upstream cell itself |
 | 1 → 2 | the source, 1″ | 1,816 m → 1,724 m | 1,868 m | 52 m | 27.1825 N, 100.1050 E, 3.7 km from `tiger-leaping-gorge` |
 
 **Walked more finely, along the same chord.** The 2 waypoints are a hand-placed line across country, not a centreline, so the straight reach between two of them crosses ground the river goes around. Read this as the spacing at which the chord stops being a river, and not as a hydrology result: it is why the probe cannot simply be densified. The sills above are the hydrology result — they do not depend on the chord — and a reach dammed there fails at every spacing along every path, which is why stage 3 is the fix. A two-waypoint probe fails the walk sooner than a seven-waypoint one for the same reason a short chord is no straighter than a long one.
@@ -70,7 +72,7 @@ The source rows ask the same question of the 1″ cells this area was cut from, 
 | Xiling Gorge | gorge | — | — | — | outside this build |
 | Chongqing | city | — | — | — | outside this build |
 | Chengdu | city | — | — | — | outside this build |
-| Tiger Leaping Gorge | gorge | 1,807 m | 1,736 m | 71 m on the water | 3,801 m |
+| Tiger Leaping Gorge | gorge | 1,804 m | 1,736 m | 68 m on the water | 3,801 m |
 | Shigu, the first bend of the Yangtze | valley | 1,818 m | 1,816 m | 2 m on the water | 2,019 m |
 | Lhasa | city | — | — | — | outside this build |
 | Everest summit | summit | — | — | — | outside this build |
@@ -108,7 +110,7 @@ The GDD's *thread a gorge at low speed* wants a gorge the aeroplane can be flown
 | Wuhan | city | — | — | — | outside this build |
 | Yichang | city | — | — | — | outside this build |
 | Qutang Gorge | gorge | 158 m | 158 m | 0 m on the water | 1,706 m |
-| Wu Gorge | gorge | 159 m | 158 m | 2 m on the water | 1,807 m |
+| Wu Gorge | gorge | 159 m | 158 m | 2 m on the water | 1,763 m |
 | Xiling Gorge | gorge | 158 m | 158 m | 0 m on the water | 1,859 m |
 | Chongqing | city | — | — | — | outside this build |
 | Chengdu | city | — | — | — | outside this build |

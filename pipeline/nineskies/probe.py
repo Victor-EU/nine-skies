@@ -639,6 +639,13 @@ def run_every_hero_area(args) -> int:
         "the source runs it down 41 — so it is deferred to this grid on "
         "F12's rule and this is where it is answered (F49, F50).",
         "",
+        "Each area is cut from the source and then conditioned by stage 3, "
+        "as the country grid is: its mapped rivers carved down their own "
+        "valleys and its other closed basins filled "
+        "(`docs/carve-report-hero.md`, F63). So a sill below is what the "
+        "carve left, and the source row beside it is the ground it was "
+        "applied to.",
+        "",
     ]
     for area in built:
         sampler = GridSampler(data_root() / "work" / f"hero-{area.id}.tif")

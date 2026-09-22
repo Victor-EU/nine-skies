@@ -8196,3 +8196,185 @@ decided nowhere.
 - **`NOTICE.md` is unchanged.** It lists what the repository's data is
   produced from, and nothing from these four has been built yet. Each
   source's credit joins it with the stage that first reads it.
+
+
+## F63 — Stage 3 carves the hero areas as stage 6 cuts them, and the 1,935 m sill in Tiger Leaping Gorge is gone: the seventh probe's reach goes from 119 m of dam to none, on a grid whose source still has 52
+
+*22 September 2026, on `real-elevation-pipeline`.*
+
+F61 built stage 3 and left one thing undone. A hero area is cut from the
+source, not from the country grid, so the carve never reached one: Tiger
+Leaping Gorge still crossed a **1,935 m sill, 119 m over the cell the seventh
+golden probe reads at Shigu**, and every path between the probe's two cells
+crossed it (F58). The probe passed anyway, because it compares two cells and
+they fall.
+
+Stage 3 now runs on each area as stage 6 cuts it — the same module, the same
+vectors, the same rule, the band in metres — and what is written, probed and
+drawn is the conditioned area. `docs/carve-report-hero.md` is its report and
+`make hero` writes it.
+
+### Where a line leaves the grid, the river's crossing is not the line's
+
+The carve at 1 km follows a band 5 km either side of a Natural Earth line and
+takes the run's own end cells as the channel's ends (D63). At 90 m the second
+half of that fails, and the geometry says why. On the west edge of the Tiger
+Leaping Gorge area the Jinsha crosses at **1,834.5 m**; the line crosses
+**4.4 km along the edge from it** — 2.4 km from the line, which the band
+covers — and **276 m up the wall**, at 2,110.8 m. Carved from there the
+channel starts on the wall, and the river above where it joins the valley is
+left for the rule to deal with. The same at the other end, where the line
+leaves 0.8 km from the river and the channel stopped 2 km short of the edge,
+in a pit the fill then flattened.
+
+So an end of a run **on the grid's own edge** is moved to where the river
+crosses:
+
+- **where it leaves**, the lowest ground on the edge within the band;
+- **where it enters**, the first ground on the edge within the band that the
+  flood from the lower end settles — the lowest way in, but never one reached
+  over a ridge. Taking the lowest outright would be a trench waiting to
+  happen: a notch on the same edge, lower than the river and walled off from
+  it, would become the head of the channel and everything downstream would be
+  cut to its floor. A test holds that.
+
+**Nothing on the corridor moves.** No measured cell is on the 1 km grid's own
+edge — 0 of 9,728 — because the corridor's window is tile-aligned and reaches
+past the fetched cells, so no run ends there. The conditioned 1 km grid is
+identical to the byte with the new rule, which was checked rather than
+argued, so no section or patch is re-cut or re-signed.
+
+### The band is the same 5 km, and at 90 m that is 56 cells
+
+`RADIUS_M` is the constant now and `RADIUS_CELLS` is derived from it: the
+band is how far the map can be from its valley, which is a fact about the map
+and not about a grid. Swept over the gorge area with nothing else changed:
+
+| Band | Where the channel starts | Cells cut | Deepest | Cut over 100 m | From the line: median / 90th / worst |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 0.18 km | 2,174 m — and the run is turned round | 1,399 | 1,301 m | 1,336 | 0.25 / 0.32 / 0.32 km |
+| 0.45 km | 2,121 m, on the wall | 1,019 | 1,020 m | 416 | 0.54 / 0.65 / 0.70 |
+| 0.99 km | 2,078 m | 873 | 487 m | 78 | 0.77 / 1.37 / 1.47 |
+| 1.98 km | 2,065 m | 704 | 171 m | 23 | 0.81 / 1.80 / 2.50 |
+| 2.97 km | 1,881 m | 702 | 171 m | 23 | 0.80 / 1.80 / 2.50 |
+| 3.96 km | 1,840 m | 695 | 171 m | 23 | 0.80 / 1.78 / 2.50 |
+| **5.04 km** | **1,834.5 m, the river** | **695** | **171 m** | **23** | 0.80 / 1.78 / 2.50 |
+| 9.00 km | 1,834.5 m | 695 | 171 m | 23 | 0.80 / 1.78 / 2.50 |
+
+The river's own crossing is in reach from 4.5 km and nothing changes out to
+9 km, so D63's 5 km lands inside the same window one grid finer. Below it the
+channel starts up the wall, and at a fifth of a kilometre — the width a burn
+would have had — the run is *turned round*, because both its ends are read on
+walls and the northern one is higher. The Three Gorges area is insensitive:
+its line crosses both edges on the water, and from 2 km on nothing is cut at
+all.
+
+### What it did
+
+`docs/carve-report-hero.md`, the same to the byte across two runs:
+
+- **Tiger Leaping Gorge.** One channel, 1,498 cells, from 1,834 m on the west
+  edge to 1,598 m on the north, which the cut takes to 1,581. **695 cells
+  cut, 0.12 km³, the deepest 171 m** — at 27.1825 N 100.1046 E, which is the
+  sill. The sill between where the river enters the area and where it leaves
+  was **1,935 m, 100 m over the way in**; it is now the way in itself.
+- **The seventh golden probe's reach: 119 m of sill over its upstream cell,
+  and now 0 m.** The source row beside it is unchanged — 1,868 m, 52 m over —
+  which is what the carve was applied to and what F58 measured the grid
+  against.
+- **The Three Gorges.** One channel, 2,332 cells, and **nothing cut**: the
+  Yangtze already ran downhill through all three gorges on the 90 m grid,
+  which is what the gorge report had been saying with its sill at the
+  upstream end. The stage's answer agrees with a measurement taken another
+  way.
+- **The channel stays near the line**: median 0.80 km from it, 2.50 km at
+  worst in the gorge area, and 0.36 / 2.36 in the Three Gorges.
+
+### One world, one rule
+
+Each area's manifest now carries what stage 3 read and did, as the country
+manifest does: the rule, the band, the two vector files by SHA-256, one digest
+over them, and the counts. Nothing signs it — a section or a patch refuses to
+be cut over a hero area (D52) — so it is provenance rather than a key. What it
+does buy is a refusal: the cut reads the country grid's own conditioning
+record and stops, naming both, if the grid the area is dropped into was carved
+with another rule or from other vector files. A world carved two ways would
+otherwise draw two rules across one seam and say so nowhere.
+
+### What D62's rule costs at 90 m
+
+The fill is decided (D62, confirmed with its 1 km price in F61) and the
+report prices all three rules on each area, as the country one does:
+
+| Area | Rule | Cells raised | Cells lowered | km³ | Deepest | Within 2 km of the river |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `tiger-leaping-gorge` | **fill** | 24,126 | 0 | 6.39 | 201 m | 365 cells, ≤ 28.9 m |
+| | leave | 0 | 0 | 0 | — | nothing |
+| | breach | 0 | 3,634 | 0.28 | 201 m | 285 cells, ≤ 28.9 m |
+| `three-gorges` | **fill** | 18,721 | 0 | 3.11 | 155 m | 756 cells, ≤ 71.1 m |
+| | leave | 0 | 0 | 0 | — | nothing |
+| | breach | 0 | 10,176 | 1.45 | 155 m | 2,086 cells, ≤ 119.0 m |
+
+Fill raises 6.1 % of the gorge area and 3.2 % of the Three Gorges, against
+8.2 % of the corridor at 1 km, and it is nearly all away from the water: the
+deepest fills are a 15 km² basin 22 km from the river raised 201 m, and a
+57 km² one 8.7 km away raised 79 m. Within the 2 km a river probe searches it
+moves 365 cells by at most 29 m in the gorge area.
+
+**Breach is worse here than it is at 1 km, and the reason is in the source.**
+Side canyons off the Three Gorges reservoir read **113 to 136 m** where the
+water stands at 157.5 — below the reservoir, on a surface model that has been
+void-filled — and they are sealed from it by the 90 m cell. Breaching lowers
+the way out of such a pit to its floor, which cuts a trench along the
+reservoir the player flies down: 1,730 cells moved within a kilometre of the
+river and one of them by 119 m, against fill's 175 and 47 m. Filling pours a
+flat floor into the canyon instead, as much as 111 m above the water. Neither is the ground; the rule is
+D62's and the price is now on both grids.
+
+### What else moved
+
+**The gorge report.** The course through Tiger Leaping Gorge is 105.1 km
+rather than 103.2, ends at 1,581 m rather than 1,607, and **passes its two
+places at 59 m and 41 m where it passed them at 163 and 117** — the carved
+channel pulls the walked course onto the river. Its sill paragraph now reads
+like the Three Gorges': *the sill is the upstream end itself*.
+
+The run ladder is climbed from the sill, so its levels came down 101 m with
+it. The pass the report flew at 2,035 m with 25 m either side is flown at
+**2,034 m with 25 m either side** — the same air, one metre apart — and the
+two rungs below it are new questions whose answer is *not found*: at 1,884 m
+and 1,934 m neither search order gets past km 4.5 and km 33.9, in the narrow
+reach above and below Shigu. Nothing that could be flown has stopped being
+flyable; the floor the ladder starts from moved down to where the ground
+actually is. At +100 m the narrowest place on the course reads **0.18 km**,
+which is the carved channel: two cells wide, at the head of the gorge.
+
+**The ground report.** The two grids agree slightly better: mean gap 72.0 →
+70.0 m over the gorge area and 77.2 → 76.5 over the Three Gorges, and the
+worst place where the *1 km* grid stands above the 90 m one falls from 568 m
+to 524. The direction that matters for a clearance check — 90 m above 1 km,
+557 m and 628 m — does not move, because those are walls and nothing here
+raises a wall.
+
+**Three TypeScript tests** were re-pinned, each with what it used to say:
+the cockpit reading over Tiger Leaping Gorge (1,807.3 → 1,804.0 m, and the
+gap to the country grid 103 → 106 m); the course's sill, which asserted the
+dam and now asserts its absence; and the pass through the gorge, flown 200 m
+over the sill rather than 100 because the sill moved.
+
+### What it cost
+
+**286 Python tests, up from 276.** The ten new ones are the ways in and out
+on an edge — a line crossing away from its valley, a line that stops inside
+the grid, and a channel cut to the edge it leaves by — the flood settling the
+lowest of several ways in, the notch that would be a trench, the band as a
+distance rather than a count of cells, and four on the refusal to carve an
+area one way and the grid around it another.
+
+**782 TypeScript tests**, three of them re-pinned above.
+
+`make hero` takes **15 s** for both areas, report and all, and writes the same
+report, rasters and tiles to the byte on a second run. `make gorges` is the
+cost of the change, at three minutes of searches, and it is the report that
+moved most. Nothing was downloaded, the country grid was not rebuilt, and no
+committed artefact changed.
