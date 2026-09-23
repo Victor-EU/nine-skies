@@ -54,6 +54,7 @@ const stations = film.scenes.map((s) => {
   return {
     id: s.id,
     km: Math.round(km * 10) / 10,
+    flightS: STATION_AT_S,
     eastM: Math.round(fix.eastM),
     northM: Math.round(fix.northM),
     altitudeM: Math.round(altitudeM),

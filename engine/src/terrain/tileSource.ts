@@ -30,6 +30,8 @@ export interface TileSource {
   water?(tx: number, ty: number): Uint8Array | null;
   /** How many tiles are in flight. Zero for sources that answer immediately. */
   readonly pending: number;
+  /** How many water files are in flight; absent where water never streams. */
+  readonly waterPending?: number;
   /** Human-readable, for the debug HUD: what world am I actually flying over? */
   readonly label: string;
 }

@@ -659,14 +659,33 @@ if (import.meta.env.DEV) {
      * Ask the GPU what a frame costs, per pass, at the committed stations:
      *   __ns.frameCost().then((r) => console.log(__ns.frameCostTable(r)))
      */
-    frameCost: (samples?: number, size?: [number, number], only?: string[]) =>
-      captureFrameCost({
+    frameCost: (samples?: number, size?: [number, number], only?: string[]) => {
+      // Each station is drawn as its own scene draws it - the look, the sun
+      // at that second, the camera's pitch - and not as whatever scene was
+      // playing when the capture began: pitch alone decides how much of the
+      // frame is ground (F82). The scene that was playing is put back after.
+      const playing = current;
+      let drawnAs = playing;
+      const asScene = (i: number): void => {
+        if (i === drawnAs) return;
+        current = i;
+        rig.setScene(film?.scenes[i] ?? null);
+        drawnAs = i;
+      };
+      return captureFrameCost({
         renderer,
         scene,
         camera,
         terrain,
         ring,
-        placeAt: (st) => placeAt(st.eastM, st.northM, st.altitudeM, st.headingRad, 0),
+        placeAt: (st) => {
+          const i = film?.scenes.findIndex((s) => s.id === st.id) ?? -1;
+          const s = film?.scenes[i];
+          if (!s) return placeAt(st.eastM, st.northM, st.altitudeM, st.headingRad, 0);
+          asScene(i);
+          const flightS = st.flightS ?? 0;
+          placeAt(st.eastM, st.northM, st.altitudeM, st.headingRad, 0, s.hour * 60 + flightS / 60, railAtKm(rails[i]!, st.km).pitchDeg);
+        },
         render: () => rig.render(),
         passes: rig.passes,
         ...(size ? { width: size[0], height: size[1] } : {}),
@@ -674,12 +693,14 @@ if (import.meta.env.DEV) {
         suspend: () => {
           suspended = true;
           return () => {
+            asScene(playing);
             suspended = false;
             resize();
           };
         },
         samples,
-      }),
+      });
+    },
     frameCostTable,
   };
 }

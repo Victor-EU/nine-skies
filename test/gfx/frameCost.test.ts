@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   MIN_FRAME_RATE_HZ,
+  SETTLE_QUIET_FRAMES,
   frameCostTable,
+  quietFrame,
   resolutionMs,
+  settle,
   tooSlowToMeasure,
   type FrameCostReport,
+  type SettleStats,
   type StationCost,
 } from "../../app/src/frameCost.js";
 
@@ -25,6 +29,8 @@ const station = (id: string, clear: number): StationCost => ({
   triangles: 261_000,
   resident: 256,
   missing: 0,
+  whole: true,
+  settleMs: 400,
   ms: { clear, terrain: clear + 0.3, all: clear + 0.4 },
   perLod: [9, 60, 68, 0],
   bucketLabels: ["L0", "L1", "L2", "L3"],
@@ -83,3 +89,80 @@ describe("what a capture can resolve", () => {
     expect(frameCostTable(report([0.52, 0.84]))).toContain("±0.32 ms");
   });
 });
+
+/**
+ * A streamed world as the settle sees it: tiles are asked for when the
+ * station is placed, land a few frames later, and are only inserted - and
+ * counted - by the next placing. Without placing, nothing changes.
+ */
+function streamedWorld(tiles: number, perFrame: number, water = true) {
+  let asked = false;
+  let landed = 0;
+  let inserted = 0;
+  let waterLanded = 0;
+  const stats: { -readonly [K in keyof SettleStats]: number } = {
+    generatedThisFrame: 0,
+    pending: 0,
+    waterPending: 0,
+    missing: tiles,
+  };
+  return {
+    stats: () => stats,
+    place: () => {
+      asked = true;
+      stats.generatedThisFrame = landed - inserted;
+      inserted = landed;
+      stats.missing = tiles - inserted;
+      stats.pending = tiles - landed;
+      stats.waterPending = water ? inserted - waterLanded : 0;
+    },
+    frame: async () => {
+      if (!asked) return;
+      landed = Math.min(tiles, landed + perFrame);
+      waterLanded = inserted;
+    },
+  };
+}
+
+describe("the settle before a station is timed", () => {
+  const clock = () => {
+    let t = 0;
+    return { now: () => t, tick: (ms: number) => (t += ms) };
+  };
+
+  it("is quiet only when nothing is missing, landing or in flight, water included", () => {
+    const done = { generatedThisFrame: 0, pending: 0, waterPending: 0, missing: 0 };
+    expect(quietFrame(done)).toBe(true);
+    // F80: nothing in flight is not the same as nothing missing.
+    expect(quietFrame({ ...done, missing: 52 })).toBe(false);
+    expect(quietFrame({ ...done, waterPending: 3 })).toBe(false);
+    expect(quietFrame({ ...done, generatedThisFrame: 1 })).toBe(false);
+  });
+
+  it("places the station every frame, and waits for the last tile and its water", async () => {
+    const world = streamedWorld(137, 10);
+    const c = clock();
+    const r = await settle(world.stats, world.place, () => {}, async () => { c.tick(16); await world.frame(); }, c.now);
+    expect(r.whole).toBe(true);
+    expect(r.missing).toBe(0);
+    // Fourteen frames for the tiles to land, one to insert the last, one for its water, then the quiet ones.
+    expect(r.frames).toBeGreaterThanOrEqual(Math.ceil(137 / 10) + SETTLE_QUIET_FRAMES);
+  });
+
+  it("says a station is not whole when the world never arrives, and stops at the limit", async () => {
+    const world = streamedWorld(137, 0);
+    const c = clock();
+    const r = await settle(world.stats, world.place, () => {}, async () => { c.tick(1000); await world.frame(); }, c.now, 5_000);
+    expect(r.whole).toBe(false);
+    expect(r.missing).toBe(137);
+    expect(r.ms).toBeGreaterThanOrEqual(5_000);
+  });
+
+  it("marks a station that is not whole in the table", () => {
+    const r = report([1.0, 1.1]);
+    const half = { ...r, stations: [r.stations[0]!, { ...r.stations[1]!, whole: false, missing: 52, settleMs: 30_000 }] };
+    expect(frameCostTable(half)).toContain("NOT WHOLE — 52 tiles missing after 30 s");
+    expect(frameCostTable(r)).not.toContain("NOT WHOLE");
+  });
+});
+

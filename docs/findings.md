@@ -343,6 +343,9 @@ zero. An M1 is roughly half this GPU, so 8 to 10 ms there, which is the
 budget or a little over it; the post pass's resolution is the lever, and
 a phone will be measured by wall clock as the plan says.
 
+F82 re-measures all nine: the four half-drawn stations whole, and every
+station drawn as its own scene, which F80's were not.
+
 ## F81 — Huangshan flies among its peaks, 23 September 2026
 
 **The change.** How far ahead the altitude controller reads the ground is
@@ -402,3 +405,76 @@ same patience.
 1,383 m above ground, ground ahead above the camera on 2 % of samples by
 up to 160 m, at the floor 2 %. The first bend sits at its 1,600 m ceiling
 11 % of the way, which is the band chosen in F79, not this change.
+
+## F82 — The capture waits for the world, and draws each station as its scene, 23 September 2026
+
+**Why F80's settle gave up.** The capture suspends the shell's loop and
+placed each station once, then only drew. Placing is what asks the
+terrain for tiles and inserts the ones that have landed, so after that
+one frame the terrain's stats never changed: the fetches it had started
+landed in a cache nobody read, the settle saw the same "137 in flight"
+for 180 frames, and timed whatever had been cached from earlier in the
+page's life. It was not a limit too short. On a fresh page every station
+now arrives in 0.07 to 0.48 s, well inside the old three seconds.
+
+**The fix.** The settle places the station every frame, and calls the
+world finished only when nothing is missing, landing, or in flight,
+water files included (the terrain's stats now carry `waterPending`). A
+failed fetch waiting to be asked again is in flight for nobody, so
+"nothing in flight" was never the same as "nothing missing". Its limit
+is thirty seconds of wall clock rather than a frame count, and a station
+that does not arrive is timed anyway and marked `⚠ NOT WHOLE` in the
+table, with how many tiles it lacked. Tests cover the rule and the loop.
+
+**A second fault, found by the re-capture.** Every station was drawn as
+whatever scene the film happened to be playing: its palette, mist, cloud
+deck, sun and camera pitch. A run taken while the gorges were playing
+drew the first bend at 6° instead of its 22° and under the gorges'
+valley mist, and read it 1 ms dearer than it is. The shell's capture hook
+now sets each station's own scene for it, at the station's own second
+(`flightS`, written by `make stations`) and the rail's pitch there, and
+puts the playing scene back afterwards.
+
+**The numbers.** `__ns.frameCost(16)` at all nine stations, twice, on a
+fresh page, 1920 × 1080 on the M3, each variant the cheapest of 16. The
+instrument fitted r² 0.995 and 0.987, resolution ±1.1 and ±1.0 ms. The
+frame is the cheaper of the two runs; seven stations agreed within
+0.25 ms, the grassland and Turpan within 0.7 and 0.9 ms.
+
+| Station | Tiles | Triangles | Frame | Terrain | Post |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| huangshan | 167 | 767 k | 5.7 | 1.8–2.0 | 2.8–2.9 |
+| three-gorges | 173 | 775 k | 5.1 | 2.3–2.4 | 2.8–3.0 |
+| karst | 317 | 1,509 k | 5.6 | 2.7–2.9 | 2.9–3.1 |
+| first-bend | 161 | 722 k | 5.2 | 2.4–2.6 | 2.8–2.9 |
+| loess | 137 | 261 k | 3.9 | 1.0 | 2.5–2.7 |
+| grassland-to-heaven-lake | 149 | 269 k | 3.8 | 0.8–1.1 | 2.5–2.9 |
+| below-the-sea | 137 | 261 k | 3.5 | 0.6–0.8 | 2.2–3.1 |
+| the-roof | 137 | 261 k | 3.8 | 1.3–1.7 | 2.3–2.4 |
+| the-wall | 146 | 283 k | 4.6 | 0.7–1.0 | 2.9 |
+
+*Terrain* is the terrain drawn alone less the empty frame; *post* is the
+frame less the frame without the post pipeline; both as a range over the
+two runs. Every station is whole.
+
+**What it says.** A frame is 3.5 to 5.7 ms on this machine. The four
+scenes with hero ground close under the camera - Huangshan's spires, the
+gorges, the karst's 30 m lattice, the first bend - are 5.1 to 5.7; the
+five over country ground are 3.5 to 4.6. Post is 2.2 to 3.1 ms
+everywhere and still the largest single cost. One look pass is now above
+the noise: Huangshan's cloud deck, 1.1 and 1.2 ms in the two runs, a
+screen-wide quad of noise under most of the frame. The sky and the
+shadow map cost nothing the instrument can see anywhere. At F80's
+reckoning of an M1 as half this GPU, the heavy four are 10 to 11.5 ms
+there and over the plan's 8 ms line; the other five are 7 to 9. The
+levers are the same two: the post pass's resolution, and the 30 m
+lattice's LOD distances at the karst.
+
+Against F80, the five stations it had whole moved by −0.3 to +1.8 ms,
+Huangshan the most; all inside F80's own ±2.3 ms, so none is a change
+this can see.
+
+**For the next capture.** Run it twice and take the cheaper. The first
+run after a page load was a poor fit once (r² 0.73, flagged by the
+table) and good the next.
+

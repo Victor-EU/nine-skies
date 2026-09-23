@@ -6,6 +6,7 @@
     {
       "id": "huangshan",
       "km": 22,
+      "flightS": 60,
       "eastM": 4712412,
       "northM": 1482896,
       "altitudeM": 1258,
@@ -16,6 +17,7 @@
     {
       "id": "three-gorges",
       "km": 90,
+      "flightS": 60,
       "eastM": 3970861,
       "northM": 1509258,
       "altitudeM": 814,
@@ -26,6 +28,7 @@
     {
       "id": "karst",
       "km": 30,
+      "flightS": 60,
       "eastM": 4005104,
       "northM": 843343,
       "altitudeM": 563,
@@ -36,6 +39,7 @@
     {
       "id": "first-bend",
       "km": 50,
+      "flightS": 60,
       "eastM": 2956753,
       "northM": 1061334,
       "altitudeM": 3542,
@@ -46,6 +50,7 @@
     {
       "id": "loess",
       "km": 180,
+      "flightS": 60,
       "eastM": 3965805,
       "northM": 2399352,
       "altitudeM": 1529,
@@ -56,6 +61,7 @@
     {
       "id": "grassland-to-heaven-lake",
       "km": 550,
+      "flightS": 60,
       "eastM": 5071016,
       "northM": 2979119,
       "altitudeM": 975,
@@ -66,6 +72,7 @@
     {
       "id": "below-the-sea",
       "km": 300,
+      "flightS": 60,
       "eastM": 2056741,
       "northM": 2837996,
       "altitudeM": 1911,
@@ -76,6 +83,7 @@
     {
       "id": "the-roof",
       "km": 360,
+      "flightS": 60,
       "eastM": 2777156,
       "northM": 1942641,
       "altitudeM": 5500,
@@ -86,6 +94,7 @@
     {
       "id": "the-wall",
       "km": 60,
+      "flightS": 60,
       "eastM": 1740789,
       "northM": 1389114,
       "altitudeM": 6196,

@@ -67,12 +67,23 @@ const DEFAULT_SAMPLES = 20;
  */
 const INSTRUMENT_SCALES = [0.25, 0.5, 0.75, 1, 1.333] as const;
 
-/** Give up waiting for tile generation to settle after this many frames. */
-const MAX_SETTLE_FRAMES = 180;
+/**
+ * Give up waiting for a station's world after this long, wall clock.
+ *
+ * Time rather than frames: what is being waited on is the network, and a
+ * jump of a thousand kilometres over a streamed country is a few hundred
+ * files. Three seconds of frames was not enough for it (F80, F82).
+ */
+export const SETTLE_LIMIT_MS = 30_000;
+/** Frames in a row with nothing missing, arriving or in flight. */
+export const SETTLE_QUIET_FRAMES = 3;
 
 export interface CaptureStation {
+  /** A scene's id, for the film's stations: the capture draws it as that scene. */
   readonly id: string;
   readonly km: number;
+  /** Seconds into the scene's flight, where the station is one of the film's. */
+  readonly flightS?: number;
   readonly eastM: number;
   readonly northM: number;
   readonly altitudeM: number;
@@ -88,6 +99,14 @@ export interface StationCost {
   readonly triangles: number;
   readonly resident: number;
   readonly missing: number;
+  /**
+   * Whether every tile the view wanted was drawn, with its water, when the
+   * timing began. A station that is not whole is a measurement of a
+   * half-drawn world and the table says so (F82).
+   */
+  readonly whole: boolean;
+  /** How long the world took to arrive at this station. */
+  readonly settleMs: number;
   /** GPU milliseconds per variant, as drawn: the cheapest of `samples`. */
   readonly ms: Readonly<Record<string, number>>;
   /** Instances in each LOD bucket, nearest first. */
@@ -231,24 +250,60 @@ function rendererName(gl: WebGL2RenderingContext): { vendor: string; renderer: s
     : { vendor: String(gl.getParameter(gl.VENDOR)), renderer: String(gl.getParameter(gl.RENDERER)) };
 }
 
+/** What the settle reads off the terrain each frame. */
+export interface SettleStats {
+  readonly generatedThisFrame: number;
+  readonly pending: number;
+  readonly waterPending: number;
+  readonly missing: number;
+}
+
+export interface Settled {
+  /** Every tile the view wants is drawn, with its water, and nothing is arriving. */
+  readonly whole: boolean;
+  readonly ms: number;
+  readonly frames: number;
+  readonly missing: number;
+}
+
+/** A frame in which the world is finished: nothing missing, landing or in flight. */
+export function quietFrame(s: SettleStats): boolean {
+  return s.missing === 0 && s.pending === 0 && s.waterPending === 0 && s.generatedThisFrame === 0;
+}
+
 /**
- * Wait until the terrain has finished streaming tiles in.
+ * Wait until the world at a station has arrived.
  *
- * Tile generation is spread across frames on purpose, so the first frame after
- * a jump draws a world that is still arriving. Timing that frame measures the
- * upload, not the draw. A streamed world adds the frames before anything
- * lands, when nothing is generated because nothing has arrived - quiet in the
- * sense this used to count, and three of them would have timed an empty
- * scene. So quiet also means nothing in flight (F67).
+ * The station is placed again every frame, because placing is what asks the
+ * terrain for its tiles and inserts the ones that have landed. The capture
+ * suspends the shell's own loop, so nothing else will: placed once and then
+ * only drawn, the terrain's stats stayed as they were on the first frame,
+ * fetches landed in a cache nobody read, and the settle waited out its limit
+ * on a view that had stopped changing (F80's four half-drawn stations, F82).
+ *
+ * Finished means nothing missing, not only nothing in flight: a fetch that
+ * failed is waiting to be asked again and is in flight for nobody. A station
+ * that never gets there is timed anyway and reported as not whole.
  */
-async function settle(terrain: Terrain, draw: () => void): Promise<void> {
+export async function settle(
+  stats: () => SettleStats,
+  place: () => void,
+  draw: () => void,
+  frame: () => Promise<void> = nextFrame,
+  nowMs: () => number = () => performance.now(),
+  limitMs: number = SETTLE_LIMIT_MS,
+): Promise<Settled> {
+  const started = nowMs();
   let quiet = 0;
-  for (let frame = 0; frame < MAX_SETTLE_FRAMES && quiet < 3; frame++) {
+  let frames = 0;
+  while (quiet < SETTLE_QUIET_FRAMES && nowMs() - started < limitMs) {
+    place();
     draw();
-    const stats = terrain.stats;
-    quiet = stats.generatedThisFrame === 0 && stats.pending === 0 ? quiet + 1 : 0;
-    await nextFrame();
+    frames++;
+    quiet = quietFrame(stats()) ? quiet + 1 : 0;
+    await frame();
   }
+  return { whole: quiet >= SETTLE_QUIET_FRAMES, ms: nowMs() - started, frames, missing: stats().missing };
 }
 
 export async function captureFrameCost(options: FrameCostOptions): Promise<FrameCostReport> {
@@ -372,9 +427,8 @@ async function capture(
           `${stations.length} of ${chosen.length} taken`,
       );
     }
-    placeAt(station);
     showOnly(() => true, true);
-    await settle(terrain, draw);
+    const arrived = await settle(() => terrain.stats, () => placeAt(station), draw);
 
     const perLod = [...terrain.stats.perLod];
     const { drawCalls, instances, triangles, resident, missing } = terrain.stats;
@@ -432,6 +486,8 @@ async function capture(
       triangles,
       resident,
       missing,
+      whole: arrived.whole,
+      settleMs: Math.round(arrived.ms),
       ms,
       perLod,
       bucketLabels: [...terrain.stats.bucketLabels],
@@ -526,7 +582,8 @@ export function frameCostTable(report: FrameCostReport): string {
         `${pad(s.station.altitudeM, 7)}${pad(s.instances, 8)}   ` +
         `${s.perLod.map((n) => pad(n, 3)).join("/")}` +
         `${pad(`${Math.round(s.triangles / 1000)}k`, 12)}` +
-        ` ${ms(s.ms["clear"])}  ${ms(net("terrain"))}  ${ms(net("horizon"))} ${ms(s.ms["all"])}`,
+        ` ${ms(s.ms["clear"])}  ${ms(net("terrain"))}  ${ms(net("horizon"))} ${ms(s.ms["all"])}` +
+        (s.whole ? "" : `  ⚠ NOT WHOLE — ${s.missing} tiles missing after ${(s.settleMs / 1000).toFixed(0)} s`),
     );
   }
   lines.push("");

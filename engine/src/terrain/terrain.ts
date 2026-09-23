@@ -107,6 +107,12 @@ export interface TerrainStats {
    */
   pending: number;
   /**
+   * Water files in flight. A tile's water is asked for the frame its ground
+   * lands, so a view can have every tile and still be drawing some of them
+   * dry; a measurement of the frame waits for this too (F82).
+   */
+  waterPending: number;
+  /**
    * Instances in each bucket, nearest first; sums to `instances`.
    *
    * Kept because the totals hide the number the frame budget is about: 8,192
@@ -402,6 +408,7 @@ export class Terrain {
     generatedThisFrame: 0,
     missing: 0,
     pending: 0,
+    waterPending: 0,
     perLod: [],
     bucketLabels: [],
     hero: { areasDrawn: 0, instances: 0, triangles: 0, resident: 0, rimPoints: 0 },
@@ -619,6 +626,7 @@ export class Terrain {
     this.stats.generatedThisFrame = this.country.generated + heroStats.generated;
     this.stats.missing = missing;
     this.stats.pending = this.source.pending;
+    this.stats.waterPending = this.source.waterPending ?? 0;
     this.stats.hero = {
       areasDrawn: heroStats.areasDrawn,
       instances: heroStats.instances,
