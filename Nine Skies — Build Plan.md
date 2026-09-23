@@ -5,6 +5,21 @@ document. Version 1 of this plan is in `docs/archive/`, with the sixty
 findings and seventy-two decisions that produced the world this plan
 inherits; their numbering continues here rather than starting again.
 
+## Progress, 23 September 2026
+
+| Stage | State | Record |
+| --- | --- | --- |
+| 0 — Risky scenes | **Done.** Guilin's towers read at 30 m, so scene 3 stands; Everest and the Taklamakan cut at 90 m. | F76 |
+| 1 — The cut | **Done.** Version 1 deleted, `engine/src/film` and the shell written, `npm run check` green. | F75 |
+| 2 — Rough cut | **Done but the music.** Nine rails, 18:00 to the frame, every rail in its band. Huangshan opens; the steppe ends at Heaven Lake. No music sourced yet. | F77, F79 |
+| 3 — The look | **Built, not done.** Look layer, gorges still signed off, nine stills, per-scene look-ahead. 3.5–5.7 ms of GPU at 1080p on an M3, all nine stations whole. Open: an M1 measurement, where the four heavy scenes are estimated over 8 ms; an iPhone measurement; Heaven Lake's palette. | F78–F82 |
+| 4 — Delivery | Not started. | |
+| 5 — Text, sound, credits | Captions drafted and inside the budget. No cues, no credits page. | |
+| 6 — Launch | Not started. | |
+
+Stages 0 to 2 and the build of stage 3 took one day against three and a
+half weeks planned.
+
 ## Where this starts
 
 The repository already holds the two things the film cannot do without and
