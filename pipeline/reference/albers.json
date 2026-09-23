@@ -326,6 +326,27 @@
       "lon": 91.1,
       "eastM": 2129718.1,
       "northM": 1433382.8
+    },
+    {
+      "name": "guilin",
+      "lat": 25.2703,
+      "lon": 110.2947,
+      "eastM": 3988650.4,
+      "northM": 866134.7
+    },
+    {
+      "name": "yangshuo",
+      "lat": 24.778,
+      "lon": 110.496,
+      "eastM": 4011898.5,
+      "northM": 812781.3
+    },
+    {
+      "name": "taklamakan-dunes",
+      "lat": 38.8,
+      "lon": 83.3,
+      "eastM": 1618949.9,
+      "northM": 2573865.1
     }
   ]
 }
