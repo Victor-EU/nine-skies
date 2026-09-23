@@ -85,12 +85,14 @@ import numpy as np
 
 from . import grid
 from .grid import CORRIDORS
+from .water import CODEC as _WATER_CODEC
 
 #: What the engine checks before it will read a file: `tileCodec.ts` names the
 #: same string, and a package in any other is not flown.
 CODEC = "delta-planes-gzip"
-#: The water layer's, which the engine checks the same way (F72).
-WATER_CODEC = "rgba8-gzip"
+#: The water layer's, which the engine checks the same way (F72), and which
+#: `hero.py` codes a whole area in (F73).
+WATER_CODEC = _WATER_CODEC
 INDEX_VERSION = 1
 #: 64 bits of a SHA-256. The country has 4,665 files, so a collision is a
 #: one-in-10^12 event; the index is what stops being small first.

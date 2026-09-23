@@ -20,6 +20,16 @@
  * river the nearest sample is always within the half-diagonal and nothing
  * changes.
  *
+ * A river the grid resolves wider than its channel is standing water too: the
+ * fourth class, a river's own surface, drawn with a shore like a lake and in
+ * the river's colour (F73). On the 90 m hero grid that is the Three Gorges
+ * reservoir, and there the ribbon is held to half a sample, because the grid
+ * resolves the valley it runs in: within 45 m of the line no sample stands
+ * over the water, and within 600 m - the Yangtze's ribbon - 48 % of them in
+ * the Three Gorges and 65 % in Tiger Leaping Gorge are wall more than 20 m up
+ * it, as much as 1,276 m. The surface draws the width the ground has, and the
+ * ribbon only what is narrower than a sample.
+ *
  * **What a river looks like is a default and not a finding.** The GDD asks for
  * "bright ribbons" and for the Yangtze and the Yellow River to be "always
  * visible from altitude"; it says nothing of widths or colours. So a river is
@@ -44,6 +54,8 @@ export const REACH_M = 127 * OFFSET_STEP_M;
 export const WATER_LAND = 0;
 export const WATER_SEA = 1;
 export const WATER_LAKE = 2;
+/** A river's own surface, where the grid resolves it wider than its channel (F73). */
+export const WATER_RIVER = 3;
 
 /** The river byte where no river is within reach. */
 export const NO_RIVER = 0;
@@ -64,6 +76,25 @@ export function riverHalfWidthM(river: number): number {
   if (river <= 6) return 280;
   if (river <= 8) return 180;
   return 120;
+}
+
+/**
+ * On a grid that resolves a river's valley, the ribbon's half-width in
+ * samples: what is wider than this, the grid draws as the river's surface.
+ * Half a sample is the widest ribbon that paints no sample standing over the
+ * water on either hero area (F73).
+ */
+export const RESOLVED_RIBBON_SAMPLES = 0.5;
+
+/** No cap: a grid whose rivers are all narrower than a sample of it. */
+export const NO_RIBBON_CAP_M = 1e9;
+
+/**
+ * The half-width a ribbon is drawn at before the pixel floor: the table's,
+ * held to `capM` on a grid that resolves its valleys.
+ */
+export function ribbonHalfWidthM(river: number, capM = NO_RIBBON_CAP_M): number {
+  return Math.min(riverHalfWidthM(river), capM);
 }
 
 /** The river bytes held to a width in pixels at any distance: the GDD's two. */
@@ -131,6 +162,18 @@ export function riverAt(
   return { distanceM, river: reach ? corners[nearest]!.river : NO_RIVER };
 }
 
+/**
+ * Which colour standing water takes between four samples: a lake's where any
+ * corner is lake, a river's where any is a river's surface, else the sea's.
+ */
+export function stillClassAt(
+  corners: readonly [WaterSample, WaterSample, WaterSample, WaterSample],
+): number {
+  if (corners.some((c) => c.still === WATER_LAKE)) return WATER_LAKE;
+  if (corners.some((c) => c.still === WATER_RIVER)) return WATER_RIVER;
+  return WATER_SEA;
+}
+
 /** The shader's standing-water coverage on the CPU: 0 dry, 1 water. */
 export function stillAt(
   corners: readonly [WaterSample, WaterSample, WaterSample, WaterSample],
@@ -165,6 +208,7 @@ uniform float uWaterSampleM;
 uniform float uWaterStepM;
 uniform float uWaterReachM;
 uniform float uWaterZero;
+uniform float uWaterRibbonMaxM;
 
 const float RIVER_HALF_WIDTH_M[${RIVER_CLASSES}] = float[](${glslFloats(halfWidths)});
 const float RIVER_MIN_PX[${RIVER_CLASSES}] = float[](${glslFloats(minPx)});
@@ -173,8 +217,9 @@ vec2 waterOffset(uvec4 t) {
   return (vec2(t.rg) - uWaterZero) * uWaterStepM;
 }
 
-// x: standing water's cover, y: a river's, z: how much of the standing water is lake.
-vec3 waterCover(vec2 texel, int layer) {
+// x: standing water's cover, y: a ribbon's, z: whether the standing water is
+// a lake, w: whether it is a river's own surface.
+vec4 waterCover(vec2 texel, int layer) {
   vec2 t = clamp(texel, vec2(0.0), vec2(${samples - 1}.0));
   ivec2 i0 = min(ivec2(floor(t)), ivec2(${samples - 2}));
   vec2 f = t - vec2(i0);
@@ -197,14 +242,15 @@ vec3 waterCover(vec2 texel, int layer) {
 
   vec4 wet = vec4(a.a > 0u, b.a > 0u, c.a > 0u, d.a > 0u);
   float still = mix(mix(wet.x, wet.y, f.x), mix(wet.z, wet.w, f.x), f.y);
-  vec4 lake = vec4(a.a == 2u, b.a == 2u, c.a == 2u, d.a == 2u);
+  vec4 lake = vec4(a.a == ${WATER_LAKE}u, b.a == ${WATER_LAKE}u, c.a == ${WATER_LAKE}u, d.a == ${WATER_LAKE}u);
+  vec4 surface = vec4(a.a == ${WATER_RIVER}u, b.a == ${WATER_RIVER}u, c.a == ${WATER_RIVER}u, d.a == ${WATER_RIVER}u);
 
   // Derivatives before anything branches on a per-fragment value.
   float px = max(fwidth(dist), 1e-3);
   float stillPx = max(fwidth(still), 1e-4);
 
   int k = int(min(river, ${RIVER_CLASSES - 1}u));
-  float half_ = max(RIVER_HALF_WIDTH_M[k], 0.5 * RIVER_MIN_PX[k] * px);
+  float half_ = max(min(RIVER_HALF_WIDTH_M[k], uWaterRibbonMaxM), 0.5 * RIVER_MIN_PX[k] * px);
   half_ = min(half_, uWaterReachM - ${HALF_DIAGONAL} * uWaterSampleM);
   float riverCover = 1.0 - smoothstep(half_ - 0.5 * px, half_ + 0.5 * px, dist);
   // Under a pixel wide it fades rather than flickers.
@@ -212,15 +258,22 @@ vec3 waterCover(vec2 texel, int layer) {
   riverCover *= reach ? 1.0 : 0.0;
 
   float stillCover = smoothstep(0.5 - 0.5 * stillPx, 0.5 + 0.5 * stillPx, still);
-  return vec3(stillCover, riverCover, max(max(lake.x, lake.y), max(lake.z, lake.w)));
+  return vec4(
+    stillCover,
+    riverCover,
+    max(max(lake.x, lake.y), max(lake.z, lake.w)),
+    max(max(surface.x, surface.y), max(surface.z, surface.w))
+  );
 }
 
 vec3 withWater(vec3 lit, vec3 sunDirection, vec3 sunColor, vec2 texel, float layer) {
-  vec3 cover = waterCover(texel, int(layer + 0.5));
+  vec4 cover = waterCover(texel, int(layer + 0.5));
   vec3 flatLight = groundLight(vec3(0.0, 1.0, 0.0), sunDirection, sunColor);
-  vec3 still = mix(srgbToLinear(${glslVec3(SEA_SRGB)}), srgbToLinear(${glslVec3(LAKE_SRGB)}), cover.z);
+  vec3 river = srgbToLinear(${glslVec3(RIVER_SRGB)});
+  vec3 still = mix(srgbToLinear(${glslVec3(SEA_SRGB)}), river, cover.w);
+  still = mix(still, srgbToLinear(${glslVec3(LAKE_SRGB)}), cover.z);
   lit = mix(lit, still * flatLight, cover.x);
-  return mix(lit, srgbToLinear(${glslVec3(RIVER_SRGB)}) * flatLight, cover.y);
+  return mix(lit, river * flatLight, cover.y);
 }
 `;
 }

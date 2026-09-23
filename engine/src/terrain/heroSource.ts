@@ -1,5 +1,8 @@
 import { bilinearSample, HERO_TILE_SAMPLES } from "./tileArray.js";
+import { decodeWaterArea, WATER_CHANNELS, WATER_CODEC } from "./tileCodec.js";
 import type { TileSource } from "./tileSource.js";
+import { NO_WATER, waterLayoutProblem, type WaterClasses } from "./tileStream.js";
+import { NO_RIVER, WATER_LAND } from "./water.js";
 
 /**
  * The 90 m hero grid (pipeline stage 6, build plan D47, finding F50).
@@ -27,6 +30,12 @@ import type { TileSource } from "./tileSource.js";
  * cutter measures its own boundary against the country grid and refuses to
  * write an area that disagrees by more than the 900 m the skirts drop (this
  * one: mean 71 m, worst 333 m).
+ *
+ * An area cut since F73 carries its water beside its heights: the country's
+ * layer, four bytes a sample on the same 129 x 129 tiles, one gzip file for
+ * the whole area because an area is fetched whole. An area without one, or
+ * with one that does not fit its heights, is drawn dry - the ground is still
+ * right - and says so.
  */
 
 export interface HeroWindow {
@@ -59,6 +68,26 @@ export interface HeroIndex {
   areas: HeroAreaEntry[];
 }
 
+/** An area's water file, as `hero.py` writes it (F73). */
+export interface HeroWater {
+  file: string;
+  codec: string;
+  /** The file's own size; `bytes` is what it decodes to. */
+  fileBytes: number;
+  channels: number;
+  tileSamples: number;
+  offsetStepM: number;
+  offsetZero: number;
+  reachM: number;
+  classes: WaterClasses;
+  tiles: number;
+  tilesWithWater: number;
+  bytes: number;
+  sha256: string;
+  /** The heights file it was cut against, which has to be this area's. */
+  heightsSha256: string;
+}
+
 /** One area's own manifest, written beside its heights by `hero.py`. */
 export interface HeroManifest {
   version: number;
@@ -73,6 +102,7 @@ export interface HeroManifest {
   countryTiles: number[][];
   holds: string[];
   heights: { file: string; tiles: number; bytes: number; sha256: string };
+  water?: HeroWater;
   boundary: { meanM?: number; worstM?: number; skirtDepthM?: number; unchecked?: boolean };
   elevationM: { min: number; max: number };
   /** What stage 3 read and did to this area as it was cut (F63). */
@@ -91,6 +121,38 @@ export interface AreaBounds {
 export interface HeroAreaData {
   manifest: HeroManifest;
   heights: Int16Array;
+  /** Every tile's water, decoded, in the heights' order; absent flies it dry. */
+  water?: Uint8Array;
+}
+
+/**
+ * Why an area's water cannot be drawn on its heights, or null when it can.
+ * Checked on the decoded bytes, so a host that undid the gzip on the way is
+ * no different from one that did not.
+ */
+export function heroWaterProblem(area: HeroAreaData): string | null {
+  const water = area.manifest.water;
+  if (!water || !area.water) return null;
+  const m = area.manifest;
+  if (water.codec !== WATER_CODEC) return `${m.area}: water is coded ${water.codec}, the engine reads ${WATER_CODEC}`;
+  const layout = waterLayoutProblem(water);
+  if (layout) return `${m.area}: ${layout}`;
+  if (water.heightsSha256 !== m.heights.sha256) {
+    return `${m.area}: water was cut against other heights than these: re-run \`make hero\``;
+  }
+  const expected = m.heights.tiles * water.tileSamples * water.tileSamples * WATER_CHANNELS;
+  if (water.tileSamples !== m.tileSamples || area.water.length !== expected) {
+    return `${m.area}: ${area.water.length} bytes of water, its heights want ${expected}`;
+  }
+  return null;
+}
+
+/** Whether a tile of water has anything to draw: `water.has_water`. */
+function wet(bytes: Uint8Array): boolean {
+  for (let k = 0; k < bytes.length; k += WATER_CHANNELS) {
+    if (bytes[k + 2] !== NO_RIVER || bytes[k + 3] !== WATER_LAND) return true;
+  }
+  return false;
 }
 
 /**
@@ -111,6 +173,15 @@ export class HeroCover implements TileSource {
   readonly origin: HeroOrigin;
   private readonly areas: HeroAreaData[] = [];
   private readonly stride: number;
+  /** Per area, per tile: its water, or `NO_WATER` for a dry one. Absent flies it dry. */
+  private readonly waters = new Map<HeroAreaData, Uint8Array[]>();
+  /** Why an area's water was passed over, for the HUD and the console. */
+  readonly waterRefused: string[] = [];
+  /**
+   * A tile's water, in `TileSource`'s answer shape. Defined only when some
+   * area has water, so hero cover cut before F73 costs no water texture.
+   */
+  readonly water?: (hx: number, hy: number) => Uint8Array | null;
 
   constructor(index: HeroIndex, areas: HeroAreaData[]) {
     this.tileM = index.tileM;
@@ -156,14 +227,30 @@ export class HeroCover implements TileSource {
         );
       }
       this.areas.push(area);
+
+      const problem = heroWaterProblem(area);
+      if (problem) {
+        this.waterRefused.push(problem);
+        console.warn(`hero water passed over: ${problem}`);
+      } else if (area.water) {
+        const bytes = this.stride * WATER_CHANNELS;
+        const tiles: Uint8Array[] = [];
+        for (let t = 0; t < m.heights.tiles; t++) {
+          const tile = area.water.subarray(t * bytes, (t + 1) * bytes);
+          tiles.push(wet(tile) ? tile : NO_WATER);
+        }
+        this.waters.set(area, tiles);
+      }
     }
+    if (this.waters.size > 0) this.water = (hx, hy) => this.waterOf(hx, hy);
 
     const tiles = this.areas.reduce((n, a) => n + a.manifest.heights.tiles, 0);
+    const wetText = this.waters.size > 0 ? `, ${this.wetTiles} with water` : "";
     this.label =
       this.areas.length === 0
         ? "no hero cover"
         : `${this.areas.map((a) => a.manifest.area).join(", ")} ` +
-          `(${tiles} tiles at ${this.resolutionM} m)`;
+          `(${tiles} tiles at ${this.resolutionM} m${wetText})`;
   }
 
   get areaCount(): number {
@@ -241,6 +328,23 @@ export class HeroCover implements TileSource {
     return area.heights.subarray(start, start + this.stride);
   }
 
+  /** Hero tile indices. Dry, or in an area with no water, is `NO_WATER`. */
+  private waterOf(hx: number, hy: number): Uint8Array | null {
+    const area = this.find(hx, hy);
+    if (area === null) return null;
+    const tiles = this.waters.get(area);
+    if (!tiles) return NO_WATER;
+    const w = area.manifest.window;
+    return tiles[(hy - w.hy0) * (w.hx1 - w.hx0) + (hx - w.hx0)] ?? NO_WATER;
+  }
+
+  /** How many tiles of all the cover carry water. */
+  get wetTiles(): number {
+    let n = 0;
+    for (const tiles of this.waters.values()) n += tiles.filter((t) => t !== NO_WATER).length;
+    return n;
+  }
+
   private find(hx: number, hy: number): HeroAreaData | null {
     for (const area of this.areas) {
       const w = area.manifest.window;
@@ -291,9 +395,31 @@ export async function loadHeroCover(baseUrl: string): Promise<HeroCover | null> 
             `its manifest says ${manifest.heights.bytes}`,
         );
       }
-      return { manifest, heights: new Int16Array(bytes) };
+      const area: HeroAreaData = { manifest, heights: new Int16Array(bytes) };
+      const water = await loadHeroWater(baseUrl, manifest);
+      if (water) area.water = water;
+      return area;
     }),
   );
 
   return new HeroCover(index, areas);
+}
+
+/**
+ * An area's water, decoded, or null to fly it dry. A water file that will not
+ * come is not a reason to lose the ground it lies on, so this warns rather
+ * than throws: the heights are what an area cannot be drawn without.
+ */
+async function loadHeroWater(baseUrl: string, manifest: HeroManifest): Promise<Uint8Array | null> {
+  const water = manifest.water;
+  if (!water) return null;
+  try {
+    const response = await fetch(`${baseUrl}/hero/${water.file}`);
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return await decodeWaterArea(bytes, water.tileSamples, water.tiles);
+  } catch (error) {
+    console.warn(`${water.file}: flying ${manifest.area} dry`, error);
+    return null;
+  }
 }

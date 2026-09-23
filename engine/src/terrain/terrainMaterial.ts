@@ -5,7 +5,7 @@ import {
   ELEVATION_RAMP_GLSL,
   GROUND_LIGHT_GLSL,
 } from "./palette.js";
-import { waterGlsl } from "./water.js";
+import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
 
 /**
  * Terrain shader (build plan D3 and D12).
@@ -205,8 +205,7 @@ export interface TerrainUniformValues {
   hazeHeightFalloff: number;
   /**
    * The water layer (F72): the array beside the heights, and what its bytes
-   * mean. Absent compiles a shader with no water in it, which is the hero
-   * lattice's until a hero area has a layer of its own.
+   * mean. Absent compiles a shader with no water in it.
    */
   water?: {
     texture: import("three").DataArrayTexture;
@@ -215,6 +214,12 @@ export interface TerrainUniformValues {
     offsetStepM: number;
     offsetZero: number;
     reachM: number;
+    /**
+     * The widest a ribbon is drawn before the pixel floor, on a grid that
+     * resolves its valleys: the hero grid's half a sample (F73). Absent, the
+     * width table alone.
+     */
+    ribbonMaxM?: number;
   };
 }
 
@@ -243,6 +248,7 @@ export function createTerrainMaterial(
         uWaterStepM: { value: water.offsetStepM },
         uWaterReachM: { value: water.reachM },
         uWaterZero: { value: water.offsetZero },
+        uWaterRibbonMaxM: { value: water.ribbonMaxM ?? NO_RIBBON_CAP_M },
       }
     : {};
   return new ShaderMaterial({

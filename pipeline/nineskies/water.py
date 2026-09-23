@@ -23,7 +23,14 @@ decide it, and only where the two agree:
 - **a river** is a channel stage 3 cut, found again here by the same two
   functions from the same inputs and checked against the grid they cut:
   every sample stage 3 lowered lies on one of them. Not the mapped line,
-  which runs a median kilometre from the valley stage 3 found for it.
+  which runs a median kilometre from the valley stage 3 found for it;
+- **a river's own surface** is where the grid resolves the river wider than
+  its channel (F73): a sample at exactly its channel's level, reached from
+  the channel through samples that are too, on ground stage 3 did not raise
+  and that no other rule decides. The lake rule's signature again: GLO-30
+  flattens a river as it flattens a lake. At 90 m this is the Three Gorges
+  reservoir, 157.5 m over 100 km²; at 1 km it is a few hundred samples of
+  reservoir and wide reach, because a 1 km sample is rarely all water.
 
 A river is stored as a vector rather than as samples, because a 1 km sample
 is 125 m of world at 1:8 and a river drawn in samples is a staircase. Each
@@ -47,6 +54,7 @@ import hashlib
 import json
 import sys
 import time
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
@@ -66,19 +74,29 @@ OFFSET_ZERO = 128
 REACH_UNITS = 127
 REACH_M = REACH_UNITS * OFFSET_STEP_M
 
-#: The standing-water byte.
-LAND, SEA, LAKE = 0, 1, 2
+#: The standing-water byte. A river's surface is standing water in the sense
+#: the shader means: a class per sample, drawn with a shore (F73).
+LAND, SEA, LAKE, RIVER = 0, 1, 2, 3
+CLASSES = {"land": LAND, "sea": SEA, "lake": LAKE, "river": RIVER}
 #: The river byte where no river is within reach.
 NO_RIVER = 0
 
 #: Segments of centreline measured against the grid at once.
 CHUNK = 32
 
+#: How a water file is coded: its bytes as they lie, under gzip. The package
+#: codes a country tile so, and `hero.py` a whole area (F72, F73).
+CODEC = "rgba8-gzip"
+
+#: Standing higher than this over the water beside it, a sample under a
+#: ribbon is wall rather than shore: the report counts them (F73).
+WALL_M = 20.0
+
 LAYOUT = (
     "rgba8 per sample, tiles as heights.bin: offset east and north to the "
     "nearest river centreline in offsetStepM units about 128; the river's "
     "Natural Earth scalerank plus one, 0 for none within reachM; standing "
-    "water 0 land, 1 sea, 2 lake"
+    "water 0 land, 1 sea, 2 lake, 3 a river's own surface"
 )
 
 
@@ -158,13 +176,130 @@ def lakes(
     return water.reshape(heights.shape), found
 
 
-def standing(sea_mask: np.ndarray, lake_mask: np.ndarray) -> np.ndarray:
-    """The standing-water byte. A lake wins where the two meet, which is nowhere
-    on either built grid: every lake is inside a country's outline."""
+def standing(
+    sea_mask: np.ndarray, lake_mask: np.ndarray, surface_mask: np.ndarray | None = None
+) -> np.ndarray:
+    """The standing-water byte. A lake wins where it meets the sea, which is
+    nowhere on either built grid: every lake is inside a country's outline. A
+    river's surface never meets either, since `surfaces` stops at both."""
     out = np.zeros(sea_mask.shape, dtype=np.uint8)
+    if surface_mask is not None:
+        out[surface_mask] = RIVER
     out[sea_mask] = SEA
     out[lake_mask] = LAKE
     return out
+
+
+def surfaces(
+    heights: np.ndarray,
+    before: np.ndarray,
+    channels: Sequence,
+    barred: np.ndarray,
+    near: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Where the grid resolves a river wider than its channel, and which
+    channel each such sample belongs to (its index plus one, 0 for none).
+
+    A flood from every channel sample over samples at exactly its level:
+    four-neighbours, within `near` of a centreline, on ground stage 3 did not
+    raise (`heights <= before`), and never into `barred` -- the sea, a lake's
+    outline and unfetched ground, which other rules decide. Exact, because
+    GLO-30 flattens a river to one value as it does a lake, and an exact match
+    beside it is that flattening; the fill also leaves ground flat at a
+    channel's level wherever a hollow spills into one, which is why raised
+    ground is barred (F73).
+
+    A channel sample is kept only where the flood left it: beside a surface
+    sample off the channel. Alone, it is a river narrower than the grid, and a
+    staircase of samples one wide drawn as standing water beads; the ribbon
+    draws those.
+    """
+    height, width = heights.shape
+    flat = heights.ravel()
+    below = (heights <= before).ravel()
+    closed = barred.ravel()
+    blocked = closed | ~near.ravel()
+    owner = np.zeros(flat.size, dtype=np.int32)
+    level = np.zeros(flat.size, dtype=flat.dtype)
+    queue: deque[int] = deque()
+    on_channel = np.zeros(flat.size, dtype=bool)
+    for k, channel in enumerate(channels):
+        for cell in channel.cells:
+            cell = int(cell)
+            on_channel[cell] = True
+            if owner[cell] or closed[cell]:
+                continue
+            owner[cell] = k + 1
+            level[cell] = flat[cell]
+            queue.append(cell)
+    while queue:
+        cell = queue.popleft()
+        row, col = divmod(cell, width)
+        for step, ok in ((-width, row > 0), (width, row < height - 1), (-1, col > 0), (1, col < width - 1)):
+            other = cell + step
+            if not ok or owner[other] or on_channel[other] or blocked[other] or not below[other]:
+                continue
+            if flat[other] == level[cell]:
+                owner[other] = owner[cell]
+                level[other] = level[cell]
+                queue.append(other)
+    wet = (owner > 0).reshape(heights.shape)
+    off = wet & ~on_channel.reshape(heights.shape)
+    beside = np.zeros(heights.shape, dtype=bool)
+    beside[1:, :] |= off[:-1, :]
+    beside[:-1, :] |= off[1:, :]
+    beside[:, 1:] |= off[:, :-1]
+    beside[:, :-1] |= off[:, 1:]
+    mask = off | (wet & beside)
+    return mask, np.where(mask, owner.reshape(heights.shape), 0)
+
+
+@dataclass(frozen=True)
+class Piece:
+    """One connected stretch of a river's own surface."""
+
+    samples: int
+    level: float
+    river: str
+    lat: float
+    lon: float
+
+
+def pieces(mask: np.ndarray, owner: np.ndarray, heights: np.ndarray, names: Sequence[str],
+           transform) -> list[Piece]:
+    """The surface's connected pieces, largest first, for the report."""
+    from .carve import _where
+
+    height, width = mask.shape
+    flat_mask = mask.ravel()
+    seen = np.zeros(flat_mask.size, dtype=bool)
+    found: list[Piece] = []
+    for start in np.flatnonzero(flat_mask).tolist():
+        if seen[start]:
+            continue
+        seen[start] = True
+        members = [start]
+        queue = deque([start])
+        while queue:
+            cell = queue.popleft()
+            row, col = divmod(cell, width)
+            for step, ok in ((-width, row > 0), (width, row < height - 1), (-1, col > 0), (1, col < width - 1)):
+                other = cell + step
+                if ok and flat_mask[other] and not seen[other]:
+                    seen[other] = True
+                    members.append(other)
+                    queue.append(other)
+        middle = members[len(members) // 2]
+        lat, lon = _where(transform, middle, width)
+        values, counts = np.unique(heights.ravel()[members], return_counts=True)
+        found.append(Piece(
+            samples=len(members),
+            level=float(values[int(np.argmax(counts))]),
+            river=names[int(owner.ravel()[start]) - 1],
+            lat=lat,
+            lon=lon,
+        ))
+    return sorted(found, key=lambda p: -p.samples)
 
 
 # -------------------------------------------------------------------- rivers
@@ -369,6 +504,167 @@ def channels_checked(source, conditioned: np.ndarray, record: dict) -> list:
     return made
 
 
+#: How many pieces of river surface a report lists, largest first.
+PIECE_ROWS = 12
+
+
+@dataclass
+class GridWater:
+    """One grid's water layer, and the measurement a report prints of it."""
+
+    data: np.ndarray
+    result: dict
+
+
+def grid_water(
+    heights: np.ndarray,
+    before: np.ndarray,
+    transform,
+    fetched: np.ndarray,
+    ocean: np.ndarray,
+    land: np.ndarray,
+    outlines: np.ndarray,
+    lake_names: Sequence[str],
+    made: Sequence,
+    river_of: Callable[[int], int],
+    above_at: Sequence[float] = (),
+) -> GridWater:
+    """Every rule above on one grid: the country's, a corridor's or a hero
+    area's. `heights` is the grid stage 3 wrote and `before` the one it read;
+    `made` its channels, `outlines` its lake raster. `above_at` asks, at each
+    distance in metres from a river's line, how high the ground stands over
+    the water: what a ribbon that wide would be drawn on."""
+    resolution_m = abs(transform.a)
+    sea_mask = sea(heights, fetched, ocean, land)
+    lake_mask, lake_rows = lakes(heights, outlines, fetched, lake_names)
+
+    shape = heights.shape
+    lines = centrelines(made, shape[1], river_of)
+    east, north, river = offsets(lines, shape, REACH_M / resolution_m)
+    barred = sea_mask | (outlines > 0) | ~fetched
+    surface_mask, owner = surfaces(heights, before, made, barred, river != NO_RIVER)
+    still = standing(sea_mask, lake_mask, surface_mask)
+    data = layer(east, north, river, still, resolution_m)
+
+    on_channel = np.zeros(heights.size, dtype=bool)
+    for channel in made:
+        on_channel[channel.cells] = True
+    on_channel = on_channel.reshape(shape)
+    drift = np.hypot(east, north)[on_channel] if on_channel.any() else np.zeros(1)
+    found = pieces(surface_mask, owner, heights, [c.run.name for c in made], transform)
+
+    zero = fetched & (heights == 0.0)
+    result = {
+        "shape": list(shape),
+        "resolutionM": resolution_m,
+        "sea": int(sea_mask.sum()),
+        "seaFetched": int((sea_mask & fetched).sum()),
+        "seaOcean": int(ocean.sum()),
+        "zeroOnLand": int((zero & land).sum()),
+        "raisedAtSea": int((fetched & ~land & (before == 0.0) & (heights != 0.0)).sum()),
+        "aboveZeroAtSea": int((fetched & ~land & (heights > 0.0)).sum()),
+        "lakes": [lake.__dict__ for lake in sorted(lake_rows, key=lambda r: -r.samples)],
+        "lakeSamples": int(sum(r.samples for r in lake_rows)),
+        "lakeDrawn": int(lake_mask.sum()),
+        "channels": len(made),
+        "channelSamples": int(on_channel.sum()),
+        "reachSamples": int((river != NO_RIVER).sum()),
+        "channelsByRiver": {
+            int(k): int(v)
+            for k, v in zip(*np.unique([line.river for line in lines], return_counts=True))
+        },
+        "byRiver": {int(k): int(v) for k, v in zip(*np.unique(river[river != NO_RIVER], return_counts=True))},
+        "channelDriftM": {
+            "median": float(np.median(drift) * resolution_m),
+            "p99": float(np.percentile(drift, 99) * resolution_m),
+            "max": float(drift.max() * resolution_m),
+        },
+        "surface": int(surface_mask.sum()),
+        "surfaceOnChannel": int((surface_mask & on_channel).sum()),
+        "surfacePieces": len(found),
+        "pieces": [piece.__dict__ for piece in found[:PIECE_ROWS]],
+    }
+    if above_at:
+        near = river != NO_RIVER
+        levels = channel_levels(heights, made, near)
+        result["aboveWater"] = ground_above(
+            heights - levels, np.hypot(east, north) * resolution_m, near, above_at
+        )
+    return GridWater(data=data, result=result)
+
+
+def channel_levels(heights: np.ndarray, channels: Sequence, near: np.ndarray) -> np.ndarray:
+    """The level of the channel sample nearest each sample within `near`,
+    nearest by four-neighbour steps; NaN elsewhere. The water beside a sample."""
+    height, width = heights.shape
+    flat = heights.ravel()
+    inside = near.ravel()
+    level = np.full(flat.size, np.nan, dtype="float64")
+    queue: deque[int] = deque()
+    for channel in channels:
+        for cell in channel.cells:
+            cell = int(cell)
+            if np.isnan(level[cell]):
+                level[cell] = flat[cell]
+                queue.append(cell)
+    while queue:
+        cell = queue.popleft()
+        row, col = divmod(cell, width)
+        for step, ok in ((-width, row > 0), (width, row < height - 1), (-1, col > 0), (1, col < width - 1)):
+            other = cell + step
+            if ok and inside[other] and np.isnan(level[other]):
+                level[other] = level[cell]
+                queue.append(other)
+    return level.reshape(heights.shape)
+
+
+def ground_above(
+    above: np.ndarray, distance_m: np.ndarray, near: np.ndarray, at: Sequence[float]
+) -> list[dict]:
+    """At each distance from the line, the samples within it and how high they
+    stand over the water beside them."""
+    rows = []
+    for limit in at:
+        inside = near & (distance_m <= limit) & ~np.isnan(above)
+        values = above[inside]
+        if values.size == 0:
+            continue
+        rows.append({
+            "withinM": float(limit),
+            "samples": int(values.size),
+            "medianM": float(np.median(values)),
+            "p90M": float(np.percentile(values, 90)),
+            "maxM": float(values.max()),
+            "wall": int((values > WALL_M).sum()),
+        })
+    return rows
+
+
+def entry_for(tiles_: np.ndarray, tile_samples: int, heights_sha256: str, **more) -> dict:
+    """What a grid's water file says of itself, as the package and the engine
+    read it."""
+    raw = tiles_.tobytes()
+    wet = [has_water(tile) for tile in tiles_]
+    return {
+        "version": 1,
+        "layout": LAYOUT,
+        "channels": CHANNELS,
+        "tileSamples": tile_samples,
+        "offsetStepM": OFFSET_STEP_M,
+        "offsetZero": OFFSET_ZERO,
+        "reachM": REACH_M,
+        "classes": dict(CLASSES),
+        "tiles": len(wet),
+        "tilesWithWater": int(sum(wet)),
+        "bytes": len(raw),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        # The heights these samples lie on, which the package checks before it
+        # codes a file of them: water cut against other ground is not shipped.
+        "heightsSha256": heights_sha256,
+        **more,
+    }
+
+
 def build(corridor: str, out_dir: Path | None = None) -> dict:
     import rasterio
 
@@ -397,82 +693,25 @@ def build(corridor: str, out_dir: Path | None = None) -> dict:
     made = channels_checked(source, conditioned, record)
 
     states = source.states
-    fetched = states == coverage.DATA
-    ocean = states == coverage.OCEAN
     land = rivers.polygons_raster(boundary.load(), source.transform, conditioned.shape) > 0
-    sea_mask = sea(conditioned, fetched, ocean, land)
-    lake_mask, lake_rows = lakes(conditioned, source.lakes, fetched, source.lake_names)
-    still = standing(sea_mask, lake_mask)
-
-    shape = conditioned.shape
-    width = shape[1]
-    lines = centrelines(made, width, river_bytes())
-    reach = REACH_M / source.resolution_m
-    east, north, river = offsets(lines, shape, reach)
-    data = layer(east, north, river, still, source.resolution_m)
+    water = grid_water(
+        conditioned, source.heights, source.transform,
+        states == coverage.DATA, states == coverage.OCEAN, land,
+        source.lakes, source.lake_names, made, river_bytes(),
+    )
 
     window = corridor_window(CORRIDORS[corridor])
-    cut_tiles = cut(data, window)
-    wet = [has_water(tile) for tile in cut_tiles]
+    cut_tiles = cut(water.data, window)
     path = out_dir / "water.bin"
     path.write_bytes(cut_tiles.tobytes())
-    raw = path.read_bytes()
-
-    on_channel = np.zeros(conditioned.size, dtype=bool)
-    for channel in made:
-        on_channel[channel.cells] = True
-    on_channel = on_channel.reshape(shape)
-    drift = np.hypot(east, north)[on_channel]
-
-    zero = fetched & (conditioned == 0.0)
-    result = {
-        "corridor": corridor,
-        "shape": list(shape),
-        "sea": int(sea_mask.sum()),
-        "seaFetched": int((sea_mask & fetched).sum()),
-        "seaOcean": int(ocean.sum()),
-        "zeroOnLand": int((zero & land).sum()),
-        "raisedAtSea": int((fetched & ~land & (source.heights == 0.0) & (conditioned != 0.0)).sum()),
-        "aboveZeroAtSea": int((fetched & ~land & (conditioned > 0.0)).sum()),
-        "lakes": [lake.__dict__ for lake in sorted(lake_rows, key=lambda r: -r.samples)],
-        "lakeSamples": int(sum(r.samples for r in lake_rows)),
-        "lakeDrawn": int(lake_mask.sum()),
-        "channels": len(made),
-        "channelSamples": int(on_channel.sum()),
-        "reachSamples": int((river != NO_RIVER).sum()),
-        "channelsByRiver": {
-            int(k): int(v)
-            for k, v in zip(*np.unique([line.river for line in lines], return_counts=True))
-        },
-        "byRiver": {int(k): int(v) for k, v in zip(*np.unique(river[river != NO_RIVER], return_counts=True))},
-        "channelDriftM": {
-            "median": float(np.median(drift) * source.resolution_m),
-            "p99": float(np.percentile(drift, 99) * source.resolution_m),
-            "max": float(drift.max() * source.resolution_m),
-        },
-        "tiles": len(wet),
-        "tilesWithWater": int(sum(wet)),
-    }
-    entry = {
-        "version": 1,
-        "file": path.name,
-        "layout": LAYOUT,
-        "channels": CHANNELS,
-        "tileSamples": grid.TILE_SAMPLES,
-        "offsetStepM": OFFSET_STEP_M,
-        "offsetZero": OFFSET_ZERO,
-        "reachM": REACH_M,
-        "classes": {"land": LAND, "sea": SEA, "lake": LAKE},
-        "tiles": len(wet),
-        "tilesWithWater": int(sum(wet)),
-        "bytes": len(raw),
-        "sha256": hashlib.sha256(raw).hexdigest(),
-        # The heights these samples lie on, which the package checks before it
-        # codes a file of them: water cut against other ground is not shipped.
-        "heightsSha256": manifest["heights"]["sha256"],
-        "conditioningSha256": record["sha256"],
-    }
+    entry = entry_for(
+        cut_tiles, grid.TILE_SAMPLES, manifest["heights"]["sha256"],
+        conditioningSha256=record["sha256"],
+    )
+    entry = {"version": 1, "file": path.name, **entry}
     (out_dir / "water.json").write_text(json.dumps(entry, indent=2) + "\n")
+    result = {"corridor": corridor, **water.result,
+              "tiles": entry["tiles"], "tilesWithWater": entry["tilesWithWater"]}
     result["seconds"] = round(time.time() - started, 1)
     return result
 
@@ -490,6 +729,85 @@ def _share(part: int, whole: int) -> str:
 
 #: How many lakes the report lists by name, largest outline first.
 LAKE_ROWS = 20
+
+
+def surface_section(result: dict, level: str = "##") -> list[str]:
+    """What the grid resolves of its rivers as surfaces, largest piece first."""
+    size = f"{result['resolutionM']:,.0f} m"
+    area = result["surface"] * (result["resolutionM"] / 1000) ** 2
+    lines = [
+        "",
+        f"{level} A river's own surface",
+        "",
+        "Where the grid resolves a river wider than its channel: a sample at exactly",
+        "its channel's level, reached from the channel through samples that are too,",
+        "on ground stage 3 did not raise, and not sea or inside a lake's outline",
+        "(F73). A channel sample counts only beside one off the channel; a river one",
+        "sample wide is the ribbon's to draw.",
+        "",
+        f"**{_n(result['surface'])} samples** of {size}, {area:,.1f} km², in "
+        f"{_n(result['surfacePieces'])} pieces; {_n(result['surfaceOnChannel'])} of them are "
+        f"channel samples.",
+    ]
+    if result["pieces"]:
+        lines += [
+            "",
+            "| samples | level, m | river | lat | lon |",
+            "| ---: | ---: | --- | ---: | ---: |",
+        ]
+        for piece in result["pieces"]:
+            lines.append(
+                f"| {_n(piece['samples'])} | {piece['level']:,.2f} | {piece['river']} | "
+                f"{piece['lat']:.2f} N | {piece['lon']:.2f} E |"
+            )
+    return lines
+
+
+def render_areas(areas: Sequence[tuple[str, str, dict]]) -> str:
+    """The report `make hero` writes of the water on each area it cut (F73)."""
+    lines = [
+        "# Water — hero areas, 90 m grid",
+        "",
+        "Written by `make hero` (F73). Each area's water, by the rules the country's",
+        "is drawn by (`docs/water-report.md`), from the channels stage 3 cut as the",
+        "area was cut. At 90 m the grid resolves a river's valley, so what a ribbon",
+        "is drawn on is measured here too: the ground within each distance of a",
+        "river's line, against the water beside it.",
+    ]
+    for area_id, name, result in areas:
+        drift = result["channelDriftM"]
+        lines += [
+            "",
+            f"## {name}",
+            "",
+            f"`{area_id}` · {result['shape'][1]} × {result['shape'][0]} samples at "
+            f"{result['resolutionM']:.0f} m · {result['tilesWithWater']} of {result['tiles']} tiles carry water",
+            "",
+            f"**{result['channels']} channel(s)** over {_n(result['channelSamples'])} samples; the drawn",
+            f"line lies a median {drift['median']:.0f} m from a channel sample and at most "
+            f"{drift['max']:.0f} m. {_n(result['lakeDrawn'])} lake samples of "
+            f"{_n(result['lakeSamples'])} inside an outline; {_n(result['sea'])} of sea.",
+        ]
+        lines += surface_section(result, "###")
+        above = result.get("aboveWater") or []
+        if above:
+            lines += [
+                "",
+                "### What a ribbon would be drawn on",
+                "",
+                f"The ground within each distance of the line, over the water beside it. A",
+                f"sample more than {WALL_M:.0f} m over it is wall rather than shore.",
+                "",
+                "| within | samples | median | 90th | highest | wall |",
+                "| ---: | ---: | ---: | ---: | ---: | ---: |",
+            ]
+            for row in above:
+                lines.append(
+                    f"| {row['withinM']:.0f} m | {_n(row['samples'])} | {row['medianM']:.1f} m | "
+                    f"{row['p90M']:.1f} m | {row['maxM']:.1f} m | {_share(row['wall'], row['samples'])} |"
+                )
+    lines.append("")
+    return "\n".join(lines)
 
 
 def render(result: dict) -> str:
@@ -565,6 +883,7 @@ def render(result: dict) -> str:
     by_channels = result.get("channelsByRiver", {})
     for key in sorted(set(by_river) | set(by_channels), key=int):
         lines.append(f"| {key} | {by_channels.get(key, 0)} | {_n(by_river.get(key, 0))} |")
+    lines += surface_section(result)
     lines += [
         "",
         "## Tiles",

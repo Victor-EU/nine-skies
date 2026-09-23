@@ -125,7 +125,15 @@ export const WATER_CHANNELS = 4;
  * help. Sniffed as a tile is, for the host that undid the gzip on the way.
  */
 export async function decodeWater(bytes: Uint8Array, samples: number): Promise<Uint8Array> {
-  const size = samples * samples * WATER_CHANNELS;
+  return decodeWaterBytes(bytes, samples * samples * WATER_CHANNELS, `${samples}-sample tile of water`);
+}
+
+/** A hero area's water, every tile of it in one file (F73). */
+export async function decodeWaterArea(bytes: Uint8Array, samples: number, tiles: number): Promise<Uint8Array> {
+  return decodeWaterBytes(bytes, tiles * samples * samples * WATER_CHANNELS, `${tiles}-tile area of water`);
+}
+
+async function decodeWaterBytes(bytes: Uint8Array, size: number, what: string): Promise<Uint8Array> {
   if (bytes.length >= 2 && bytes[0] === GZIP_MAGIC_0 && bytes[1] === GZIP_MAGIC_1) {
     let raw: Uint8Array | null = null;
     try {
@@ -136,5 +144,5 @@ export async function decodeWater(bytes: Uint8Array, samples: number): Promise<U
     if (raw && raw.length === size) return raw;
   }
   if (bytes.length === size) return bytes;
-  throw new Error(`a ${bytes.length}-byte file is not a ${samples}-sample tile of water in ${WATER_CODEC}`);
+  throw new Error(`a ${bytes.length}-byte file is not a ${what} in ${WATER_CODEC}`);
 }

@@ -77,6 +77,31 @@ step turns at. 228,898 samples carry an offset.
 | 9 | 15 | 20,383 |
 | 10 | 14 | 23,181 |
 
+## A river's own surface
+
+Where the grid resolves a river wider than its channel: a sample at exactly
+its channel's level, reached from the channel through samples that are too,
+on ground stage 3 did not raise, and not sea or inside a lake's outline
+(F73). A channel sample counts only beside one off the channel; a river one
+sample wide is the ribbon's to draw.
+
+**491 samples** of 1,000 m, 491.0 km², in 79 pieces; 219 of them are channel samples.
+
+| samples | level, m | river | lat | lon |
+| ---: | ---: | --- | ---: | ---: |
+| 40 | 4,544.50 | Za’gya | 32.08 N | 89.00 E |
+| 37 | 4,544.50 | Za’gya | 31.99 N | 89.03 E |
+| 25 | 50.50 | Brahmaputra | 26.39 N | 92.20 E |
+| 19 | 66.50 | Brahmaputra | 26.66 N | 93.25 E |
+| 18 | 30.00 | Brahmaputra | 26.23 N | 90.51 E |
+| 16 | 21.00 | Yi | 34.78 N | 118.82 E |
+| 15 | 11.50 | Gan | 29.14 N | 115.96 E |
+| 15 | 66.50 | Brahmaputra | 26.73 N | 93.32 E |
+| 15 | 47.00 | Brahmaputra | 26.24 N | 91.89 E |
+| 14 | 48.50 | Brahmaputra | 26.31 N | 92.08 E |
+| 13 | 96.00 | Brahmaputra | 27.38 N | 94.73 E |
+| 13 | 48.00 | Brahmaputra | 26.31 N | 92.01 E |
+
 ## Tiles
 
-672 of 1,155 tiles carry water. Built in 3 s.
+672 of 1,155 tiles carry water. Built in 5 s.

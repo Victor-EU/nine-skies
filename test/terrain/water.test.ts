@@ -25,12 +25,17 @@ import {
   OFFSET_STEP_M,
   OFFSET_ZERO,
   REACH_M,
+  RESOLVED_RIBBON_SAMPLES,
   WATER_LAKE,
+  WATER_LAND,
+  WATER_RIVER,
   WATER_SEA,
+  ribbonHalfWidthM,
   riverAt,
   riverHalfWidthM,
   riverMinPx,
   stillAt,
+  stillClassAt,
   waterGlsl,
   type WaterSample,
 } from "../../engine/src/terrain/water.js";
@@ -148,6 +153,38 @@ describe("what the shader reads a river as", () => {
   });
 });
 
+describe("a river the grid resolves (F73)", () => {
+  const at = (still: number): WaterSample => sample(0, 0, NO_RIVER, still);
+
+  it("is standing water in the river's colour, under a lake and over the sea", () => {
+    expect(stillClassAt([at(WATER_SEA), at(WATER_SEA), at(WATER_LAND), at(WATER_LAND)])).toBe(WATER_SEA);
+    expect(stillClassAt([at(WATER_RIVER), at(WATER_LAND), at(WATER_LAND), at(WATER_LAND)])).toBe(WATER_RIVER);
+    expect(stillClassAt([at(WATER_RIVER), at(WATER_LAKE), at(WATER_LAND), at(WATER_LAND)])).toBe(WATER_LAKE);
+    // Its shore is a lake's: half a sample out from the last wet one.
+    expect(stillAt([at(WATER_RIVER), at(WATER_LAND), at(WATER_RIVER), at(WATER_LAND)], 0.49, 0.5)).toBeGreaterThan(0.5);
+  });
+
+  it("holds a ribbon to half a sample on a grid that resolves its valleys", () => {
+    const cap = RESOLVED_RIBBON_SAMPLES * 90;
+    expect(cap).toBe(45);
+    // The Yangtze's 600 m would be drawn up walls standing 697 m over the
+    // Three Gorges reservoir and 1,276 m over the Jinsha (F73).
+    expect(ribbonHalfWidthM(2, cap)).toBe(45);
+    expect(ribbonHalfWidthM(12, cap)).toBe(45);
+    expect(ribbonHalfWidthM(NO_RIVER, cap)).toBe(0);
+    // The country's ribbons are the table's, whatever it holds.
+    for (let r = 0; r < 16; r++) expect(ribbonHalfWidthM(r)).toBe(riverHalfWidthM(r));
+  });
+
+  it("puts the cap and the fourth class in the shader", () => {
+    const glsl = waterGlsl(129);
+    expect(glsl).toContain("uniform float uWaterRibbonMaxM;");
+    expect(glsl).toContain("min(RIVER_HALF_WIDTH_M[k], uWaterRibbonMaxM)");
+    expect(glsl).toContain(`a.a == ${WATER_RIVER}u`);
+    expect(glsl).toContain("ivec2(127)");
+  });
+});
+
 const W = { tx0: 10, ty0: 10, tx1: 12, ty1: 11 };
 const SHA = "a".repeat(64);
 
@@ -257,6 +294,17 @@ describe("a streamed world's water", () => {
       /other heights/,
     );
     expect(waterProblem({ ...base, water: waterEntry(["w"]) })).toMatch(/1 water names for 2 tiles/);
+  });
+
+  it("reads a layer with a river's surface in it, and one from before there was one", () => {
+    const names = ["w", ""];
+    const base = wetWorld().index;
+    const classes = { land: WATER_LAND, sea: WATER_SEA, lake: WATER_LAKE };
+    expect(waterProblem({ ...base, water: waterEntry(names, { classes }) })).toBeNull();
+    expect(waterProblem({ ...base, water: waterEntry(names, { classes: { ...classes, river: WATER_RIVER } }) })).toBeNull();
+    expect(waterProblem({ ...base, water: waterEntry(names, { classes: { ...classes, river: 4 } }) })).toMatch(
+      /numbered differently/,
+    );
   });
 });
 

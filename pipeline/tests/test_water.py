@@ -265,5 +265,146 @@ class TestChannels(unittest.TestCase):
         self.assertEqual(at(source.ground, 5, cols[0]), channel.cells[0])
 
 
+def a_channel(cells, name: str = "Test"):
+    return SimpleNamespace(cells=list(cells), run=SimpleNamespace(name=name, feature=0))
+
+
+class TestSurfaces(unittest.TestCase):
+    """A river's own surface, where the grid resolves it wider than its
+    channel (F73): the Three Gorges reservoir at 90 m, in miniature."""
+
+    def reservoir(self):
+        # Ground at 50 m; a channel along row 4 at 10 m; the reservoir three
+        # rows deep at 10 m over columns 2-6, and the channel alone elsewhere.
+        heights = np.full((9, 12), 50.0, dtype="float32")
+        heights[4, :] = 10.0
+        heights[3:6, 2:7] = 10.0
+        return heights, a_channel(4 * 12 + c for c in range(12))
+
+    def surface(self, heights, channel, before=None, barred=None, near=None):
+        before = heights if before is None else before
+        barred = np.zeros(heights.shape, dtype=bool) if barred is None else barred
+        near = np.ones(heights.shape, dtype=bool) if near is None else near
+        return water.surfaces(heights, before, [channel], barred, near)
+
+    def test_the_grid_resolves_a_reservoir_at_its_channels_level(self):
+        heights, channel = self.reservoir()
+        mask, owner = self.surface(heights, channel)
+        expected = np.zeros(heights.shape, dtype=bool)
+        expected[3:6, 2:7] = True
+        np.testing.assert_array_equal(mask, expected)
+        self.assertTrue((owner[mask] == 1).all())
+        self.assertTrue((owner[~mask] == 0).all())
+
+    def test_a_channel_one_sample_wide_is_the_ribbons_to_draw(self):
+        heights, channel = self.reservoir()
+        mask, _ = self.surface(heights, channel)
+        self.assertFalse(mask[4, :2].any())
+        self.assertFalse(mask[4, 7:].any())
+
+    def test_it_is_the_exact_level_and_reached_from_the_channel(self):
+        heights, channel = self.reservoir()
+        heights[3, 4] = 10.5  # half a metre off the level
+        heights[1, 9] = 10.0  # at the level, walled off from the channel
+        mask, _ = self.surface(heights, channel)
+        self.assertFalse(mask[3, 4])
+        self.assertFalse(mask[1, 9])
+        self.assertTrue(mask[3, 3])
+
+    def test_ground_stage_three_raised_to_the_level_is_not_water(self):
+        # The fill leaves a hollow flat at the level of the channel it spills
+        # into: on the corridor, 2,294 of 3,447 samples the rule found so.
+        heights, channel = self.reservoir()
+        before = heights.copy()
+        before[5, 2:7] = 4.0
+        mask, _ = self.surface(heights, channel, before=before)
+        self.assertFalse(mask[5].any())
+        self.assertTrue(mask[3, 2:7].all())
+
+    def test_the_sea_and_a_lake_are_other_rules(self):
+        heights, channel = self.reservoir()
+        barred = np.zeros(heights.shape, dtype=bool)
+        barred[3, :] = True
+        mask, _ = self.surface(heights, channel, barred=barred)
+        self.assertFalse(mask[3].any())
+        self.assertTrue(mask[5, 2:7].all())
+
+    def test_a_surface_goes_no_farther_than_the_offsets_do(self):
+        heights, channel = self.reservoir()
+        near = np.zeros(heights.shape, dtype=bool)
+        near[4:6, :] = True
+        mask, _ = self.surface(heights, channel, near=near)
+        self.assertFalse(mask[3].any())
+        self.assertTrue(mask[5, 2:7].all())
+
+    def test_the_sea_and_a_lake_win_where_they_meet_a_surface(self):
+        sea_ = np.array([[True, False, False]])
+        lake = np.array([[False, True, False]])
+        surface = np.ones((1, 3), dtype=bool)
+        self.assertEqual(water.standing(sea_, lake, surface).tolist(), [[water.SEA, water.LAKE, water.RIVER]])
+        self.assertEqual(water.standing(sea_, lake).tolist(), [[water.SEA, water.LAKE, water.LAND]])
+
+
+class TestWhatARibbonIsDrawnOn(unittest.TestCase):
+    def test_the_ground_beside_a_channel_is_measured_against_its_water(self):
+        # A valley along column 2, its floor falling north to south.
+        heights = np.array([[30, 20, 12, 20, 30], [30, 20, 11, 20, 30], [30, 20, 10, 20, 30]], dtype="float32")
+        channel = a_channel([2, 7, 12])
+        near = np.ones(heights.shape, dtype=bool)
+        levels = water.channel_levels(heights, [channel], near)
+        np.testing.assert_array_equal(levels[:, 0], [12.0, 11.0, 10.0])
+        distance = np.abs(np.arange(5) - 2)[None, :].repeat(3, axis=0) * 90.0
+        rows = water.ground_above(heights - levels, distance, near, (45.0, 90.0, 180.0))
+        self.assertEqual([r["samples"] for r in rows], [3, 9, 15])
+        self.assertEqual([r["maxM"] for r in rows], [0.0, 10.0, 20.0])
+        self.assertEqual([r["wall"] for r in rows], [0, 0, 0])
+
+    def test_past_the_reach_nothing_is_measured(self):
+        heights = np.zeros((1, 3), dtype="float32")
+        levels = water.channel_levels(heights, [a_channel([0])], np.array([[True, True, False]]))
+        self.assertTrue(np.isnan(levels[0, 2]))
+
+
+class TestAGridsWater(unittest.TestCase):
+    """`grid_water`, which the country build and the hero cut both call."""
+
+    def test_a_carved_valley_draws_its_river_and_the_surface_it_resolves(self):
+        heights = dammed_valley()
+        heights[4:7, 3:9] = heights[5, 3]  # a pool the river runs through
+        g = ground(heights)
+        drawn = line(g, "Test", [(5, 1), (5, 23)])
+        lakes = np.zeros(heights.shape, dtype="int32")
+        result = carve.condition(heights, [drawn], lakes, g.fetched, g.cells, rule=carve.LEAVE)
+        none = np.zeros(heights.shape, dtype=bool)
+        made = water.grid_water(
+            result.heights, heights, g.transform, g.fetched, none, none, lakes, [],
+            result.channels, lambda feature: 5, above_at=(500.0,),
+        )
+        self.assertEqual(made.data.shape, heights.shape + (water.CHANNELS,))
+        self.assertTrue((made.data[..., 2] == 5).any())
+        surface = made.data[..., 3] == water.RIVER
+        pool = np.zeros(heights.shape, dtype=bool)
+        pool[4:7, 3:9] = True
+        on_channel = np.zeros(heights.size, dtype=bool)
+        on_channel[result.channels[0].cells] = True
+        # Every sample of the pool off the channel, and nothing outside it.
+        self.assertTrue(surface[pool & ~on_channel.reshape(heights.shape)].all())
+        self.assertFalse(surface[~pool].any())
+        self.assertEqual(made.result["channels"], 1)
+        self.assertGreater(made.result["surface"], 0)
+        self.assertEqual(made.result["pieces"][0]["river"], "Test")
+        self.assertEqual(made.result["aboveWater"][0]["maxM"], 0.0)
+
+    def test_what_a_water_file_says_of_itself(self):
+        tiles_ = np.zeros((2, 3, 3, water.CHANNELS), dtype=np.uint8)
+        tiles_[1, 1, 1, 3] = water.RIVER
+        entry = water.entry_for(tiles_, 3, "h" * 64, extra=1)
+        self.assertEqual(entry["classes"], {"land": 0, "sea": 1, "lake": 2, "river": 3})
+        self.assertEqual((entry["tiles"], entry["tilesWithWater"]), (2, 1))
+        self.assertEqual(entry["bytes"], tiles_.nbytes)
+        self.assertEqual(entry["heightsSha256"], "h" * 64)
+        self.assertEqual(entry["extra"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -78,6 +78,31 @@ step turns at. 836,508 samples carry an offset.
 | 9 | 66 | 143,492 |
 | 10 | 38 | 105,308 |
 
+## A river's own surface
+
+Where the grid resolves a river wider than its channel: a sample at exactly
+its channel's level, reached from the channel through samples that are too,
+on ground stage 3 did not raise, and not sea or inside a lake's outline
+(F73). A channel sample counts only beside one off the channel; a river one
+sample wide is the ribbon's to draw.
+
+**2,717 samples** of 1,000 m, 2,717.0 km², in 214 pieces; 941 of them are channel samples.
+
+| samples | level, m | river | lat | lon |
+| ---: | ---: | --- | ---: | ---: |
+| 168 | 2,579.00 | Yellow | 36.10 N | 100.72 E |
+| 146 | 390.00 | Irtysh | 47.76 N | 84.48 E |
+| 132 | 4,544.50 | Za’gya | 32.04 N | 88.97 E |
+| 112 | 458.50 | Godavari | 19.50 N | 75.29 E |
+| 110 | 120.50 | Brahmani | 21.33 N | 84.94 E |
+| 103 | 3,882.50 | (unnamed) | 37.51 N | 89.74 E |
+| 96 | 239.00 | Irtysh | 50.33 N | 81.39 E |
+| 94 | 330.00 | Godavari | 18.99 N | 78.24 E |
+| 83 | 249.50 | Narmada | 22.26 N | 76.73 E |
+| 74 | 101.00 | Tapti | 21.24 N | 73.66 E |
+| 65 | 525.00 | Yenisey | 51.59 N | 92.51 E |
+| 65 | 101.00 | Tapti | 21.44 N | 73.86 E |
+
 ## Tiles
 
-3,838 of 7,245 tiles carry water. Built in 18 s.
+3,838 of 7,245 tiles carry water. Built in 30 s.

@@ -17,7 +17,7 @@
  */
 import { TILE_SAMPLES } from "./tileArray.js";
 import { TILE_CODEC, WATER_CHANNELS, WATER_CODEC, decodeTile, decodeWater } from "./tileCodec.js";
-import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M, WATER_LAKE, WATER_LAND, WATER_SEA } from "./water.js";
+import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M, WATER_LAKE, WATER_LAND, WATER_RIVER, WATER_SEA } from "./water.js";
 import type {
   TileSource,
   WorldManifest,
@@ -39,6 +39,14 @@ export interface PackedHorizon {
  * The water layer's files in a package, as `package.py` names them (F72): one
  * per tile that has any water, and "" for one that is dry.
  */
+/** How a layer numbers its standing water; `river` since F73. */
+export interface WaterClasses {
+  readonly land: number;
+  readonly sea: number;
+  readonly lake: number;
+  readonly river?: number;
+}
+
 export interface PackedWater {
   readonly codec: string;
   readonly channels: number;
@@ -48,7 +56,7 @@ export interface PackedWater {
   readonly offsetZero: number;
   /** How far from a river a sample still carries its offset. */
   readonly reachM: number;
-  readonly classes: { land: number; sea: number; lake: number };
+  readonly classes: WaterClasses;
   /** The `water.bin` these were coded from. */
   readonly sha256: string;
   /** The `heights.bin` it was cut against, which has to be this package's. */
@@ -144,6 +152,23 @@ export function waterProblem(index: TileIndex): string | null {
   const water = index.water;
   if (!water) return null;
   if (water.codec !== WATER_CODEC) return `water is coded ${water.codec}, the engine reads ${WATER_CODEC}`;
+  const layout = waterLayoutProblem(water);
+  if (layout) return layout;
+  if (water.heightsSha256 !== index.heightsSha256) {
+    return "water was cut against other heights than these tiles: re-run `make water package`";
+  }
+  if (water.names.length !== index.names.length) return `${water.names.length} water names for ${index.names.length} tiles`;
+  return null;
+}
+
+/** A water layer's constants against the engine's, whatever carried them. */
+export function waterLayoutProblem(water: {
+  channels: number;
+  offsetStepM: number;
+  offsetZero: number;
+  reachM: number;
+  classes: WaterClasses;
+}): string | null {
   if (water.channels !== WATER_CHANNELS) return `water has ${water.channels} bytes a sample, the engine reads ${WATER_CHANNELS}`;
   if (water.offsetStepM !== OFFSET_STEP_M || water.offsetZero !== OFFSET_ZERO || water.reachM !== REACH_M) {
     return (
@@ -151,14 +176,17 @@ export function waterProblem(index: TileIndex): string | null {
       `the engine reads ${OFFSET_STEP_M} m about ${OFFSET_ZERO} to ${REACH_M} m`
     );
   }
-  const c = water.classes;
-  if (c.land !== WATER_LAND || c.sea !== WATER_SEA || c.lake !== WATER_LAKE) {
+  return waterClassesProblem(water.classes);
+}
+
+/**
+ * A layer written before a river's own surface existed has no `river` class
+ * and no sample of it, so it is read as it always was (F73).
+ */
+function waterClassesProblem(c: WaterClasses): string | null {
+  if (c.land !== WATER_LAND || c.sea !== WATER_SEA || c.lake !== WATER_LAKE || (c.river ?? WATER_RIVER) !== WATER_RIVER) {
     return "water classes are numbered differently from the engine's";
   }
-  if (water.heightsSha256 !== index.heightsSha256) {
-    return "water was cut against other heights than these tiles: re-run `make water package`";
-  }
-  if (water.names.length !== index.names.length) return `${water.names.length} water names for ${index.names.length} tiles`;
   return null;
 }
 

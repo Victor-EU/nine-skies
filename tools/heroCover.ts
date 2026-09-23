@@ -11,6 +11,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 import {
   HeroCover,
   type HeroAreaData,
@@ -37,12 +38,18 @@ export function loadHeroCoverFrom(corridorDir: string): HeroCover | null {
       );
     }
     // Buffer may be a view into a larger pool, so the offset matters.
-    return {
+    const area: HeroAreaData = {
       manifest,
       heights: new Int16Array(
         bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
       ),
     };
+    // Its water, when it was cut with one (F73). `HeroCover` checks it
+    // against the heights and flies the area dry if it does not fit.
+    const water = manifest.water;
+    const waterPath = water ? join(dir, water.file) : null;
+    if (waterPath && existsSync(waterPath)) area.water = new Uint8Array(gunzipSync(readFileSync(waterPath)));
+    return area;
   });
   return new HeroCover(index, areas);
 }

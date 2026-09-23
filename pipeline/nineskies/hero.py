@@ -113,6 +113,10 @@ class HeroArea:
     holds: tuple[str, ...] = ()
     why: str = ""
     note: str = ""
+    #: Whether `make hero` cuts it unasked. An area whose publishing is a
+    #: decision nobody has made is cut only when named (`--area`), so that
+    #: fetching its cells does not publish it (F73).
+    published: bool = True
 
     @property
     def count(self) -> int:
@@ -242,9 +246,10 @@ AREAS: tuple[HeroArea, ...] = (
         why="The second probe deferred to this grid: at 1 km the summit is "
         "unpassable at any tolerance because grid phase alone swings it "
         "153 m (F12).",
-        note="Outside the Sea to Sky corridor box, so its source cells are "
-        "not on disk and `cut` refuses it by name rather than building a "
-        "hole.",
+        note="Outside the Sea to Sky corridor box; its cells came with the "
+        "country (F64). Whether it is published is the user's, so `make "
+        "hero` leaves it until it is named.",
+        published=False,
     ),
 )
 
@@ -336,8 +341,10 @@ def missing_cells(area: HeroArea, source: Path | None = None) -> list[str]:
 
 
 def ready(source: Path | None = None) -> list[HeroArea]:
-    """Areas whose source cells are all on disk."""
-    return [a for a in AREAS if not missing_cells(a, source)]
+    """Published areas whose source cells are all on disk: what `make hero`
+    cuts. Everest's cells arriving with the country (F64) made it ready, and a
+    rule of cells alone would have published it with nobody deciding to."""
+    return [a for a in AREAS if a.published and not missing_cells(a, source)]
 
 
 def warp(vrt_path: Path, area: HeroArea, resampling):
@@ -378,8 +385,16 @@ def cut_tiles(array, area: HeroArea):
     """
     import numpy as np
 
-    out = np.zeros((area.count, TILE_SAMPLES, TILE_SAMPLES), dtype="int16")
     rounded = np.clip(np.rint(array), INT16_MIN, INT16_MAX).astype("int16")
+    return cut_layer(rounded, area)
+
+
+def cut_layer(array, area: HeroArea):
+    """(tiles, 129, 129, ...) of any per-sample array, in `cut_tiles`' layout:
+    the water layer lies on the samples its heights do (F73)."""
+    import numpy as np
+
+    out = np.zeros((area.count, TILE_SAMPLES, TILE_SAMPLES) + array.shape[2:], dtype=array.dtype)
     t = 0
     for j in range(area.tiles_y):
         for i in range(area.tiles_x):
@@ -387,11 +402,11 @@ def cut_tiles(array, area: HeroArea):
             # south edge, so count rows down from the top.
             row_north = (area.tiles_y - 1 - j) * TILE_CELLS
             col_west = i * TILE_CELLS
-            patch = rounded[
+            patch = array[
                 row_north : row_north + TILE_SAMPLES,
                 col_west : col_west + TILE_SAMPLES,
             ]
-            out[t] = patch[::-1, :]
+            out[t] = patch[::-1]
             t += 1
     return out
 
@@ -478,6 +493,31 @@ def condition(area: HeroArea, array, path: Path, rule: str | None = None):
     return source, result
 
 
+#: How far from a river's line `water_layer` measures the ground against the
+#: water, in metres: half a 90 m sample, one, and the country's ribbons.
+ABOVE_WATER_AT_M = (45.0, 90.0, 150.0, 300.0, 600.0)
+
+
+def water_layer(source, result):
+    """The area's water by the country's rules, from the channels stage 3 has
+    just cut rather than found again (F73). Every sample is measured, and no
+    area reaches the sea."""
+    import numpy as np
+
+    from . import boundary, rivers, water
+
+    shape = result.heights.shape
+    land = rivers.polygons_raster(
+        boundary.load(), source.transform, shape, box=rivers.extent(source.ground)
+    ) > 0
+    return water.grid_water(
+        result.heights, source.heights, source.transform,
+        source.measured, np.zeros(shape, dtype=bool), land,
+        source.lakes, source.lake_names, result.channels, water.river_bytes(),
+        above_at=ABOVE_WATER_AT_M,
+    )
+
+
 @dataclass
 class Cut:
     """One area as written, and what stage 3 did to it on the way (F63).
@@ -494,6 +534,8 @@ class Cut:
     result: object
     #: The area's edge against the country grid, as cut and as written.
     seam: tuple[dict | None, dict | None]
+    #: What `water.grid_water` measured of it (F73).
+    water: dict | None = None
 
 
 def cut(
@@ -615,6 +657,31 @@ def cut(
     heights_path = out_dir / f"{area.id}.bin"
     heights_path.write_bytes(cut_array.astype("<i2").tobytes())
 
+    # Its water, cut on the same samples and coded as the country's tiles are,
+    # a whole area to one file because an area is fetched whole (F73).
+    import gzip
+
+    from . import water
+
+    wet = water_layer(source, result)
+    water_tiles = cut_layer(wet.data, area)
+    coded = gzip.compress(water_tiles.tobytes(), compresslevel=9, mtime=0)
+    water_path = out_dir / f"{area.id}.water.bin"
+    water_path.write_bytes(coded)
+    water_entry = {
+        "file": water_path.name,
+        "codec": water.CODEC,
+        "fileBytes": len(coded),
+        **water.entry_for(water_tiles, TILE_SAMPLES, digest(heights_path)),
+    }
+    wet.result.update(tiles=water_entry["tiles"], tilesWithWater=water_entry["tilesWithWater"])
+    print(
+        f"  water: {wet.result['channels']} channel(s), {wet.result['surface']:,} samples of "
+        f"river surface, {water_entry['tilesWithWater']} of {area.count} tiles wet, "
+        f"{len(coded) / 1e3:.1f} kB",
+        flush=True,
+    )
+
     manifest = {
         "version": 1,
         "area": area.id,
@@ -645,6 +712,7 @@ def cut(
             "bytes": heights_path.stat().st_size,
             "sha256": digest(heights_path),
         },
+        "water": water_entry,
         "boundary": gaps or {"unchecked": True},
         "elevationM": {"min": int(cut_array.min()), "max": int(cut_array.max())},
         # What stage 3 read and did, as the country manifest carries it (F61).
@@ -658,7 +726,8 @@ def cut(
         f"{cut_array.min()}..{cut_array.max()} m · {manifest_path.name} · "
         f"probe with --grid {tif_path}"
     )
-    return Cut(area=area, out_dir=out_dir, source=source, result=result, seam=(gaps_as_cut, gaps))
+    return Cut(area=area, out_dir=out_dir, source=source, result=result,
+               seam=(gaps_as_cut, gaps), water=wet.result)
 
 
 def write_index(out_dir: Path) -> Path:
@@ -705,12 +774,19 @@ def write_index(out_dir: Path) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Cut the 90 m hero areas (stage 6).")
     parser.add_argument("--corridor", default="sea-to-sky")
-    parser.add_argument("--area", default=None, help="one area id; default every ready one")
+    parser.add_argument(
+        "--area", default=None,
+        help="one area id, published or not; default every published one on disk",
+    )
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--list", action="store_true", help="what is sited, ready, missing")
     parser.add_argument(
         "--report", type=Path, default=None,
         help="where to write what stage 3 did to each area cut (F63)",
+    )
+    parser.add_argument(
+        "--water-report", type=Path, default=None,
+        help="where to write the water drawn on each area cut (F73)",
     )
     args = parser.parse_args(argv)
 
@@ -719,6 +795,8 @@ def main(argv: list[str] | None = None) -> int:
         for area in AREAS:
             missing = missing_cells(area)
             state = "on disk" if not missing else f"{len(missing)} to fetch"
+            if not area.published:
+                state += ", unpublished"
             print(f"{area.id:>24} {area.count:>6} {state:>14}")
         for area_id, name, why in UNSITED:
             print(f"{area_id:>24} {'—':>6} {'unsited':>14}   {why}")
@@ -737,6 +815,13 @@ def main(argv: list[str] | None = None) -> int:
         ])
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(text)
+        print(text)
+    if args.water_report:
+        from . import water
+
+        text = water.render_areas([(c.area.id, c.area.name, c.water) for c in done])
+        args.water_report.parent.mkdir(parents=True, exist_ok=True)
+        args.water_report.write_text(text)
         print(text)
     return 0
 

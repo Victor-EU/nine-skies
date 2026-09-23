@@ -305,6 +305,7 @@ class TestWater(unittest.TestCase):
         self.assertEqual(constant("REACH_M"), f"{water.REACH_UNITS} * OFFSET_STEP_M")
         self.assertEqual(int(constant("WATER_SEA")), water.SEA)
         self.assertEqual(int(constant("WATER_LAKE")), water.LAKE)
+        self.assertEqual(int(constant("WATER_RIVER")), water.RIVER)
 
 
 class TestAPublishedPackage(unittest.TestCase):

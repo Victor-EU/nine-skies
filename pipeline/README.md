@@ -155,8 +155,14 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      its own two functions and refused unless every sample it lowered lies on
      one. A river is stored as the offset from each sample within 4 km to the
      nearest point of its smoothed centreline, which the terrain shader reads
-     bilinearly into a ribbon with a clean edge. Writes `water.bin` and
-     `water.json` beside the heights and `docs/water-report.md`.
+     bilinearly into a ribbon with a clean edge. Where the grid resolves a
+     river wider than its channel, it is standing water too (D71, F73): a
+     sample at exactly its channel's level, reached from the channel through
+     samples that are, on ground this stage did not raise and outside the sea
+     and every lake. That is 2,717 samples of the country, mostly reservoirs
+     Natural Earth's lakes leave out, and the Three Gorges reservoir at 90 m.
+     Writes `water.bin` and `water.json` beside the heights and
+     `docs/water-report.md`.
 4. **Tile** — 64 km tiles, 65 x 65 Int16 metres, shared edge row and column.
 5. **Horizon field** — one 8 km country raster, 841 x 553 Int16 (930 kB),
    reduced from the 1 km grid with the silhouette bias (mean + 0.6 x
@@ -178,6 +184,15 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      needed no cut. `make hero` writes `docs/carve-report-hero.md`, which
      prices the rule for each area's other basins, and each area's manifest
      carries the record stage 3 wrote.
+   - **Each area's water is cut with it** (D71, F73), by `water.py`'s rules,
+     from the channels stage 3 has just made. It is one gzip file beside the
+     heights, `<area>.water.bin`, the country's four bytes a sample on the
+     same 129 × 129 tiles. `make hero` also writes `docs/water-report-hero.md`,
+     which measures what a ribbon would be drawn on. Within 600 m of the line
+     — the Yangtze's ribbon on the country — 48 % and 65 % of the two areas'
+     samples are wall more than 20 m over the water, so the engine holds the
+     hero ribbon to half a sample and the grid draws the rest as the river's
+     own surface: the Three Gorges reservoir, 96.8 km² at 157.5 m.
    - The cell size is measured, not inherited. 100 m is the only resolution
      that nests in the 1 km grid, and it still loses: both probes that read
      this artefact pass across a bias window of 0.25–0.45 at 90 m and at the
@@ -219,8 +234,9 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      contain them, and the coordinates come from `siting.py` rather than from
      memory (F52). Three of the five are sited and two are built — Tiger
      Leaping Gorge at 24 tiles and the Three Gorges at 36, 2.00 MB of cover.
-     Everest is sited and refuses to cut: three of its four source cells are
-     not on disk. Guilin and Zhangjiajie are in `hero.UNSITED`, and neither is
+     Everest is sited and its cells have been on disk since F64, but whether
+     it is published is the user's, so it is marked unpublished and `make
+     hero` cuts it only when named with `--area` (F73). Guilin and Zhangjiajie are in `hero.UNSITED`, and neither is
      waiting on a coordinate — Guilin wants three one-degree cells below 25 N,
      and Zhangjiajie wants a source that resolves what it is named for.
 7. **Land cover** — aggregate to 2 km class fractions, packed RGBA.

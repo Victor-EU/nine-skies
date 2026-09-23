@@ -184,9 +184,15 @@ reference: $(PY)
 ## kept the sill the carve exists to remove. The report says what that did to
 ## each one and prices the rule for its other basins; it needs the same two
 ## Natural Earth files `carve` does.
+##
+## Each area's water is cut with it, by `water`'s rules, from the channels
+## stage 3 has just made (F73), and its report says what a ribbon would be
+## drawn on at 90 m. Everest's cells are on disk and it is not cut unless
+## named with `--area`: whether it is published is the user's (F64, F73).
 hero: $(PY)
 	$(PIPELINE) -m nineskies.hero --corridor $(CORRIDOR) \
-		--report docs/carve-report-hero.md
+		--report docs/carve-report-hero.md \
+		--water-report docs/water-report-hero.md
 
 ## Where a coordinate goes, measured off the source rather than recalled.
 ## `probes` asks the same question of the built world, which is 1 km ground

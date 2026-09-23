@@ -2,6 +2,7 @@
 
 import math
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -220,6 +221,31 @@ class TestCuttingTiles(unittest.TestCase):
         # tile-row-major, j ascending then i ascending.
         self.assertGreater(int(by_col[1][0][0]), int(by_col[0][0][0]))
         self.assertLess(int(by_row[2][0][0]), int(by_row[0][0][0]))
+
+
+    def test_water_lies_on_the_samples_its_heights_do(self):
+        # Four bytes a sample, cut by the same function the heights are (F73).
+        area = self.area()
+        rows = self.rows(area)
+        layer = np.stack([rows, self.cols(area), rows, rows], axis=-1).astype("int32")
+        cut = hero.cut_layer(layer, area)
+        self.assertEqual(cut.shape, (4, 129, 129, 4))
+        np.testing.assert_array_equal(cut[..., 0], hero.cut_tiles(rows, area))
+        np.testing.assert_array_equal(cut[..., 1], hero.cut_tiles(self.cols(area), area))
+
+
+class TestWhatMakeHeroCuts(unittest.TestCase):
+    def test_an_area_whose_publishing_is_undecided_is_cut_only_when_named(self):
+        # Everest's cells came with the country (F64); publishing it is the
+        # user's, so cells on disk must not be enough (F73).
+        self.assertFalse(hero.BY_ID["everest"].published)
+        with tempfile.TemporaryDirectory() as raw:
+            source = Path(raw)
+            for area in hero.AREAS:
+                for name in hero.missing_cells(area, source):
+                    (source / f"{name}.tif").write_bytes(b"")
+            ready = [a.id for a in hero.ready(source)]
+        self.assertEqual(ready, ["tiger-leaping-gorge", "three-gorges"])
 
 
 class TestTheBias(unittest.TestCase):

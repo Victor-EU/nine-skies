@@ -5,7 +5,18 @@ import {
   type HeroAreaData,
   type HeroIndex,
   type HeroManifest,
+  type HeroWater,
 } from "../../engine/src/terrain/heroSource.js";
+import { WATER_CHANNELS } from "../../engine/src/terrain/tileCodec.js";
+import { NO_WATER } from "../../engine/src/terrain/tileStream.js";
+import {
+  NO_RIBBON_CAP_M,
+  OFFSET_STEP_M,
+  OFFSET_ZERO,
+  REACH_M,
+  WATER_LAND,
+  WATER_RIVER,
+} from "../../engine/src/terrain/water.js";
 import { loadHeroCoverFrom } from "../../tools/heroCover.ts";
 import { loadCorridor } from "../../tools/corridor.ts";
 import { HERO_TILE_SAMPLES } from "../../engine/src/terrain/tileArray.js";
@@ -99,6 +110,97 @@ function cover(hx0 = 10, hy0 = 20, tilesX = 2, tilesY = 3): HeroCover {
     [area],
   );
 }
+
+function heroWater(tiles: number, over: Partial<HeroWater> = {}): HeroWater {
+  return {
+    file: "gorge.water.bin",
+    codec: "rgba8-gzip",
+    fileBytes: 0,
+    channels: WATER_CHANNELS,
+    tileSamples: HERO_TILE_SAMPLES,
+    offsetStepM: OFFSET_STEP_M,
+    offsetZero: OFFSET_ZERO,
+    reachM: REACH_M,
+    classes: { land: 0, sea: 1, lake: 2, river: WATER_RIVER },
+    tiles,
+    tilesWithWater: 1,
+    bytes: tiles * STRIDE * WATER_CHANNELS,
+    sha256: "",
+    heightsSha256: "h".repeat(64),
+    ...over,
+  };
+}
+
+/** Two tiles side by side: the west one a river's surface, the east one dry. */
+function wetCover(over: Partial<HeroWater> = {}, bytes?: Uint8Array): HeroCover {
+  const m = manifest("gorge", 10, 20, 2, 1);
+  m.heights = { ...m.heights, sha256: "h".repeat(64) };
+  m.water = heroWater(2, over);
+  let water = bytes;
+  if (!water) {
+    water = new Uint8Array(2 * STRIDE * WATER_CHANNELS);
+    for (let k = 0; k < water.length; k += WATER_CHANNELS) {
+      water[k] = OFFSET_ZERO;
+      water[k + 1] = OFFSET_ZERO;
+      water[k + 3] = k < STRIDE * WATER_CHANNELS ? WATER_RIVER : WATER_LAND;
+    }
+  }
+  const entry = { id: "gorge", name: "gorge", file: "gorge.json", window: m.window, bytes: m.heights.bytes };
+  return new HeroCover(index({ areas: [entry] }), [{ manifest: m, heights: stamped(10, 20, 2, 1), water }]);
+}
+
+describe("hero cover's water (F73)", () => {
+  it("hands out a wet tile's water, none for a dry one, and nothing outside", () => {
+    const hero = wetCover();
+    expect(typeof hero.water).toBe("function");
+    const wet = hero.water!(10, 20)!;
+    expect(wet.length).toBe(STRIDE * WATER_CHANNELS);
+    expect(wet[3]).toBe(WATER_RIVER);
+    expect(hero.water!(11, 20)).toBe(NO_WATER);
+    expect(hero.water!(12, 20)).toBeNull();
+    expect(hero.wetTiles).toBe(1);
+    expect(hero.label).toContain("1 with water");
+  });
+
+  it("costs no water texture where no area was cut with any", () => {
+    expect(cover().water).toBeUndefined();
+    expect(cover().waterRefused).toEqual([]);
+  });
+
+  it("flies an area dry whose water does not fit its heights, and says why", () => {
+    const stale = wetCover({ heightsSha256: "0".repeat(64) });
+    expect(stale.water).toBeUndefined();
+    expect(stale.waterRefused[0]).toMatch(/other heights/);
+    // The ground is still drawn: the heights are what an area cannot do without.
+    expect(stale.request(10, 20)).not.toBeNull();
+    expect(wetCover({}, new Uint8Array(STRIDE * WATER_CHANNELS)).waterRefused[0]).toMatch(/bytes of water/);
+    expect(wetCover({ classes: { land: 0, sea: 1, lake: 2, river: 5 } }).waterRefused[0]).toMatch(
+      /numbered differently/,
+    );
+  });
+
+  it("gives the hero lattice water with its ribbon held to half a sample", () => {
+    const terrain = new Terrain({
+      scale: { ...DEFAULT_SCALE },
+      viewRadiusTiles: 2,
+      layers: 64,
+      source: new SyntheticTileSource(),
+      hero: wetCover(),
+    });
+    const [country, hero] = terrain.materials;
+    expect(country!.uniforms.uWater).toBeUndefined();
+    expect(hero!.uniforms.uWaterRibbonMaxM!.value).toBe(45);
+    terrain.update(10.5 * TILE_M, 20.5 * TILE_M, 3000);
+    const flags = new Map<number, number>();
+    for (const mesh of terrain.meshes.slice(4)) {
+      const geometry = mesh.geometry as import("three").InstancedBufferGeometry;
+      const origins = geometry.getAttribute("iOrigin").array as Float32Array;
+      const water = geometry.getAttribute("iWater").array as Float32Array;
+      for (let k = 0; k < geometry.instanceCount; k++) flags.set(Math.round(origins[k * 2]!), water[k]!);
+    }
+    expect([...flags.values()].sort()).toEqual([0, 1]);
+  });
+});
 
 describe("the hero lattice, addressed by position", () => {
   const hero = cover();
@@ -434,6 +536,23 @@ describe.skipIf(!built)("the second area, on the Yangtze", () => {
     expect(coarse).toBeCloseTo(353.9, 0);
     expect(fine).toBeCloseTo(159.8, 0);
     expect(coarse - fine).toBeGreaterThan(190);
+  });
+
+  it("draws the reservoir as the river's own surface, and the country's ribbons as they were", () => {
+    // 157.5 m over 96.8 km² of the area at 90 m, where the 1 km grid resolves
+    // a few hundred samples of the whole corridor (F73).
+    const { hero, gorges } = world();
+    expect(hero.waterRefused).toEqual([]);
+    expect(hero.wetTiles).toBe(39);
+    const { hx, hy } = hero.tileAt(gorges.eastM, gorges.northM);
+    const tile = hero.water!(hx, hy)!;
+    let surface = 0;
+    for (let k = 3; k < tile.length; k += WATER_CHANNELS) if (tile[k] === WATER_RIVER) surface++;
+    // The tile Wu Gorge's waypoint is in: 426 of its 16,641 samples.
+    expect(surface).toBe(426);
+    const terrain = fly(true);
+    expect(terrain.materials[1]!.uniforms.uWaterRibbonMaxM!.value).toBe(45);
+    expect(terrain.materials[0]!.uniforms.uWaterRibbonMaxM?.value ?? NO_RIBBON_CAP_M).toBe(NO_RIBBON_CAP_M);
   });
 
   it("reads the same surface the content tooling reads", () => {

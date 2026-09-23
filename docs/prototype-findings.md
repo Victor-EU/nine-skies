@@ -9782,3 +9782,209 @@ put back.
 - the constants the two sides share, read from the engine's file by the
   pipeline's test;
 - a tile drawn the frame its ground lands and its water the frame after.
+
+## F73 — The hero areas draw their water, and at 90 m the ground says how wide a river is: the country's ribbon would have painted the gorges
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+F72 left the 90 m hero areas dry. The Three Gorges reservoir was ground, and
+the country's Yangtze ribbon stopped at the area's rim. The plan was simple:
+run `water.py` on each area as stage 6 cuts it, and compile the hero material
+with water. Measuring it first changed the plan.
+
+### The country's ribbon paints the walls
+
+At 1 km a river is narrower than a sample, so F72 draws it as a ribbon of a
+chosen width: 600 m either side of the line for the Yangtze's class. At 90 m
+the grid resolves the valley the river runs in. Each sample within a distance
+of a river's line, measured against the level of the channel beside it:
+
+| within the line | Three Gorges: wall | highest | Tiger Leaping Gorge: wall | highest |
+| ---: | ---: | ---: | ---: | ---: |
+| 45 m | 0.0 % | 0 m | 0.0 % | 0 m |
+| 90 m | 6.2 % | 111 m | 11.3 % | 243 m |
+| 300 m | 30.6 % | 442 m | 45.7 % | 634 m |
+| 600 m | **47.8 %** | 697 m | **64.7 %** | 1,276 m |
+
+*Wall* is a sample standing more than 20 m over the water. The Yangtze's
+ribbon would be drawn up Wu Gorge to 697 m, and the Jinsha's up Tiger Leaping
+Gorge to 1,276 m. Those are the gorges the areas were cut to be flown through.
+Within half a sample of the line no sample stands above the water on either
+area.
+
+### The ground says how wide the river is
+
+GLO-30 flattens a river as it flattens a lake. At 90 m the Yangtze's channel
+through the Three Gorges reads exactly 157.5 m on 2,258 of its 2,332 samples,
+and the reservoir around it carries the same value. So a river's own surface
+is found by the lake rule's signature (D71):
+
+- a sample at **exactly** its channel's level;
+- reached from the channel through samples that are too;
+- within the reach the offsets are carried to;
+- on ground stage 3 did not raise;
+- never across the sea or into a lake's outline, which other rules decide.
+
+**The raised-ground bar matters.** D62's fill leaves a hollow flat at the
+level of whatever it spills into, and a hollow beside a river spills into its
+channel. A first pass without the bar found 3,447 samples on the corridor
+outside the sea and the lakes. **2,294 of them were ground the fill had
+raised**: hollows levelled at a channel's height, not water. With the bar the
+corridor has 491.
+
+At 90 m the bar hardly matters. Taking the ground as cut, before stage 3, or
+as conditioned finds the same reservoir to 4 samples in the Three Gorges and
+30 in Tiger Leaping Gorge. The rule reads the conditioned grid, which is the
+ground drawn.
+
+A channel sample counts only beside a surface sample off the channel. A river
+one sample wide, drawn as standing water, is a staircase of samples that beads.
+The ribbon draws that.
+
+### What it finds
+
+**At 90 m** (`docs/water-report-hero.md`):
+
+| | river surface | pieces | wet tiles | file |
+| --- | ---: | ---: | ---: | ---: |
+| Three Gorges | 11,947 samples, 96.8 km² | 8 | 25 of 36 | 138.0 kB |
+| Tiger Leaping Gorge | 546 samples, 4.4 km² | 59 | 14 of 24 | 89.7 kB |
+
+- **The Three Gorges reservoir** is two pieces of 5,761 and 5,468 samples at
+  157.5 m, with side arms up to 2.4 km off the line. Between them it is
+  narrower than a sample, and there the ribbon carries it.
+- **Tiger Leaping Gorge's surface** is mostly the wider Jinsha around the
+  first bend at Shigu, at 1,815 m. Through the gorge itself the river is a
+  ribbon.
+
+**At 1 km** the rule does little, as a 1 km sample is rarely all water, but
+what it finds is real:
+
+- **The corridor:** 491 samples in 79 pieces. Siling Co has grown past its
+  Natural Earth outline where the Za'gya enters it, and the braided
+  Brahmaputra in Assam, the Gan and the Yi are wide.
+- **The country:** 2,717 samples in 214 pieces, most of them reservoirs that
+  Natural Earth's lakes file does not hold:
+  - Longyangxia on the Yellow River at 2,579 m;
+  - Lake Zaysan and the Shulba reservoir on the Irtysh;
+  - on the Indian edge of the grid, Jayakwadi, Indira Sagar, Rengali and Ukai.
+
+It is one rule on both grids, so the country world was rebuilt with it:
+
+- **Changed:** 117 of the country's 3,838 wet tiles now have a new water
+  file, adding 2.9 kB to 1.29 MB. The index grew by 35 bytes.
+- **Unchanged:** the corridor's 610 water files come to 340.2 kB where they
+  were 339.5, and no tile became wet or dry on either world.
+- **Build time:** the country's water build took 30 s, where it took 18.
+
+### How it is drawn
+
+- **The fourth class.** The standing-water byte gains a fourth class, 3, *a
+  river's own surface*. It is drawn with a shore like a lake's and in the
+  river's colour.
+- **The ribbon cap.** A uniform caps the ribbon's half-width before the pixel
+  floor: half a sample, 45 m, on the hero lattice, and no cap on the country.
+  The 2-pixel floor for the GDD's two rivers still holds at any distance.
+- **Older layers.** A layer written before the fourth class existed has no
+  `river` entry and is read as it always was. A layer that numbers the class
+  differently is refused.
+- **Files.** Each area's water is one gzip file beside its heights: the
+  country's four bytes a sample, cut on the same 129 × 129 tiles. An area is
+  fetched whole, so the file is too.
+- **Checks.** The area's manifest names its codec, constants and class
+  numbers, and the digest of the heights it was cut against. `HeroCover`
+  checks all of them against the decoded bytes, and flies an area dry, with a
+  warning, if its water does not fit. The ground is still drawn.
+- **No water, no cost.** A cover with no water anywhere asks for no water
+  texture.
+
+The heights of both areas are identical to the byte, and so is the carve
+report apart from its date. The committed report was kept for that reason.
+The water adds 228 kB to the 2.0 MB of hero cover.
+
+### Seen
+
+In the app over the corridor, with the camera taken from the loop:
+
+- **From 7,000 m over Xiling**, the reservoir winds through the area as a
+  surface of its own width, with a side arm branching north. The gorge walls
+  stay rock.
+- **At the area's west rim**, the country's 1.2 km Yangtze ribbon runs into
+  the reservoir at about the same width, without a break.
+- **From 3,200 m over Qutang**, the reservoir's shore follows the foot of the
+  walls and narrows through the gorge into the ribbon.
+- **From 7,500 m over Tiger Leaping Gorge**, the Jinsha is a thin unbroken
+  thread on the gorge floor.
+
+### Everest would have been published
+
+`make hero` cuts every area whose source cells are on disk. Everest's came
+with the country (F64), so the first run of this change cut it too, into the
+scratch directory it was pointed at. Whether Everest is published is the
+user's.
+
+- **Now:** an area carries `published`, and Everest's is false. `make hero`
+  cuts the two published areas, and cuts Everest only when named with
+  `--area`. That keeps what was published before.
+- **Cleaned up:** the two work files the scratch run made, `hero-everest.tif`
+  and its VRT, were removed.
+
+### Sky shows through every hero area's rim
+
+The first frame over the Three Gorges had thin light-blue lines along the
+area's west and east edges. They were read at first as water where none
+should be. With the clear colour set to magenta they turned magenta: the sky
+through a hole.
+
+- **The cause.** The country grid is cut out inside a hero rectangle, and the
+  hero tiles' skirts hang 900 m down from the edge. A skirt only hangs down.
+  Where the country ground stands above the hero edge, nothing fills the gap
+  between them.
+- **How much.** Sampled along the rims, the country stands above the edge at
+  **76.9 % of Tiger Leaping Gorge's and 73.1 % of the Three Gorges'**, by a
+  median 63 m and 84 m and at most 353 m and 330 m.
+- **Why nothing caught it.** `boundary_disagreement` measures the gap's size
+  and not its sign, and the comment in `terrainMaterial.ts` says the skirts
+  cover it.
+
+It predates the water, and it is recorded as its own item.
+
+### What it costs on the GPU: not measured
+
+F72's protocol was the whole frame at 2,048 × 1,536, with every hero tile's
+water flag set and cleared, interleaved, on D25's timer query. This time it
+read 8–42 ms for the three hero views, with no consistent sign between wet
+and dry. Timing F72's own Wuhan frame again, country only, read **18–92 ms,
+where F72 read 2.24–2.85**.
+
+The pane was hidden, animation frames came about once a second and the
+machine was swapping. Nothing the timer read that day is evidence, so no
+number is given here. The shader's work per fragment is F72's, so its cost is
+F72's 0.2–0.6 ms per frame of wet tiles until a capture says otherwise.
+
+### What this leaves
+
+- **Sky shows through the rim of every hero area**: engineering, and the next
+  item.
+- **The map still draws sea only for tiles of open ocean.**
+- **What water looks like is still the user's.** The country's widths, the
+  pixel floor and the colours are defaults. The hero grid's cap is not a look:
+  it is the grid's, measured.
+- **A GPU cost for water in the hero areas**, when the timer reads F72's
+  Wuhan frame at what F72 read.
+
+844 TypeScript tests, up from 835, and 409 Python tests, up from 396:
+
+- the surface rule on ground small enough to know the answer to: the exact
+  level, reached from the channel, not across the sea or a lake, not on raised
+  ground, not past the reach;
+- a channel one sample wide left to the ribbon;
+- what a ribbon would be drawn on, measured on a valley;
+- the hero water cut on the samples its heights are cut on;
+- `make hero` leaving an unpublished area alone with every cell on disk;
+- the fourth class and the ribbon cap in the shader and its CPU copy;
+- a layer without the class read as before, and one that numbers it
+  differently refused;
+- hero cover handing out a wet tile's water and none for a dry one, flying an
+  area dry whose water does not fit, and holding its lattice's ribbon to 45 m;
+- on the built world, the Wu Gorge tile's 426 samples of reservoir.

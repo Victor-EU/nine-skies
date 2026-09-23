@@ -13,7 +13,7 @@ import { HeightTileArray, MAX_LAYERS, TILE_SAMPLES } from "./tileArray.js";
 import { TILE_KM } from "./syntheticTiles.js";
 import { SyntheticTileSource, type TileSource } from "./tileSource.js";
 import { NO_WATER } from "./tileStream.js";
-import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M } from "./water.js";
+import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M, RESOLVED_RIBBON_SAMPLES } from "./water.js";
 import type { AreaBounds, HeroCover } from "./heroSource.js";
 import { createTerrainMaterial, MAX_CUT_RECTS } from "./terrainMaterial.js";
 import {
@@ -151,9 +151,11 @@ class TileLattice {
     scale: WorldScale,
     hazeDensityPerM: number,
     maxCuts: number,
+    ribbonMaxM?: number,
   ) {
     this.maxInstances = maxInstances;
-    // A water layer only for a source that can have one: a package (F72).
+    // A water layer only for a source that can have one: a package (F72), or
+    // hero cover cut with water (F73).
     const withWater = typeof source.water === "function";
     this.heights = new HeightTileArray(layers, samples, withWater);
     this.material = createTerrainMaterial(this.heights.texture, {
@@ -165,6 +167,7 @@ class TileLattice {
           offsetStepM: OFFSET_STEP_M,
           offsetZero: OFFSET_ZERO,
           reachM: REACH_M,
+          ...(ribbonMaxM !== undefined && { ribbonMaxM }),
         },
       }),
       tileWorldSize: tileM / scale.horizontalCompression,
@@ -430,6 +433,9 @@ export class Terrain {
         options.scale,
         this.hazeDensityPerM,
         0,
+        // The 90 m grid resolves a river's valley, so its ribbon is only what
+        // is narrower than a sample and the ground draws the rest (F73).
+        RESOLVED_RIBBON_SAMPLES * this.heroCover.resolutionM,
       );
       for (let i = 0; i < MAX_CUT_RECTS; i++) this.cutRects.push(new Vector4());
     } else {
