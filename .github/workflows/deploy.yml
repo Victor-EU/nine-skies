@@ -1,0 +1,57 @@
+name: Deploy
+
+# The film to GitHub Pages, by hand (plan v2, stage 6).
+#
+# The scene packs are cut from a world built from 67 GB of source that is
+# not in the repository, so they cannot be made here. `make release-packs`
+# uploads them from the machine with the world as the `packs` release's
+# asset, with the pack index they were cut for; this refuses them unless
+# that index is the one committed, so the film deployed is the film the
+# tests fly.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: npm ci
+      - name: The scene packs, from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download packs --pattern dist-film.tar.gz
+          tar -xzf dist-film.tar.gz
+          cmp dist-film/packs.index.json app/public/packs/index.json \
+            || { echo "the released packs were cut for another pack index: run make release-packs"; exit 1; }
+      - name: Check
+        run: npm run check
+      - name: Launch gate
+        run: npm run content:validate -- --complete
+      - name: Build
+        run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: app/dist }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

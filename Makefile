@@ -44,7 +44,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film rails stations scenes test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film rails stations scenes release-packs test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -230,6 +230,17 @@ stations:
 ## Needs a world; the index of what each pack holds is committed.
 scenes:
 	npm run content:scenes
+
+## The packs to the repository's `packs` release, which the Deploy workflow
+## builds the site from (plan v2, stage 6). Publishes: run it when the packs
+## on the host should change.
+release-packs:
+	@test -d dist-film/packs || { echo "no packs in dist-film/: make scenes"; exit 1; }
+	cp app/public/packs/index.json dist-film/packs.index.json
+	tar -czf dist-film.tar.gz dist-film
+	gh release view packs >/dev/null 2>&1 || gh release create packs --title "Scene packs" --notes "Cut by make scenes; the Deploy workflow builds from them."
+	gh release upload packs dist-film.tar.gz --clobber
+	rm dist-film.tar.gz
 
 typecheck:
 	npm run typecheck

@@ -166,6 +166,12 @@ function publishedPacks(): Plugin {
     },
     closeBundle() {
       if (!existsSync(join(root, "packs"))) {
+        // CI checks that the app builds, with no world to cut packs from; it
+        // says so. A build meant for the host never sets this.
+        if (process.env.NINE_SKIES_ALLOW_NO_PACKS === "1") {
+          console.warn("building without scene packs (NINE_SKIES_ALLOW_NO_PACKS): this build is not for the host");
+          return;
+        }
         throw new Error("no scene packs in dist-film/: `make scenes` cuts them from the built world");
       }
       cpSync(root, outDir, { recursive: true });

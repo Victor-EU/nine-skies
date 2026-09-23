@@ -7,7 +7,7 @@ twelve-hour game, and this document replaces it entirely.
 
 Nine Skies is an eighteen-minute flight over real China, in the browser. Open
 a link and it plays: nine scenes of two minutes each, one landscape per scene,
-from the mouth of the Yangtze to the face of Everest. You can steer, you can
+from Huangshan's granite above the clouds to the face of Everest. You can steer, you can
 speed up or slow down, or you can do nothing at all. After eighteen minutes it
 is over.
 

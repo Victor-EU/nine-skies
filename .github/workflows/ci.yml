@@ -22,8 +22,12 @@ jobs:
       # Needs no world: rail clearance is `make rails` on the machine with one.
       - name: Film validation
         run: npm run content:validate
+      # The app builds; the scene packs are cut on the machine with the world
+      # (`make scenes`) and are not here, so this build is not the host's.
       - name: Build
         run: npm run build
+        env:
+          NINE_SKIES_ALLOW_NO_PACKS: "1"
 
   # Frame rate is deliberately not measured here: headless software
   # rasterisation produces a number that is precise and meaningless. CI guards
