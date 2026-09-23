@@ -15,72 +15,77 @@ measured to decide of it (F60).
 
 | | cells | km³ | deepest |
 | --- | ---: | ---: | ---: |
-| Cut along mapped rivers | 95,072 | 7,327 | 1,997 m |
-| Other closed basins, raised | 1,845,142 | 64,711 | 627 m |
-| Unchanged | 27,746,443 of 29,686,657 | — | — |
+| Cut along mapped rivers | 97,714 | 4,011 | 969 m |
+| Other closed basins, raised | 1,892,257 | 65,361 | 574 m |
+| Unchanged | 27,696,686 of 29,686,657 | — | — |
 
 ## The rivers
 
-315 channels from 315 runs of mapped line over measured ground (64.2 % of
-this grid's samples), 133,889 cells of channel in all. Every run found its
-way down. A cut is how far a cell stood above the lowest ground upstream
-of it on its own channel. The deepest are where a valley is narrower than
-a cell: stage 2 reads such a cell as mostly wall, and 5,435 cells are cut
-by more than 300 m.
+314 channels from 315 runs of mapped line over measured ground (64.2 % of
+this grid's samples), 136,989 cells of channel in all. 1 found no way down
+its band: Shishged. A cut is how far a cell stood above the lowest ground
+upstream of it on its own channel. The deepest are where a valley is
+narrower than a cell: stage 2 reads such a cell as mostly wall, and 946
+cells are cut by more than 300 m.
 
 | River | channel cells | cut | deepest | lat | lon | km³ |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Bolshoy Yenisei | 716 | 516 | 1,997 m | 52.30 N | 98.44 E | 489.6 |
-| Oka | 531 | 321 | 1,942 m | 53.16 N | 100.28 E | 211.2 |
-| Katun | 756 | 448 | 1,831 m | 50.77 N | 86.58 E | 302.8 |
-| Chuna | 241 | 173 | 1,795 m | 53.79 N | 97.03 E | 206.7 |
-| Shishged | 334 | 234 | 1,736 m | 51.48 N | 98.40 E | 120.1 |
-| Selenga | 1,145 | 664 | 1,109 m | 51.97 N | 107.44 E | 238.2 |
-| Biya | 71 | 27 | 1,091 m | 51.74 N | 87.54 E | 18.6 |
-| Vitim | 512 | 267 | 1,059 m | 53.33 N | 112.40 E | 229.5 |
-| Selemdzha | 787 | 528 | 1,033 m | 53.17 N | 133.38 E | 176.1 |
-| Tom | 374 | 257 | 1,002 m | 53.52 N | 89.61 E | 103.9 |
-| Ingoda | 831 | 570 | 997 m | 51.27 N | 112.38 E | 269.5 |
 | Dadu | 1,110 | 947 | 969 m | 29.30 N | 102.97 E | 117.9 |
-| Onon | 1,159 | 566 | 960 m | 50.35 N | 113.21 E | 189.2 |
 | Salween | 3,357 | 3,106 | 925 m | 29.17 N | 97.98 E | 368.0 |
-| Shilka | 746 | 485 | 883 m | 52.51 N | 118.62 E | 232.3 |
-| Argun | 1,490 | 723 | 856 m | 50.87 N | 119.59 E | 288.4 |
-| Lena | 188 | 91 | 677 m | 53.86 N | 106.53 E | 41.4 |
-| Angara | 454 | 227 | 676 m | 52.05 N | 104.53 E | 89.0 |
 | Jinsha | 2,294 | 2,146 | 637 m | 27.27 N | 100.18 E | 279.6 |
-| Kondoma | 361 | 293 | 620 m | 52.69 N | 87.29 E | 88.0 |
+| Fuchun | 451 | 354 | 618 m | 29.65 N | 118.51 E | 20.1 |
+| Yalong | 1,779 | 1,467 | 605 m | 28.55 N | 101.77 E | 167.3 |
+| Indus | 1,216 | 997 | 567 m | 35.21 N | 73.13 E | 109.1 |
+| Yarlung | 1,005 | 656 | 523 m | 29.24 N | 92.26 E | 56.8 |
+| Wu | 1,223 | 1,145 | 521 m | 29.35 N | 107.71 E | 122.1 |
+| Chenab | 846 | 569 | 502 m | 33.29 N | 76.09 E | 57.4 |
+| Yenisey | 745 | 541 | 501 m | 51.97 N | 91.97 E | 43.6 |
+| Yarkand | 1,460 | 791 | 499 m | 37.34 N | 76.20 E | 60.9 |
+| Toxkan He | 547 | 177 | 492 m | 40.82 N | 77.33 E | 8.1 |
+| Black | 1,165 | 1,061 | 486 m | 22.07 N | 103.28 E | 86.3 |
+| Maquan | 855 | 525 | 482 m | 29.21 N | 86.28 E | 30.7 |
+| Naryn | 666 | 373 | 482 m | 41.49 N | 73.94 E | 25.5 |
+| Chulyshman | 256 | 174 | 472 m | 50.97 N | 88.13 E | 14.8 |
+| Luhit | 331 | 205 | 468 m | 28.09 N | 97.00 E | 19.0 |
+| Ganges | 4,281 | 3,545 | 465 m | 30.57 N | 79.78 E | 38.0 |
+| Mekong | 3,379 | 3,146 | 465 m | 30.29 N | 97.83 E | 265.9 |
+| Hongshui | 726 | 658 | 461 m | 25.00 N | 107.09 E | 50.8 |
 
 The other 159 rivers cut less deeply.
 
 ## The lakes
 
-182 mapped lakes have ground on this grid that was measured. 44 lie on a
-carved channel, which leaves each at its own floor. **141 are still closed
+182 mapped lakes have ground on this grid that was measured. 45 lie on a
+carved channel, which leaves each at its own floor. **159 are still closed
 after the carve, and are kept:** Balkhash (17,590 km²), Issyk-Kul (6,261
-km²), Qinghai (4,464 km²), Zaysan (4,214 km²), Khanka (4,047 km²), Alakol
-(2,840 km²), Tai (2,509 km²), Hulun (2,363 km²), Hongze Lake (2,347 km²),
-Poyang (2,077 km²), Namtso (1,885 km²), Siling (1,572 km²), Khar-Us (1,554
-km²), Khyargas Nuur (1,357 km²), Bosten (1,004 km²), Khar (939 km²),
-Kapchagay (933 km²), Gaoyou (849 km²), Tangra Yumco (795 km²), Chao (786
-km²), Dongting (775 km²), Sasykkol (751 km²), Yamdrok (663 km²), Ayakum
-(614 km²), Buir (603 km²), Lake Ebinur (603 km²), Ngoring (601 km²),
-Qiandao Lake (581 km²), Ang Laren (521 km²), Kaptai (517 km²), Geren Cuo
-(484 km²), Markakol (462 km²), Liangzi (449 km²), Ngangzi Co (426 km²),
-Manasarovar (398 km²), Longgan (373 km²), Gandhi Sagar Dam (370 km²),
-Aqqikkol Hu (346 km²), Xinfengjiang (346 km²), Nansi (332 km²),
+km²), Qinghai (4,464 km²), Zaysan (4,214 km²), Khanka (4,047 km²), Uvs
+(3,316 km²), Alakol (2,840 km²), Khövsgöl Nuur (2,773 km²), Tai (2,509
+km²), Hulun (2,363 km²), Hongze Lake (2,347 km²), Poyang (2,077 km²),
+Namtso (1,885 km²), Siling (1,572 km²), Khar-Us (1,554 km²), Khyargas Nuur
+(1,357 km²), Bosten (1,004 km²), Khar (939 km²), Kapchagay (933 km²),
+Gaoyou (849 km²), Tangra Yumco (795 km²), Chao (786 km²), Dongting (775
+km²), Sasykkol (751 km²), Kulundinskoe (708 km²), Yamdrok (663 km²),
+Ayakum (614 km²), Buir (603 km²), Lake Ebinur (603 km²), Ngoring (601
+km²), Qiandao Lake (581 km²), Ang Laren (521 km²), Kaptai (517 km²), Geren
+Cuo (484 km²), Markakol (462 km²), Liangzi (449 km²), Ngangzi Co (426
+km²), Manasarovar (398 km²), Longgan (373 km²), Gandhi Sagar Dam (370
+km²), Aqqikkol Hu (346 km²), Xinfengjiang (346 km²), Nansi (332 km²),
 Lumajangdong (307 km²), Shijiu (307 km²), Hong (305 km²), Daguan Lake (302
 km²), Pangong Tso (301 km²), Hoh Xil Hu (298 km²), Achit (291 km²), Hoh
 Sai Hu (274 km²), Rakshastal (274 km²), Futou Lake (271 km²), Puma Yumco
-(259 km²), Huiten Nur (258 km²), Guozha (253 km²), Zeya (249 km²), Dalai
-Nur (244 km²), Gas Hure Hu (244 km²), Ulgain Gobi (236 km²), Chagan (211
-km²), Poyang Lake (210 km²), Elsen Nur (208 km²), Ge (201 km²), Telmen
-(194 km²), Ulansuhai Nur (193 km²), Sangiin Dalai (184 km²), Qarasor Lake
+(259 km²), Huiten Nur (258 km²), Guozha (253 km²), Dalai Nur (244 km²),
+Gas Hure Hu (244 km²), Ulgain Gobi (236 km²), Teletskoe (232 km²), Üüreg
+(225 km²), Chagan (211 km²), Poyang Lake (210 km²), Elsen Nur (208 km²),
+Ge (201 km²), Telmen (194 km²), Ulansuhai Nur (193 km²), Sangiin Dalai
+(184 km²), Kuchukskoe (183 km²), Qyzylqaq Lake (180 km²), Qarasor Lake
 (160 km²), Aksai Chin (155 km²), Wuchang (147 km²), Airag (142 km²),
-Dongping (139 km²), Luoma (107 km²), Dood Tsagaan (94 km²), Ozero Bolshoye
-Yeravnoye (94 km²), Žalauly Lake (86 km²), Ulken Azhbolat Lake (84 km²),
-Khukh Lake (78 km²), Yueliang Lake (70 km²), Guanting Shuiku (51 km²),
-Novosibirsk (47 km²), Beidagang (45 km²), Sirikit Dam (30 km²), and 61
+Dongping (139 km²), Gusinoe (134 km²), Ozero Bolshoye Topolnoye (110 km²),
+Luoma (107 km²), Arakhley (104 km²), Shreksor Lake (100 km²),
+Chernokurinskoe (97 km²), Dood Tsagaan (94 km²), Ozero Bolshoye Yeravnoye
+(94 km²), Žalauly Lake (86 km²), Ulken Azhbolat Lake (84 km²), Khukh Lake
+(78 km²), Yueliang Lake (70 km²), Guanting Shuiku (51 km²), Beidagang (45
+km²), Ozero Maraldy (45 km²), Sirikit Dam (30 km²), Ozero Isinginskoye (29
+km²), Ozero Bolshaya Kharga (24 km²), Ozero Irgen (22 km²), and 65
 unnamed. Kept means the basin a lake lies in is left as the source has it,
 whatever the rule, which is D62's lake clause -- and its named failure,
 since a lake that drains through a river Natural Earth leaves out is kept
@@ -121,10 +126,10 @@ outside it. What each entry claims is only that the basin has no way out:
 
 | From the map edge | stage 2 | stage 3 |
 | --- | ---: | ---: |
-| Cells with no outlet | 3,106,617 (10.46 %) | 965,640 (3.25 %) |
-| Closed basins | 307,707 | 298 |
-| …holding a kept lake or a named sink | 205, 1,067,191 km² | 298, 965,640 km² |
-| …against ground nobody measured | 137, 642 km² | 0, 0 km² |
+| Cells with no outlet | 3,262,898 (10.99 %) | 1,041,882 (3.51 %) |
+| Closed basins | 316,385 | 292 |
+| …holding a kept lake or a named sink | 199, 1,146,715 km² | 292, 1,041,882 km² |
+| …against ground nobody measured | 175, 901 km² | 0, 0 km² |
 
 Counted from the map edge, as the hydrology report counts it. Stage 3 lets
 water that reaches the sea or ground this build never fetched leave the
@@ -140,10 +145,10 @@ crosses a flat along the river rather than as a wave (D56).
 
 | | stage 2 | stage 3 |
 | --- | ---: | ---: |
-| Length | 5,414 km | 6,217 km |
-| Steps that climb going downstream | 1,884 | 100 |
-| Total ascent | 32,421 m | 700 m |
-| Cells under a closed basin's water | 3,703 | 595 |
+| Length | 5,073 km | 6,217 km |
+| Steps that climb going downstream | 1,747 | 100 |
+| Total ascent | 12,270 m | 700 m |
+| Cells under a closed basin's water | 3,367 | 595 |
 | Channel places within 1.5 km | 0 of 5 | 5 of 5 |
 
 ## The Yangtze probe's reaches
@@ -171,9 +176,9 @@ ground the player sees move.
 
 | Rule | cells raised | cells lowered | km³ | deepest | moved over 100 m | still closed |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| **fill** | 1,845,142 | 0 | 64,711 | 627 m at 49.98 N 86.15 E | 175,779 | 965,640 cells, 298 basins |
-| leave | 0 | 0 | 0 | 0 m | 0 | 2,649,887 cells, 314,876 basins |
-| breach | 0 | 762,756 | 13,693 | 627 m at 50.01 N 86.21 E | 22,783 | 1,011,600 cells, 363 basins |
+| **fill** | 1,892,257 | 0 | 65,361 | 574 m at 45.15 N 94.43 E | 176,239 | 1,041,882 cells, 292 basins |
+| leave | 0 | 0 | 0 | 0 m | 0 | 2,760,665 cells, 324,574 basins |
+| breach | 0 | 781,742 | 13,698 | 574 m at 45.18 N 95.18 E | 22,219 | 1,083,779 cells, 356 basins |
 
 The 12 largest of those basins, on the carved grid and before any rule is
 applied to it. A basin this size is either a real one or a valley the 1 km
@@ -191,10 +196,10 @@ at all because there is no through-drainage to draw (F60, F65).
 | ---: | ---: | ---: | ---: | ---: | :-: | ---: |
 | 1 | 494,979 | 1,361 m | 119,820 | 42.66 N 89.26 E | yes | 221 km |
 | 2 | 106,228 | 83 m | 4,493 | 46.29 N 73.85 E | yes | 100 km |
-| 3 | 84,478 | 300 m | 15,741 | 37.70 N 94.16 E | yes | 273 km |
-| 4 | 68,989 | 288 m | 5,358 | 44.39 N 110.12 E | — | 282 km |
-| 5 | 53,808 | 270 m | 6,219 | 44.87 N 83.14 E | yes | 150 km |
-| 6 | 43,271 | 421 m | 8,524 | 49.32 N 92.73 E | yes | 246 km |
+| 3 | 100,905 | 776 m | 32,080 | 50.68 N 92.90 E | yes | 97 km |
+| 4 | 84,478 | 300 m | 15,741 | 37.70 N 94.16 E | yes | 273 km |
+| 5 | 68,989 | 288 m | 5,358 | 44.39 N 110.12 E | — | 282 km |
+| 6 | 53,808 | 270 m | 6,219 | 44.87 N 83.14 E | yes | 150 km |
 | 7 | 26,858 | 230 m | 2,583 | 32.02 N 86.63 E | yes | 23 km |
 | 8 | 23,195 | 569 m | 4,602 | 43.90 N 94.72 E | — | 515 km |
 | 9 | 14,108 | 467 m | 2,130 | 32.18 N 83.50 E | yes | 175 km |
@@ -202,9 +207,9 @@ at all because there is no through-drainage to draw (F60, F65).
 | 11 | 12,889 | 216 m | 1,222 | 44.52 N 103.62 E | — | 285 km |
 | 12 | 12,611 | 157 m | 744 | 45.27 N 110.30 E | — | 187 km |
 
-**These 12 rows are not the population.** 154 of these basins are 1,000
-km² or larger and 48 of those are kept, so the table above is the largest
-12 of 154. That is a fact about the instrument rather than about this
+**These 12 rows are not the population.** 160 of these basins are 1,000
+km² or larger and 52 of those are kept, so the table above is the largest
+12 of 160. That is a fact about the instrument rather than about this
 table: a short list of named sinks reaches a basin that has a name, and a
 basin with no name can only be kept by siting a place inside it — from the
 basin the entry is meant to exempt, which is the circularity F49 and F50

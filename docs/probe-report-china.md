@@ -146,7 +146,7 @@ One figure from outside the data, for whatever it is worth: Mongolia's polygon m
 | Ayding Lake, Turpan | lake | -153 m | -154 m | 1 m | 212 m |
 | The Tarim's terminal basin | valley | 804 m | 803 m | 1 m | 123 m |
 | Qinghai Lake | lake | 3,194 m | 3,194 m | 0 m | 28 m |
-| Heihe, Heilongjiang | city | 129 m | 127 m | 2 m | 93 m |
+| Heihe, Heilongjiang | city | 147 m | 129 m | 17 m | 188 m |
 | Tengchong, Yunnan | city | 1,719 m | 1,634 m | 85 m | 1,123 m |
 
 **Above it** is the column F50 added, and it is the one that would have caught F50: relief cannot separate a gorge floor from the cliff over it, because both sit in the same 20 km box and both report ~3,800 m. A place marked `on_channel` in `places.py` promises to be on the water and is held to 400 m of it on this grid's 1,000 m cells — the waypoint this probe used to carry stood **1,260 m** above the Jinsha and passed every check there was. The tolerance scales with the cell because the floor of this measurement does: a river falls (46 m through this gorge at the source's 30 m, 1 m at Shigu where the same river runs flat) and a cell wider than the water is mostly not water (63 m at 90 m, 186 m at 1 km, on ground that has not moved). A column that read zero on a steep river would be measuring something else.

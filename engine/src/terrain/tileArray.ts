@@ -1,4 +1,11 @@
-import { DataArrayTexture, NearestFilter, RedIntegerFormat, ShortType } from "three";
+import {
+  DataArrayTexture,
+  NearestFilter,
+  RGBAIntegerFormat,
+  RedIntegerFormat,
+  ShortType,
+  UnsignedByteType,
+} from "three";
 
 /**
  * Heightmap residency (build plan D4).
@@ -92,15 +99,16 @@ export function bilinearSample(
   return top + (bottom - top) * ty;
 }
 
-export class HeightTileArray {
-  readonly texture: DataArrayTexture;
-  private readonly data: Int16Array;
-  private readonly layerOf = new Map<string, number>();
-  /** Layer -> tile id, for eviction. */
-  private readonly occupant: (string | null)[];
-  /** Monotonic clock for LRU. */
-  private readonly lastUsed: number[];
-  private clock = 0;
+/** Bytes a water sample carries (F72): `tileCodec.WATER_CHANNELS`. */
+export const WATER_BYTES = 4;
+
+/**
+ * One array texture's uploads: the layers written since the last flush, each
+ * as its own `texSubImage3D`, or the whole array when more than
+ * `WHOLE_UPLOAD_SHARE` of it changed at once (F70). The heights and the water
+ * layer are two arrays over one set of layers, and each uploads what it wrote.
+ */
+export class LayerUploads {
   /** Layers written since the last flush. */
   private readonly dirty = new Set<number>();
   /**
@@ -110,7 +118,67 @@ export class HeightTileArray {
    */
   private wholePending = false;
   /** What the last flush sent: how many layers, and whether as the whole array. */
-  lastUpload: { layers: number; whole: boolean } = { layers: 0, whole: false };
+  last: { layers: number; whole: boolean } = { layers: 0, whole: false };
+
+  constructor(
+    private readonly texture: DataArrayTexture,
+    private readonly layers: number,
+  ) {
+    // The renderer calls this after every upload it makes. The first one
+    // allocates the array, which WebGL fills with zeros, so a layer nothing
+    // has written needs no upload of its own.
+    texture.onUpdate = () => {
+      this.wholePending = false;
+    };
+  }
+
+  mark(layer: number): void {
+    this.dirty.add(layer);
+  }
+
+  flush(): void {
+    if (this.dirty.size === 0) {
+      this.last = { layers: 0, whole: false };
+      return;
+    }
+    const whole = this.wholePending || this.dirty.size > this.layers * WHOLE_UPLOAD_SHARE;
+    if (whole) {
+      this.texture.clearLayerUpdates();
+      this.wholePending = true;
+    } else {
+      for (const layer of this.dirty) this.texture.addLayerUpdate(layer);
+    }
+    this.texture.needsUpdate = true;
+    this.last = { layers: this.dirty.size, whole };
+    this.dirty.clear();
+  }
+}
+
+/** Where a resident tile's water stands (F72). */
+const WATER_ASKED = 0;
+const WATER_NONE = 1;
+const WATER_HELD = 2;
+
+export class HeightTileArray {
+  readonly texture: DataArrayTexture;
+  private readonly data: Int16Array;
+  private readonly layerOf = new Map<string, number>();
+  /** Layer -> tile id, for eviction. */
+  private readonly occupant: (string | null)[];
+  /** Monotonic clock for LRU. */
+  private readonly lastUsed: number[];
+  private clock = 0;
+  private readonly uploads: LayerUploads;
+  /**
+   * The water layer, one RGBA8UI layer beside each height layer, or null for
+   * an array made without one. A layer's water is only drawn once it has been
+   * written for the tile now in it, so a layer that changes tile needs no
+   * clearing: `waterState` says whose water it holds.
+   */
+  readonly water: DataArrayTexture | null;
+  private readonly waterData: Uint8Array | null;
+  private readonly waterState: Uint8Array;
+  private readonly waterUploads: LayerUploads | null;
 
   /**
    * @param samples texels per side. The country grid's 65, or a hero grid's
@@ -119,6 +187,7 @@ export class HeightTileArray {
   constructor(
     readonly layers: number = MAX_LAYERS,
     readonly samples: number = TILE_SAMPLES,
+    withWater = false,
   ) {
     const stride = samples * samples;
     this.data = new Int16Array(stride * layers);
@@ -133,12 +202,35 @@ export class HeightTileArray {
     this.texture.magFilter = NearestFilter;
     this.texture.generateMipmaps = false;
     this.texture.needsUpdate = true;
-    // The renderer calls this after every upload it makes. The first one
-    // allocates the array, which WebGL fills with zeros, so a layer nothing
-    // has written needs no upload of its own.
-    this.texture.onUpdate = () => {
-      this.wholePending = false;
-    };
+    this.uploads = new LayerUploads(this.texture, layers);
+
+    this.waterState = new Uint8Array(layers);
+    if (withWater) {
+      this.waterData = new Uint8Array(stride * WATER_BYTES * layers);
+      this.water = new DataArrayTexture(this.waterData, samples, samples, layers);
+      this.water.format = RGBAIntegerFormat;
+      this.water.type = UnsignedByteType;
+      this.water.internalFormat = "RGBA8UI";
+      this.water.minFilter = NearestFilter;
+      this.water.magFilter = NearestFilter;
+      this.water.generateMipmaps = false;
+      this.water.needsUpdate = true;
+      this.waterUploads = new LayerUploads(this.water, layers);
+    } else {
+      this.waterData = null;
+      this.water = null;
+      this.waterUploads = null;
+    }
+  }
+
+  /** What the last flush sent of the heights. */
+  get lastUpload(): { layers: number; whole: boolean } {
+    return this.uploads.last;
+  }
+
+  /** What the last flush sent of the water layer. */
+  get lastWaterUpload(): { layers: number; whole: boolean } {
+    return this.waterUploads?.last ?? { layers: 0, whole: false };
   }
 
   has(x: number, y: number): boolean {
@@ -169,8 +261,38 @@ export class HeightTileArray {
     }
     this.data.set(heights, layer * this.samples * this.samples);
     this.lastUsed[layer] = ++this.clock;
-    this.dirty.add(layer);
+    this.uploads.mark(layer);
+    if (existing === undefined) this.waterState[layer] = WATER_ASKED;
     return layer;
+  }
+
+  /** Whether this layer's tile still wants its water asked for. */
+  waterWanted(layer: number): boolean {
+    return this.water !== null && this.waterState[layer] === WATER_ASKED;
+  }
+
+  /** Whether this layer holds water for the tile in it, which is what draws it. */
+  hasWater(layer: number): boolean {
+    return this.waterState[layer] === WATER_HELD;
+  }
+
+  /**
+   * The water for the tile in `layer`: `WATER_BYTES` a sample, or an empty
+   * array for a tile with none, which is written nowhere and never drawn.
+   */
+  insertWater(layer: number, water: Uint8Array): void {
+    if (!this.waterData || !this.waterUploads) return;
+    if (water.length === 0) {
+      this.waterState[layer] = WATER_NONE;
+      return;
+    }
+    const stride = this.samples * this.samples * WATER_BYTES;
+    if (water.length !== stride) {
+      throw new Error(`${water.length} bytes of water for a ${this.samples}-sample layer of ${stride}`);
+    }
+    this.waterData.set(water, layer * stride);
+    this.waterState[layer] = WATER_HELD;
+    this.waterUploads.mark(layer);
   }
 
   /**
@@ -187,23 +309,12 @@ export class HeightTileArray {
   /**
    * Call once per frame before rendering. Sends the layers written since the
    * last call, each as its own `texSubImage3D`, or the whole array when more
-   * than `WHOLE_UPLOAD_SHARE` of it changed at once (F70).
+   * than `WHOLE_UPLOAD_SHARE` of it changed at once (F70) - the heights and,
+   * each on its own account, the water (F72).
    */
   flush(): void {
-    if (this.dirty.size === 0) {
-      this.lastUpload = { layers: 0, whole: false };
-      return;
-    }
-    const whole = this.wholePending || this.dirty.size > this.layers * WHOLE_UPLOAD_SHARE;
-    if (whole) {
-      this.texture.clearLayerUpdates();
-      this.wholePending = true;
-    } else {
-      for (const layer of this.dirty) this.texture.addLayerUpdate(layer);
-    }
-    this.texture.needsUpdate = true;
-    this.lastUpload = { layers: this.dirty.size, whole };
-    this.dirty.clear();
+    this.uploads.flush();
+    this.waterUploads?.flush();
   }
 
   get residentCount(): number {

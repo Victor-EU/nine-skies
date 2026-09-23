@@ -57,6 +57,15 @@ corridor, whose field is country-sized and mostly zeros. A 2-D predictor did
 the digest of the `horizon.bin` it was coded from, and the engine fetches the
 raw file whenever the two disagree.
 
+**The water layer rides beside the heights, a file per tile that has any**
+(F72). `make water` cuts four bytes a sample in the tiles' own layout; here a
+tile of it is gzip over those bytes as they lie, which on the corridor was
+smaller than byte planes or deltas (0.34 MB against 0.37 and 0.42 for its 672
+wet tiles): most of a tile is the same four bytes. A dry tile has no file, and
+every tile of open sea is one file. The index names each tile's file as it
+does the heights', and the `heights.bin` the layer was cut against, which has
+to be this package's.
+
 The index names the `heights.bin` it was cut from by digest. That file stays
 the world's authoritative form: every committed section and patch is signed
 against its digest (D23), so the package is a way of delivering it, and a
@@ -80,6 +89,8 @@ from .grid import CORRIDORS
 #: What the engine checks before it will read a file: `tileCodec.ts` names the
 #: same string, and a package in any other is not flown.
 CODEC = "delta-planes-gzip"
+#: The water layer's, which the engine checks the same way (F72).
+WATER_CODEC = "rgba8-gzip"
 INDEX_VERSION = 1
 #: 64 bits of a SHA-256. The country has 4,665 files, so a collision is a
 #: one-in-10^12 event; the index is what stops being small first.
@@ -136,6 +147,15 @@ def decode(data: bytes, width: int = SAMPLES) -> np.ndarray:
     return undelta(unplanes(gzip.decompress(data)), width)
 
 
+def encode_water(tile: np.ndarray) -> bytes:
+    """A tile of the water layer: its bytes as they lie, under gzip (F72)."""
+    return gzip.compress(np.ascontiguousarray(tile, dtype=np.uint8).tobytes(), compresslevel=9, mtime=0)
+
+
+def decode_water(data: bytes, channels: int = 4) -> np.ndarray:
+    return np.frombuffer(gzip.decompress(data), dtype=np.uint8).reshape(SAMPLES, SAMPLES, channels)
+
+
 def name_for(data: bytes) -> str:
     """The file's name without its `.bin`, which is how the index lists it."""
     return hashlib.sha256(data).hexdigest()[:NAME_HEX]
@@ -186,6 +206,61 @@ def horizon(world_dir: Path, manifest: dict) -> tuple[dict, bytes]:
     }, data
 
 
+def water(world_dir: Path, manifest: dict) -> tuple[dict, dict[str, bytes]] | None:
+    """The water layer a file per wet tile, and the index's entry for it; None
+    for a world `make water` has not been run on.
+
+    Refused when `water.bin` is not the file `water.json` names, or was cut
+    against other heights than this manifest's: a river drawn on ground that
+    has moved since is a river on a hillside.
+    """
+    from . import water as water_
+
+    record_path = world_dir / "water.json"
+    if not record_path.exists():
+        return None
+    record = json.loads(record_path.read_text())
+    path = world_dir / record["file"]
+    raw = path.read_bytes() if path.exists() else b""
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != record.get("sha256"):
+        raise SystemExit(f"{path} is not the file {record_path.name} names; re-run `make water`")
+    if record.get("heightsSha256") != manifest["heights"]["sha256"]:
+        raise SystemExit(
+            f"{path.name} was cut against heights {str(record.get('heightsSha256'))[:12]} and "
+            f"the manifest names {manifest['heights']['sha256'][:12]}; re-run `make water`"
+        )
+    per_tile = SAMPLES * SAMPLES * record["channels"]
+    if len(raw) != manifest["heights"]["tiles"] * per_tile:
+        raise SystemExit(f"{path} holds {len(raw) // per_tile} tiles, manifest says {manifest['heights']['tiles']}")
+    tiles = np.frombuffer(raw, dtype=np.uint8).reshape(-1, SAMPLES, SAMPLES, record["channels"])
+    names: list[str] = []
+    files: dict[str, bytes] = {}
+    for tile in tiles:
+        if not water_.has_water(tile):
+            names.append("")
+            continue
+        data = encode_water(tile)
+        name = name_for(data)
+        names.append(name)
+        files[name] = data
+    entry = {
+        "codec": WATER_CODEC,
+        "channels": record["channels"],
+        "layout": record["layout"],
+        "offsetStepM": record["offsetStepM"],
+        "offsetZero": record["offsetZero"],
+        "reachM": record["reachM"],
+        "classes": record["classes"],
+        "sha256": digest,
+        "heightsSha256": record["heightsSha256"],
+        "files": len(files),
+        "bytes": sum(len(d) for d in files.values()),
+        "names": names,
+    }
+    return entry, files
+
+
 def build(corridor: str, world_dir: Path | None = None) -> dict:
     world_dir = world_dir or Path(__file__).resolve().parents[2] / "dist-world" / corridor
     manifest = json.loads((world_dir / "manifest.json").read_text())
@@ -203,7 +278,9 @@ def build(corridor: str, world_dir: Path | None = None) -> dict:
 
     names, files = pack(tiles)
     horizon_entry, horizon_data = horizon(world_dir, manifest)
-    written = {**files, horizon_entry["name"]: horizon_data}
+    wet = water(world_dir, manifest)
+    water_entry, water_files = wet if wet else (None, {})
+    written = {**files, **water_files, horizon_entry["name"]: horizon_data}
 
     out = world_dir / SUBDIR
     out.mkdir(exist_ok=True)
@@ -231,6 +308,8 @@ def build(corridor: str, world_dir: Path | None = None) -> dict:
         "names": names,
         "horizon": horizon_entry,
     }
+    if water_entry is not None:
+        index["water"] = water_entry
     (out / INDEX).write_text(json.dumps(index, separators=(",", ":")) + "\n")
     index_bytes = (out / INDEX).stat().st_size
     print(
@@ -240,7 +319,13 @@ def build(corridor: str, world_dir: Path | None = None) -> dict:
         f"{zeros} tiles of zeros have no file and {len(names) - zeros - len(files)} "
         f"share one with an identical tile; horizon field {horizon_entry['bytes'] / 1e3:.1f} kB "
         f"against {horizon_entry['width'] * horizon_entry['height'] * 2 / 1e3:.1f} kB raw; "
-        f"index {index_bytes / 1e3:.1f} kB"
+        f"index {index_bytes / 1e3:.1f} kB; "
+        + (
+            f"water {water_entry['files']} files, {water_entry['bytes'] / 1e3:.1f} kB for "
+            f"{len(water_entry['names']) - water_entry['names'].count('')} wet tiles"
+            if water_entry is not None
+            else "no water layer: run `make water`"
+        )
         + (f"; {len(stale)} stale file(s) removed" if stale else "")
     )
     return index

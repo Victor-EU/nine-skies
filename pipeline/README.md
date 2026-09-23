@@ -112,6 +112,15 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      the warp says land; it is 45 of 45 today with nothing tuned to make it
      so. What this does *not* settle is the ocean inside a fetched raster,
      which is stage 3's business and is why `c` has its own name.
+   - **North of 50 N a source tile is 2,400 columns wide** (F71). GLO-30
+     thins its longitude spacing to 1.5″ there, and until F71 the VRT read
+     those 248 tiles as 3,600 wide: squeezed into two-thirds of their degree,
+     with the eastern third left at 0 m. Each is now stretched once, nearest
+     column, into a 3,600-column copy under `data/work/cop30-1arcsec/`, kept
+     while its source's committed digest is the one it was made from. The VRT
+     reads every file one to one, because a VRT source that is stretched on
+     the fly reads 590 times slower through the warp. Every tile's header is
+     checked against the product's own spacing before anything is written.
 3. **Hydro-condition** (`make carve`, `carve.py`, D62–D65, D69, F61, F63) — the
    mapped rivers carved, the mapped lakes kept, every other closed basin
    filled. Each run of a Natural Earth river over ground the source reached
@@ -138,6 +147,16 @@ vector driver. What the data itself asks of anyone who redistributes it is in
    source and this one never reaches it; the band is 5 km there too, which is
    56 cells, and where a line leaves a grid the channel is taken to the
    river's own crossing of the edge rather than to the line's.
+   - **And drawn** (`make water`, `water.py`, D70, F72). Which samples are
+     water, cut beside the tiles as four bytes a sample: the sea where GLO-30
+     writes exactly 0 m and Natural Earth's coastline says sea; a lake where a
+     sample inside its outline carries, beside a neighbour, the value most of
+     the lake's samples carry; and each channel this stage cut, found again by
+     its own two functions and refused unless every sample it lowered lies on
+     one. A river is stored as the offset from each sample within 4 km to the
+     nearest point of its smoothed centreline, which the terrain shader reads
+     bilinearly into a ribbon with a clean edge. Writes `water.bin` and
+     `water.json` beside the heights and `docs/water-report.md`.
 4. **Tile** — 64 km tiles, 65 x 65 Int16 metres, shared edge row and column.
 5. **Horizon field** — one 8 km country raster, 841 x 553 Int16 (930 kB),
    reduced from the 1 km grid with the silhouette bias (mean + 0.6 x
@@ -221,7 +240,10 @@ vector driver. What the data itself asks of anyone who redistributes it is in
    coded the same way** (F69): one file the index names beside the digest of
    the `horizon.bin` it came from, 353 kB on the country where the raw field
    is 930, and 75 kB on the corridor. The engine fetches the raw file whenever
-   the two disagree.
+   the two disagree. **The water layer is packed beside the heights** (F72):
+   a file per tile that has any, gzip over its bytes as they lie, named in
+   the index beside the `heights.bin` it was cut against, which has to be
+   this package's.
 
 **Not a stage: D14's region raster.** The nine regions the air, the music,
 the weather and the journal all read have no position -> region map yet, and

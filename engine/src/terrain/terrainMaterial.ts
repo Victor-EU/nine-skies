@@ -5,6 +5,7 @@ import {
   ELEVATION_RAMP_GLSL,
   GROUND_LIGHT_GLSL,
 } from "./palette.js";
+import { waterGlsl } from "./water.js";
 
 /**
  * Terrain shader (build plan D3 and D12).
@@ -25,7 +26,29 @@ import {
  * colour is never hand-painted.
  */
 
-const VERTEX = /* glsl */ `
+/** What the water layer adds to each stage, when there is one (F72). */
+const WATER_VERTEX_INPUTS = /* glsl */ `
+in float iWater;
+out vec2 vTexel;
+flat out float vLayer;
+flat out float vWater;`;
+
+const WATER_VERTEX_BODY = /* glsl */ `
+  vTexel = aTexel;
+  vLayer = iLayer;
+  vWater = iWater;`;
+
+const WATER_FRAGMENT_INPUTS = /* glsl */ `
+in vec2 vTexel;
+flat in float vLayer;
+flat in float vWater;`;
+
+// A tile whose water has landed. Flat per instance, so every fragment of a
+// triangle takes the same branch and the derivatives inside it hold.
+const WATER_FRAGMENT_BODY = /* glsl */ `
+  if (vWater > 0.5) lit = withWater(lit, normalize(uSunDirection), uSunColor, vTexel, vLayer);`;
+
+const vertexShader = (water: boolean): string => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp isampler2DArray;
@@ -34,6 +57,7 @@ in vec2 aTexel;
 in float aSkirt;
 in vec2 iOrigin;
 in float iLayer;
+${water ? WATER_VERTEX_INPUTS : ""}
 
 uniform isampler2DArray uHeights;
 uniform float uTileWorldSize;
@@ -59,6 +83,7 @@ void main() {
 
   vWorld = world;
   vElevation = elevationM;
+${water ? WATER_VERTEX_BODY : ""}
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
 `;
@@ -115,11 +140,14 @@ const cutBody = (maxCuts: number): string =>
   }
 `;
 
-const fragmentShader = (maxCuts: number): string => /* glsl */ `
+const fragmentShader = (maxCuts: number, waterSamples: number): string => /* glsl */ `
 precision highp float;
+precision highp int;
+precision highp usampler2DArray;
 
 in vec3 vWorld;
 in float vElevation;
+${waterSamples > 0 ? WATER_FRAGMENT_INPUTS : ""}
 
 uniform vec3 uSunDirection;
 uniform vec3 uSunColor;
@@ -135,6 +163,7 @@ ${ELEVATION_RAMP_GLSL}
 ${AERIAL_HAZE_GLSL}
 ${GROUND_LIGHT_GLSL}
 ${cutUniforms(maxCuts)}
+${waterSamples > 0 ? waterGlsl(waterSamples) : ""}
 
 void main() {
 ${cutBody(maxCuts)}
@@ -149,6 +178,7 @@ ${cutBody(maxCuts)}
   base = mix(base, srgbToLinear(vec3(0.40, 0.37, 0.35)), smoothstep(0.35, 0.75, slope));
 
   vec3 lit = base * groundLight(n, normalize(uSunDirection), uSunColor);
+${waterSamples > 0 ? WATER_FRAGMENT_BODY : ""}
 
   // Analytic haze, integrated along the sight line. Cheap, art-directable per
   // region, and it is what makes the plateau horizon read as hard and clean
@@ -173,6 +203,19 @@ export interface TerrainUniformValues {
   hazeColor: Color;
   hazeDensity: number;
   hazeHeightFalloff: number;
+  /**
+   * The water layer (F72): the array beside the heights, and what its bytes
+   * mean. Absent compiles a shader with no water in it, which is the hero
+   * lattice's until a hero area has a layer of its own.
+   */
+  water?: {
+    texture: import("three").DataArrayTexture;
+    samples: number;
+    sampleM: number;
+    offsetStepM: number;
+    offsetZero: number;
+    reachM: number;
+  };
 }
 
 export function createTerrainMaterial(
@@ -192,12 +235,23 @@ export function createTerrainMaterial(
           },
           uCutCount: { value: 0 },
         };
+  const water = values.water;
+  const waterUniforms = water
+    ? {
+        uWater: { value: water.texture },
+        uWaterSampleM: { value: water.sampleM },
+        uWaterStepM: { value: water.offsetStepM },
+        uWaterReachM: { value: water.reachM },
+        uWaterZero: { value: water.offsetZero },
+      }
+    : {};
   return new ShaderMaterial({
     glslVersion: GLSL3,
-    vertexShader: VERTEX,
-    fragmentShader: fragmentShader(maxCuts),
+    vertexShader: vertexShader(water !== undefined),
+    fragmentShader: fragmentShader(maxCuts, water?.samples ?? 0),
     uniforms: {
       ...cuts,
+      ...waterUniforms,
       uHeights: { value: heights },
       uTileWorldSize: { value: values.tileWorldSize },
       uVerticalExaggeration: { value: values.verticalExaggeration },

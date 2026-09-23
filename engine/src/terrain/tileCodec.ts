@@ -112,3 +112,29 @@ async function decode(bytes: Uint8Array, width: number, height: number, what: st
   if (bytes.length === planesBytes) return undelta(unplanes(bytes), width, height);
   throw new Error(`a ${bytes.length}-byte file is not a ${what} in ${TILE_CODEC}`);
 }
+
+/** The water layer's codec, as `package.py` names it (F72). */
+export const WATER_CODEC = "rgba8-gzip";
+
+/** Bytes a water sample carries: offset east, offset north, river, standing water. */
+export const WATER_CHANNELS = 4;
+
+/**
+ * A tile of the water layer: its four bytes a sample as they lie, under gzip,
+ * because most of a tile is the same four bytes and gzip finds that without
+ * help. Sniffed as a tile is, for the host that undid the gzip on the way.
+ */
+export async function decodeWater(bytes: Uint8Array, samples: number): Promise<Uint8Array> {
+  const size = samples * samples * WATER_CHANNELS;
+  if (bytes.length >= 2 && bytes[0] === GZIP_MAGIC_0 && bytes[1] === GZIP_MAGIC_1) {
+    let raw: Uint8Array | null = null;
+    try {
+      raw = await gunzip(bytes);
+    } catch {
+      raw = null;
+    }
+    if (raw && raw.length === size) return raw;
+  }
+  if (bytes.length === size) return bytes;
+  throw new Error(`a ${bytes.length}-byte file is not a ${samples}-sample tile of water in ${WATER_CODEC}`);
+}

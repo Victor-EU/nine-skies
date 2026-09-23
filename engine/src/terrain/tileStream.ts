@@ -16,7 +16,8 @@
  * evict, and is the thing bounded by the view radius.
  */
 import { TILE_SAMPLES } from "./tileArray.js";
-import { TILE_CODEC, decodeTile } from "./tileCodec.js";
+import { TILE_CODEC, WATER_CHANNELS, WATER_CODEC, decodeTile, decodeWater } from "./tileCodec.js";
+import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M, WATER_LAKE, WATER_LAND, WATER_SEA } from "./water.js";
 import type {
   TileSource,
   WorldManifest,
@@ -32,6 +33,29 @@ export interface PackedHorizon {
   /** The raw `horizon.bin` it was coded from, which the manifest names too. */
   readonly sha256: string;
   readonly bytes: number;
+}
+
+/**
+ * The water layer's files in a package, as `package.py` names them (F72): one
+ * per tile that has any water, and "" for one that is dry.
+ */
+export interface PackedWater {
+  readonly codec: string;
+  readonly channels: number;
+  readonly layout: string;
+  /** Metres per unit of an offset byte, and the byte that means none. */
+  readonly offsetStepM: number;
+  readonly offsetZero: number;
+  /** How far from a river a sample still carries its offset. */
+  readonly reachM: number;
+  readonly classes: { land: number; sea: number; lake: number };
+  /** The `water.bin` these were coded from. */
+  readonly sha256: string;
+  /** The `heights.bin` it was cut against, which has to be this package's. */
+  readonly heightsSha256: string;
+  readonly files: number;
+  readonly bytes: number;
+  readonly names: readonly string[];
 }
 
 /** `tiles/index.json`, as `package.py` writes it. */
@@ -50,7 +74,15 @@ export interface TileIndex {
   readonly names: readonly string[];
   /** Absent from a package cut before the horizon field was coded (F69). */
   readonly horizon?: PackedHorizon;
+  /** Absent from a package cut before the water layer existed (F72). */
+  readonly water?: PackedWater;
 }
+
+/**
+ * What a tile's water is when there is none: a dry tile, or a world with no
+ * water layer. Empty rather than null, because null is "not here yet".
+ */
+export const NO_WATER = new Uint8Array(0);
 
 export type FetchBytes = (url: string) => Promise<Uint8Array>;
 
@@ -90,7 +122,6 @@ export function indexProblem(manifest: WorldManifest, index: TileIndex): string 
   return null;
 }
 
-/** How long a failed file waits before it is asked for again, doubling to a cap. */
 /**
  * The package's horizon field, when it is the one this manifest names: null
  * for a package cut before it had one, or one whose field was reduced again
@@ -105,81 +136,94 @@ export function packedHorizon(manifest: WorldManifest, index: TileIndex): Packed
   return packed;
 }
 
+/**
+ * Why a package's water cannot be drawn with this index, or null when it can.
+ * A package with no water layer is not a problem: it flies dry.
+ */
+export function waterProblem(index: TileIndex): string | null {
+  const water = index.water;
+  if (!water) return null;
+  if (water.codec !== WATER_CODEC) return `water is coded ${water.codec}, the engine reads ${WATER_CODEC}`;
+  if (water.channels !== WATER_CHANNELS) return `water has ${water.channels} bytes a sample, the engine reads ${WATER_CHANNELS}`;
+  if (water.offsetStepM !== OFFSET_STEP_M || water.offsetZero !== OFFSET_ZERO || water.reachM !== REACH_M) {
+    return (
+      `water offsets are ${water.offsetStepM} m about ${water.offsetZero} to ${water.reachM} m, ` +
+      `the engine reads ${OFFSET_STEP_M} m about ${OFFSET_ZERO} to ${REACH_M} m`
+    );
+  }
+  const c = water.classes;
+  if (c.land !== WATER_LAND || c.sea !== WATER_SEA || c.lake !== WATER_LAKE) {
+    return "water classes are numbered differently from the engine's";
+  }
+  if (water.heightsSha256 !== index.heightsSha256) {
+    return "water was cut against other heights than these tiles: re-run `make water package`";
+  }
+  if (water.names.length !== index.names.length) return `${water.names.length} water names for ${index.names.length} tiles`;
+  return null;
+}
+
 const RETRY_FIRST_MS = 2_000;
 const RETRY_CAP_MS = 32_000;
 
-export class StreamingTileSource implements WorldTileSource {
-  readonly label: string;
-  private readonly zeros = new Int16Array(TILE_SAMPLES * TILE_SAMPLES);
-  /** Decoded tiles by file, so two tiles that are one file are fetched once. */
-  private readonly ready = new Map<string, Int16Array>();
-  private readonly inFlight = new Map<string, Promise<Int16Array | null>>();
+/** What has come over the wire of one kind of file. */
+export interface FileStats {
+  files: number;
+  bytes: number;
+  failures: number;
+  lastError: string;
+}
+
+/**
+ * Files by name: fetched once, decoded once, kept, and asked for again after
+ * a wait when a fetch fails, doubling to a cap. A dropped request is not a
+ * missing file, and a hole that stays for the rest of a session is the one
+ * thing this must not turn a network blip into.
+ */
+class FileCache<T> {
+  private readonly ready = new Map<string, T>();
+  private readonly inFlight = new Map<string, Promise<T | null>>();
   private readonly failed = new Map<string, { atMs: number; waitMs: number }>();
-  /** What has come over the wire, for the HUD and for F67's measurements. */
-  readonly stats = { files: 0, bytes: 0, failures: 0, lastError: "" };
 
   constructor(
-    readonly manifest: WorldManifest,
-    readonly index: TileIndex,
-    private readonly baseUrl: string,
-    private readonly fetch: FetchBytes = fetchBytes,
-    private readonly nowMs: () => number = () => performance.now(),
-    private readonly fallback: TileSource | null = null,
-  ) {
-    const problem = indexProblem(manifest, index);
-    if (problem) throw new Error(problem);
-    this.label = `${manifest.corridor} (${index.files} files streamed)`;
-  }
+    private readonly url: (name: string) => string,
+    private readonly fetch: FetchBytes,
+    private readonly decode: (bytes: Uint8Array) => Promise<T>,
+    private readonly nowMs: () => number,
+    readonly stats: FileStats,
+  ) {}
 
-  /** Files being fetched right now. */
   get pending(): number {
     return this.inFlight.size;
   }
 
-  /** Tiles decoded and held, counting a shared file once. */
   get held(): number {
     return this.ready.size;
   }
 
-  has(tx: number, ty: number): boolean {
-    const w = this.manifest.window;
-    return tx >= w.tx0 && tx < w.tx1 && ty >= w.ty0 && ty < w.ty1;
-  }
-
-  private nameAt(tx: number, ty: number): string {
-    const w = this.manifest.window;
-    return this.index.names[(ty - w.ty0) * (w.tx1 - w.tx0) + (tx - w.tx0)]!;
-  }
-
-  request(tx: number, ty: number): Int16Array | null {
-    if (!this.has(tx, ty)) return this.fallback?.request(tx, ty) ?? null;
-    const name = this.nameAt(tx, ty);
-    if (name === "") return this.zeros;
-    const tile = this.ready.get(name);
-    if (tile) return tile;
+  /** The decoded file, or null while it is on its way. */
+  get(name: string): T | null {
+    const value = this.ready.get(name);
+    if (value !== undefined) return value;
     void this.start(name);
     return null;
   }
 
-  private start(name: string): Promise<Int16Array | null> {
+  private start(name: string): Promise<T | null> {
     const flying = this.inFlight.get(name);
     if (flying) return flying;
     const failure = this.failed.get(name);
     if (failure && this.nowMs() < failure.atMs + failure.waitMs) return Promise.resolve(null);
 
-    const job = (async (): Promise<Int16Array | null> => {
+    const job = (async (): Promise<T | null> => {
       try {
-        const bytes = await this.fetch(`${this.baseUrl}/${name}.bin`);
-        const tile = await decodeTile(bytes, TILE_SAMPLES);
-        this.ready.set(name, tile);
+        const bytes = await this.fetch(this.url(name));
+        const value = await this.decode(bytes);
+        this.ready.set(name, value);
         this.failed.delete(name);
         this.stats.files++;
         this.stats.bytes += bytes.length;
-        return tile;
+        return value;
       } catch (error) {
-        // Asked for again after a wait rather than never: a dropped request is
-        // not a missing tile, and a hole that stays for the rest of a session
-        // is the one thing this must not turn a network blip into.
         const waitMs = failure ? Math.min(failure.waitMs * 2, RETRY_CAP_MS) : RETRY_FIRST_MS;
         this.failed.set(name, { atMs: this.nowMs(), waitMs });
         this.stats.failures++;
@@ -191,5 +235,86 @@ export class StreamingTileSource implements WorldTileSource {
     })();
     this.inFlight.set(name, job);
     return job;
+  }
+}
+
+export class StreamingTileSource implements WorldTileSource {
+  readonly label: string;
+  private readonly zeros = new Int16Array(TILE_SAMPLES * TILE_SAMPLES);
+  /** Decoded tiles by file, so two tiles that are one file are fetched once. */
+  private readonly heights: FileCache<Int16Array>;
+  /** The water layer's, the same way (F72); null for a package with none. */
+  private readonly waters: FileCache<Uint8Array> | null;
+  /** What has come over the wire, for the HUD and for F67's measurements. */
+  readonly stats: FileStats = { files: 0, bytes: 0, failures: 0, lastError: "" };
+  /** The same, for the water layer. */
+  readonly waterStats: FileStats = { files: 0, bytes: 0, failures: 0, lastError: "" };
+  /** Why the package's water is not drawn, when it has some and it is not. */
+  readonly waterRefused: string | null;
+
+  constructor(
+    readonly manifest: WorldManifest,
+    readonly index: TileIndex,
+    private readonly baseUrl: string,
+    fetch: FetchBytes = fetchBytes,
+    nowMs: () => number = () => performance.now(),
+    private readonly fallback: TileSource | null = null,
+  ) {
+    const problem = indexProblem(manifest, index);
+    if (problem) throw new Error(problem);
+    this.label = `${manifest.corridor} (${index.files} files streamed)`;
+    const url = (name: string): string => `${this.baseUrl}/${name}.bin`;
+    this.heights = new FileCache(url, fetch, (b) => decodeTile(b, TILE_SAMPLES), nowMs, this.stats);
+    this.waterRefused = waterProblem(index);
+    if (this.waterRefused) console.warn(`water layer passed over: ${this.waterRefused}`);
+    this.waters =
+      index.water && !this.waterRefused
+        ? new FileCache(url, fetch, (b) => decodeWater(b, TILE_SAMPLES), nowMs, this.waterStats)
+        : null;
+  }
+
+  /** Files being fetched right now: the heights, which are what a frame waits on. */
+  get pending(): number {
+    return this.heights.pending;
+  }
+
+  /** Tiles decoded and held, counting a shared file once. */
+  get held(): number {
+    return this.heights.held;
+  }
+
+  /** Water files being fetched right now. */
+  get waterPending(): number {
+    return this.waters?.pending ?? 0;
+  }
+
+  has(tx: number, ty: number): boolean {
+    const w = this.manifest.window;
+    return tx >= w.tx0 && tx < w.tx1 && ty >= w.ty0 && ty < w.ty1;
+  }
+
+  private indexAt(tx: number, ty: number): number {
+    const w = this.manifest.window;
+    return (ty - w.ty0) * (w.tx1 - w.tx0) + (tx - w.tx0);
+  }
+
+  request(tx: number, ty: number): Int16Array | null {
+    if (!this.has(tx, ty)) return this.fallback?.request(tx, ty) ?? null;
+    const name = this.index.names[this.indexAt(tx, ty)]!;
+    if (name === "") return this.zeros;
+    return this.heights.get(name);
+  }
+
+  /**
+   * A tile's water: its bytes, `NO_WATER` for a dry tile or a world with no
+   * layer, and null while its file is on its way. Asked for after the heights,
+   * so a tile is drawn the frame its ground lands and its water a frame or two
+   * later rather than the ground waiting on the water.
+   */
+  water(tx: number, ty: number): Uint8Array | null {
+    if (!this.waters || !this.has(tx, ty)) return NO_WATER;
+    const name = this.index.water!.names[this.indexAt(tx, ty)]!;
+    if (name === "") return NO_WATER;
+    return this.waters.get(name);
   }
 }

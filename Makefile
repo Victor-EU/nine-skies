@@ -8,7 +8,8 @@
 #   make probes                     # golden probes against what is built
 #   make hydro                      # where the water cannot go, and the river it has
 #   make carve                      # stage 3: the mapped rivers carved, the mapped lakes kept
-#   make package                    # stage 11: one file per tile, so a world streams, and the horizon coded
+#   make water                      # the sea, the lakes and the carved rivers, a layer beside the tiles
+#   make package                    # stage 11: one file per tile, so a world streams, the horizon and the water too
 #   make sources                    # record the source raster digests
 #   make vectors                    # stage 3's river network, priced; nothing fetched
 #   make rivers                     # what the fetched rivers decide of the grid's closed basins
@@ -52,7 +53,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles package hero siting probes hydro rivers regions sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers regions sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -125,6 +126,12 @@ carve: $(PY)
 ## Stages 4 and 5 — cut 64 km tiles and reduce the horizon field.
 tiles: $(PY)
 	$(PIPELINE) -m nineskies.tiles --corridor $(CORRIDOR)
+
+## Where the water is (F72): the sea, the lakes and stage 3's rivers, a layer
+## of four bytes a sample cut beside the tiles, for the package to ship. A
+## sample is water only where the ground's own value and Natural Earth agree.
+water: $(PY)
+	$(PIPELINE) -m nineskies.water --corridor $(CORRIDOR) --report docs/water-report$(SUFFIX).md
 
 ## Stage 11: the same tiles one file each, named for what they hold, so the
 ## engine fetches the ring it flies over rather than the world (F67), and the
@@ -218,7 +225,7 @@ patches:
 cut-key:
 	npm run content:cut-key
 
-world: acquire sources grid carve tiles package hero siting probes hydro sections patches ground gorges
+world: acquire sources grid carve tiles water package hero siting probes hydro sections patches ground gorges
 	@echo "world built: $(WORLD_OUT)"
 
 ## The other gate: every authored route flown over real ground. Needs no flag

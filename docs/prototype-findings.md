@@ -9478,3 +9478,307 @@ No sample differed and WebGL reported no error.
 The frame-cost capture on the floor device is still the instrument that says
 whether any of this showed in a frame. It has not been re-run since F67
 because it refuses to time a hidden pane, and the pane has been hidden.
+
+## F71 — North of 50 N the country was read a third too narrow, with sea-level trenches between: GLO-30 thins its columns there and stage 2 never knew
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+F72's sea rule found it. The rule asks that a sample GLO-30 writes as exactly
+0 m also lie outside Natural Earth's coastline. On the corridor the two
+disagree about 293 samples. On the country they disagreed about **606,608**:
+Russia 458,764, Kazakhstan 62,406, **China 55,647**, Mongolia 28,151. Every
+one north of 50 N lay in the eastern 40 % of its one-degree cell, at every
+latitude.
+
+### The cause
+
+GLO-30 keeps a sample near 30 m wide as the meridians close. From 50° its
+tiles are 2,400 columns wide at 1.5″ rather than 3,600 at 1″. F64 said so,
+but only to explain why the download cost less than its price.
+
+Stage 2's hand-written VRT declared every tile 3,600 × 3,600, from a constant
+whose comment read "GLO-30 cells per degree below 50 N". So each of the 248
+tiles from 50 to 54 N was read into the western two-thirds of its degree,
+squeezed a third narrower. The eastern third had no source, and the warp left
+it at the 0 m its destination starts at.
+
+The corridor never reaches 50 N, so nothing built before the country could
+show it. The country world has carried it since F64. Two things were built
+on it:
+
+- **Stage 3 carved against it.** F64's eleven deepest cuts were all north of
+  50 N, led by 1,997 m in the Bolshoy Yenisei at 52.30 N 98.44 E. Each is a
+  river leaving a 0 m trench and cut down to that trench's floor.
+- **Siting could not read the country's own files.** `siting.read_box` put a
+  2,400-column tile into a 3,600-column slot and raised. Its committed report
+  still said Heihe, the Hu line's northern town at 50.25 N, was "not on disk".
+  That had been true when the report was written, and has not been since F64.
+
+### The fix, and the first fix that was not one
+
+**Telling the VRT the truth did not work.** The first fix gave each tile its
+own column count and let GDAL stretch it across its degree, nearest column.
+Read straight through GDAL that is right: every mosaic column equals the
+nearest source column, and nothing is zero. Through the warp it was unusable.
+The mean warp ran 40 minutes on the country's two northern corners without
+leaving them. A 3 × 3 tile window at 52 N took **473 s** where the old VRT
+took 0.8. South of 50 N both VRTs took 1.1 s, so the cost is in how GDAL reads
+a source whose rectangles differ, not in the new XML.
+
+**So stage 2 now stretches each thinned tile once**, nearest column, into a
+3,600-column copy under `data/work/cop30-1arcsec/`. The VRT reads every file
+one to one, as it always did.
+
+- The 248 copies take 116 s to make and 5.7 GB of disk. They are smaller than
+  their sources because they carry no overviews.
+- The window at 52 N reads in 1.0 s.
+- Each copy sits beside a note of the digest of the source it was made from.
+  That is the committed digest `sources.verify` has just checked the tile
+  against, so a re-fetched tile is stretched again rather than read stale.
+- Every tile's header is checked against the product's spacing before the
+  mosaic is written. A file of any other shape stops the build, by name.
+
+Nearest, so every value in the mosaic is one the source holds. At 1.5″ a
+column's edge lands a quarter of an arc-second from where the tile puts it,
+5 m at 50 N. Siting reads thinned tiles through the same function.
+
+The corridor's VRT is the same file to the byte, so nothing cut from it moves:
+no section, patch or corridor report.
+
+### What moved
+
+Stage 2 took 14:09 on the country, and stage 3 took 12:37.
+
+- **1,884,242 samples of stage 2's grid changed**, 6.3 % of it, every one
+  between 50.0 and 54.0 N. The mean change is +271 m and the median size
+  142 m. The largest are +3,676 m, where a trench was put back under a
+  mountain, and −1,725 m, where squeezed ground was put back where it stands.
+- **China north of 50 N is 170,718 samples.** 55,122 of them read 0 m, and
+  now none do. Their mean is 660 m where it read 440.
+- **Samples at 0 m inside the coastline** fell from 606,608 to 2,204. What is
+  left is coastal land at sea level, which the sea rule is there to leave as
+  land: 525 of China's, and some in Japan, Bangladesh, India and Taiwan.
+
+Stage 3's changes:
+
+- **Cut:** 97,714 cells and **4,011 km³**, against 95,072 and 7,327.
+- **Deepest cut:** **969 m**, in the Dadu's gorge (twelfth in F64's table),
+  against 1,997. Cells cut by more than 300 m fell from 5,435 to 946.
+- **Channels:** 314 from 315 runs. One now finds no way down its band:
+  Shishged, at 51.48 N in Mongolia, which F64 had cut 1,736 m deep.
+- **Lakes kept:** 159 where there were 141. Uvs, Khövsgöl and Kulundinskoe
+  are among the eighteen more: each had drained into a trench.
+- **Closed basins:** the kept basin that was sixth, 43,271 km² at 49.32 N, is
+  third, **100,905 km² at 50.68 N 92.90 E**. That is the Uvs depression,
+  closed in life, whose northern half was trenched.
+- **The five unkept basins** F65 named are unchanged to the square
+  kilometre, so that item stands as written.
+- **Fill:** 1,892,257 cells raised by up to 574 m at 45.15 N 94.43 E, where
+  F64 had 1,845,142 by up to 627 m at 49.98 N, beside a trench.
+
+The golden probes pass as before. The one row of the probe report that moved
+is the place table's Heihe, 147 m where it read 129. The regions report moved
+by fractions of a point:
+
+- the first step is 26.7 % of China, where it was 27.1 %;
+- the ground between the first and second steps is 16.1 %, where it was 15.7;
+- 27.9 % of China stands between the steps, where it was 27.5.
+
+The package is 4,667 files and 19.11 MB, with the horizon field at 350 kB.
+
+`make siting` now reads every place on the list. Heihe stands 119–259 m in
+its box, and Ayding Lake, the Tarim's end and Qinghai Lake, which the report
+last called "not on disk", read −157 m, 795 m and 3,194 m. Everest's box is
+whole, as F64 said it would be.
+
+The conditioning digest names inputs rather than a grid, so it is still
+`e19606ec…`. What records the change is the grid it was cut from, which the
+record names by digest, and which `make tiles` refuses to pair with any other.
+
+## F72 — The world draws its water: the sea where GLO-30's zeros and the coastline agree, a lake where its outline and its level agree, and every river stage 3 carved, as a ribbon read from its offset
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+Phase 2 lists rivers and lakes, and the GDD asks for "rivers as bright
+ribbons". The engine drew none of it. GLO-30 writes the sea as 0 m, and the
+ramp's 0 m is its green `plain` stop, so the East China Sea was farmland from
+the first corridor on. A lake was flat ground at its own level, drawn the
+colour of anything else that high: Namtso as plateau, Tai Lake as paddy. And
+no river was drawn anywhere, though stage 3 carved 98 into the corridor and
+315 into the country.
+
+Everything needed was on disk. No download, no decision.
+
+### What is water
+
+A sample is water only where two sources agree: the ground's own value and
+Natural Earth.
+
+**Sea** is a sample GLO-30 writes as exactly 0 m that Natural Earth's
+coastline puts outside every country, plus every sample of a one-degree cell
+the mirror has no source for (F54). On the corridor:
+
+| | samples |
+| --- | ---: |
+| sea | 407,663 |
+| … on fetched ground | 129,479 |
+| … where the mirror has none | 278,184 |
+| 0 m inside the coastline: land at sea level | 293 |
+| 0 m outside it that stage 3 raised: lagoons the fill closed | 480 |
+| above 0 m outside it: the shore, and islands the coastline leaves out | 13,094 |
+
+On the country, with F71 put right, the sea is 6,484,456 samples: 1,371,565 on
+fetched ground and 5,112,891 where the mirror has none. 2,198 zeros lie
+inside the coastline, 4,067 are lagoons stage 3 raised, and 69,872 samples
+outside the coastline stand above 0 m. Before F71 the second row read 606,608,
+which is how F71 was found. The two sources disagree about 0.3 % of the zeros. Stage 2's reduction makes a
+1 km sample that touches any land stand above zero, so the ground puts the
+shore half a sample seaward of the coastline, and that is where it is drawn.
+
+**A lake** is a sample inside a Natural Earth outline that carries the value
+most of that lake's samples carry, and carries it beside a neighbour. GLO-30
+flattens a water body to one value (F56), so a sample wholly over water holds
+it exactly. Flatness alone will not do: stage 3's fill leaves 429,954 flat
+samples on the corridor outside any lake. On the corridor, 58 lakes have
+fetched ground: 23,323 samples inside their outlines, **11,922 drawn**
+(51.1 %). The share is the outline's generosity, the same fact D67 measured:
+Siling 98.8 %, Namtso 92.2 %, Tai 74.9 %, Poyang 52.3 %, Dongting 4.9 %.
+Dongting's outline is the lake in flood, and GLO-30's surface is the lake it
+flew over, so the lake drawn is the one the ground holds. On the country, 182
+lakes have fetched ground: 124,366 samples, **95,376 drawn** (76.7 %). Baikal
+draws 95.7 % and Balkhash 85.5 %. Qinghai draws 4,057 samples at 3,194.50 m,
+which is the count and level D67's probe reads. Eighteen draw nothing, the
+largest Ulgain Gobi at 236 samples: no two neighbours inside them share the
+value most of their samples carry, so the ground is not a water surface.
+
+**A river** is a channel stage 3 cut. The water stage finds the channels again
+with stage 3's own two functions, from the same inputs, in 0.6 s on the
+corridor. It refuses to go on unless there are as many as stage 3's record
+names and every sample stage 3 lowered lies on one. On the country
+that is 314 channels over 136,989 samples, found and checked in the stage's
+18 s. The water stage does not use the mapped line: on the corridor the carved
+path runs a median 1 km and at most 8 km from the line Natural Earth draws, so
+a ribbon on the line would climb the valley side.
+
+### How a river is drawn
+
+A 1 km sample is 125 m of world at 1:8, so a river drawn a sample at a time
+is a staircase. Each sample within 4,064 m of a channel carries instead the
+offset to the nearest point of that channel's centreline. The centreline is
+the channel's own path, cut to eight-connected and smoothed twice. It lies a
+median 112 m from a channel sample, and never more than 707 m: the corner a
+four-connected step turns at.
+
+The offset to a straight line is linear in position, so read bilinearly
+between four samples it is the offset from the point itself. The pipeline's
+test checks this: 200 points either side of a line at an arbitrary angle, and
+the interpolated offset is exact to 1e-4 of a sample. The interpolated
+*distance* is out by more than 0.2 of a sample, which at 1 km is a river that
+beads. Between two rivers the offsets point opposite ways and pass through
+zero halfway, which would draw a river that is not there. So the shader holds
+the distance to at least the nearest sample's own, less half a sample's
+diagonal. On a real river that changes nothing, because the nearest sample is
+always within the half-diagonal.
+
+Four bytes a sample: the offset east and north in 32 m units about 128, the
+river's Natural Earth scalerank plus one, and the standing-water class. The
+terrain reads it from a second texture array, RGBA8UI, whose layers are the
+heights' own. That is 4.3 MB beside the heights' 2.2 MB. A layer's water is
+drawn only once it has been written for the tile now in it. The ground never
+waits on the water: a tile is drawn the frame its heights land, and its water
+a frame or two later.
+
+**What a river looks like is a default and the user's.** The widths are by
+scalerank: 600 m half-width for the Yangtze's class and 120 m for the smallest.
+The two largest classes hold both rivers the GDD names, and they are never
+drawn narrower than 2 pixels, which is the GDD's "always visible from
+altitude". The rest thin with distance and fade under a pixel. The colours
+were picked by eye, as the ramp's were.
+
+### What it costs
+
+**Built:** 4 s on the corridor and 18 s on the country, 2.1 GB resident.
+
+**Packed:** a file per tile that has any water, gzip over its bytes as they lie.
+Byte planes came to 0.37 MB and deltas to 0.42 on the corridor's 672 wet
+tiles, against 0.34 for plain gzip: most of a tile is the same four bytes.
+
+| | wet tiles | files | bytes | index, raw | index, gzip |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| corridor | 672 | 610 | 339.5 kB | 18.7 → 33.5 kB | 10.1 → 17.2 kB |
+| country | 3,838 | 2,590 | 1.29 MB | 96.9 → 180.6 kB | 49.4 → 78.7 kB |
+
+On the country, 1,249 tiles of open sea are one file.
+
+**The water is cheap to fetch and its names are not.** In the app, first flight
+over the country fetches:
+
+- before any tile: the manifest (10.9 kB), the index (185 kB) and the horizon
+  field (350 kB), **546 kB where F69 left 461**;
+- the ring at the start: its heights, 89 files and 305 kB, and its water, 71
+  files and 25 kB.
+
+The ring's water costs a twelfth of what its ground costs. The 84 kB its
+2,590 names add to the index is more than three times that, and 29 kB even
+gzipped. That is the index F69 left uncoded, and it is now the second-largest
+thing first flight fetches.
+
+**On the GPU**, the whole frame was timed with each tile's water drawn and
+with every tile's flag cleared: 40 of each, interleaved, D25's timer query, at
+2,048 × 1,536 in the hidden pane on the M3.
+
+| where | wet tiles in view | with water | without | cost |
+| --- | ---: | ---: | ---: | ---: |
+| Wuhan, 1,500 m | 86 of 137 | 2.85 ms | 2.24 ms | **0.61 ms** |
+| Lhasa, 1,500 m | 81 of 137 | 3.06 ms | 2.84 ms | 0.22 ms |
+
+The cost is four texel reads and some arithmetic for every fragment of a wet
+tile. It is inside the terrain's 8 ms, and it is not nothing: a quarter of the
+frame over the Yangtze's lakes. The floor device's own capture is still the
+instrument that says what it costs there. That capture refuses a hidden pane,
+and the pane was hidden.
+
+**In memory:** the water array is 4.3 MB beside the heights' 2.2 MB. Decoded
+water files are kept as the heights are, which comes to 44 MB if every wet
+tile in the country is flown over.
+
+### Seen
+
+In the app over the corridor:
+
+- the Yangtze below Wuhan is a bright ribbon, with Liangzi and the lakes south
+  of it in a darker blue;
+- the East China Sea meets the shore at Shanghai, with Chongming and the
+  islands to the south-east standing out of it;
+- from 5,000 m over Chongqing the river winds down its carved valley toward
+  the gorges, held at 2 pixels into the distance.
+
+Over the country, north of 50 N, the Amur and the Zeya run over ground F71
+put back.
+
+### What this leaves
+
+- **The hero areas draw no water.** The 90 m lattice has no layer of its own,
+  so the Three Gorges reservoir shows as ground, and the country's river stops
+  at the area's rim. Stage 6 carves each area with stage 3 already (D64), so
+  the channels are there to be found. This is engineering, and the next item.
+- **The map still draws sea only for tiles of open ocean** (F54). The layer
+  can give it a coastline a sample at a time, and the two great rivers its
+  second layer is meant to toggle.
+- **What water looks like is the user's.** The widths by scalerank, the
+  2-pixel floor, which rivers get it and the three colours are defaults,
+  picked by eye.
+- **A world without a package flies dry.** Water comes only in a package.
+- **The index is 181 kB.**
+
+835 TypeScript tests, up from 818, and 396 Python tests, up from 362:
+
+- the rules, the offsets and the smoothing, each on ground small enough to
+  know the answer to;
+- the exactness of an interpolated offset, as arithmetic;
+- the CPU copy of the shader's arithmetic, against the geometry it claims;
+- a fixture the pipeline writes and the engine decodes;
+- the index entry, and water cut against other heights, refused;
+- the constants the two sides share, read from the engine's file by the
+  pipeline's test;
+- a tile drawn the frame its ground lands and its water the frame after.

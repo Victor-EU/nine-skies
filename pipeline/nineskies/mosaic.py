@@ -44,8 +44,42 @@ from . import coverage, grid, sources
 from .acquire import data_root, load_tile_list, tile_name
 from .grid import CORRIDORS
 
-SOURCE_ARCSEC = 3600  # GLO-30 cells per degree below 50 N
-SOURCE_CELLS = 3600  # ...and samples per tile side
+SOURCE_ARCSEC = 3600  # the mosaic's samples per degree, both ways
+SOURCE_CELLS = 3600  # ...and per tile side north to south, at every latitude
+
+#: GLO-30's columns per one-degree tile, by the tile's distance from the
+#: equator in whole degrees: its product specification thins the longitude
+#: spacing to keep a sample near 30 m wide as the meridians close. 1" to 50°,
+#: then 1.5", 2", 3", 5" and 10". Every row is 3,600 samples wherever the tile is.
+#:
+#: The mosaic wrote 3,600 for every tile until F71, which is right for the
+#: corridor and for 32 of the country's 36 rows of tiles. The four rows from
+#: 50 to 54 N are 2,400 wide, and a 2,400-column tile declared 3,600 wide is
+#: read into the western two-thirds of its degree with the eastern third left
+#: at 0 m: the country north of 50 N was squeezed a third narrower in each
+#: degree and striped with sea-level trenches between. Such a tile is now
+#: stretched onto the mosaic's grid once, into `STRETCHED` (`one_grid`).
+SOURCE_COLUMNS: tuple[tuple[int, int], ...] = (
+    (50, 3600),
+    (60, 2400),
+    (70, 1800),
+    (80, 1200),
+    (85, 720),
+    (90, 360),
+)
+
+
+#: Where a thinned tile's copy on the 1" grid is kept, under the work directory.
+STRETCHED = "cop30-1arcsec"
+
+
+def source_columns(lat: int) -> int:
+    """How many columns GLO-30's tile whose south edge is at `lat` has."""
+    edge = lat + 1 if lat < 0 else lat
+    for below, columns in SOURCE_COLUMNS:
+        if abs(edge) < below:
+            return columns
+    raise ValueError(f"no GLO-30 tile starts at latitude {lat}")
 
 #: Silhouette bias at 1 km. Ridges in this world are a few cells wide, so a
 #: little max is the difference between a crest and a mound; much more than
@@ -55,7 +89,14 @@ DEFAULT_BIAS = 0.25
 
 
 def vrt_xml(tiles: list[tuple[int, int, Path]], box: grid.LonLatBox) -> str:
-    """A VRT mosaic over one-degree GLO-30 tiles on a shared 1 arc-second grid."""
+    """A VRT mosaic over one-degree GLO-30 tiles on a shared 1 arc-second grid.
+
+    Every file named here has to be 3,600 x 3,600 already: a thinned tile's
+    stretched copy rather than the tile (`one_grid`, F71). Asking the VRT to
+    do the stretch was measured and is not an option: a ComplexSource whose
+    source and destination rectangles differ reads 590 times slower through
+    the warp, 473 s for three tiles by three against 0.8.
+    """
     pixel = 1.0 / SOURCE_ARCSEC
     half = pixel / 2
     width = int(round((box.east - box.west) * SOURCE_ARCSEC))
@@ -88,6 +129,96 @@ def vrt_xml(tiles: list[tuple[int, int, Path]], box: grid.LonLatBox) -> str:
         ]
     parts += ["  </VRTRasterBand>", "</VRTDataset>", ""]
     return "\n".join(parts)
+
+
+def columns_problems(tiles: list[tuple[int, int, Path]]) -> list[str]:
+    """Each tile whose own header disagrees with `source_columns`, by name.
+
+    The rule is the product's, and the header is the file's: a mosaic that
+    trusted either alone is how 248 tiles came to be read a third short.
+    """
+    problems = []
+    for lat, lon, path in tiles:
+        with rasterio.open(path) as dataset:
+            shape = (dataset.height, dataset.width)
+        wanted = (SOURCE_CELLS, source_columns(lat))
+        if shape != wanted:
+            problems.append(f"{path.name} is {shape[1]} x {shape[0]}, GLO-30 at {lat} N is {wanted[1]} x {wanted[0]}")
+    return problems
+
+
+def stretch_columns(tile: np.ndarray) -> np.ndarray:
+    """A tile's columns onto the mosaic's 3,600, each taking the source column
+    nearest it: nearest, so every value is one the source holds. At 1.5" a
+    column's edge lands a quarter of an arc-second, 5 m at 50 N, from where
+    the tile puts it, which a 1 km grid does not see."""
+    columns = tile.shape[1]
+    if columns == SOURCE_CELLS:
+        return tile
+    nearest = np.floor((np.arange(SOURCE_CELLS) + 0.5) * columns / SOURCE_CELLS).astype(int)
+    return tile[:, nearest]
+
+
+def stretched_path(work: Path, source: Path) -> Path:
+    return work / STRETCHED / source.name
+
+
+def one_grid(
+    tiles: list[tuple[int, int, Path]], work: Path, digests: dict, workers: int = 4
+) -> tuple[list[tuple[int, int, Path]], int]:
+    """Every tile as a file on the 1" grid, and how many copies were made.
+
+    A tile below 50 N is its own file. A thinned one is its stretched copy,
+    made once and kept beside a note of the source digest it was made from,
+    so a copy of a tile since re-fetched is made again rather than read. The
+    digests are the committed ones `sources.verify` has just held the files
+    to, so a copy is known to be of these bytes without hashing them again.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    out: list[tuple[int, int, Path]] = []
+    todo: list[tuple[int, int, Path, Path, str]] = []
+    for lat, lon, path in tiles:
+        if source_columns(lat) == SOURCE_CELLS:
+            out.append((lat, lon, path))
+            continue
+        copy = stretched_path(work, path)
+        wanted = digests[path.stem]["sha256"]
+        note = copy.with_suffix(".json")
+        made_from = json.loads(note.read_text()).get("sha256") if note.exists() and copy.exists() else None
+        if made_from != wanted:
+            todo.append((lat, lon, path, copy, wanted))
+        out.append((lat, lon, copy))
+    if todo:
+        (work / STRETCHED).mkdir(parents=True, exist_ok=True)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            list(pool.map(lambda job: _stretch_file(*job), todo))
+    return out, len(todo)
+
+
+def _stretch_file(lat: int, lon: int, source: Path, copy: Path, sha256: str) -> None:
+    with rasterio.open(source) as dataset:
+        tile = dataset.read(1)
+        profile = dataset.profile
+    # Sample (0, 0) centred on the degree's north-west corner, as a 1" tile's is.
+    pixel = 1.0 / SOURCE_CELLS
+    lat_top = lat + 1
+    profile.update(
+        width=SOURCE_CELLS,
+        transform=rasterio.Affine(pixel, 0.0, lon - pixel / 2, 0.0, -pixel, lat_top + pixel / 2),
+        tiled=True,
+        blockxsize=1024,
+        blockysize=1024,
+        compress="deflate",
+        predictor=3,
+    )
+    partial = copy.with_suffix(".partial.tif")
+    with rasterio.open(partial, "w", **profile) as out:
+        out.write(stretch_columns(tile), 1)
+    partial.replace(copy)
+    copy.with_suffix(".json").write_text(
+        json.dumps({"source": source.name, "sha256": sha256, "rule": "nearest column"}) + "\n"
+    )
 
 
 def available_tiles(box: grid.LonLatBox, source: Path) -> list[tuple[int, int, Path]]:
@@ -173,9 +304,16 @@ def build(
             + (f"\n  … and {len(problems) - 10} more" if len(problems) > 10 else "")
         )
     print(f"  {len(names)} source tiles verified against pipeline/sources/cop30.json")
+    shapes = columns_problems(tiles)
+    if shapes:
+        raise SystemExit("source tiles are not the shape GLO-30 publishes:\n  " + "\n  ".join(shapes[:10]))
+    on_grid, made = one_grid(tiles, work, sources.read()["digests"])
+    thinned = sum(1 for (_, _, a), (_, _, b) in zip(tiles, on_grid) if a != b)
+    if thinned:
+        print(f"  {thinned} tiles north of 50 N on the 1\" grid, {made} of them stretched now (F71)")
 
     vrt_path = work / f"{corridor}.vrt"
-    vrt_path.write_text(vrt_xml(tiles, box))
+    vrt_path.write_text(vrt_xml(on_grid, box))
 
     window = corridor_window(box)
     print(

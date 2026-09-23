@@ -214,6 +214,27 @@ def sample_index(lat: float, lon: float, north: float, west: float) -> tuple[int
     )
 
 
+def on_arcseconds(tile, lat: int):
+    """A GLO-30 tile on the 1" grid `read_box` indexes, whatever its spacing.
+
+    Above 50 N a tile is 2,400 columns wide (`mosaic.SOURCE_COLUMNS`), and
+    each 1" sample takes the source column nearest it -- the reading stage 2's
+    mosaic makes of the same file (F71), so a coordinate sited here is sited
+    on the ground the grid was cut from. Refused rather than read any other
+    shape, which until F71 was a broadcasting error on the first tile north
+    of Heihe.
+    """
+    from .mosaic import source_columns, stretch_columns
+
+    columns = source_columns(lat)
+    if tile.shape != (SOURCE_ARCSEC, columns):
+        raise ValueError(
+            f"a GLO-30 tile at {lat} N is {columns} x {SOURCE_ARCSEC}; this one is "
+            f"{tile.shape[1]} x {tile.shape[0]}"
+        )
+    return stretch_columns(tile)
+
+
 def read_box(south: int, north: int, west: int, east: int, source: Path | None = None):
     """The source over a whole-degree box, row 0 at `north`, col 0 at `west`.
 
@@ -233,7 +254,7 @@ def read_box(south: int, north: int, west: int, east: int, source: Path | None =
             if not path.exists():
                 continue
             with rasterio.open(path) as src:
-                tile = src.read(1).astype("float32")
+                tile = on_arcseconds(src.read(1).astype("float32"), lat)
             out[
                 (north - 1 - lat) * a : (north - lat) * a,
                 (lon - west) * a : (lon - west + 1) * a,

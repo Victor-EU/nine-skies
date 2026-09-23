@@ -875,6 +875,9 @@ class Corridor:
     lakes: np.ndarray
     lake_names: list[str]
     path: Path
+    #: What the source had under each sample, `coverage.STATES`, for a grid a
+    #: corridor build made; a hero area's is all fetched and carries none.
+    states: np.ndarray | None = None
 
     @property
     def resolution_m(self) -> float:
@@ -950,7 +953,9 @@ def load(corridor: str) -> Corridor:
     measured = states == coverage.DATA
     if measured.shape != heights.shape:
         raise SystemExit(f"coverage is {measured.shape} and the grid is {heights.shape}")
-    return ground_over(heights, transform, measured, path, tags)
+    corridor_ = ground_over(heights, transform, measured, path, tags)
+    corridor_.states = states
+    return corridor_
 
 
 def write(corridor: str, source: Corridor, result: Conditioned) -> tuple[Path, dict]:

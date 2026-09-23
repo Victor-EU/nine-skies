@@ -13,14 +13,14 @@ region map; nothing else reads it (F66).
 
 | Band | km² | Share |
 | --- | ---: | ---: |
-| first step (the GDD's 0-500 m) | 2,540,582 | 27.1 % |
-| between the first and second | 1,476,344 | 15.7 % |
-| second step (1,000-2,000 m) | 2,336,106 | 24.9 % |
+| first step (the GDD's 0-500 m) | 2,499,258 | 26.7 % |
+| between the first and second | 1,513,625 | 16.1 % |
+| second step (1,000-2,000 m) | 2,340,149 | 25.0 % |
 | between the second and third | 1,102,203 | 11.8 % |
 | third step (4,000-5,000 m) | 1,229,080 | 13.1 % |
 | above the third | 692,038 | 7.4 % |
 
-The GDD gives each step a typical height, and 27.5 % of China stands
+The GDD gives each step a typical height, and 27.9 % of China stands
 between them. A step is a description; an edge between two of them is a
 height somebody chooses, which is why everything below is read at more
 than one.
@@ -68,21 +68,21 @@ A place whose own cell is outside China's de facto outline is in no piece
 at any height: Heihe, Heilongjiang. A city on a border river can sit a
 cell over the line the outline follows.
 
-### Below 500 m — 2,540,582 km² of China
+### Below 500 m — 2,499,258 km² of China
 
 | Cut where narrower than | km² | Centre | Latitude | Longitude | Named places in it |
 | ---: | ---: | --- | --- | --- | --- |
-| nothing cut | 2,369,585 | 35.2 N 118.0 E | 20.2–53.6 N | 103.3–134.8 E | Shanghai, Wuhan, Yichang, Qutang Gorge, Wu Gorge, Xiling Gorge, Chongqing |
+| nothing cut | 2,347,070 | 35.0 N 118.0 E | 20.2–53.6 N | 103.3–134.8 E | Shanghai, Wuhan, Yichang, Qutang Gorge, Wu Gorge, Xiling Gorge, Chongqing |
 |  | 62,013 | 45.1 N 85.6 E | 44.1–46.4 N | 82.0–88.4 E | — |
 |  | 29,714 | 19.2 N 109.8 E | 18.2–20.2 N | 108.6–111.0 E | — |
 |  | 21,100 | 42.7 N 90.6 E | 42.3–43.1 N | 88.1–93.2 E | Ayding Lake, Turpan |
-| 5 km | 2,214,229 | 35.6 N 118.6 E | 20.3–53.6 N | 105.6–134.8 E | Shanghai, Wuhan, Yichang, Wu Gorge, Xiling Gorge |
+| 5 km | 2,191,714 | 35.4 N 118.6 E | 20.3–53.6 N | 105.7–134.8 E | Shanghai, Wuhan, Yichang, Wu Gorge, Xiling Gorge |
 |  | 91,213 | 30.0 N 105.6 E | 27.7–32.5 N | 103.3–108.5 E | Chongqing |
 |  | 62,013 | 45.1 N 85.6 E | 44.1–46.4 N | 82.0–88.4 E | — |
 |  | 29,714 | 19.2 N 109.8 E | 18.2–20.2 N | 108.6–111.0 E | — |
 |  | 21,580 | 27.0 N 118.0 E | 25.7–28.2 N | 116.6–119.3 E | — |
 |  | 21,100 | 42.7 N 90.6 E | 42.3–43.1 N | 88.1–93.2 E | Ayding Lake, Turpan |
-| 11 km | 1,814,358 | 37.6 N 119.8 E | 24.6–53.4 N | 107.1–134.8 E | Shanghai, Wuhan, Yichang, Qutang Gorge, Wu Gorge, Xiling Gorge |
+| 11 km | 1,813,251 | 37.6 N 119.8 E | 24.6–53.6 N | 107.1–134.8 E | Shanghai, Wuhan, Yichang, Qutang Gorge, Wu Gorge, Xiling Gorge |
 |  | 261,423 | 23.2 N 111.1 E | 20.3–26.2 N | 106.5–117.2 E | — |
 |  | 96,962 | 30.1 N 105.7 E | 27.7–32.5 N | 103.3–108.5 E | Chongqing |
 |  | 62,013 | 45.1 N 85.6 E | 44.1–46.4 N | 82.0–88.4 E | — |
@@ -90,7 +90,7 @@ cell over the line the outline follows.
 |  | 22,929 | 26.9 N 118.2 E | 25.8–28.2 N | 116.6–119.9 E | — |
 |  | 22,161 | 27.7 N 110.0 E | 26.0–29.0 N | 108.7–111.1 E | — |
 | 21 km | 1,078,845 | 32.4 N 115.9 E | 24.7–41.2 N | 107.1–122.7 E | Shanghai, Wuhan, Yichang, Qutang Gorge, Wu Gorge, Xiling Gorge |
-|  | 688,628 | 45.9 N 125.7 E | 40.0–53.4 N | 119.2–134.8 E | — |
+|  | 687,621 | 45.9 N 125.7 E | 40.0–53.6 N | 119.2–134.8 E | — |
 |  | 173,087 | 23.2 N 109.4 E | 20.3–26.2 N | 105.7–112.5 E | — |
 |  | 96,587 | 30.1 N 105.7 E | 27.7–32.5 N | 103.3–108.5 E | Chongqing |
 |  | 74,797 | 23.1 N 113.2 E | 21.5–24.8 N | 111.1–115.6 E | — |
@@ -98,7 +98,7 @@ cell over the line the outline follows.
 |  | 34,255 | 24.6 N 115.7 E | 22.9–25.9 N | 114.3–117.0 E | — |
 |  | 29,714 | 19.2 N 109.8 E | 18.2–20.2 N | 108.6–111.0 E | — |
 | 41 km | 1,178,353 | 32.0 N 116.1 E | 24.4–41.2 N | 107.1–122.7 E | Shanghai, Wuhan, Yichang, Qutang Gorge, Wu Gorge, Xiling Gorge |
-|  | 722,397 | 46.1 N 125.7 E | 40.1–53.6 N | 119.2–134.8 E | — |
+|  | 699,882 | 45.9 N 125.8 E | 40.1–53.6 N | 119.2–134.8 E | — |
 |  | 116,287 | 23.5 N 114.4 E | 21.7–25.4 N | 111.5–118.4 E | — |
 |  | 109,680 | 23.1 N 109.3 E | 21.4–25.2 N | 105.7–112.1 E | — |
 |  | 80,074 | 29.8 N 105.5 E | 27.7–31.6 N | 103.4–108.5 E | Chongqing |

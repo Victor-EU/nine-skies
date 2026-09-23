@@ -12,6 +12,8 @@ import { LOD_SEGMENTS, buildGrid, lodForDistance, type LodLevel } from "./grid.j
 import { HeightTileArray, MAX_LAYERS, TILE_SAMPLES } from "./tileArray.js";
 import { TILE_KM } from "./syntheticTiles.js";
 import { SyntheticTileSource, type TileSource } from "./tileSource.js";
+import { NO_WATER } from "./tileStream.js";
+import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M } from "./water.js";
 import type { AreaBounds, HeroCover } from "./heroSource.js";
 import { createTerrainMaterial, MAX_CUT_RECTS } from "./terrainMaterial.js";
 import {
@@ -117,6 +119,8 @@ interface LodBucket {
   geometry: InstancedBufferGeometry;
   origins: InstancedBufferAttribute;
   layers: InstancedBufferAttribute;
+  /** 1 where the instance's tile has its water, 0 where it has none yet (F72). */
+  water: InstancedBufferAttribute;
   trianglesPerInstance: number;
   count: number;
 }
@@ -149,8 +153,20 @@ class TileLattice {
     maxCuts: number,
   ) {
     this.maxInstances = maxInstances;
-    this.heights = new HeightTileArray(layers, samples);
+    // A water layer only for a source that can have one: a package (F72).
+    const withWater = typeof source.water === "function";
+    this.heights = new HeightTileArray(layers, samples, withWater);
     this.material = createTerrainMaterial(this.heights.texture, {
+      ...(this.heights.water && {
+        water: {
+          texture: this.heights.water,
+          samples,
+          sampleM: tileM / (samples - 1),
+          offsetStepM: OFFSET_STEP_M,
+          offsetZero: OFFSET_ZERO,
+          reachM: REACH_M,
+        },
+      }),
       tileWorldSize: tileM / scale.horizontalCompression,
       verticalExaggeration: scale.verticalExaggeration,
       // Skirts must out-reach the worst height disagreement between LODs -
@@ -215,6 +231,11 @@ class TileLattice {
     }
     const layer = this.heights.layerFor(i, j);
     if (layer < 0) return false;
+    // Asked for after the ground, so the ground never waits on it.
+    if (this.heights.waterWanted(layer)) {
+      const water = this.source.water ? this.source.water(i, j) : NO_WATER;
+      if (water !== null) this.heights.insertWater(layer, water);
+    }
 
     const b = this.buckets[lod]!;
     if (b.count >= this.maxInstances) return true;
@@ -223,6 +244,7 @@ class TileLattice {
     arr[b.count * 2] = (i * this.tileM - originEastM) / c;
     arr[b.count * 2 + 1] = (j * this.tileM - originNorthM) / c;
     (b.layers.array as Float32Array)[b.count] = layer;
+    (b.water.array as Float32Array)[b.count] = this.heights.hasWater(layer) ? 1 : 0;
     b.count++;
     return true;
   }
@@ -239,6 +261,7 @@ class TileLattice {
       if (b.count === 0) continue;
       b.origins.needsUpdate = true;
       b.layers.needsUpdate = true;
+      b.water.needsUpdate = true;
       drawCalls++;
       instances += b.count;
       triangles += b.count * b.trianglesPerInstance;
@@ -281,10 +304,13 @@ class TileLattice {
       new Float32Array(this.maxInstances),
       1,
     );
+    const water = new InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
     origins.setUsage(35048 /* DynamicDrawUsage */);
     layers.setUsage(35048);
+    water.setUsage(35048);
     geometry.setAttribute("iOrigin", origins);
     geometry.setAttribute("iLayer", layers);
+    geometry.setAttribute("iWater", water);
     geometry.instanceCount = 0;
 
     const mesh = new Mesh(geometry, this.material);
@@ -298,6 +324,7 @@ class TileLattice {
       geometry,
       origins,
       layers,
+      water,
       trianglesPerInstance: grid.triangleCount,
       count: 0,
     };

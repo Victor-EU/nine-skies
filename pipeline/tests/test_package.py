@@ -215,6 +215,98 @@ class TestPacking(unittest.TestCase):
             package.build("sea-to-sky", d)
 
 
+WATER_FIXTURE = ROOT / "test" / "terrain" / "waterCodec.fixture.bin"
+ENGINE_WATER = ROOT / "engine" / "src" / "terrain" / "water.ts"
+
+
+def known_water() -> np.ndarray:
+    """The tile the water fixture holds. `water.test.ts` builds the same one."""
+    k = np.arange(N * N * 4)
+    return ((k * 37 + 11) % 256).astype(np.uint8).reshape(N, N, 4)
+
+
+class TestWater(unittest.TestCase):
+    """The water layer a file per wet tile (F72)."""
+
+    def world(self, heights: np.ndarray, water_tiles: np.ndarray, heights_sha: str | None = None) -> Path:
+        from nineskies import water
+
+        d = TestPacking.world(self, heights)
+        raw = water_tiles.astype(np.uint8).tobytes()
+        (d / "water.bin").write_bytes(raw)
+        manifest = json.loads((d / "manifest.json").read_text())
+        (d / "water.json").write_text(
+            json.dumps(
+                {
+                    "file": "water.bin",
+                    "layout": water.LAYOUT,
+                    "channels": water.CHANNELS,
+                    "offsetStepM": water.OFFSET_STEP_M,
+                    "offsetZero": water.OFFSET_ZERO,
+                    "reachM": water.REACH_M,
+                    "classes": {"land": water.LAND, "sea": water.SEA, "lake": water.LAKE},
+                    "sha256": hashlib.sha256(raw).hexdigest(),
+                    "heightsSha256": heights_sha or manifest["heights"]["sha256"],
+                }
+            )
+        )
+        return d
+
+    def four(self) -> np.ndarray:
+        from nineskies import water
+
+        tiles = np.zeros((4, N, N, 4), dtype=np.uint8)
+        tiles[..., :2] = water.OFFSET_ZERO
+        tiles[0, 10:20, 10:20, 3] = water.LAKE
+        tiles[0, 30, :, 2] = 4  # a river's reach across it
+        tiles[2:, ..., 3] = water.SEA  # open sea, twice: one file
+        return tiles
+
+    def test_the_fixture_is_the_known_tile_as_the_encoder_writes_it(self):
+        self.assertEqual(package.encode_water(known_water()), WATER_FIXTURE.read_bytes())
+
+    def test_a_wet_tile_has_a_file_a_dry_one_none_and_all_the_sea_one(self):
+        heights = TestPacking.four(self)
+        d = self.world(heights, self.four())
+        index = package.build("sea-to-sky", d)
+        names = index["water"]["names"]
+        self.assertEqual(names[1], "")
+        self.assertEqual(names[2], names[3])
+        self.assertEqual(index["water"]["files"], 2)
+        for k in (0, 2):
+            data = (d / "tiles" / f"{names[k]}.bin").read_bytes()
+            np.testing.assert_array_equal(package.decode_water(data), self.four()[k])
+        self.assertEqual(index["water"]["codec"], package.WATER_CODEC)
+        self.assertEqual(index["water"]["heightsSha256"], index["heightsSha256"])
+
+    def test_water_cut_against_other_heights_is_refused(self):
+        d = self.world(TestPacking.four(self), self.four(), heights_sha="0" * 64)
+        with self.assertRaises(SystemExit):
+            package.build("sea-to-sky", d)
+
+    def test_a_world_nobody_ran_water_on_has_no_layer(self):
+        d = TestPacking.world(self, TestPacking.four(self))
+        self.assertNotIn("water", package.build("sea-to-sky", d))
+
+    def test_the_engine_reads_the_offsets_the_pipeline_writes(self):
+        import re
+
+        from nineskies import water
+
+        text = ENGINE_WATER.read_text()
+
+        def constant(name: str) -> str:
+            found = re.search(rf"export const {name} = ([^;]+);", text)
+            self.assertIsNotNone(found, name)
+            return found.group(1).strip()
+
+        self.assertEqual(float(constant("OFFSET_STEP_M")), water.OFFSET_STEP_M)
+        self.assertEqual(int(constant("OFFSET_ZERO")), water.OFFSET_ZERO)
+        self.assertEqual(constant("REACH_M"), f"{water.REACH_UNITS} * OFFSET_STEP_M")
+        self.assertEqual(int(constant("WATER_SEA")), water.SEA)
+        self.assertEqual(int(constant("WATER_LAKE")), water.LAKE)
+
+
 class TestAPublishedPackage(unittest.TestCase):
     """What a built world's package delivers, where one is built."""
 

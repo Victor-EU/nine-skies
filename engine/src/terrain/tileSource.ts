@@ -22,6 +22,12 @@ import {
  */
 export interface TileSource {
   request(tx: number, ty: number): Int16Array | null;
+  /**
+   * The tile's water layer (F72), in the same answer shape: its bytes, an
+   * empty array for none, and null while it is on its way. A source without
+   * the method has no water anywhere, which is every source but a package.
+   */
+  water?(tx: number, ty: number): Uint8Array | null;
   /** How many tiles are in flight. Zero for sources that answer immediately. */
   readonly pending: number;
   /** Human-readable, for the debug HUD: what world am I actually flying over? */
