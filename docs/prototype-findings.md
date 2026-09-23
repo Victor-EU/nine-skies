@@ -8743,3 +8743,173 @@ The corridor is untouched by all of it. `data/work/sea-to-sky-1km-conditioned.ti
 still hashes to `fadc78a794cf…` after re-running stage 3, and its conditioning
 record is unchanged, so no section and no patch was re-cut or re-signed — the
 new sink list is empty of new entries and a report is not an input.
+
+## F66 — D14's region raster was waiting on the country build, and what the build leaves is a map reading: the ground parts the cores of five of the nine regions from what is around them, holds the North China Plain and the Yangtze together at every width to 41 km, and draws the plateau's edge inside the region the GDD calls Sichuan's
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+The plan's next engineering item was D14's region raster: the one position →
+region map that the air, the music, the weather tables and the journal are all
+to read. It was filed as *engineering, waiting on the full-country pipeline
+rather than on a decision*, and the full-country pipeline exists now (F64).
+So the first thing to ask of it is how much of the nine-way map the ground
+draws without being told. The answer decides who draws the rest.
+
+`make regions` writes `docs/regions-report.md` from the grid the tiles are cut
+from. It is a measurement and not a region map, nothing reads it, and no tile,
+section, patch or signature changed. China's outline is burnt in memory to keep
+the sea — which reads 0 m — from joining every lowland to every other, and it is
+never written (D10, D66).
+
+### The half of the item that was already done
+
+The same item says a challenge authored outside the Shanghai–Lhasa corridor
+*has no world to cut its ground from*. That stopped being true when F64 built
+one: `cutChallenges.ts` has always tried the challenge's own world, then the
+route's, then `china`, and the country world opens and covers ground the
+corridor does not — at the `places.py` coordinates, Ayding Lake reads
+**−153.1 m** through it, as the Turpan probe does, and Heihe 129.0 m, where the
+corridor covers neither. Measured rather than flown, because no challenge is
+authored outside the corridor yet.
+
+### The plateau: an edge the ground draws, and the route crosses it seventeen times
+
+The ground at or above a height, joined to Lhasa:
+
+| At or above | km² | Holds | Expedition 1 first in at | Crossings, raw | Smoothed at 11 km | at 21 km |
+| ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| 2,500 m | 2,596,553 | Lhasa, Everest, Qinghai Lake | km 1,782 | 17 | 3 | 5 |
+| 3,000 m | 2,351,942 | Lhasa, Everest, Qinghai Lake | km 1,802 | 17 | 3 | 3 |
+| 3,500 m | 2,021,041 | Lhasa, Everest | km 1,842 | 35 | 9 | 7 |
+
+The plateau is one piece at any of these heights, so here the ground does draw
+an edge. What it does not draw is *one* edge along the route. Sampled every
+10 km west of Chengdu, which is km 1,692, the ground under the route climbs
+from 500 m to 2,835 m by km 1,820, falls to 2,321 m, reaches 4,054 m at km
+1,850, and over the next 150 km swings between 3,106 and 5,055 m. So a
+threshold crosses the route seventeen times at 3,000 m, and
+D14's whole promise — the sky tint and the music cross the boundary *on the
+same frame* — becomes seventeen crossfades. An opening and then a closing
+at 11 km brings it to three. Smoothing is not a dial that only helps, though:
+at 2,500 m the 21 km smoothing crosses **five** times where 11 km crossed three.
+
+And the edge is not where the GDD's grouping puts one. The GDD's region is
+*Sichuan Basin & Hengduan — foggy bowl, then parallel north–south gorges*, and
+the ranges between the Hengduan's gorges stand as high as the plateau does.
+The rim the ground draws, 90 to 150 km west of Chengdu, is the edge of the
+bowl, and it lies *inside* the GDD's Sichuan region. D14's own example of
+the boundary that has to cross on one frame is the one the ground puts
+somewhere the GDD does not.
+
+### The lowlands: five cores part from what is around them, and two plains never do
+
+The second instrument cuts every way through a lowland narrower than a given
+width and gives every cell back to the piece it is joined to most directly
+along the ground, so the pieces divide the lowland between them. What parts,
+and where:
+
+| What parts | Ground below | Where ways narrower than | km² | Extent | Named places in it |
+| --- | ---: | ---: | ---: | --- | --- |
+| The Sichuan Basin | 500 m | 5 km are cut | 91,213 | 27.7–32.5 N, 103.3–108.5 E | Chongqing |
+| The Sichuan Basin, to the gorges | 1,500 m | 41 km | 244,451 | 25.5–33.7 N, 100.4–110.4 E | Chengdu, Chongqing, Qutang Gorge, Wu Gorge |
+| The lowland of Guangxi and Guangdong | 500 m | 11 km | 261,423 | 20.3–26.2 N, 106.5–117.2 E | — |
+| Dongbei's plain | 500 m | 21 km | 688,628 | 40.0–53.4 N, 119.2–134.8 E | — |
+| Xinjiang's basins | 1,500 m | 41 km | 956,031 | 36.8–48.8 N, 75.5–96.8 E | Ayding Lake, the Tarim's terminal basin |
+
+With the plateau, that is a core for five of the nine: Qinghai–Tibet,
+Xinjiang, Sichuan, the south's karst and coast, and Dongbei. Each of the four
+lowland cores parts at some height and some width. What never parts at any
+width up to 41 km:
+
+- **Below 500 m, the North China Plain and the Yangtze's plain are one piece**
+  — 1,178,353 km² from 24.4 to 41.2 N at the widest cut, holding Shanghai,
+  Wuhan, Yichang and the three gorges. The GDD's *North China Plain & Loess*
+  and *Yangtze & East coast* have no edge in the ground between them.
+- **Below 1,500 m, nearly everything east of Xinjiang that is not the
+  Sichuan Basin is one piece** — 4,289,755 km² from 96.4 to 134.8 E. What
+  parts beside it is Hainan and three basins of 21,000–25,000 km² each. So the
+  Gobi and the Inner Mongolian steppe, which stand below that height, have no
+  edge in the ground between them and the east either.
+
+Neither height parts Yunnan–Guizhou from anything. The one piece that parts
+in the south-west at 1,500 m is 49,909 km² of southern Yunnan, 21.1–26.2 N.
+A plateau that stands where Yunnan's does is in the bands the GDD's table
+gives to no step, and a quarter of China is: 25.6 % of its land is at
+500–1,000 m or 2,000–4,000 m.
+
+Two facts about the named places decide how much of that could be anchored
+by name, and both are about `places.py` rather than about the ground. **Three
+of the nine regions have no named place at all**: North China & Loess, Inner
+Mongolia & Gobi, and the Southeast. And Dongbei's one, Heihe, is a city on the
+Amur whose own cell is outside the de facto outline by one — which is why the
+688,628 km² of Dongbei's plain above has no name beside it.
+
+### Two instruments that were tried first, and what was wrong with each
+
+The first form of this measured the **neck between pairs of named places**: the
+tightest point on the widest way from one to the other through low ground. It
+read the places rather than the ground between them. A city on a coast or on a
+border river caps the clearance of every path at its own cell, so Heihe's
+tightest point was Heihe, a cell from the Amur, and on the way from Turpan to
+Shanghai the tightest point was Shanghai, where the sea is.
+And where several ways out are equally tight, the one it named was whichever
+the search reached first. Pieces have no ends, so neither can happen.
+
+The second read each piece back by **growing its core by the width it was cut
+at**, which is a plain opening. An opening shaves every corner and drops every
+valley narrower than the cut: at 41 km the pieces of 20,000 km² and more held
+5,146,404 of the 5,716,170 km² below 1,500 m, so a tenth of the lowland
+belonged to nothing and the places in its valleys fell out of the table. Giving
+each cell back along the ground is what makes the pieces add up.
+
+### Who draws the rest, three ways priced
+
+Where the ground draws no edge, something else has to, and every way of doing
+it is a reading of the map. Two of the nine names are also the names of
+autonomous regions, and the GDD's risk table rates borders and minority regions
+as politically sensitive, so this is the user's:
+
+1. **A table of provinces.** Nine rows, each a list of provinces, from Natural
+   Earth's admin-1 file: **14,909,524 bytes**, md5 `63b322fddc41…`, public
+   domain, priced by one HEAD and not fetched. Quick to write, and a writer can
+   check it. Its edges would be administrative lines carried in the sky and the
+   music. D10 forbids *national* boundary geometry and says nothing about
+   provincial, which makes this a question and not a rule. And every row is a
+   choice: whether Gansu's Hexi corridor is the Gobi or the Loess, and whether
+   western Hunan is karst.
+2. **Natural Earth's named physical regions**, `ne-regions`: 2,038,519 bytes,
+   public domain, already priced for the unnamed basins (F65). One fetch could
+   answer both items. The extents come from outside this build, and so does the
+   risk: what it names inside China is not known until it is fetched.
+3. **A list of named places per region, grown over the ground.** No fetch. Each
+   region is `places.py` ids with a sentence each, as D65's sinks are. Where the
+   ground draws an edge, the growth stops at it. Where it draws none, the edge
+   falls where two growths meet, which is a drawing made by the list. It needs
+   a place in each of the three regions that have none, and one in Dongbei whose
+   cell is inside the outline.
+
+These can be mixed. The plateau's edge and Xinjiang's basins are the ground's
+own, whatever draws the east.
+
+Whichever way is chosen, the measurement leaves two requirements, and both are
+engineering:
+
+- **One crossing per boundary is a property of the raster along a route, so it
+  can be checked.** A raw edge crosses Expedition 1 seventeen times. The raster
+  should be held to D14's promise by a test on every committed route, the way
+  the route's floor already is, rather than by a smoothing radius chosen once.
+- **The raster covers the whole grid, not China's cells.** A raster that is
+  empty outside the outline ships the outline as its own edge, in the air and
+  in the music, which is D10's fault by another road. The Gobi continues into
+  Mongolia. The mask this report uses is burnt in memory for exactly that
+  reason.
+
+### What this leaves
+
+342 Python tests, up from 326: sixteen for the region instruments. They check
+erosion and dilation as thresholds on one distance against the brute-force
+morphology they replace, that pieces divide their ground rather than overlap
+or shave it, and that the route the report walks is the committed section's,
+place for place and kilometre for kilometre. `make vectors --check` confirms
+all eight pins against what their publishers serve today. The report takes
+45 seconds and is byte-identical on a second run.

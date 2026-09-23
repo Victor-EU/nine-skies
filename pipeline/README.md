@@ -206,6 +206,20 @@ vector driver. What the data itself asks of anyone who redistributes it is in
    climate zones, density, the Heihe-Tengchong line.
 11. **Package** — Brotli, content hash, manifest.
 
+**Not a stage: D14's region raster.** The nine regions the air, the music,
+the weather and the journal all read have no position -> region map yet, and
+`make regions` writes `docs/regions-report.md` to say how much of one the
+country's ground draws by itself. It reads the plateau above a height and
+counts Expedition 1's crossings of its edge, and it cuts each lowland's narrow
+ways at widening widths to see what the lowland falls into — every cell given
+back to the piece it is joined to most directly, so the pieces divide it. The
+ground parts the plateau, Xinjiang's basins, the Sichuan Basin, the Pearl
+River lowland and Dongbei's plain from what is around them, and holds the
+North China Plain and the Yangtze together at every width to 41 km; what
+draws the edges it does not is the user's, and three ways of drawing them are
+priced (F66). China's outline is burnt in memory to keep the sea from
+joining every lowland, and never written (D10).
+
 ## Golden probes
 
 Seven checks that stand between "the pipeline ran" and "the world is right" —

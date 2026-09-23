@@ -11,6 +11,7 @@
 #   make sources                    # record the source raster digests
 #   make vectors                    # stage 3's river network, priced; nothing fetched
 #   make rivers                     # what the fetched rivers decide of the grid's closed basins
+#   make regions                    # what the country's ground draws of the nine regions
 #   make sections                   # re-cut the committed route sections
 #   make patches                    # re-cut the committed ground under each challenge
 #   make cut-key                    # generate this machine's cutting key
@@ -50,7 +51,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles hero siting probes hydro rivers sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles hero siting probes hydro rivers regions sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -93,6 +94,15 @@ vectors: $(PY)
 ## never fetches them (D60).
 rivers: $(PY)
 	$(PIPELINE) -m nineskies.rivers --corridor $(CORRIDOR) --report docs/rivers-report$(SUFFIX).md
+
+## What the country's ground draws of the nine regions by itself (D14, F66):
+## the plateau above a height and the route's crossings of it, and the pieces
+## each lowland falls into as its narrow ways are cut. A measurement of the
+## full-country grid and never a region map -- where the ground draws no
+## edge, what does is the user's. Needs `make world CORRIDOR=china` and the
+## countries file from `make vectors`, which it burns in memory (D10).
+regions: $(PY)
+	$(PIPELINE) -m nineskies.regions --report docs/regions-report.md
 
 ## Stage 2 — mosaic and reproject to Albers 1 km.
 grid: $(PY)

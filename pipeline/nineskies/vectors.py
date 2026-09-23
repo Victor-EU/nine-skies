@@ -23,6 +23,10 @@ China is a choice this build does not get to make quietly -- D10 keeps border
 geometry out of the world whichever way that goes, and the probe is arithmetic
 on a mask that never ships.
 
+The last is priced for a map rather than for a probe or a stage: D14's nine
+regions need edges where the ground draws none (F66), and a table of provinces
+is one of the three ways priced to draw them.
+
 Each source is pinned to the digest its publisher serves, measured by HEAD
 when it was priced. Backblaze B2 sends `x-bz-content-sha1`, S3 sends the MD5
 of a single-part upload as its ETag, and figshare publishes `computed_md5`
@@ -236,6 +240,21 @@ SOURCES: tuple[Source, ...] = (
         carries="the same countries as the boundaries China's own maps draw "
         "them; priced and not fetched, because which polygon is China is a "
         "choice the probe cannot avoid and this build does not get to make",
+    ),
+    Source(
+        id="ne-provinces",
+        title="Natural Earth 1:10m admin-1 states and provinces",
+        url="https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_1_states_provinces.zip",
+        filename="ne_10m_admin_1_states_provinces.zip",
+        bytes=14_909_524,
+        pin=("md5", "63b322fddc41d4c6877eafe4e763c897"),
+        publisher="s3",
+        licence=PUBLIC_DOMAIN,
+        carries="every country's first-level divisions -- China's provinces -- "
+        "which is one way to draw the edges of D14's nine regions where the "
+        "ground draws none; priced and not fetched, because a region table "
+        "of provinces is a reading of the map and its edges would be "
+        "administrative lines in the air and the music (F66)",
     ),
 )
 
