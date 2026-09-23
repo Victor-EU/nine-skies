@@ -9391,3 +9391,90 @@ and was not measured. The dev server does not.
 
 The published-package test now checks each built world's horizon file
 against its `horizon.bin` as well as every tile against `heights.bin`.
+
+## F70 — A tile that lands uploads its own layer: under 0.1 ms of main thread where the whole array was 2.0, and the whole array only when more than half of it changed at once
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+The plan's workstream B has always said a tile becoming resident is a
+`texSubImage3D`. The code never did that: `HeightTileArray.flush` marked the
+whole texture for upload whenever any tile was written, and its comment called
+per-layer upload a phase 2 task. Before streaming that meant one 2.16 MB upload
+per jump. Since F67 it is one per frame in which a tile lands. F67 carried it
+rather than fixing it and left it to the floor-device capture to judge.
+
+### What each way costs
+
+Three.js r186 has the per-layer path: `DataArrayTexture.addLayerUpdate` makes
+the next upload one `texSubImage3D` per named layer instead of one for the
+array. Timed on the country array (256 layers of 65 × 65 Int16), with the ring
+resident, 80 uploads each, interleaved:
+
+| Upload | main thread, median | p90 | GPU, median | p90 |
+| --- | ---: | ---: | ---: | ---: |
+| the whole array | 2.0 ms | 20.4 ms | 0.156 ms | 0.777 ms |
+| 1 layer | < 0.1 ms | 0.1 ms | 0.003 ms | 0.099 ms |
+| 8 layers | < 0.1 ms | 0.5 ms | 0.007 ms | 0.092 ms |
+| 32 layers | 0.1 ms | 1.5 ms | 0.024 ms | 0.181 ms |
+| 137 layers | 1.6 ms | 19.5 ms | 0.184 ms | 0.569 ms |
+| 256 layers, one at a time | 11.3 ms | 24.1 ms | 0.393 ms | 0.725 ms |
+
+The main-thread column times `renderer.initTexture`, which makes the upload and
+nothing else. The page's clock is not cross-origin isolated, so it steps in
+0.1 ms, and "< 0.1" means it did not step. The GPU column is D25's timer query
+around the same call, 20 of each.
+
+The first instrument tried was wall clock around a whole render and a one-pixel
+read-back, which is close to F67's. It read 52–53 ms for every case including
+no upload at all: in a hidden pane on a machine with 93 MB free, the read-back
+is the frame. So F67's "a median 0.2 ms" and this table's 2.0 are two
+instruments on two days. The ratios in the table are the finding: one layer
+against the whole array is 50 times less on the GPU and below the clock on the
+CPU. The absolute figures belong to this machine today.
+
+### What was built
+
+`flush` sends the layers written since the last flush, each as its own
+`texSubImage3D`. **The whole array goes in one call when more than half of it
+changed at once**, because the two ways draw level near 137 layers and a layer
+at a time is more than five times worse by 256.
+
+A streamed world never gets there. In the frames this measurement drove,
+after a jump the country's disc landed in frames of 1–19 layers on the way to
+Lhasa, and 13, 17, 48 and 25 on the next jump. The app's own frames, throttled
+in the hidden pane, landed the rest between them. In cruise F67 measured at most 13 new files in a kilometre. What does
+cross the line is a disc that arrives all at once: a world without a package,
+or a hero cover, which is every one of its tiles in its first frame.
+
+One case needed a guard. Two flushes can come before one render, and a second
+flush that named three layers would narrow a first flush's whole upload to
+those three. So a whole upload stays pending until the renderer says it has
+made it. The renderer calls `texture.onUpdate` after every upload it makes.
+The array's first upload allocates it, and WebGL fills it with zeros, so a
+layer nothing has written needs no upload of its own.
+
+### That the GPU holds what the CPU holds
+
+In the app, over the country, every resident layer was read back from the
+texture through a framebuffer and compared, sample for sample, with the CPU
+copy the ground readout uses:
+
+- 137 layers at the start;
+- all 256 after a jump to Lhasa, which filled the array;
+- all 256 again after a second jump, which evicted from it.
+
+No sample differed and WebGL reported no error.
+
+### What this leaves
+
+818 TypeScript tests, up from 813. Five are for the upload:
+
+- a frame sends only the layers it wrote;
+- a frame that wrote nothing sends nothing;
+- more than half the array changed at once goes whole;
+- a whole upload not yet made is not narrowed by a later flush;
+- an evicted layer is sent again when a new tile takes it.
+
+The frame-cost capture on the floor device is still the instrument that says
+whether any of this showed in a frame. It has not been re-run since F67
+because it refuses to time a hidden pane, and the pane has been hidden.

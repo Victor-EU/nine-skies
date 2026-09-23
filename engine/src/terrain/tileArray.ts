@@ -5,8 +5,8 @@ import { DataArrayTexture, NearestFilter, RedIntegerFormat, ShortType } from "th
  *
  * Every resident tile's heightmap lives in one R16I texture array, so drawing
  * the terrain is a handful of instanced draws rather than one per tile. A tile
- * becoming resident is a write into a typed array plus an upload; it never
- * touches geometry.
+ * becoming resident is a write into a typed array plus an upload of its own
+ * layer; it never touches geometry.
  *
  * Int16 metres (D2) spans Ayding Lake at -154 m to Everest at 8,849 m exactly,
  * and needs no decode step at all - the bytes off the wire are the bytes the
@@ -30,6 +30,17 @@ export const TILE_SAMPLES = 65;
  * That is why `samples` is a constructor argument rather than a constant.
  */
 export const HERO_TILE_SAMPLES = 129;
+
+/**
+ * Past this share of an array's layers changed in one frame, the whole array
+ * is uploaded in one call rather than a layer at a time (F70). Measured on an
+ * M3 against the country array's 256 layers: a layer at a time costs the main
+ * thread under 0.1 ms up to 32 layers where the whole array costs 2.0, the two
+ * meet near 137, and at 256 a layer at a time is 11.3 ms. A streamed world
+ * lands 1-13 tiles a frame in cruise and ~30 a frame after a jump; a packed
+ * world's first disc is 137 at once.
+ */
+export const WHOLE_UPLOAD_SHARE = 0.5;
 
 export interface TileKey {
   x: number;
@@ -90,7 +101,16 @@ export class HeightTileArray {
   /** Monotonic clock for LRU. */
   private readonly lastUsed: number[];
   private clock = 0;
-  private dirty = false;
+  /** Layers written since the last flush. */
+  private readonly dirty = new Set<number>();
+  /**
+   * A whole-array upload asked for and not yet made. Two flushes can come
+   * before one render, and a second that asked for three layers would
+   * otherwise narrow the first's whole array to those three.
+   */
+  private wholePending = false;
+  /** What the last flush sent: how many layers, and whether as the whole array. */
+  lastUpload: { layers: number; whole: boolean } = { layers: 0, whole: false };
 
   /**
    * @param samples texels per side. The country grid's 65, or a hero grid's
@@ -113,6 +133,12 @@ export class HeightTileArray {
     this.texture.magFilter = NearestFilter;
     this.texture.generateMipmaps = false;
     this.texture.needsUpdate = true;
+    // The renderer calls this after every upload it makes. The first one
+    // allocates the array, which WebGL fills with zeros, so a layer nothing
+    // has written needs no upload of its own.
+    this.texture.onUpdate = () => {
+      this.wholePending = false;
+    };
   }
 
   has(x: number, y: number): boolean {
@@ -143,7 +169,7 @@ export class HeightTileArray {
     }
     this.data.set(heights, layer * this.samples * this.samples);
     this.lastUsed[layer] = ++this.clock;
-    this.dirty = true;
+    this.dirty.add(layer);
     return layer;
   }
 
@@ -158,13 +184,26 @@ export class HeightTileArray {
     return bilinearSample(this.data, layer * this.samples * this.samples, this.samples, u, v);
   }
 
-  /** Call once per frame before rendering. */
+  /**
+   * Call once per frame before rendering. Sends the layers written since the
+   * last call, each as its own `texSubImage3D`, or the whole array when more
+   * than `WHOLE_UPLOAD_SHARE` of it changed at once (F70).
+   */
   flush(): void {
-    if (!this.dirty) return;
-    // Spike-level: re-upload the whole array when anything changes.
-    // Production wants texSubImage3D per layer; tracked as a phase 2 task.
+    if (this.dirty.size === 0) {
+      this.lastUpload = { layers: 0, whole: false };
+      return;
+    }
+    const whole = this.wholePending || this.dirty.size > this.layers * WHOLE_UPLOAD_SHARE;
+    if (whole) {
+      this.texture.clearLayerUpdates();
+      this.wholePending = true;
+    } else {
+      for (const layer of this.dirty) this.texture.addLayerUpdate(layer);
+    }
     this.texture.needsUpdate = true;
-    this.dirty = false;
+    this.lastUpload = { layers: this.dirty.size, whole };
+    this.dirty.clear();
   }
 
   get residentCount(): number {

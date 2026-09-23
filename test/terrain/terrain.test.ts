@@ -88,6 +88,77 @@ describe("heightmap texture array", () => {
 });
 
 /**
+ * What reaches the GPU when a tile lands (F70). The whole 2.16 MB array was
+ * sent every time any tile did; now a frame sends the layers it wrote, each a
+ * `texSubImage3D`, unless it wrote more than half of them.
+ */
+describe("uploading the heightmap array", () => {
+  const tile = (v: number) => new Int16Array(TILE_SAMPLES * TILE_SAMPLES).fill(v);
+  /** What the renderer does once it has made the upload. */
+  const uploaded = (arr: HeightTileArray) => {
+    arr.texture.onUpdate?.(arr.texture);
+    arr.texture.clearLayerUpdates();
+  };
+
+  it("sends only the layers a frame wrote", () => {
+    const arr = new HeightTileArray(8);
+    uploaded(arr);
+    const version = arr.texture.version;
+    arr.insert(0, 0, tile(1));
+    arr.insert(5, 5, tile(2));
+    arr.flush();
+    expect([...arr.texture.layerUpdates].sort()).toEqual([0, 1]);
+    expect(arr.texture.version).toBe(version + 1);
+    expect(arr.lastUpload).toEqual({ layers: 2, whole: false });
+  });
+
+  it("sends nothing when nothing was written", () => {
+    const arr = new HeightTileArray(8);
+    uploaded(arr);
+    const version = arr.texture.version;
+    arr.flush();
+    expect(arr.texture.version).toBe(version);
+    expect(arr.lastUpload).toEqual({ layers: 0, whole: false });
+  });
+
+  it("sends the whole array when more than half of it changed at once", () => {
+    const arr = new HeightTileArray(4);
+    uploaded(arr);
+    for (let i = 0; i < 3; i++) arr.insert(i, 0, tile(i));
+    arr.flush();
+    expect(arr.texture.layerUpdates.size).toBe(0);
+    expect(arr.lastUpload).toEqual({ layers: 3, whole: true });
+  });
+
+  it("does not narrow a whole upload that has not been made yet", () => {
+    const arr = new HeightTileArray(4);
+    uploaded(arr);
+    for (let i = 0; i < 3; i++) arr.insert(i, 0, tile(i));
+    arr.flush();
+    arr.insert(3, 0, tile(3));
+    arr.flush(); // a second update before any render
+    expect(arr.texture.layerUpdates.size).toBe(0);
+    expect(arr.lastUpload.whole).toBe(true);
+    uploaded(arr);
+    arr.insert(3, 0, tile(4));
+    arr.flush();
+    expect([...arr.texture.layerUpdates]).toEqual([3]);
+  });
+
+  it("sends a layer again when an evicted tile's heights replace it", () => {
+    const arr = new HeightTileArray(8);
+    for (let i = 0; i < 8; i++) arr.insert(i, 0, tile(i));
+    arr.flush();
+    uploaded(arr);
+    arr.layerFor(0, 0); // so layer 1 is the oldest
+    arr.insert(9, 9, tile(99));
+    arr.flush();
+    expect([...arr.texture.layerUpdates]).toEqual([1]);
+    expect(arr.sample(9, 9, 0.5, 0.5)).toBe(99);
+  });
+});
+
+/**
  * The stand-in terrain has one job: be shaped like the thing gate G1 asks
  * about. If the three steps are not in it, the prototype cannot answer the
  * question it exists to answer.
