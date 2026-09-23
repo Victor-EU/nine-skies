@@ -478,3 +478,60 @@ this can see.
 run after a page load was a poor fit once (r² 0.73, flagged by the
 table) and good the next.
 
+## F83 — FXAA in place of multisampling, and Heaven Lake in August, 23 September 2026
+
+**Where the post pass's time went.** Timed at four stations with the
+scene target at 4, 2 and 0 samples (`rig.post.samples`), each the
+cheapest of 16: the post pass cost 2.6 to 3.4 ms with four samples, 1.9
+to 2.1 with two and 0.8 to 1.3 with none. Four samples of half-float at
+1080p were two of its three milliseconds, and a repeat of the four-sample
+run agreed inside the ±1 ms the instrument resolves.
+
+**The change.** The scene target is not multisampled by default; the
+composite smooths edges with FXAA instead, reading the linear HDR scene
+with its luma compressed so a bright edge does not outvote the rest. At
+three times enlargement a Huangshan ridge line is marginally softer than
+with four samples and shows no staircase. Multisampling is one setting
+away (`?msaa=4`). The scene target can also be drawn smaller than the
+canvas and stretched (`?scale=0.75`), the lever a slow phone pulls, and
+`?frametime` puts a wall-clock readout in the corner: median, 95th
+percentile, frames a second and the share of slow frames over the last
+240. That is how the iPhone line of stage 3 gets measured, since Safari
+has no timer query; it has not been yet.
+
+**The numbers**, all nine stations whole, twice, cheapest of the two
+(r² 0.945 and 0.987; resolution ±1.75 and ±1.19 ms), GPU milliseconds at
+1920 × 1080 on the M3:
+
+| Station | F82, four samples | FXAA | Post now |
+| --- | ---: | ---: | ---: |
+| huangshan | 5.7 | 3.9 | 0.9–1.5 |
+| three-gorges | 5.1 | 3.1 | 0.7 |
+| karst | 5.6 | 3.5 | 0.6–1.0 |
+| first-bend | 5.2 | 3.1 | 0.7–1.3 |
+| loess | 3.9 | 2.1 | 0.7–0.9 |
+| grassland-to-heaven-lake | 3.8 | 2.1 | 0.6–0.7 |
+| below-the-sea | 3.5 | 1.8 | 0.7–1.1 |
+| the-roof | 3.8 | 1.9 | 0.7–1.0 |
+| the-wall | 4.6 | 2.2 | 0.7–1.0 |
+
+Every station is under 4 ms. At F80's reckoning of an M1 as half this
+GPU, every one is at or under 8 ms there, Huangshan at the line. The
+largest single cost left is Huangshan's cloud deck, 1.3 to 1.4 ms in
+both runs: the next lever if an M1 reads over.
+
+**Heaven Lake.** The still was one brown: steppe, forest and crater all
+in a dark rock colour under a sun 4° up, the warm grade on top, and the
+lake a navy patch in the rim's shadow. Two changes:
+
+- *The palette*, for August: the steppe band a soft summer green rather
+  than khaki, the forest below it darker, olive tundra above the trees,
+  and the rim and plateau band pale grey trachyte and pumice; the lake
+  the blue-green of deep cold water. A first pass at full green read as
+  a golf course and was taken down to sage.
+- *The hour*, 18:00 to 17:15. At 18:00 the crater's sun was 4° up and
+  its light (0.80, 0.58, 0.29), nearly orange; at 17:15 it is 12° up and
+  (0.93, 0.84, 0.66), and the steppe's is 20°. The frame at 108 s is
+  now a pale crater in green country with the lake blue at its heart
+  and the west rim's shadow across the floor.
+

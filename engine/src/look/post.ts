@@ -5,10 +5,15 @@
  * cools, saturates, tone-maps, vignettes and writes sRGB. Cheap, and most of
  * the difference between a render and a picture.
  *
- * The scene target is multisampled, so the antialiasing the canvas used to
- * do is done here. Every target follows the drawing buffer's size, checked
- * each frame, so a capture that resizes the renderer is measured at the
- * size it asked for.
+ * Edges are smoothed in the composite by FXAA rather than by multisampling
+ * the scene target: four samples of half-float at 1080p were two of the
+ * three milliseconds this pass cost, and FXAA is a fraction of one (F83).
+ * Multisampling is still there for a machine that can afford it.
+ *
+ * Every target follows the drawing buffer's size, checked each frame, so a
+ * capture that resizes the renderer is measured at the size it asked for.
+ * The scene may be drawn smaller than the canvas (`renderScale`) and is then
+ * stretched by the composite: the lever a slow phone pulls.
  */
 import {
   BufferAttribute,
@@ -104,8 +109,41 @@ uniform vec3 uBalance;
 uniform float uSaturation;
 uniform float uContrast;
 uniform float uVignette;
+uniform vec2 uTexel;
+uniform float uFxaa;
 
 ${COLOR_SPACE_GLSL}
+
+// FXAA (Lottes' algorithm in its compact form): find the edge's direction
+// from the luma of the four diagonal neighbours and blend along it. The
+// scene is linear HDR, so luma is compressed first or every bright edge
+// would read as the strongest one on screen.
+float edgeLuma(vec3 c) {
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  return l / (1.0 + l);
+}
+
+vec3 antialiased(vec2 uv) {
+  vec3 m = texture(tScene, uv).rgb;
+  if (uFxaa < 0.5) return m;
+  float lNW = edgeLuma(texture(tScene, uv + vec2(-1.0, -1.0) * uTexel).rgb);
+  float lNE = edgeLuma(texture(tScene, uv + vec2(1.0, -1.0) * uTexel).rgb);
+  float lSW = edgeLuma(texture(tScene, uv + vec2(-1.0, 1.0) * uTexel).rgb);
+  float lSE = edgeLuma(texture(tScene, uv + vec2(1.0, 1.0) * uTexel).rgb);
+  float lM = edgeLuma(m);
+  float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE)));
+  float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
+  // Flat enough to leave alone: most of the frame, and the cheap path.
+  if (lMax - lMin < max(0.0312, lMax * 0.125)) return m;
+  vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), (lNW + lSW) - (lNE + lSE));
+  float reduce = max((lNW + lNE + lSW + lSE) * 0.03125, 1.0 / 128.0);
+  float scale = 1.0 / (min(abs(dir.x), abs(dir.y)) + reduce);
+  dir = clamp(dir * scale, vec2(-8.0), vec2(8.0)) * uTexel;
+  vec3 a = 0.5 * (texture(tScene, uv + dir * (1.0 / 3.0 - 0.5)).rgb + texture(tScene, uv + dir * (2.0 / 3.0 - 0.5)).rgb);
+  vec3 b = a * 0.5 + 0.25 * (texture(tScene, uv - dir * 0.5).rgb + texture(tScene, uv + dir * 0.5).rgb);
+  float lB = edgeLuma(b);
+  return (lB < lMin || lB > lMax) ? a : b;
+}
 
 // A filmic curve (Narkowicz's fit of ACES): highlights roll off, colour holds.
 vec3 filmic(vec3 x) {
@@ -113,7 +151,7 @@ vec3 filmic(vec3 x) {
 }
 
 void main() {
-  vec3 c = texture(tScene, vUv).rgb + texture(tBloom, vUv).rgb * uBloom;
+  vec3 c = antialiased(vUv) + texture(tBloom, vUv).rgb * uBloom;
   c *= uExposure * uBalance;
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(l), c, uSaturation);
@@ -130,6 +168,13 @@ export const BLOOM_THRESHOLD = 1.0;
 /** Blur passes at quarter size; each widens the glow. */
 const BLUR_ITERATIONS = 2;
 
+export interface PostOptions {
+  /** Multisamples on the scene target; 0, the default, smooths edges with FXAA instead. */
+  readonly samples?: number;
+  /** The scene target's size as a fraction of the drawing buffer's, 0.25 to 1. */
+  readonly renderScale?: number;
+}
+
 export class PostPipeline {
   readonly scene: WebGLRenderTarget;
   private readonly bright: WebGLRenderTarget;
@@ -141,23 +186,27 @@ export class PostPipeline {
   private readonly compositeMaterial: ShaderMaterial;
   private width = 0;
   private height = 0;
+  private scale = 1;
+  private readonly maxSamples: number;
 
-  constructor(renderer: WebGLRenderer) {
-    const samples = Math.min(4, renderer.capabilities.maxSamples);
-    const make = (w: number, h: number, msaa: number) =>
+  constructor(renderer: WebGLRenderer, options: PostOptions = {}) {
+    this.maxSamples = renderer.capabilities.maxSamples;
+    const samples = Math.max(0, Math.min(options.samples ?? 0, this.maxSamples));
+    const make = (w: number, h: number, msaa: number, depth: boolean) =>
       new WebGLRenderTarget(w, h, {
         type: HalfFloatType,
         minFilter: LinearFilter,
         magFilter: LinearFilter,
         generateMipmaps: false,
-        depthBuffer: msaa > 0,
+        depthBuffer: depth,
         stencilBuffer: false,
         samples: msaa,
       });
-    this.scene = make(2, 2, samples);
-    this.bright = make(1, 1, 0);
-    this.blurA = make(1, 1, 0);
-    this.blurB = make(1, 1, 0);
+    this.scene = make(2, 2, samples, true);
+    this.bright = make(1, 1, 0, false);
+    this.blurA = make(1, 1, 0, false);
+    this.blurB = make(1, 1, 0, false);
+    this.renderScale = options.renderScale ?? 1;
     const material = (fragment: string, uniforms: Record<string, { value: unknown }>) =>
       new ShaderMaterial({ glslVersion: GLSL3, vertexShader: QUAD_VERTEX, fragmentShader: fragment, uniforms, depthTest: false, depthWrite: false });
     this.brightMaterial = material(BRIGHT_FRAGMENT, { tScene: { value: null }, uThreshold: { value: BLOOM_THRESHOLD } });
@@ -171,7 +220,34 @@ export class PostPipeline {
       uSaturation: { value: 1 },
       uContrast: { value: 1 },
       uVignette: { value: 0.25 },
+      uTexel: { value: new Vector2(1, 1) },
+      uFxaa: { value: samples === 0 ? 1 : 0 },
     });
+  }
+
+  /** The scene target's size as a fraction of the drawing buffer's. */
+  get renderScale(): number {
+    return this.scale;
+  }
+
+  set renderScale(s: number) {
+    this.scale = Math.max(0.25, Math.min(1, s));
+    this.width = 0; // resized on the next frame
+  }
+
+  /** Multisamples on the scene target: 0 turns the multisampling off. */
+  get samples(): number {
+    return this.scene.samples;
+  }
+
+  set samples(n: number) {
+    const want = Math.max(0, Math.min(n, this.maxSamples));
+    if (want === this.scene.samples) return;
+    // A target's sample count is fixed when three first sets it up; disposing
+    // it lets the next frame set it up again with the new count.
+    this.scene.dispose();
+    this.scene.samples = want;
+    this.compositeMaterial.uniforms.uFxaa!.value = want === 0 ? 1 : 0;
   }
 
   setGrade(g: GradePreset): void {
@@ -188,12 +264,13 @@ export class PostPipeline {
 
   private resize(renderer: WebGLRenderer): void {
     const size = renderer.getDrawingBufferSize(new Vector2());
-    const w = Math.max(1, Math.round(size.x));
-    const h = Math.max(1, Math.round(size.y));
+    const w = Math.max(1, Math.round(size.x * this.scale));
+    const h = Math.max(1, Math.round(size.y * this.scale));
     if (w === this.width && h === this.height) return;
     this.width = w;
     this.height = h;
     this.scene.setSize(w, h);
+    (this.compositeMaterial.uniforms.uTexel!.value as Vector2).set(1 / w, 1 / h);
     this.bright.setSize(Math.max(1, w >> 1), Math.max(1, h >> 1));
     this.blurA.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2));
     this.blurB.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2));

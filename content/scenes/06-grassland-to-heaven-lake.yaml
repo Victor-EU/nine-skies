@@ -15,7 +15,10 @@ title: { zh: 草原到天池, pinyin: Cǎoyuán dào Tiānchí, en: Grassland to
 line: "Grass to the horizon, then a volcano with a lake in it."
 hero: changbai
 month: 8
-hour: 18.0
+# 17:15 Beijing time: an evening sun of 20 degrees over the grass and 12
+# over the crater. At 18:00 it was 4 over the crater, the light nearly
+# orange and the lake in the rim's shadow (F83).
+hour: 17.25
 
 rail:
   - { lat: 43.7000, lon: 118.4000, above_ground_m: 500, speed: 550 }   # the Xilingol grassland

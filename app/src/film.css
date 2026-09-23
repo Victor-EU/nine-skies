@@ -103,6 +103,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1117; }
 }
 @media (pointer: coarse) and (orientation: portrait) { .rotate { display: flex; } }
 
+/* The wall-clock frame time, ?frametime. */
+.frametime {
+  position: absolute; left: 20px; top: 40px; pointer-events: none;
+  font: 12px/1.6 ui-monospace, Menlo, monospace; white-space: pre;
+  background: rgba(6,10,16,.5); padding: 6px 10px; border-radius: 4px;
+}
+
 /* The recorder's readout, dev only. */
 .recorder {
   position: absolute; left: 20px; bottom: 64px; pointer-events: none;

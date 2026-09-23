@@ -12,7 +12,7 @@
  * a rail into the scene file (D83), and `__ns.still(name)` saves the frame
  * to `docs/stills/` (D77).
  */
-import { PerspectiveCamera, Scene as ThreeScene, Vector3, WebGLRenderer } from "three";
+import { PerspectiveCamera, Scene as ThreeScene, Vector2, Vector3, WebGLRenderer } from "three";
 import { Terrain, VIEW_RADIUS_TILES } from "../../engine/src/terrain/terrain.js";
 import { HorizonField, buildSyntheticHorizonField } from "../../engine/src/terrain/horizonField.js";
 import { DEFAULT_HAZE_DENSITY_PER_M, HAZE_SCALE_HEIGHT_M } from "../../engine/src/terrain/palette.js";
@@ -40,6 +40,7 @@ import { FILM_VERSION, buildRail, railAtKm, type BuiltRail, type Film, type Scen
 import { RailFlight, type RailState } from "../../engine/src/film/rail.js";
 import { AltitudeController } from "../../engine/src/film/altitude.js";
 import { captureFrameCost, frameCostTable, BUDGET_FOV_DEG } from "./frameCost.js";
+import { FrameClock, formatSummary } from "./frameTime.js";
 import { createProbe } from "./probe.js";
 import { chooseWorld } from "./worldChoice.js";
 import { LeadInMap } from "./leadIn.js";
@@ -144,6 +145,31 @@ const rig = new LookRig({
   scale,
   shadowResolution: matchMedia("(pointer: coarse)").matches ? 1024 : 2048,
 });
+
+// The levers for a slow machine, and the phone's measurement (F83):
+// ?scale=0.75 draws the scene at three quarters and stretches it, ?msaa=4
+// multisamples instead of FXAA, ?frametime reads the frame by wall clock.
+{
+  const renderScale = Number(query.get("scale"));
+  if (renderScale > 0) rig.post.renderScale = renderScale;
+  const msaa = query.get("msaa");
+  if (msaa !== null && Number.isFinite(Number(msaa))) rig.post.samples = Number(msaa);
+}
+const frameClock = query.has("frametime") ? new FrameClock() : null;
+let frameClockShownAt = 0;
+function showFrameTime(now: number): void {
+  if (!frameClock) return;
+  frameClock.tick(now);
+  if (now - frameClockShownAt < 500) return;
+  frameClockShownAt = now;
+  const summary = frameClock.summary();
+  const size = renderer.getDrawingBufferSize(new Vector2());
+  const box = el("frametime");
+  box.hidden = false;
+  box.textContent = summary
+    ? formatSummary(summary, rig.post.renderScale, { w: size.x, h: size.y })
+    : "measuring…";
+}
 
 // The lead-in map: the built window with a tile of margin, or the whole
 // country grid when there is no world.
@@ -463,9 +489,11 @@ let last = performance.now();
 function frame(now: number): void {
   if (suspended) {
     last = now;
+    frameClock?.reset();
     requestAnimationFrame(frame);
     return;
   }
+  showFrameTime(now);
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
 

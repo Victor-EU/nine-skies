@@ -119,11 +119,14 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     rockSlope: [0.45, 0.8],
     river: [0.4, 0.55, 0.58],
   },
+  // August: the Xilingol steppe and Changbai's forest are green, the tundra
+  // above the trees olive, the crater's rim pale grey trachyte and pumice,
+  // and the lake the blue-green of deep cold water (F83).
   "grassland-volcano": {
-    stops: { plain: [0.42, 0.5, 0.28], farmland: [0.5, 0.52, 0.3], loess: [0.55, 0.55, 0.38], highDry: [0.48, 0.44, 0.4], plateau: [0.42, 0.4, 0.4] },
-    rock: [0.33, 0.31, 0.3],
-    rockSlope: [0.4, 0.75],
-    lake: [0.1, 0.32, 0.55],
+    stops: { plain: [0.27, 0.38, 0.22], farmland: [0.33, 0.42, 0.25], loess: [0.43, 0.47, 0.31], highDry: [0.49, 0.5, 0.4], plateau: [0.64, 0.64, 0.62] },
+    rock: [0.56, 0.56, 0.55],
+    rockSlope: [0.5, 0.85],
+    lake: [0.14, 0.46, 0.58],
   },
   "delta-grey-green": {
     stops: { plain: [0.36, 0.46, 0.3], farmland: [0.45, 0.52, 0.3] },
