@@ -13,14 +13,20 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import {
+  HERO_DIRS,
   HeroCover,
   type HeroAreaData,
   type HeroIndex,
   type HeroManifest,
 } from "../engine/src/terrain/heroSource.js";
 
-export function loadHeroCoverFrom(corridorDir: string): HeroCover | null {
-  const dir = join(corridorDir, "hero");
+/** Every cover the world publishes, one per lattice directory (design v2, stage 0). */
+export function loadHeroCoversFrom(corridorDir: string): HeroCover[] {
+  return HERO_DIRS.map((sub) => loadHeroCoverFrom(corridorDir, sub)).filter((c): c is HeroCover => c !== null);
+}
+
+export function loadHeroCoverFrom(corridorDir: string, sub: string = "hero"): HeroCover | null {
+  const dir = join(corridorDir, sub);
   const indexPath = join(dir, "index.json");
   if (!existsSync(indexPath)) return null;
   const index = JSON.parse(readFileSync(indexPath, "utf8")) as HeroIndex;

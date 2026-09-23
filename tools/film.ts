@@ -5,10 +5,11 @@
  * Node only; the Vite plugin and the validator share it, so the film the
  * shell fetches is the film the gate checked.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
 import { FILM_VERSION, type Film, type Scene } from "../engine/src/film/scene.js";
+import { HERO_DIRS } from "../engine/src/terrain/heroSource.js";
 import { sceneFromRaw, validateFilm, type FilmOptions, type Problem } from "../content/scenes.ts";
 
 export const SCENES_DIR = "content/scenes";
@@ -47,13 +48,61 @@ export function loadFilm(dir = SCENES_DIR, options: FilmOptions = {}): LoadedFil
 
 /** Whether a world has built a hero grid of this id, from its published index. */
 export function heroBuiltIn(worldDir: string): ((id: string) => boolean) | undefined {
-  const index = join(worldDir, "hero", "index.json");
-  if (!existsSync(index)) return undefined;
-  const parsed = JSON.parse(readFileSync(index, "utf8")) as { areas?: { id: string }[] };
-  const ids = new Set((parsed.areas ?? []).map((a) => a.id));
-  return (id) => ids.has(id);
+  // One lattice per directory: the 90 m areas in `hero/`, the 30 m in `hero-30m/`.
+  const ids = new Set<string>();
+  let any = false;
+  for (const dir of HERO_DIRS) {
+    const index = join(worldDir, dir, "index.json");
+    if (!existsSync(index)) continue;
+    any = true;
+    const parsed = JSON.parse(readFileSync(index, "utf8")) as { areas?: { id: string }[] };
+    for (const a of parsed.areas ?? []) ids.add(a.id);
+  }
+  return any ? (id) => ids.has(id) : undefined;
 }
+
 
 export function formatProblems(problems: readonly Problem[]): string {
   return problems.map((p) => `  ${p.scene || "film"}${p.field ? `.${p.field}` : ""}: ${p.message}`).join("\n");
+}
+
+export interface RecordedKey {
+  readonly lat: number;
+  readonly lon: number;
+  readonly above_ground_m: number;
+  readonly speed: number;
+}
+
+/**
+ * Write a recorded rail into its scene (D83). The scene's file keeps its
+ * title, hour, band and captions; only the `rail:` block is replaced. A
+ * scene with no file yet gets a skeleton at the end of the order, to be
+ * renamed into its slot and filled in by hand.
+ */
+export function writeRail(id: string, keys: readonly RecordedKey[], dir = SCENES_DIR): string {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`not a scene id: ${id}`);
+  if (keys.length < 2) throw new Error("a rail is at least two keys");
+  const block =
+    "rail:\n" +
+    keys
+      .map((k) => `  - { lat: ${k.lat.toFixed(4)}, lon: ${k.lon.toFixed(4)}, above_ground_m: ${Math.round(k.above_ground_m)}, speed: ${+k.speed.toFixed(1)} }`)
+      .join("\n") +
+    "\n";
+  const existing = existsSync(dir) ? readdirSync(dir).find((f) => FILE.exec(f)?.[2] === id) : undefined;
+  if (existing) {
+    const path = join(dir, existing);
+    const text = readFileSync(path, "utf8");
+    const m = /^rail:\n(?:  - .*\n)*/m.exec(text);
+    if (!m) throw new Error(`${existing} has no rail block to replace`);
+    writeFileSync(path, text.slice(0, m.index) + block + text.slice(m.index + m[0].length));
+    return path;
+  }
+  const path = join(dir, `99-${id}.yaml`);
+  writeFileSync(
+    path,
+    `# Recorded in the app; rename into its slot and fill in the rest.\n\nid: ${id}\n` +
+      `title: { zh: 待定, pinyin: dàidìng, en: ${id} }\nline: "To be written."\nmonth: 6\nhour: 12\n\n${block}\n` +
+      `band: { above_ground_m: [100, 2000] }\ncorridor_deg: 60\n\ncaptions: []\n`,
+  );
+  return path;
 }

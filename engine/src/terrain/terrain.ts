@@ -87,6 +87,8 @@ export interface TerrainOptions {
    * it was: one lattice, no cuts, and a shader with no `discard` in it.
    */
   hero?: HeroCover | null;
+  /** Every hero cover, one lattice each; `hero` is kept as a one-cover shorthand. */
+  heroes?: readonly HeroCover[] | undefined;
 }
 
 export interface TerrainStats {
@@ -367,9 +369,16 @@ export class Terrain {
   readonly meshes: Mesh[] = [];
   /** Every material this terrain draws with; the app writes haze into all. */
   readonly materials: ShaderMaterial[] = [];
+  /** The first hero cover, for anything that names one; `heroCovers` is all of them. */
   readonly heroCover: HeroCover | null;
+  /**
+   * One lattice per cover (design v2, stage 0): the 90 m areas and the 30 m
+   * Guilin grid have different tile sizes, so each is its own texture array
+   * and its own instanced meshes, drawn into the same cut in the country.
+   */
+  readonly heroCovers: readonly HeroCover[];
   private readonly country: TileLattice;
-  private readonly hero: TileLattice | null;
+  private readonly heroLattices: { cover: HeroCover; lattice: TileLattice; areas: AreaBounds[] }[] = [];
   /** The country's curtain along each drawn rim, with hero cover (F74). */
   private readonly rim: RimCurtain | null;
   /** Each drawn area's rectangle, world units from the rebase point. */
@@ -403,7 +412,8 @@ export class Terrain {
 
   constructor(private readonly options: TerrainOptions) {
     this.source = options.source ?? new SyntheticTileSource();
-    this.heroCover = options.hero ?? null;
+    this.heroCovers = [...(options.heroes ?? []), ...(options.hero ? [options.hero] : [])];
+    this.heroCover = this.heroCovers[0] ?? null;
     const span = options.viewRadiusTiles * 2 + 1;
 
     this.country = new TileLattice(
@@ -416,55 +426,60 @@ export class Terrain {
       span * span,
       options.scale,
       this.hazeDensityPerM,
-      this.heroCover ? MAX_CUT_RECTS : 0,
+      this.heroCovers.length > 0 ? MAX_CUT_RECTS : 0,
     );
     this.heights = this.country.heights;
     this.material = this.country.material;
 
-    this.publishedAreas = this.heroCover?.bounds() ?? [];
+    this.publishedAreas = this.heroCovers.flatMap((c) => c.bounds());
 
-    if (this.heroCover) {
+    if (this.heroCovers.length > 0) {
       if (this.publishedAreas.length > MAX_CUT_RECTS) {
         throw new Error(
           `${this.publishedAreas.length} hero areas published, the terrain ` +
             `shader can cut ${MAX_CUT_RECTS}`,
         );
       }
-      const t = this.heroCover.tileM;
-      const tiles = this.publishedAreas.reduce(
-        (n, a) => n + ((a.eastM1 - a.eastM0) / t) * ((a.northM1 - a.northM0) / t),
-        0,
-      );
-      // Every published tile is a layer of one array texture, because an area
-      // is drawn whole (below) and there is therefore no eviction. WebGL2
-      // guarantees 256 layers and no more, so this is the ceiling on the whole
-      // cover rather than on any one area -- and with two areas published it
-      // is 60 of them. Checked here rather than left to fail at upload, where
-      // it would read as a driver problem (F52).
-      if (tiles > MAX_LAYERS) {
-        throw new Error(
-          `hero cover is ${tiles} tiles and every one has to be resident at ` +
-            `once; WebGL2 guarantees ${MAX_LAYERS} array layers`,
+      for (const cover of this.heroCovers) {
+        const t = cover.tileM;
+        const areas = cover.bounds();
+        const tiles = areas.reduce(
+          (n, a) => n + ((a.eastM1 - a.eastM0) / t) * ((a.northM1 - a.northM0) / t),
+          0,
         );
+        // Every published tile is a layer of one array texture, because an
+        // area is drawn whole (below) and there is therefore no eviction.
+        // WebGL2 guarantees 256 layers and no more, so this is the ceiling on
+        // one cover. Checked here rather than left to fail at upload, where
+        // it would read as a driver problem (F52).
+        if (tiles > MAX_LAYERS) {
+          throw new Error(
+            `hero cover at ${cover.resolutionM} m is ${tiles} tiles and every one has to be ` +
+              `resident at once; WebGL2 guarantees ${MAX_LAYERS} array layers`,
+          );
+        }
+        this.heroLattices.push({
+          cover,
+          areas,
+          lattice: new TileLattice(
+            `hero-${cover.resolutionM}`,
+            cover.tileM,
+            cover.tileSamples,
+            HERO_LOD_SEGMENTS,
+            cover,
+            // An area is drawn whole or not at all, so every published tile
+            // has to be able to be resident at once.
+            Math.max(1, tiles),
+            tiles,
+            options.scale,
+            this.hazeDensityPerM,
+            0,
+            // A fine grid resolves a river's valley, so its ribbon is only
+            // what is narrower than a sample and the ground draws the rest (F73).
+            RESOLVED_RIBBON_SAMPLES * cover.resolutionM,
+          ),
+        });
       }
-      this.hero = new TileLattice(
-        "hero",
-        this.heroCover.tileM,
-        this.heroCover.tileSamples,
-        HERO_LOD_SEGMENTS,
-        this.heroCover,
-        // An area is drawn whole or not at all, so every published tile has
-        // to be able to be resident at once. There is no eviction story to
-        // get wrong and the whole of this cover is under a megabyte.
-        Math.max(1, tiles),
-        tiles,
-        options.scale,
-        this.hazeDensityPerM,
-        0,
-        // The 90 m grid resolves a river's valley, so its ribbon is only what
-        // is narrower than a sample and the ground draws the rest (F73).
-        RESOLVED_RIBBON_SAMPLES * this.heroCover.resolutionM,
-      );
       for (let i = 0; i < MAX_CUT_RECTS; i++) this.cutRects.push(new Vector4());
       this.rim = new RimCurtain(
         createRimMaterial(this.country.material),
@@ -472,21 +487,20 @@ export class Terrain {
         this.country.tileM,
         this.country.samples,
         LOD_SEGMENTS[0],
-        this.heroCover.lowestM,
+        Math.min(...this.heroCovers.map((c) => c.lowestM)),
       );
     } else {
-      this.hero = null;
       this.rim = null;
     }
 
     for (const lattice of this.lattices) {
       this.materials.push(lattice.material);
+      const hero = this.heroLattices.find((h) => h.lattice === lattice);
+      const prefix = !hero ? "" : hero.cover.resolutionM === 90 ? "hero" : `hero${hero.cover.resolutionM}`;
       for (const [i, mesh] of lattice.meshes.entries()) {
         this.meshes.push(mesh);
         this.stats.perLod.push(0);
-        this.stats.bucketLabels.push(
-          lattice === this.country ? `L${i}` : `hero L${i}`,
-        );
+        this.stats.bucketLabels.push(prefix ? `${prefix} L${i}` : `L${i}`);
       }
     }
     // Its uniforms are the country material's own objects, so it is not in
@@ -499,7 +513,7 @@ export class Terrain {
   }
 
   private get lattices(): TileLattice[] {
-    return this.hero ? [this.country, this.hero] : [this.country];
+    return [this.country, ...this.heroLattices.map((h) => h.lattice)];
   }
 
   get tileWorldSize(): number {
@@ -527,14 +541,16 @@ export class Terrain {
    * inside the area (F51).
    */
   groundElevationM(eastM: number, northM: number): number | null {
-    const fine = this.hero?.sampleGroundM(eastM, northM);
-    if (fine !== null && fine !== undefined) return fine;
+    for (const h of this.heroLattices) {
+      const fine = h.lattice.sampleGroundM(eastM, northM);
+      if (fine !== null) return fine;
+    }
     return this.country.sampleGroundM(eastM, northM);
   }
 
-  /** Is the aeroplane over 90 m ground right now? For the HUD to say so. */
+  /** Is the camera over hero ground right now? */
   overHeroGround(eastM: number, northM: number): boolean {
-    return this.hero?.sampleGroundM(eastM, northM) != null;
+    return this.heroLattices.some((h) => h.lattice.sampleGroundM(eastM, northM) !== null);
   }
 
   /**
@@ -601,8 +617,8 @@ export class Terrain {
     this.stats.drawCalls = drawCalls;
     this.stats.instances = instances;
     this.stats.triangles = triangles;
-    this.stats.resident =
-      this.country.heights.residentCount + (this.hero?.heights.residentCount ?? 0);
+    const heroResident = this.heroLattices.reduce((n, h) => n + h.lattice.heights.residentCount, 0);
+    this.stats.resident = this.country.heights.residentCount + heroResident;
     this.stats.generatedThisFrame = this.country.generated + heroStats.generated;
     this.stats.missing = missing;
     this.stats.pending = this.source.pending;
@@ -610,7 +626,7 @@ export class Terrain {
       areasDrawn: heroStats.areasDrawn,
       instances: heroStats.instances,
       triangles: heroStats.triangles,
-      resident: this.hero?.heights.residentCount ?? 0,
+      resident: heroResident,
       rimPoints: this.rim?.points ?? 0,
     };
 
@@ -641,50 +657,46 @@ export class Terrain {
     reachM: number,
   ): { areasDrawn: number; instances: number; triangles: number; generated: number } {
     this.drawnAreas.length = 0;
-    if (!this.hero) {
-      return { areasDrawn: 0, instances: 0, triangles: 0, generated: 0 };
-    }
     const scale = this.options.scale;
-    const tileM = this.hero.tileM;
-    const size = this.hero.tileWorldSize(scale);
     let instances = 0;
     let triangles = 0;
+    let generated = 0;
 
-    for (const area of this.publishedAreas) {
-      // Distance from the camera to the rectangle, zero when inside it.
-      const dx = Math.max(area.eastM0 - eastM, 0, eastM - area.eastM1);
-      const dy = Math.max(area.northM0 - northM, 0, northM - area.northM1);
-      if (Math.hypot(dx, dy) > reachM) continue;
+    for (const { lattice, areas } of this.heroLattices) {
+      const tileM = lattice.tileM;
+      const size = lattice.tileWorldSize(scale);
+      for (const area of areas) {
+        // Distance from the camera to the rectangle, zero when inside it.
+        const dx = Math.max(area.eastM0 - eastM, 0, eastM - area.eastM1);
+        const dy = Math.max(area.northM0 - northM, 0, northM - area.northM1);
+        if (Math.hypot(dx, dy) > reachM) continue;
 
-      let drawn = 0;
-      for (let hy = area.northM0 / tileM; hy < area.northM1 / tileM; hy++) {
-        for (let hx = area.eastM0 / tileM; hx < area.eastM1 / tileM; hx++) {
-          const centreE = (hx + 0.5) * tileM;
-          const centreN = (hy + 0.5) * tileM;
-          const distTiles = Math.hypot(eastM - centreE, northM - centreN) / tileM;
-          const lod = lodForDistance(distTiles * size, size);
-          if (this.hero.place(hx, hy, lod, this.originEastM, this.originNorthM, scale)) {
-            drawn++;
-            triangles += this.hero.buckets[lod]!.trianglesPerInstance;
+        let drawn = 0;
+        for (let hy = area.northM0 / tileM; hy < area.northM1 / tileM; hy++) {
+          for (let hx = area.eastM0 / tileM; hx < area.eastM1 / tileM; hx++) {
+            const centreE = (hx + 0.5) * tileM;
+            const centreN = (hy + 0.5) * tileM;
+            const distTiles = Math.hypot(eastM - centreE, northM - centreN) / tileM;
+            const lod = lodForDistance(distTiles * size, size);
+            if (lattice.place(hx, hy, lod, this.originEastM, this.originNorthM, scale)) {
+              drawn++;
+              triangles += lattice.buckets[lod]!.trianglesPerInstance;
+            }
           }
         }
+        // A hole is only safe if something fills it. An area that could not be
+        // drawn whole is not cut out of the country grid either.
+        const wanted =
+          ((area.eastM1 - area.eastM0) / tileM) * ((area.northM1 - area.northM0) / tileM);
+        if (drawn === wanted) {
+          this.drawnAreas.push(area);
+          instances += drawn;
+        }
       }
-      // A hole is only safe if something fills it. An area that could not be
-      // drawn whole is not cut out of the country grid either.
-      const wanted =
-        ((area.eastM1 - area.eastM0) / tileM) * ((area.northM1 - area.northM0) / tileM);
-      if (drawn === wanted) {
-        this.drawnAreas.push(area);
-        instances += drawn;
-      }
+      generated += lattice.generated;
     }
 
-    return {
-      areasDrawn: this.drawnAreas.length,
-      instances,
-      triangles,
-      generated: this.hero.generated,
-    };
+    return { areasDrawn: this.drawnAreas.length, instances, triangles, generated };
   }
 
   /** The drawn areas, in world units from the rebase point, into the shader. */

@@ -2,20 +2,27 @@
  * The film's shell (design v2).
  *
  * One canvas, the terrain that version 1 built, and the four things the
- * design puts on top of it: a title card, a caption line, an auto badge and
- * a player bar. The clock is `film/timeline.ts`, the camera is
- * `film/rail.ts` on the scene's rail with `film/altitude.ts` holding its
- * height, and the four inputs come through `input/`. Nothing here is an
- * aircraft.
+ * design puts on top of it: a title card over the lead-in map, a caption
+ * line, an auto badge and a player bar. The clock is `film/timeline.ts`, the
+ * camera is `film/rail.ts` on the scene's rail with `film/altitude.ts`
+ * holding its height, and the four inputs come through `input/`. Nothing
+ * here is an aircraft.
+ *
+ * Two dev-only modes ride along: `?record=<scene-id>` flies free and writes
+ * a rail into the scene file (D83), and `__ns.still(name)` saves the frame
+ * to `docs/stills/` (D77).
  */
 import { Color, PerspectiveCamera, Scene as ThreeScene, Vector3, WebGLRenderer } from "three";
 import { Terrain, VIEW_RADIUS_TILES } from "../../engine/src/terrain/terrain.js";
 import { HorizonField, buildSyntheticHorizonField } from "../../engine/src/terrain/horizonField.js";
 import { DEFAULT_HAZE_DENSITY_PER_M, HAZE_SCALE_HEIGHT_M } from "../../engine/src/terrain/palette.js";
 import { SyntheticTileSource, loadWorld, type LoadedWorld } from "../../engine/src/terrain/tileSource.js";
-import { loadHeroCover, type HeroCover } from "../../engine/src/terrain/heroSource.js";
+import { loadHeroCovers, type HeroCover } from "../../engine/src/terrain/heroSource.js";
+import { WorldCoverage } from "../../engine/src/terrain/coverage.js";
 import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
 import { HorizonRing } from "../../engine/src/terrain/horizonRing.js";
+import { COUNTRY_EAST_KM, COUNTRY_NORTH_KM, projectAlbers, unprojectAlbers } from "../../engine/src/terrain/worldGrid.js";
+import { TILE_KM } from "../../engine/src/terrain/syntheticTiles.js";
 import { Aerial } from "../../engine/src/gfx/aerial.js";
 import { Input } from "../../engine/src/input/input.js";
 import { helpLines } from "../../engine/src/input/bindings.js";
@@ -28,13 +35,14 @@ import {
   hazeFalloffPerWorldUnit,
   toWorldH,
 } from "../../engine/src/sim/scale.js";
-import { Timeline, type TimelinePosition } from "../../engine/src/film/timeline.js";
+import { LEAD_IN_S, Timeline, type TimelinePosition } from "../../engine/src/film/timeline.js";
 import { FILM_VERSION, buildRail, railAtKm, type BuiltRail, type Film, type Scene } from "../../engine/src/film/scene.js";
 import { RailFlight, type RailState } from "../../engine/src/film/rail.js";
 import { AltitudeController } from "../../engine/src/film/altitude.js";
 import { captureFrameCost, frameCostTable, BUDGET_FOV_DEG } from "./frameCost.js";
 import { createProbe } from "./probe.js";
 import { chooseWorld } from "./worldChoice.js";
+import { LeadInMap } from "./leadIn.js";
 
 /** Seconds a caption stays on screen. */
 const CAPTION_SHOW_S = 6;
@@ -43,11 +51,12 @@ const PITCH_DOWN_DEG = 6;
 
 const el = (id: string) => document.getElementById(id)!;
 const canvas = document.getElementById("view") as HTMLCanvasElement;
-const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene = new ThreeScene();
 const camera = new PerspectiveCamera(BUDGET_FOV_DEG, 1, 1, 1);
 const scale = DEFAULT_SCALE;
+const query = new URLSearchParams(location.search);
 
 function notice(html: string | null): void {
   const n = el("notice");
@@ -70,6 +79,8 @@ async function loadFilm(): Promise<Film | null> {
 
 const film = await loadFilm();
 if (!film) notice("No film to play: <code>content/scenes/</code> holds no valid scene.");
+/** Every scene's rail on the grid, built once: the map draws them all. */
+const rails: BuiltRail[] = (film?.scenes ?? []).map((s) => buildRail(s.rail));
 
 // ---- The world ------------------------------------------------------------
 
@@ -80,10 +91,10 @@ try {
 } catch (error) {
   console.error("published world failed to load; flying the stand-in", error);
 }
-let hero: HeroCover | null = null;
+let heroes: HeroCover[] = [];
 if (world) {
   try {
-    hero = await loadHeroCover(`/world/${worldName}`);
+    heroes = await loadHeroCovers(`/world/${worldName}`);
   } catch (error) {
     console.error("hero cover failed to load; flying the country grid alone", error);
   }
@@ -99,7 +110,7 @@ const terrain = new Terrain({
   viewRadiusTiles: VIEW_RADIUS_TILES,
   layers: 256,
   source: world?.source ?? new SyntheticTileSource(),
-  hero,
+  heroes,
 });
 for (const mesh of terrain.meshes) scene.add(mesh);
 
@@ -127,6 +138,25 @@ camera.far = toWorldH(CAMERA_FAR_REAL_M, scale);
 camera.updateProjectionMatrix();
 
 const air = new Aerial();
+
+// The lead-in map: the built window with a tile of margin, or the whole
+// country grid when there is no world.
+const mapBounds = world
+  ? {
+      eastM0: (world.manifest.window.tx0 - 1) * TILE_KM * 1000,
+      northM0: (world.manifest.window.ty0 - 1) * TILE_KM * 1000,
+      eastM1: (world.manifest.window.tx1 + 2) * TILE_KM * 1000,
+      northM1: (world.manifest.window.ty1 + 2) * TILE_KM * 1000,
+    }
+  : { eastM0: 0, northM0: 0, eastM1: COUNTRY_EAST_KM * 1000, northM1: COUNTRY_NORTH_KM * 1000 };
+const leadIn = new LeadInMap(horizonField, mapBounds, world ? WorldCoverage.from(world.manifest) : null);
+const leadCanvas = document.getElementById("leadMap") as HTMLCanvasElement;
+const endCanvas = document.getElementById("endMap") as HTMLCanvasElement;
+for (const c of [leadCanvas, endCanvas]) {
+  const aspect = (mapBounds.eastM1 - mapBounds.eastM0) / (mapBounds.northM1 - mapBounds.northM0);
+  c.width = 900;
+  c.height = Math.round(900 / aspect);
+}
 
 // ---- Input ----------------------------------------------------------------
 
@@ -177,11 +207,13 @@ el("hint").textContent = helpLines()
   .map((l) => `${l.keys} ${l.label}`)
   .join("   ·   ");
 
+/** Phones play in landscape; in portrait the clock waits with the viewer. */
+const portrait = matchMedia("(pointer: coarse) and (orientation: portrait)");
+
 // ---- The clock and the scene on screen ------------------------------------
 
 const timeline = new Timeline(film?.scenes.length ?? 0);
 let current = -1;
-let rail: BuiltRail | null = null;
 let flight: RailFlight | null = null;
 const altitude = new AltitudeController();
 let lastState: RailState | null = null;
@@ -196,12 +228,14 @@ for (const [i, s] of (film?.scenes ?? []).entries()) {
   b.addEventListener("click", () => {
     timeline.jumpTo(i);
     timeline.paused = false;
+    pinned = null;
     el("end").hidden = true;
   });
   chapters.appendChild(b);
 }
 el("play").addEventListener("click", () => {
   timeline.paused = !timeline.paused;
+  pinned = null;
 });
 el("again").addEventListener("click", () => {
   timeline.restart();
@@ -214,8 +248,7 @@ const groundAt = (eastM: number, northM: number): number | null => terrain.groun
 function startScene(i: number): void {
   const s = film!.scenes[i]!;
   current = i;
-  rail = buildRail(s.rail);
-  flight = new RailFlight(rail, { corridorRad: (s.corridorDeg * Math.PI) / 180 });
+  flight = new RailFlight(rails[i]!, { corridorRad: (s.corridorDeg * Math.PI) / 180 });
   altitude.reset();
   lastState = null;
   el("titleZh").textContent = s.title.zh;
@@ -284,6 +317,8 @@ function placeAt(eastM: number, northM: number, altitudeM: number, headingRad: n
 
 /** Set while a measurement owns the frame; see `frameCost.ts`. */
 let suspended = false;
+/** A hand-placed camera for a still (`__ns.look`), held until the clock moves again. */
+let pinned: { eastM: number; northM: number; altitudeM: number; headingRad: number } | null = null;
 
 function resize(): void {
   if (suspended) return;
@@ -293,6 +328,88 @@ function resize(): void {
 }
 addEventListener("resize", resize);
 resize();
+
+// ---- The recorder, dev only (D83) -----------------------------------------
+
+interface Recorder {
+  readonly id: string;
+  eastM: number;
+  northM: number;
+  headingRad: number;
+  kmPerMin: number;
+  aboveGroundM: number;
+  keys: { lat: number; lon: number; above_ground_m: number; speed: number }[];
+  status: string;
+}
+
+const recorder: Recorder | null = (() => {
+  const id = query.get("record");
+  if (!id || !import.meta.env.DEV) return null;
+  const known = film?.scenes.findIndex((s) => s.id === id) ?? -1;
+  const start = known >= 0 ? railAtKm(rails[known]!, 0) : null;
+  const scene = known >= 0 ? film!.scenes[known]! : null;
+  return {
+    id,
+    eastM: start?.eastM ?? world?.manifest.start.eastM ?? 120_000,
+    northM: start?.northM ?? world?.manifest.start.northM ?? 1_500_000,
+    headingRad: start?.headingRad ?? -Math.PI / 2,
+    kmPerMin: scene?.rail[0]?.kmPerMin ?? 90,
+    aboveGroundM: scene?.rail[0]?.aboveGroundM ?? 300,
+    keys: [],
+    status: known >= 0 ? `over ${id}'s rail start` : `new scene ${id}, from the world start`,
+  };
+})();
+
+if (recorder) {
+  el("recorder").hidden = false;
+  el("bar").hidden = true;
+  addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "k") {
+      const { latDeg, lonDeg } = unprojectAlbers(recorder.eastM, recorder.northM);
+      recorder.keys.push({ lat: latDeg, lon: lonDeg, above_ground_m: recorder.aboveGroundM, speed: recorder.kmPerMin });
+      recorder.status = `key ${recorder.keys.length} dropped`;
+    } else if (k === "j") {
+      recorder.keys.pop();
+      recorder.status = `${recorder.keys.length} key(s)`;
+    } else if (k === "enter") {
+      void fetch(`/record`, { method: "POST", body: JSON.stringify({ id: recorder.id, keys: recorder.keys }) })
+        .then((r) => r.text())
+        .then((t) => (recorder.status = `wrote ${t}`))
+        .catch((err: Error) => (recorder.status = `refused: ${err.message}`));
+    }
+  });
+}
+
+/** One frame of free flight: the four inputs plus Q and E for height. */
+function recordFrame(dt: number): void {
+  const r = recorder!;
+  const intent = input.poll(connectedPad());
+  const held = (key: string) => keysDown.has(key);
+  r.headingRad += intent.heading * 0.5 * dt;
+  if (intent.speed !== 0) r.kmPerMin *= Math.exp((intent.speed * Math.LN2 * dt) / 1.5);
+  if (held("q")) r.aboveGroundM = Math.max(50, r.aboveGroundM - 300 * dt);
+  if (held("e")) r.aboveGroundM = Math.min(5000, r.aboveGroundM + 300 * dt);
+  const ms = (r.kmPerMin * 1000) / 60;
+  r.eastM += Math.sin(r.headingRad) * ms * dt;
+  r.northM += Math.cos(r.headingRad) * ms * dt;
+  const s = film?.scenes[current] ?? null;
+  const band = s?.band ?? { minM: 50, maxM: 6000 };
+  const alt = altitude.update(dt, r.eastM, r.northM, r.headingRad, r.aboveGroundM, band, groundAt);
+  placeAt(r.eastM, r.northM, alt, r.headingRad, 0);
+  const { latDeg, lonDeg } = unprojectAlbers(r.eastM, r.northM);
+  el("recorder").textContent =
+    `RECORDING ${r.id}\n` +
+    `lat ${latDeg.toFixed(4)}  lon ${lonDeg.toFixed(4)}  heading ${(((r.headingRad * 180) / Math.PI + 360) % 360).toFixed(0)}°\n` +
+    `speed ${r.kmPerMin.toFixed(0)} km/min  above ${r.aboveGroundM.toFixed(0)} m  ground ${(groundAt(r.eastM, r.northM) ?? 0).toFixed(0)} m\n` +
+    `${r.keys.length} key(s) · A/D turn · W/S speed · Q/E height · K drop · J undo · Enter write\n` +
+    r.status;
+}
+/** Keys held right now, for the two the recorder adds outside the binding table. */
+const keysDown = new Set<string>();
+addEventListener("keydown", (e) => keysDown.add(e.key.toLowerCase()));
+addEventListener("keyup", (e) => keysDown.delete(e.key.toLowerCase()));
+addEventListener("blur", () => keysDown.clear());
 
 // ---- The frame ------------------------------------------------------------
 
@@ -307,6 +424,21 @@ function frame(now: number): void {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
 
+  if (recorder) {
+    recordFrame(dt);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+    return;
+  }
+  if (pinned) {
+    el("title").hidden = true;
+    el("caption").textContent = "";
+    placeAt(pinned.eastM, pinned.northM, pinned.altitudeM, pinned.headingRad, 0);
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+    return;
+  }
+
   if (!film) {
     // Nothing to fly: hold a view of whatever world there is.
     placeAt(world?.manifest.start.eastM ?? 120_000, world?.manifest.start.northM ?? 1_500_000, 3000, -Math.PI / 2, 0);
@@ -315,40 +447,41 @@ function frame(now: number): void {
     return;
   }
 
-  const pos = timeline.advance(dt);
+  const held = timeline.paused || portrait.matches;
+  const pos = timeline.advance(held ? 0 : dt);
   if (pos.scene !== current) startScene(pos.scene);
   const s = film.scenes[current]!;
   const intent = input.poll(connectedPad());
 
   if (pos.phase === "lead-in") {
-    // The title over the first frame of the rail, which also streams the
-    // ground the flight is about to need.
-    const start = railAtKm(rail!, 0);
+    // The map and the title over the first frame of the rail, which also
+    // streams the ground the flight is about to need.
+    const start = railAtKm(rails[current]!, 0);
     const alt = altitude.update(0, start.eastM, start.northM, start.headingRad, start.aboveGroundM, s.band, groundAt);
     placeAt(start.eastM, start.northM, alt, start.headingRad, 0);
     el("title").hidden = false;
     el("caption").textContent = "";
+    leadIn.draw(leadCanvas.getContext("2d")!, { rails, next: current, progress: pos.t / (LEAD_IN_S * 0.7) });
   } else if (pos.phase === "flight") {
     el("title").hidden = true;
-    const active = !timeline.paused;
     const state = flight!.update(
-      active
-        ? { speed: intent.speed, heading: intent.heading, auto: intent.actions.includes("auto") }
-        : { speed: 0, heading: 0, auto: false },
-      active ? dt : 0,
+      held
+        ? { speed: 0, heading: 0, auto: false }
+        : { speed: intent.speed, heading: intent.heading, auto: intent.actions.includes("auto") },
+      held ? 0 : dt,
     );
     lastState = state;
-    const alt = altitude.update(active ? dt : 0, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt);
+    const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt);
     placeAt(state.eastM, state.northM, alt, state.headingRad, state.bankRad);
     el("caption").textContent = captionAt(s, pos.flightS);
     el("auto").classList.toggle("on", state.auto);
   } else {
     el("title").hidden = true;
-    el("end").hidden = false;
-    if (lastState) {
-      const alt = altitude.current ?? 0;
-      placeAt(lastState.eastM, lastState.northM, alt, lastState.headingRad, 0);
+    if (el("end").hidden) {
+      el("end").hidden = false;
+      leadIn.draw(endCanvas.getContext("2d")!, { rails, next: rails.length, progress: 1 });
     }
+    if (lastState) placeAt(lastState.eastM, lastState.northM, altitude.current ?? 0, lastState.headingRad, 0);
   }
   drawBar(pos);
   renderer.render(scene, camera);
@@ -368,10 +501,36 @@ if (import.meta.env.DEV) {
     horizon,
     world,
     film,
+    rails,
     timeline,
+    recorder,
     flight: () => flight,
     state: () => lastState,
-    jumpTo: (i: number) => timeline.jumpTo(i),
+    jumpTo: (i: number) => {
+      pinned = null;
+      return timeline.jumpTo(i);
+    },
+    /**
+     * Place the camera by hand for a still: latitude, longitude, metres
+     * above the ground, heading in degrees. Pauses the clock.
+     */
+    look(lat: number, lon: number, aboveGroundM: number, headingDeg: number): void {
+      timeline.paused = true;
+      const p = projectAlbers(lat, lon);
+      const h = (headingDeg * Math.PI) / 180;
+      // Placed twice: once to stream the ground, then at the ground's own height.
+      placeAt(p.eastM, p.northM, aboveGroundM + (groundAt(p.eastM, p.northM) ?? 0), h, 0);
+      const ground = groundAt(p.eastM, p.northM) ?? 0;
+      pinned = { eastM: p.eastM, northM: p.northM, altitudeM: ground + aboveGroundM, headingRad: h };
+    },
+    /** Save the frame as drawn to docs/stills/<name>.png, at the canvas's own size. */
+    async still(name: string): Promise<string> {
+      renderer.render(scene, camera);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) throw new Error("no frame to save");
+      const r = await fetch(`/still?name=${encodeURIComponent(name)}`, { method: "POST", body: blob });
+      return r.text();
+    },
     probe: createProbe(renderer, scene, camera, ring),
     suspend: () => {
       suspended = true;

@@ -17,7 +17,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { HeroCover } from "../engine/src/terrain/heroSource.ts";
 import { WorldCoverage, type CoverageRecord } from "../engine/src/terrain/coverage.ts";
-import { loadHeroCoverFrom } from "./heroCover.ts";
+import { loadHeroCoversFrom } from "./heroCover.ts";
 
 const TILE_SAMPLES = 65;
 const TILE_CELLS = TILE_SAMPLES - 1;
@@ -96,7 +96,11 @@ export interface Corridor extends GroundField {
    * `heights.bin` and never looks in `hero/` is reading a surface the game
    * stopped drawing the day an area was cut over it (F53).
    */
+  /** The first hero cover, for anything that names one; `heroes` is all of them. */
   readonly hero: HeroCover | null;
+  readonly heroes: readonly HeroCover[];
+  /** The hero ground here, from whichever cover holds it, or null off every cover. */
+  heroGroundAt(eastM: number, northM: number): number | null;
   /**
    * The ground the *game* draws at a point -- the hero grid where there is
    * one, the country grid everywhere else.
@@ -152,15 +156,24 @@ export function loadCorridor(dir: string): Corridor | null {
     return heights[tile * TILE_SAMPLES * TILE_SAMPLES + j * TILE_SAMPLES + i] ?? 0;
   };
 
-  const hero = loadHeroCoverFrom(dir);
+  const heroes = loadHeroCoversFrom(dir);
+  const heroGroundAt = (eastM: number, northM: number): number | null => {
+    for (const h of heroes) {
+      const g = h.groundAt(eastM, northM);
+      if (g !== null) return g;
+    }
+    return null;
+  };
 
   const corridor: Corridor = {
     manifest,
-    hero,
+    hero: heroes[0] ?? null,
+    heroes,
+    heroGroundAt,
     coverage: WorldCoverage.from(manifest),
     heightsSha256: createHash("sha256").update(bytes).digest("hex"),
     sampleAtKm: (i, j) => (inWindow(i, j) ? sampleAt(i, j) : null),
-    drawnAt: (eastM, northM) => hero?.groundAt(eastM, northM) ?? corridor.groundAt(eastM, northM),
+    drawnAt: (eastM, northM) => heroGroundAt(eastM, northM) ?? corridor.groundAt(eastM, northM),
     // The window is a rectangle in tile space and the tile index rises with
     // the cell index, so the two opposite corners of the bilinear stencil
     // decide all four.

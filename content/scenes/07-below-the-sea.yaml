@@ -1,0 +1,43 @@
+# Scene 7 — Below the Sea.
+#
+# Off the Tian Shan at Bogda, down into the Turpan depression to Ayding Lake,
+# then south-west across the Tarim basin over the Taklamakan's central dunes
+# on their 90 m hero grid (F76), to Hotan.
+
+id: below-the-sea
+title: { zh: 吐鲁番, pinyin: Tǔlǔfān, en: Below the Sea }
+line: "Snow, then a bowl below sea level, then dunes."
+hero: taklamakan
+month: 7
+hour: 19
+
+rail:
+  - { lat: 43.8000, lon: 88.3500, above_ground_m: 1500, speed: 300 }   # Bogda Peak, 5,445 m
+  - { lat: 43.4000, lon: 88.8000, above_ground_m: 1200, speed: 300 }
+  - { lat: 43.0000, lon: 89.1900, above_ground_m: 800, speed: 300 }   # Turpan
+  - { lat: 42.6800, lon: 89.2600, above_ground_m: 500, speed: 300 }   # Ayding Lake, -154 m
+  - { lat: 42.3000, lon: 88.8000, above_ground_m: 600, speed: 300 }
+  - { lat: 41.7000, lon: 87.5000, above_ground_m: 700, speed: 300 }
+  - { lat: 41.2000, lon: 86.2000, above_ground_m: 700, speed: 300 }   # Korla
+  - { lat: 40.3000, lon: 85.0000, above_ground_m: 700, speed: 300 }
+  - { lat: 39.5000, lon: 84.0000, above_ground_m: 700, speed: 300 }
+  - { lat: 38.8000, lon: 83.3000, above_ground_m: 500, speed: 300 }   # the central dunes
+  - { lat: 38.2000, lon: 82.2000, above_ground_m: 500, speed: 300 }
+  - { lat: 37.6000, lon: 80.9000, above_ground_m: 600, speed: 300 }
+  - { lat: 37.1000, lon: 79.9000, above_ground_m: 700, speed: 300 }   # Hotan
+
+band: { above_ground_m: [300, 2500] }
+corridor_deg: 60
+
+look:
+  sky: desert-evening
+  palette: dune-orange
+  cloud: none
+  grade: warm
+
+captions:
+  - { at: 12, text: "Bogda: 5,445 metres of snow over a desert." }
+  - { at: 40, text: "Ayding Lake, 154 metres below the sea. 47 °C in July." }
+  - { at: 90, text: "The Taklamakan: go in, and you will not come out." }
+
+music: cue-07

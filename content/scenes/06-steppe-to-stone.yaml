@@ -1,0 +1,44 @@
+# Scene 6 — Steppe to Stone.
+#
+# Hohhot west along the Yin Shan front, across the Alxa into the Badain Jaran
+# and out along the Hexi corridor: 1,900 km at 450 km/min, the fastest scene.
+# Provisional (design v2): if it is flat on screen, Changbai's crater lake
+# takes the slot.
+
+id: steppe-to-stone
+title: { zh: 内蒙古, pinyin: Nèi Měnggǔ, en: Steppe to Stone }
+line: "Grass fades to stone under the biggest sky in the film."
+# hero: none; the country grid alone
+month: 8
+hour: 17
+
+rail:
+  - { lat: 40.8400, lon: 111.7500, above_ground_m: 800, speed: 450 }   # Hohhot
+  - { lat: 40.7000, lon: 110.8000, above_ground_m: 800, speed: 450 }
+  - { lat: 40.6500, lon: 109.8500, above_ground_m: 800, speed: 450 }   # Baotou
+  - { lat: 40.3000, lon: 108.5000, above_ground_m: 800, speed: 450 }
+  - { lat: 39.6500, lon: 106.8000, above_ground_m: 900, speed: 450 }   # Wuhai
+  - { lat: 38.8500, lon: 105.7000, above_ground_m: 1000, speed: 450 }   # Alxa
+  - { lat: 39.4000, lon: 103.8000, above_ground_m: 1000, speed: 450 }
+  - { lat: 39.8000, lon: 102.5000, above_ground_m: 1000, speed: 450 }   # the Badain Jaran
+  - { lat: 40.2000, lon: 100.6000, above_ground_m: 1000, speed: 450 }
+  - { lat: 39.7700, lon: 98.2900, above_ground_m: 1000, speed: 450 }   # Jiayuguan, the wall's end
+  - { lat: 40.1400, lon: 94.6600, above_ground_m: 1000, speed: 450 }   # Dunhuang
+  - { lat: 41.5000, lon: 94.0000, above_ground_m: 1000, speed: 450 }
+  - { lat: 42.8000, lon: 93.5000, above_ground_m: 1000, speed: 450 }   # Hami
+
+band: { above_ground_m: [400, 2500] }
+corridor_deg: 60
+
+look:
+  sky: steppe-evening
+  palette: sage-to-tan
+  cloud: high-cirrus
+  grade: warm
+
+captions:
+  - { at: 12, text: "Hohhot. Grassland, for now." }
+  - { at: 50, text: "Every hundred kilometres west, less rain. The grass goes first." }
+  - { at: 95, text: "The Great Wall ends here, in sand." }
+
+music: cue-06

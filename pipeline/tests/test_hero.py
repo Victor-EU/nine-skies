@@ -113,7 +113,9 @@ class TestTheAreas(unittest.TestCase):
         that remain are not waiting on a coordinate at all -- Guilin wants a
         fetch, Zhangjiajie a source that resolves what it is named for."""
         unsited = {a for a, _, _ in hero.UNSITED}
-        self.assertEqual(unsited, {"guilin", "zhangjiajie"})
+        # Guilin left this list with design v2: sited on two places and cut
+        # at the source's own 30 m, which is stage 0's question to answer.
+        self.assertEqual(unsited, {"zhangjiajie"})
         for area_id in unsited:
             self.assertNotIn(area_id, hero.BY_ID)
         for _, name, why in hero.UNSITED:
@@ -124,7 +126,7 @@ class TestTheAreas(unittest.TestCase):
         self.assertEqual(
             named,
             {"guilin", "zhangjiajie", "three-gorges", "everest",
-             "tiger-leaping-gorge"},
+             "tiger-leaping-gorge", "taklamakan"},
         )
 
     def test_an_area_is_a_whole_number_of_tiles(self):
@@ -236,16 +238,18 @@ class TestCuttingTiles(unittest.TestCase):
 
 class TestWhatMakeHeroCuts(unittest.TestCase):
     def test_an_area_whose_publishing_is_undecided_is_cut_only_when_named(self):
-        # Everest's cells came with the country (F64); publishing it is the
-        # user's, so cells on disk must not be enough (F73).
-        self.assertFalse(hero.BY_ID["everest"].published)
+        # Guilin is cut at 30 m into a lattice the engine's index cannot
+        # carry (design v2, stage 0), so cells on disk must not be enough to
+        # publish it (F73). Everest is published since the film wants it.
+        self.assertFalse(hero.BY_ID["guilin"].published)
+        self.assertTrue(hero.BY_ID["everest"].published)
         with tempfile.TemporaryDirectory() as raw:
             source = Path(raw)
             for area in hero.AREAS:
                 for name in hero.missing_cells(area, source):
                     (source / f"{name}.tif").write_bytes(b"")
             ready = [a.id for a in hero.ready(source)]
-        self.assertEqual(ready, ["tiger-leaping-gorge", "three-gorges"])
+        self.assertEqual(ready, ["tiger-leaping-gorge", "three-gorges", "everest", "taklamakan"])
 
 
 class TestTheBias(unittest.TestCase):

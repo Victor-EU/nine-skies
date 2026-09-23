@@ -14,7 +14,8 @@
 #   make vectors                    # stage 3's river network, priced; nothing fetched
 #   make rivers                     # what the fetched rivers decide of the grid's closed basins
 #   make reference                  # re-cut the projection reference table
-#   make film                       # every scene checked: rails, captions, text budget
+#   make film                       # every scene checked: captions, text budget, hero grids
+#   make rails                      # every rail flown over the built world, and what the camera does
 #   make test                       # every suite, TypeScript and Python
 #
 # Source rasters land in data/source/ and intermediates in data/work/, both
@@ -42,7 +43,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film rails test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -211,6 +212,12 @@ world: acquire sources grid carve tiles water package hero siting probes hydro
 ## budget counted. Needs no world.
 film:
 	npm run content:validate
+
+## Every rail flown over the built world (D83): the camera's height over the
+## ground, the ground ahead that stands above it, and how much of each rail is
+## over a hero grid. Needs a world; its report is committed beside the scenes.
+rails:
+	npm run content:rails
 
 typecheck:
 	npm run typecheck

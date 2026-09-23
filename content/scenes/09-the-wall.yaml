@@ -1,0 +1,43 @@
+# Scene 9 — The Wall.
+#
+# From Lhatse south over Tingri to the Rongbuk glacier and over Everest's
+# summit on its 90 m hero grid (F76), then down the Nepal side for slack. The
+# film ends here; the credits run over the map.
+
+id: the-wall
+title: { zh: 珠穆朗玛, pinyin: Zhūmùlǎngmǎ, en: The Wall }
+line: "The plateau ends in a wall, and the wall is 8,000 metres."
+hero: everest
+month: 10
+hour: 19.5
+
+rail:
+  - { lat: 29.0800, lon: 87.6300, above_ground_m: 1500, speed: 60 }   # Lhatse
+  - { lat: 28.9000, lon: 87.4000, above_ground_m: 1500, speed: 60 }
+  - { lat: 28.6500, lon: 87.1200, above_ground_m: 1500, speed: 60 }   # Tingri
+  - { lat: 28.4500, lon: 87.0000, above_ground_m: 1200, speed: 60 }
+  - { lat: 28.3000, lon: 86.9000, above_ground_m: 1000, speed: 60 }
+  - { lat: 28.1500, lon: 86.8500, above_ground_m: 1000, speed: 60 }   # Rongbuk
+  - { lat: 28.0500, lon: 86.9000, above_ground_m: 1000, speed: 60 }   # the glacier
+  - { lat: 27.9881, lon: 86.9250, above_ground_m: 1500, speed: 60 }   # Everest
+  - { lat: 27.9000, lon: 86.8500, above_ground_m: 1500, speed: 60 }
+  - { lat: 27.8000, lon: 86.7200, above_ground_m: 1200, speed: 60 }   # Namche, the other side
+  - { lat: 27.6000, lon: 86.7000, above_ground_m: 1000, speed: 60 }
+  - { lat: 27.3000, lon: 86.6000, above_ground_m: 1000, speed: 60 }
+  - { lat: 27.0000, lon: 86.5000, above_ground_m: 800, speed: 60 }
+
+band: { above_ground_m: [300, 3000] }
+corridor_deg: 60
+
+look:
+  sky: last-light
+  palette: snow-rock
+  cloud: summit-plume
+  grade: cold
+
+captions:
+  - { at: 15, text: "Tingri, 4,300 metres. The wall ahead is the Himalaya." }
+  - { at: 60, text: "Rongbuk glacier. The summit is 3,500 metres above it." }
+  - { at: 95, text: "Everest. 8,849 metres, and rising four millimetres a year." }
+
+music: cue-09

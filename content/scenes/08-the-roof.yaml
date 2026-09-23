@@ -1,0 +1,44 @@
+# Scene 8 — The Roof.
+#
+# Qinghai Lake south-west across the plateau by Madoi and the Hoh Xil to Nagqu
+# and Namtso, ending over Lhasa: 1,500 km at 360 km/min, high and fast. The
+# third step.
+
+id: the-roof
+title: { zh: 青藏高原, pinyin: Qīng-Zàng gāoyuán, en: The Roof }
+line: "Flat ground at 4,500 metres for the whole scene."
+# hero: none; the country grid alone
+month: 9
+hour: 19.5
+
+rail:
+  - { lat: 36.9000, lon: 100.2000, above_ground_m: 1200, speed: 360 }   # Qinghai Lake, 3,196 m
+  - { lat: 36.3000, lon: 99.3000, above_ground_m: 1200, speed: 360 }
+  - { lat: 35.5000, lon: 98.6000, above_ground_m: 1200, speed: 360 }
+  - { lat: 34.9000, lon: 98.2000, above_ground_m: 1200, speed: 360 }   # Madoi, near the Yellow River's source
+  - { lat: 34.6000, lon: 96.5000, above_ground_m: 1200, speed: 360 }
+  - { lat: 34.4000, lon: 94.5000, above_ground_m: 1200, speed: 360 }   # Hoh Xil
+  - { lat: 34.2000, lon: 92.4000, above_ground_m: 1200, speed: 360 }   # Tuotuohe
+  - { lat: 33.2000, lon: 92.1000, above_ground_m: 1200, speed: 360 }
+  - { lat: 32.2000, lon: 92.0000, above_ground_m: 1200, speed: 360 }
+  - { lat: 31.5000, lon: 92.0000, above_ground_m: 1200, speed: 360 }   # Nagqu
+  - { lat: 30.9000, lon: 91.2000, above_ground_m: 1000, speed: 360 }
+  - { lat: 30.7000, lon: 90.6000, above_ground_m: 800, speed: 360 }   # Namtso, 4,718 m
+  - { lat: 30.2000, lon: 90.8000, above_ground_m: 1000, speed: 360 }
+  - { lat: 29.6500, lon: 91.1000, above_ground_m: 1000, speed: 360 }   # Lhasa
+
+band: { above_ground_m: [500, 2500] }
+corridor_deg: 60
+
+look:
+  sky: plateau-dusk
+  palette: plateau-tan-turquoise
+  cloud: none
+  grade: clear
+
+captions:
+  - { at: 12, text: "Qinghai Lake. From here the ground stays above 4,000 metres." }
+  - { at: 60, text: "Thin air, hard light, no trees. A plateau the size of Europe." }
+  - { at: 100, text: "Namtso, the sky lake, 4,718 metres up." }
+
+music: cue-08

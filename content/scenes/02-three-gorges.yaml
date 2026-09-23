@@ -1,41 +1,97 @@
 # Scene 2 — The Three Gorges.
 #
-# Yichang west up the Yangtze through Xiling, Wu and Qutang, below the rim
-# for most of two minutes, on the 90 m hero grid (`three-gorges`). The rail
-# runs on past Fengjie to Wanzhou so a viewer at double speed never runs out
-# of river. Coordinates are the river's own course; `make rails` checks the
-# ground under them.
-#
-# The camera is at 250 m over the water in the narrows and higher over the
-# reservoir, which is what keeps it under the rim where there is one. Speed
-# is chosen for the picture, not for any aircraft (D74).
+# Yichang west up the Yangtze through Xiling, Wu and Qutang on the 90 m hero
+# grid, then on towards Chongqing so a viewer at double speed never runs out
+# of river. The rail is Natural Earth's own centreline, every 8 km (`python -m
+# nineskies.rails Yangtze`), so it follows the meanders the hand-typed rail
+# cut across (F75).
 
 id: three-gorges
 title: { zh: 三峡, pinyin: Sānxiá, en: The Three Gorges }
-line: One river, three gorges, 190 km of walls.
+line: "One river, three gorges, 190 km of walls."
 hero: three-gorges
 month: 5
 hour: 9.5
 
 rail:
-  - { lat: 30.700, lon: 111.290, above_ground_m: 500, speed: 90 }   # Yichang
-  - { lat: 30.770, lon: 111.190, above_ground_m: 300, speed: 90 }   # Nanjinguan, the mouth of Xiling
-  - { lat: 30.825, lon: 111.010, above_ground_m: 250, speed: 90 }   # Sandouping, the dam
-  - { lat: 30.900, lon: 110.800, above_ground_m: 250, speed: 90 }   # Xiangxi
-  - { lat: 31.000, lon: 110.560, above_ground_m: 250, speed: 90 }
-  - { lat: 31.040, lon: 110.380, above_ground_m: 250, speed: 90 }   # Badong, the mouth of Wu
-  - { lat: 31.070, lon: 110.100, above_ground_m: 250, speed: 90 }
-  - { lat: 31.080, lon: 109.880, above_ground_m: 250, speed: 90 }   # Wushan
-  - { lat: 31.050, lon: 109.700, above_ground_m: 250, speed: 90 }   # Daixi, the east gate of Qutang
-  - { lat: 31.040, lon: 109.570, above_ground_m: 250, speed: 90 }   # Baidicheng
-  - { lat: 31.020, lon: 109.460, above_ground_m: 300, speed: 110 }  # Fengjie
-  - { lat: 30.950, lon: 108.950, above_ground_m: 400, speed: 120 }
-  - { lat: 30.930, lon: 108.700, above_ground_m: 400, speed: 120 }  # Yunyang
-  - { lat: 30.810, lon: 108.400, above_ground_m: 400, speed: 120 }  # Wanzhou
-  - { lat: 30.400, lon: 108.100, above_ground_m: 500, speed: 120 }
-  - { lat: 30.300, lon: 108.040, above_ground_m: 500, speed: 120 }  # Zhongxian
-  - { lat: 29.860, lon: 107.730, above_ground_m: 500, speed: 120 }  # Fengdu
-  - { lat: 29.700, lon: 107.390, above_ground_m: 500, speed: 120 }  # Fuling
+  - { lat: 30.7097, lon: 111.2675, above_ground_m: 250, speed: 90 }
+  - { lat: 30.7631, lon: 111.2421, above_ground_m: 250, speed: 90 }
+  - { lat: 30.7857, lon: 111.1631, above_ground_m: 250, speed: 90 }
+  - { lat: 30.8457, lon: 111.1387, above_ground_m: 250, speed: 90 }
+  - { lat: 30.8339, lon: 111.0603, above_ground_m: 250, speed: 90 }
+  - { lat: 30.8522, lon: 110.9879, above_ground_m: 250, speed: 90 }
+  - { lat: 30.8870, lon: 110.9181, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9040, lon: 110.8397, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9519, lon: 110.7809, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9765, lon: 110.7019, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0007, lon: 110.6236, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0271, lon: 110.5479, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0279, lon: 110.4645, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0416, lon: 110.3828, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0290, lon: 110.3112, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0281, lon: 110.2285, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0381, lon: 110.1445, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0257, lon: 110.0615, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0606, lon: 109.9913, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0632, lon: 109.9142, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0611, lon: 109.8311, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0378, lon: 109.7529, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0013, lon: 109.6810, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0253, lon: 109.6122, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0384, lon: 109.5356, above_ground_m: 250, speed: 90 }
+  - { lat: 31.0105, lon: 109.4607, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9853, lon: 109.3821, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9666, lon: 109.3001, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9722, lon: 109.2167, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9694, lon: 109.1332, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9556, lon: 109.0499, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9495, lon: 108.9658, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9593, lon: 108.8819, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9354, lon: 108.8024, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9273, lon: 108.7204, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9483, lon: 108.6428, above_ground_m: 250, speed: 90 }
+  - { lat: 30.9216, lon: 108.5649, above_ground_m: 250, speed: 90 }
+  - { lat: 30.8806, lon: 108.5091, above_ground_m: 250, speed: 90 }
+  - { lat: 30.8436, lon: 108.4425, above_ground_m: 250, speed: 90 }
+  - { lat: 30.7876, lon: 108.4116, above_ground_m: 250, speed: 90 }
+  - { lat: 30.7194, lon: 108.4144, above_ground_m: 250, speed: 90 }
+  - { lat: 30.6586, lon: 108.3707, above_ground_m: 250, speed: 90 }
+  - { lat: 30.6004, lon: 108.3232, above_ground_m: 250, speed: 90 }
+  - { lat: 30.5377, lon: 108.2835, above_ground_m: 250, speed: 90 }
+  - { lat: 30.4739, lon: 108.2459, above_ground_m: 250, speed: 90 }
+  - { lat: 30.4204, lon: 108.1929, above_ground_m: 250, speed: 90 }
+  - { lat: 30.3852, lon: 108.1217, above_ground_m: 250, speed: 90 }
+  - { lat: 30.3356, lon: 108.1135, above_ground_m: 250, speed: 90 }
+  - { lat: 30.3306, lon: 108.0710, above_ground_m: 250, speed: 90 }
+  - { lat: 30.2835, lon: 108.0138, above_ground_m: 250, speed: 90 }
+  - { lat: 30.2258, lon: 107.9746, above_ground_m: 250, speed: 90 }
+  - { lat: 30.1707, lon: 107.9337, above_ground_m: 250, speed: 90 }
+  - { lat: 30.1234, lon: 107.8765, above_ground_m: 250, speed: 90 }
+  - { lat: 30.0560, lon: 107.8650, above_ground_m: 250, speed: 90 }
+  - { lat: 29.9896, lon: 107.8386, above_ground_m: 250, speed: 90 }
+  - { lat: 29.9373, lon: 107.7816, above_ground_m: 250, speed: 90 }
+  - { lat: 29.8882, lon: 107.7212, above_ground_m: 250, speed: 90 }
+  - { lat: 29.8554, lon: 107.6487, above_ground_m: 250, speed: 90 }
+  - { lat: 29.8640, lon: 107.5671, above_ground_m: 250, speed: 90 }
+  - { lat: 29.9009, lon: 107.4968, above_ground_m: 250, speed: 90 }
+  - { lat: 29.8561, lon: 107.4760, above_ground_m: 250, speed: 90 }
+  - { lat: 29.7953, lon: 107.4444, above_ground_m: 250, speed: 90 }
+  - { lat: 29.7351, lon: 107.4049, above_ground_m: 250, speed: 90 }
+  - { lat: 29.7500, lon: 107.3311, above_ground_m: 250, speed: 90 }
+  - { lat: 29.7162, lon: 107.2587, above_ground_m: 250, speed: 90 }
+  - { lat: 29.6889, lon: 107.1849, above_ground_m: 250, speed: 90 }
+  - { lat: 29.7354, lon: 107.1229, above_ground_m: 250, speed: 90 }
+  - { lat: 29.8022, lon: 107.0966, above_ground_m: 250, speed: 90 }
+  - { lat: 29.8081, lon: 107.0324, above_ground_m: 250, speed: 90 }
+  - { lat: 29.7616, lon: 106.9718, above_ground_m: 250, speed: 90 }
+  - { lat: 29.7023, lon: 106.9273, above_ground_m: 250, speed: 90 }
+  - { lat: 29.6450, lon: 106.8786, above_ground_m: 250, speed: 90 }
+  - { lat: 29.5962, lon: 106.8297, above_ground_m: 250, speed: 90 }
+  - { lat: 29.6117, lon: 106.7529, above_ground_m: 250, speed: 90 }
+  - { lat: 29.5716, lon: 106.6914, above_ground_m: 250, speed: 90 }
+  - { lat: 29.6162, lon: 106.6304, above_ground_m: 250, speed: 90 }
+  - { lat: 29.5918, lon: 106.5857, above_ground_m: 250, speed: 90 }
+  - { lat: 29.5628, lon: 106.5561, above_ground_m: 250, speed: 90 }
 
 band: { above_ground_m: [120, 900] }
 corridor_deg: 60
@@ -47,8 +103,8 @@ look:
   grade: cool
 
 captions:
-  - { at: 18, text: The camera is below the rim. }
-  - { at: 58, text: Three gorges, 190 kilometres of rock, one river through all of it. }
-  - { at: 96, text: The dam's locks lift ships 113 metres. }
+  - { at: 18, text: "The camera is below the rim." }
+  - { at: 58, text: "Three gorges, 190 kilometres of rock, one river through all of it." }
+  - { at: 96, text: "The dam's locks lift ships 113 metres." }
 
 music: cue-02

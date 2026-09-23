@@ -379,10 +379,19 @@ export class HeroCover implements TileSource {
  * corridor built before stage 6 ran and of a checkout with no world at all.
  * The app then flies the country grid alone, exactly as it did.
  */
-export async function loadHeroCover(baseUrl: string): Promise<HeroCover | null> {
+/** The hero lattices a world may carry, as directories under it: one resolution each. */
+export const HERO_DIRS = ["hero", "hero-30m"] as const;
+
+/** Every hero cover a world publishes, one per lattice directory that exists. */
+export async function loadHeroCovers(baseUrl: string): Promise<HeroCover[]> {
+  const covers = await Promise.all(HERO_DIRS.map((dir) => loadHeroCover(baseUrl, dir)));
+  return covers.filter((c): c is HeroCover => c !== null);
+}
+
+export async function loadHeroCover(baseUrl: string, dir: string = "hero"): Promise<HeroCover | null> {
   let index: HeroIndex;
   try {
-    const response = await fetch(`${baseUrl}/hero/index.json`);
+    const response = await fetch(`${baseUrl}/${dir}/index.json`);
     if (!response.ok) return null;
     index = (await response.json()) as HeroIndex;
   } catch {
@@ -392,14 +401,14 @@ export async function loadHeroCover(baseUrl: string): Promise<HeroCover | null> 
 
   const areas = await Promise.all(
     index.areas.map(async (entry): Promise<HeroAreaData> => {
-      const manifestResponse = await fetch(`${baseUrl}/hero/${entry.file}`);
+      const manifestResponse = await fetch(`${baseUrl}/${dir}/${entry.file}`);
       if (!manifestResponse.ok) {
         throw new Error(
           `${entry.file}: ${manifestResponse.status} ${manifestResponse.statusText}`,
         );
       }
       const manifest = (await manifestResponse.json()) as HeroManifest;
-      const heightsResponse = await fetch(`${baseUrl}/hero/${manifest.heights.file}`);
+      const heightsResponse = await fetch(`${baseUrl}/${dir}/${manifest.heights.file}`);
       if (!heightsResponse.ok) {
         throw new Error(
           `${manifest.heights.file}: ${heightsResponse.status} ` +
@@ -414,7 +423,7 @@ export async function loadHeroCover(baseUrl: string): Promise<HeroCover | null> 
         );
       }
       const area: HeroAreaData = { manifest, heights: new Int16Array(bytes) };
-      const water = await loadHeroWater(baseUrl, manifest);
+      const water = await loadHeroWater(baseUrl, dir, manifest);
       if (water) area.water = water;
       return area;
     }),
@@ -428,11 +437,11 @@ export async function loadHeroCover(baseUrl: string): Promise<HeroCover | null> 
  * come is not a reason to lose the ground it lies on, so this warns rather
  * than throws: the heights are what an area cannot be drawn without.
  */
-async function loadHeroWater(baseUrl: string, manifest: HeroManifest): Promise<Uint8Array | null> {
+async function loadHeroWater(baseUrl: string, dir: string, manifest: HeroManifest): Promise<Uint8Array | null> {
   const water = manifest.water;
   if (!water) return null;
   try {
-    const response = await fetch(`${baseUrl}/hero/${water.file}`);
+    const response = await fetch(`${baseUrl}/${dir}/${water.file}`);
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     const bytes = new Uint8Array(await response.arrayBuffer());
     return await decodeWaterArea(bytes, water.tileSamples, water.tiles);

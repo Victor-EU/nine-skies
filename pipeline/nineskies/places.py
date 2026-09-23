@@ -199,6 +199,22 @@ PLACES: tuple[Place, ...] = (
         "floor; its entry in carve.SINKS keeps the end's own floor, and the "
         "hollow this coordinate lies in, instead (D65, F68).",
     ),
+    # The film's scenes (design v2). Sited from the map, to be measured by
+    # `siting.py` like everything above. Anchors, because a scene's place is
+    # somewhere the recorder is sent to by name; the probes do not read them.
+    Place(
+        "guilin", "Guilin, Elephant Trunk Hill", 25.2703, 110.2947, "city",
+        "The bend of the Li at the city; the karst towers begin here",
+    ),
+    Place(
+        "yangshuo", "Yangshuo", 24.7780, 110.4960, "city",
+        "The Li below the towers, 60 km downstream of Guilin",
+    ),
+    Place(
+        "taklamakan-dunes", "The Taklamakan's central dunes", 38.80, 83.30, "valley",
+        "The east-central dune field between the Hotan and Keriya rivers, "
+        "where the dunes stand 100-300 m and run 1-3 km crest to crest",
+    ),
     Place(
         "qinghai-lake", "Qinghai Lake", 36.90, 100.20, "lake",
         "Lake surface at 3,196 m, flattened by the lake table rather than by "

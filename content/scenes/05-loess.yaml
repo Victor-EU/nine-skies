@@ -1,0 +1,97 @@
+# Scene 5 — Loess.
+#
+# The Yellow River's south run along the Shaanxi-Shanxi border, from Hekou to
+# Tongguan: 700 km of loess on both banks. Natural Earth's centreline every 12
+# km.
+
+id: loess
+title: { zh: 黄土高原, pinyin: Huángtǔ gāoyuán, en: Loess }
+line: "Ochre ground gullied everywhere, and a yellow river cut into it."
+# hero: none; the country grid alone
+month: 10
+hour: 15
+
+rail:
+  - { lat: 40.2081, lon: 111.1848, above_ground_m: 600, speed: 180 }
+  - { lat: 40.1567, lon: 111.3003, above_ground_m: 600, speed: 180 }
+  - { lat: 40.0709, lon: 111.3769, above_ground_m: 600, speed: 180 }
+  - { lat: 39.9724, lon: 111.4150, above_ground_m: 600, speed: 180 }
+  - { lat: 39.8727, lon: 111.4141, above_ground_m: 600, speed: 180 }
+  - { lat: 39.7734, lon: 111.3644, above_ground_m: 600, speed: 180 }
+  - { lat: 39.6826, lon: 111.4178, above_ground_m: 600, speed: 180 }
+  - { lat: 39.6219, lon: 111.4247, above_ground_m: 600, speed: 180 }
+  - { lat: 39.5180, lon: 111.4149, above_ground_m: 600, speed: 180 }
+  - { lat: 39.4362, lon: 111.3285, above_ground_m: 600, speed: 180 }
+  - { lat: 39.4261, lon: 111.1905, above_ground_m: 600, speed: 180 }
+  - { lat: 39.3678, lon: 111.1398, above_ground_m: 600, speed: 180 }
+  - { lat: 39.3056, lon: 111.2253, above_ground_m: 600, speed: 180 }
+  - { lat: 39.2068, lon: 111.1777, above_ground_m: 600, speed: 180 }
+  - { lat: 39.1056, lon: 111.1362, above_ground_m: 600, speed: 180 }
+  - { lat: 39.0286, lon: 111.0498, above_ground_m: 600, speed: 180 }
+  - { lat: 38.9525, lon: 110.9852, above_ground_m: 600, speed: 180 }
+  - { lat: 38.8507, lon: 110.9870, above_ground_m: 600, speed: 180 }
+  - { lat: 38.7511, lon: 110.9448, above_ground_m: 600, speed: 180 }
+  - { lat: 38.6549, lon: 110.8905, above_ground_m: 600, speed: 180 }
+  - { lat: 38.5582, lon: 110.9000, above_ground_m: 600, speed: 180 }
+  - { lat: 38.4599, lon: 110.8543, above_ground_m: 600, speed: 180 }
+  - { lat: 38.3949, lon: 110.7579, above_ground_m: 600, speed: 180 }
+  - { lat: 38.3157, lon: 110.6690, above_ground_m: 600, speed: 180 }
+  - { lat: 38.2582, lon: 110.5737, above_ground_m: 600, speed: 180 }
+  - { lat: 38.1815, lon: 110.5045, above_ground_m: 600, speed: 180 }
+  - { lat: 38.0778, lon: 110.5008, above_ground_m: 600, speed: 180 }
+  - { lat: 37.9731, lon: 110.5139, above_ground_m: 600, speed: 180 }
+  - { lat: 37.9027, lon: 110.5989, above_ground_m: 600, speed: 180 }
+  - { lat: 37.8077, lon: 110.6599, above_ground_m: 600, speed: 180 }
+  - { lat: 37.7383, lon: 110.7478, above_ground_m: 600, speed: 180 }
+  - { lat: 37.6795, lon: 110.7761, above_ground_m: 600, speed: 180 }
+  - { lat: 37.5892, lon: 110.7818, above_ground_m: 600, speed: 180 }
+  - { lat: 37.4913, lon: 110.7503, above_ground_m: 600, speed: 180 }
+  - { lat: 37.4304, lon: 110.6497, above_ground_m: 600, speed: 180 }
+  - { lat: 37.3550, lon: 110.6872, above_ground_m: 600, speed: 180 }
+  - { lat: 37.2634, lon: 110.6389, above_ground_m: 600, speed: 180 }
+  - { lat: 37.1752, lon: 110.5640, above_ground_m: 600, speed: 180 }
+  - { lat: 37.0910, lon: 110.4885, above_ground_m: 600, speed: 180 }
+  - { lat: 37.0235, lon: 110.4379, above_ground_m: 600, speed: 180 }
+  - { lat: 36.9867, lon: 110.3952, above_ground_m: 600, speed: 180 }
+  - { lat: 36.8971, lon: 110.3788, above_ground_m: 600, speed: 180 }
+  - { lat: 36.8105, lon: 110.4163, above_ground_m: 600, speed: 180 }
+  - { lat: 36.7439, lon: 110.4135, above_ground_m: 600, speed: 180 }
+  - { lat: 36.6986, lon: 110.3933, above_ground_m: 600, speed: 180 }
+  - { lat: 36.6123, lon: 110.4635, above_ground_m: 600, speed: 180 }
+  - { lat: 36.5126, lon: 110.4993, above_ground_m: 600, speed: 180 }
+  - { lat: 36.4084, lon: 110.4768, above_ground_m: 600, speed: 180 }
+  - { lat: 36.3044, lon: 110.4652, above_ground_m: 600, speed: 180 }
+  - { lat: 36.2018, lon: 110.4493, above_ground_m: 600, speed: 180 }
+  - { lat: 36.0973, lon: 110.4607, above_ground_m: 600, speed: 180 }
+  - { lat: 35.9942, lon: 110.4929, above_ground_m: 600, speed: 180 }
+  - { lat: 35.8892, lon: 110.5101, above_ground_m: 600, speed: 180 }
+  - { lat: 35.8082, lon: 110.5647, above_ground_m: 600, speed: 180 }
+  - { lat: 35.7030, lon: 110.5800, above_ground_m: 600, speed: 180 }
+  - { lat: 35.6018, lon: 110.6187, above_ground_m: 600, speed: 180 }
+  - { lat: 35.5104, lon: 110.5576, above_ground_m: 600, speed: 180 }
+  - { lat: 35.4151, lon: 110.5211, above_ground_m: 600, speed: 180 }
+  - { lat: 35.3332, lon: 110.4437, above_ground_m: 600, speed: 180 }
+  - { lat: 35.2492, lon: 110.3672, above_ground_m: 600, speed: 180 }
+  - { lat: 35.1496, lon: 110.3262, above_ground_m: 600, speed: 180 }
+  - { lat: 35.0475, lon: 110.2913, above_ground_m: 600, speed: 180 }
+  - { lat: 34.9449, lon: 110.2595, above_ground_m: 600, speed: 180 }
+  - { lat: 34.8425, lon: 110.2560, above_ground_m: 600, speed: 180 }
+  - { lat: 34.7397, lon: 110.2405, above_ground_m: 600, speed: 180 }
+  - { lat: 34.6377, lon: 110.2696, above_ground_m: 600, speed: 180 }
+  - { lat: 34.6212, lon: 110.2979, above_ground_m: 600, speed: 180 }
+
+band: { above_ground_m: [300, 1500] }
+corridor_deg: 60
+
+look:
+  sky: dust-afternoon
+  palette: loess-ochre
+  cloud: dust-haze
+  grade: warm
+
+captions:
+  - { at: 15, text: "The Yellow River, south through the loess plateau." }
+  - { at: 55, text: "Wind laid this soil down. Water is taking it away." }
+  - { at: 95, text: "It carries a billion tonnes of soil a year. Hence yellow." }
+
+music: cue-05

@@ -126,6 +126,15 @@ class HeroArea:
     #: decision nobody has made is cut only when named (`--area`), so that
     #: fetching its cells does not publish it (F73).
     published: bool = True
+    #: Cell size, metres. 90 unless a scene needs the source's own 30 (design
+    #: v2, stage 0: the karst towers at Guilin). Every lattice quantity below
+    #: is the area's own, so two resolutions can be cut; the engine draws one
+    #: lattice per index, so `write_index` publishes only the index's.
+    resolution_m: int = RESOLUTION_M
+
+    @property
+    def tile_m(self) -> int:
+        return self.resolution_m * TILE_CELLS
 
     @property
     def count(self) -> int:
@@ -142,10 +151,10 @@ class HeroArea:
     def bounds_m(self) -> tuple[float, float, float, float]:
         """(west, south, east, north) in Albers metres."""
         return (
-            grid.ORIGIN_X_M + self.hx0 * TILE_M,
-            grid.ORIGIN_Y_M + self.hy0 * TILE_M,
-            grid.ORIGIN_X_M + self.hx1 * TILE_M,
-            grid.ORIGIN_Y_M + self.hy1 * TILE_M,
+            grid.ORIGIN_X_M + self.hx0 * self.tile_m,
+            grid.ORIGIN_Y_M + self.hy0 * self.tile_m,
+            grid.ORIGIN_X_M + self.hx1 * self.tile_m,
+            grid.ORIGIN_Y_M + self.hy1 * self.tile_m,
         )
 
     @property
@@ -157,15 +166,15 @@ class HeroArea:
         return self.tiles_y * TILE_CELLS + 1
 
 
-def tile_of(x_m: float, y_m: float) -> tuple[int, int]:
+def tile_of(x_m: float, y_m: float, tile_m: int = TILE_M) -> tuple[int, int]:
     """The hero tile holding a projected point, indexed from the country origin."""
     return (
-        math.floor((x_m - grid.ORIGIN_X_M) / TILE_M),
-        math.floor((y_m - grid.ORIGIN_Y_M) / TILE_M),
+        math.floor((x_m - grid.ORIGIN_X_M) / tile_m),
+        math.floor((y_m - grid.ORIGIN_Y_M) / tile_m),
     )
 
 
-def country_tiles_under(hx: int, hy: int) -> list[tuple[int, int]]:
+def country_tiles_under(hx: int, hy: int, tile_m: int = TILE_M) -> list[tuple[int, int]]:
     """Which 64 km country tiles a hero tile overlaps — one, two or four.
 
     There is no nesting to exploit (see the module docstring), so this is the
@@ -174,10 +183,10 @@ def country_tiles_under(hx: int, hy: int) -> list[tuple[int, int]]:
     arrives has to ask this rather than divide.
     """
     west, south, east, north = (
-        grid.ORIGIN_X_M + hx * TILE_M,
-        grid.ORIGIN_Y_M + hy * TILE_M,
-        grid.ORIGIN_X_M + (hx + 1) * TILE_M,
-        grid.ORIGIN_Y_M + (hy + 1) * TILE_M,
+        grid.ORIGIN_X_M + hx * tile_m,
+        grid.ORIGIN_Y_M + hy * tile_m,
+        grid.ORIGIN_X_M + (hx + 1) * tile_m,
+        grid.ORIGIN_Y_M + (hy + 1) * tile_m,
     )
     step = grid.TILE_KM * 1000
     tx0 = math.floor((west - grid.ORIGIN_X_M) / step)
@@ -188,15 +197,16 @@ def country_tiles_under(hx: int, hy: int) -> list[tuple[int, int]]:
 
 
 def area_around(
-    place_ids: tuple[str, ...], margin_km: float = 8.0
+    place_ids: tuple[str, ...], margin_km: float = 8.0, resolution_m: int = RESOLUTION_M
 ) -> tuple[int, int, int, int]:
     """The smallest hero tile rectangle holding these places, plus a margin."""
     lats = [places.BY_ID[p].lat for p in place_ids]
     lons = [places.BY_ID[p].lon for p in place_ids]
     xs, ys = grid.project(lats, lons)
     m = margin_km * 1000
-    hx0, hy0 = tile_of(min(xs) - m, min(ys) - m)
-    hx1, hy1 = tile_of(max(xs) + m, max(ys) + m)
+    tile_m = resolution_m * TILE_CELLS
+    hx0, hy0 = tile_of(min(xs) - m, min(ys) - m, tile_m)
+    hx1, hy1 = tile_of(max(xs) + m, max(ys) + m, tile_m)
     return hx0, hy0, hx1 - hx0 + 1, hy1 - hy0 + 1
 
 
@@ -209,6 +219,10 @@ def area_around(
 #: `siting.py` is that measurement kept. The remaining two are listed in
 #: `UNSITED` with what each needs, and neither needs a coordinate: Guilin needs
 #: a fetch and Zhangjiajie needs a finer source than we have.
+# Sited by `area_around` from `places.py`, written down like the areas above.
+TAKLAMAKAN_HX0, TAKLAMAKAN_HY0 = 138, 221
+GUILIN_HX0, GUILIN_HY0, GUILIN_TX, GUILIN_TY = 1037, 210, 10, 18
+
 AREAS: tuple[HeroArea, ...] = (
     HeroArea(
         id="tiger-leaping-gorge",
@@ -256,21 +270,42 @@ AREAS: tuple[HeroArea, ...] = (
         "unpassable at any tolerance because grid phase alone swings it "
         "153 m (F12).",
         note="Outside the Sea to Sky corridor box; its cells came with the "
-        "country (F64). Whether it is published is the user's, so `make "
-        "hero` leaves it until it is named.",
+        "country (F64). Published since design v2: the film's last scene is "
+        "the Himalaya from the north.",
+    ),
+    HeroArea(
+        id="taklamakan",
+        name="The Taklamakan's central dunes",
+        hx0=TAKLAMAKAN_HX0,
+        hy0=TAKLAMAKAN_HY0,
+        tiles_x=4,
+        tiles_y=4,
+        holds=("taklamakan-dunes",),
+        why="Design v2, scene 7: dunes 100-300 m high and 1-3 km crest to "
+        "crest alias into noise on a 1 km grid; at 90 m they are dunes.",
+        note="A 46 km square on the dune field, sited from the map rather "
+        "than measured; stage 0's still decides whether it stays.",
+    ),
+    HeroArea(
+        id="guilin",
+        name="Guilin karst, the Li from Guilin to Yangshuo",
+        hx0=GUILIN_HX0,
+        hy0=GUILIN_HY0,
+        tiles_x=GUILIN_TX,
+        tiles_y=GUILIN_TY,
+        holds=("guilin", "yangshuo"),
+        why="Design v2, scene 3: the towers are 100-500 m across, which 90 m "
+        "draws as blobs; this is the one area cut at the source's own 30 m.",
+        note="Its own lattice (3,840 m tiles), so it cannot share the 90 m "
+        "index the engine reads today. Cut when named, to a directory of its "
+        "own; whether the engine grows a second lattice is stage 0's answer.",
         published=False,
+        resolution_m=30,
     ),
 )
 
 #: Named by the build plan, with no coordinate anything has checked.
 UNSITED: tuple[tuple[str, str, str], ...] = (
-    (
-        "guilin",
-        "Guilin karst",
-        "Needs a sited coordinate and a fetch: a 64 km area around Guilin "
-        "reaches below 25 N, which is the corridor box's southern edge, so "
-        "its southern one-degree cells were never downloaded.",
-    ),
     (
         "zhangjiajie",
         "Zhangjiajie / Wulingyuan pillars",
@@ -300,8 +335,9 @@ def transform_for(area: HeroArea):
     from affine import Affine
 
     west, _south, _east, north = area.bounds_m()
-    half = RESOLUTION_M / 2
-    return Affine(RESOLUTION_M, 0.0, west - half, 0.0, -RESOLUTION_M, north + half)
+    res = area.resolution_m
+    half = res / 2
+    return Affine(res, 0.0, west - half, 0.0, -res, north + half)
 
 
 def boundary_lonlat(area: HeroArea, per_edge: int = 32) -> tuple[list[float], list[float]]:
@@ -501,8 +537,8 @@ def condition(area: HeroArea, array, path: Path, rule: str | None = None):
     result = carve.condition(
         heights, source.lines, source.lakes, measured, source.ground.cells,
         rule=rule or carve.RULE,
-        radius=carve.radius_cells(RESOLUTION_M),
-        step=RESOLUTION_M / 4,
+        radius=carve.radius_cells(area.resolution_m),
+        step=area.resolution_m / 4,
     )
     return source, result
 
@@ -586,7 +622,7 @@ def cut(
     vrt_path = work / f"hero-{area.id}.vrt"
     vrt_path.write_text(vrt_xml(tiles, box))
 
-    print(f"{area.id}: {area.count} tiles at {RESOLUTION_M} m, bias {bias}", flush=True)
+    print(f"{area.id}: {area.count} tiles at {area.resolution_m} m, bias {bias}", flush=True)
     mean = warp(vrt_path, area, Resampling.average)
     peak = warp(vrt_path, area, Resampling.max)
     as_cut = mean + bias * (peak - mean)
@@ -660,7 +696,7 @@ def cut(
         compress="deflate",
     ) as ds:
         ds.write(array.astype("float32"), 1)
-        ds.update_tags(bias=str(bias), area=area.id, resolution_m=str(RESOLUTION_M),
+        ds.update_tags(bias=str(bias), area=area.id, resolution_m=str(area.resolution_m),
                        hx0=str(area.hx0), hy0=str(area.hy0),
                        hx1=str(area.hx1), hy1=str(area.hy1),
                        stage3=result.rule, radius=str(result.radius))
@@ -701,8 +737,8 @@ def cut(
         "area": area.id,
         "name": area.name,
         "crs": grid.ALBERS_PROJ4,
-        "resolutionM": RESOLUTION_M,
-        "tileM": TILE_M,
+        "resolutionM": area.resolution_m,
+        "tileM": area.tile_m,
         "tileSamples": TILE_SAMPLES,
         "silhouetteBias": bias,
         "window": {
@@ -715,7 +751,7 @@ def cut(
         "countryTiles": sorted(
             {t for i in range(area.hx0, area.hx1)
              for j in range(area.hy0, area.hy1)
-             for t in country_tiles_under(i, j)}
+             for t in country_tiles_under(i, j, area.tile_m)}
         ),
         "holds": list(area.holds),
         "heights": {
@@ -756,13 +792,21 @@ def write_index(out_dir: Path) -> Path:
 
     Rebuilt from the directory rather than from `chosen`, so cutting one area
     leaves the other entries alone instead of clobbering them.
+
+    One lattice per index (design v2, stage 0): the engine draws the tiles of
+    one index from one texture array of one tile size, so every area in a
+    directory must share a resolution, and a directory is a lattice. The 30 m
+    areas live in `hero-30m/` beside the 90 m `hero/`, each with its own
+    index; a directory holding both is refused rather than published wrong.
     """
     areas = []
+    resolutions: set[int] = set()
     for area in AREAS:
         path = out_dir / f"{area.id}.json"
         if not path.exists():
             continue
         manifest = json.loads(path.read_text())
+        resolutions.add(int(manifest.get("resolutionM", RESOLUTION_M)))
         areas.append(
             {
                 "id": area.id,
@@ -772,10 +816,16 @@ def write_index(out_dir: Path) -> Path:
                 "bytes": manifest["heights"]["bytes"],
             }
         )
+    if len(resolutions) > 1:
+        raise SystemExit(
+            f"{out_dir}: areas at {sorted(resolutions)} m in one directory; an index is one "
+            f"lattice, so cut each resolution to a directory of its own (--out)"
+        )
+    resolution = resolutions.pop() if resolutions else RESOLUTION_M
     index = {
         "version": 1,
-        "resolutionM": RESOLUTION_M,
-        "tileM": TILE_M,
+        "resolutionM": resolution,
+        "tileM": resolution * TILE_CELLS,
         "tileSamples": TILE_SAMPLES,
         "origin": {"originXM": grid.ORIGIN_X_M, "originYM": grid.ORIGIN_Y_M},
         "areas": areas,

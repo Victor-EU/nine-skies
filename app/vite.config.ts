@@ -1,7 +1,8 @@
 import { readFileSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
-import { formatProblems, loadFilm } from "../tools/film.ts";
+import { formatProblems, loadFilm, writeRail, type RecordedKey } from "../tools/film.ts";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 /**
  * Serve the film at /film.json, read from `content/scenes/` and held to the
@@ -19,6 +20,41 @@ function publishedFilm(): Plugin {
         if (problems.length > 0) console.error(`film problems:\n${formatProblems(problems)}`);
         response.setHeader("Content-Type", "application/json");
         response.end(JSON.stringify(film));
+      });
+      const body = (request: import("node:http").IncomingMessage): Promise<Buffer> =>
+        new Promise((resolve, reject) => {
+          const chunks: Buffer[] = [];
+          request.on("data", (c: Buffer) => chunks.push(c));
+          request.on("end", () => resolve(Buffer.concat(chunks)));
+          request.on("error", reject);
+        });
+      // A still from the running film, into docs/stills/ (plan v2, D77).
+      server.middlewares.use("/still", (request, response) => {
+        if (request.method !== "POST") return void response.end();
+        const name = new URLSearchParams((request.url ?? "").split("?")[1] ?? "").get("name") ?? "";
+        if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) {
+          response.statusCode = 400;
+          return void response.end("name must be a slug");
+        }
+        void body(request).then((png) => {
+          const dir = resolve(__dirname, "..", "docs", "stills");
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, `${name}.png`), png);
+          response.end(`docs/stills/${name}.png ${png.length} bytes`);
+        });
+      });
+      // A rail recorded in the app, into its scene file (D83).
+      server.middlewares.use("/record", (request, response) => {
+        if (request.method !== "POST") return void response.end();
+        void body(request).then((raw) => {
+          try {
+            const { id, keys } = JSON.parse(raw.toString("utf8")) as { id: string; keys: RecordedKey[] };
+            response.end(writeRail(id, keys, resolve(__dirname, "..", "content", "scenes")));
+          } catch (error) {
+            response.statusCode = 400;
+            response.end((error as Error).message);
+          }
+        });
       });
     },
     generateBundle() {

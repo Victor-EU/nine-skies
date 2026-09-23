@@ -9,8 +9,10 @@
   <body>
     <canvas id="view"></canvas>
     <div id="film">
-      <!-- The title card, over the lead-in. Characters, pinyin, English, one line. -->
+      <!-- The lead-in: the map with the jump to this scene, and the title card.
+           Characters, pinyin, English, one line. -->
       <div id="title" class="title" hidden>
+        <canvas id="leadMap" class="leadMap" width="800" height="560"></canvas>
         <div class="zh" id="titleZh"></div>
         <div class="pinyin" id="titlePinyin"></div>
         <div class="en" id="titleEn"></div>
@@ -22,8 +24,9 @@
       <button id="auto" class="auto" type="button">AUTO</button>
       <!-- Something the film has to say about itself: no world, no film. -->
       <div id="notice" class="notice" hidden></div>
-      <!-- After the last scene. -->
+      <!-- After the last scene: the whole route, and the credits. -->
       <div id="end" class="end" hidden>
+        <canvas id="endMap" class="leadMap" width="800" height="560"></canvas>
         <div class="en">Nine Skies</div>
         <div class="line">Eighteen minutes over real ground.</div>
         <button id="again" type="button">Watch again</button>
@@ -40,6 +43,10 @@
         <button id="faster" type="button" aria-label="faster">+</button>
       </div>
       <div id="hint" class="hint"></div>
+      <!-- Phones play in landscape; in portrait the film asks and waits. -->
+      <div id="rotate" class="rotate"><div>Turn your phone sideways.</div></div>
+      <!-- The rail recorder, dev only: ?record=<scene-id>. -->
+      <div id="recorder" class="recorder" hidden></div>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>

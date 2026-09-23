@@ -1,0 +1,82 @@
+# Scene 4 — The First Bend.
+#
+# Down the Jinsha to Shigu, round the first bend and through Tiger Leaping
+# Gorge on its 90 m hero grid, then on to the north-east. Natural Earth's
+# centreline every 4 km.
+
+id: first-bend
+title: { zh: 长江第一湾, pinyin: Chángjiāng dì-yī wān, en: The First Bend }
+line: "The Jinsha turns back on itself and cuts the deepest gorge."
+hero: tiger-leaping-gorge
+month: 6
+hour: 12
+
+rail:
+  - { lat: 27.3859, lon: 99.6450, above_ground_m: 300, speed: 50 }
+  - { lat: 27.3509, lon: 99.6361, above_ground_m: 300, speed: 50 }
+  - { lat: 27.3184, lon: 99.6527, above_ground_m: 300, speed: 50 }
+  - { lat: 27.2938, lon: 99.6823, above_ground_m: 300, speed: 50 }
+  - { lat: 27.2694, lon: 99.7121, above_ground_m: 300, speed: 50 }
+  - { lat: 27.2451, lon: 99.7419, above_ground_m: 300, speed: 50 }
+  - { lat: 27.2207, lon: 99.7717, above_ground_m: 300, speed: 50 }
+  - { lat: 27.1963, lon: 99.8016, above_ground_m: 300, speed: 50 }
+  - { lat: 27.1680, lon: 99.8265, above_ground_m: 300, speed: 50 }
+  - { lat: 27.1396, lon: 99.8514, above_ground_m: 300, speed: 50 }
+  - { lat: 27.1113, lon: 99.8762, above_ground_m: 300, speed: 50 }
+  - { lat: 27.0829, lon: 99.9010, above_ground_m: 300, speed: 50 }
+  - { lat: 27.0545, lon: 99.9259, above_ground_m: 300, speed: 50 }
+  - { lat: 27.0255, lon: 99.9495, above_ground_m: 300, speed: 50 }
+  - { lat: 26.9910, lon: 99.9598, above_ground_m: 300, speed: 50 }
+  - { lat: 26.9551, lon: 99.9613, above_ground_m: 300, speed: 50 }
+  - { lat: 26.9192, lon: 99.9629, above_ground_m: 300, speed: 50 }
+  - { lat: 26.8865, lon: 99.9752, above_ground_m: 300, speed: 50 }
+  - { lat: 26.9053, lon: 100.0079, above_ground_m: 300, speed: 50 }
+  - { lat: 26.9275, lon: 100.0393, above_ground_m: 300, speed: 50 }
+  - { lat: 26.9569, lon: 100.0622, above_ground_m: 300, speed: 50 }
+  - { lat: 26.9925, lon: 100.0624, above_ground_m: 300, speed: 50 }
+  - { lat: 27.0270, lon: 100.0724, above_ground_m: 300, speed: 50 }
+  - { lat: 27.0616, lon: 100.0830, above_ground_m: 300, speed: 50 }
+  - { lat: 27.0957, lon: 100.0749, above_ground_m: 300, speed: 50 }
+  - { lat: 27.1285, lon: 100.0591, above_ground_m: 300, speed: 50 }
+  - { lat: 27.1639, lon: 100.0604, above_ground_m: 300, speed: 50 }
+  - { lat: 27.1900, lon: 100.0859, above_ground_m: 300, speed: 50 }
+  - { lat: 27.2112, lon: 100.1183, above_ground_m: 300, speed: 50 }
+  - { lat: 27.2391, lon: 100.1438, above_ground_m: 300, speed: 50 }
+  - { lat: 27.2681, lon: 100.1658, above_ground_m: 300, speed: 50 }
+  - { lat: 27.2932, lon: 100.1942, above_ground_m: 300, speed: 50 }
+  - { lat: 27.3214, lon: 100.2194, above_ground_m: 300, speed: 50 }
+  - { lat: 27.3512, lon: 100.2410, above_ground_m: 300, speed: 50 }
+  - { lat: 27.3849, lon: 100.2345, above_ground_m: 300, speed: 50 }
+  - { lat: 27.4157, lon: 100.2137, above_ground_m: 300, speed: 50 }
+  - { lat: 27.4510, lon: 100.2073, above_ground_m: 300, speed: 50 }
+  - { lat: 27.4846, lon: 100.1935, above_ground_m: 300, speed: 50 }
+  - { lat: 27.5204, lon: 100.1943, above_ground_m: 300, speed: 50 }
+  - { lat: 27.5514, lon: 100.2127, above_ground_m: 300, speed: 50 }
+  - { lat: 27.5789, lon: 100.2386, above_ground_m: 300, speed: 50 }
+  - { lat: 27.6127, lon: 100.2517, above_ground_m: 300, speed: 50 }
+  - { lat: 27.6450, lon: 100.2686, above_ground_m: 300, speed: 50 }
+  - { lat: 27.6752, lon: 100.2898, above_ground_m: 300, speed: 50 }
+  - { lat: 27.7097, lon: 100.2950, above_ground_m: 300, speed: 50 }
+  - { lat: 27.7448, lon: 100.2896, above_ground_m: 300, speed: 50 }
+  - { lat: 27.7785, lon: 100.3026, above_ground_m: 300, speed: 50 }
+  - { lat: 27.8140, lon: 100.2974, above_ground_m: 300, speed: 50 }
+  - { lat: 27.8273, lon: 100.3178, above_ground_m: 300, speed: 50 }
+  - { lat: 27.8317, lon: 100.3560, above_ground_m: 300, speed: 50 }
+  - { lat: 27.8452, lon: 100.3935, above_ground_m: 300, speed: 50 }
+  - { lat: 27.8385, lon: 100.4203, above_ground_m: 300, speed: 50 }
+
+band: { above_ground_m: [150, 1200] }
+corridor_deg: 60
+
+look:
+  sky: noon-hard
+  palette: snow-and-scree
+  cloud: none
+  grade: clear
+
+captions:
+  - { at: 20, text: "The Jinsha, the Yangtze's upper name: the river of golden sand." }
+  - { at: 55, text: "Here it turns north. This bend keeps the Yangtze inside China." }
+  - { at: 95, text: "Tiger Leaping Gorge: 360 metres wide, 3,000 metres deep." }
+
+music: cue-04

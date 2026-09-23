@@ -87,3 +87,25 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1117; }
 
 .hint { position: absolute; left: 20px; top: 16px; font-size: 12px; opacity: .55; letter-spacing: .04em; }
 @media (pointer: coarse) { .hint { display: none; } }
+
+/* The lead-in map behind the title: the country, the rails flown, the jump. */
+.leadMap {
+  width: min(60vw, 720px); height: auto; max-height: 48vh;
+  border-radius: 4px; background: #0d1b2a; margin-bottom: 1.2em;
+  box-shadow: 0 8px 40px rgba(0,0,0,.45);
+}
+.title .leadMap { margin-bottom: .6em; }
+
+/* Landscape only on phones. */
+.rotate {
+  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  background: rgba(6,10,16,.92); font-size: 20px; letter-spacing: .06em; text-align: center; padding: 24px;
+}
+@media (pointer: coarse) and (orientation: portrait) { .rotate { display: flex; } }
+
+/* The recorder's readout, dev only. */
+.recorder {
+  position: absolute; left: 20px; bottom: 64px; pointer-events: none;
+  font: 12px/1.6 ui-monospace, Menlo, monospace; white-space: pre; opacity: .9;
+  background: rgba(6,10,16,.5); padding: 8px 10px; border-radius: 4px;
+}
