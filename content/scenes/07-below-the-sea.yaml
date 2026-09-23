@@ -9,7 +9,7 @@ title: { zh: 吐鲁番, pinyin: Tǔlǔfān, en: Below the Sea }
 line: "Snow, then a bowl below sea level, then dunes."
 hero: taklamakan
 month: 7
-hour: 19
+hour: 21.2
 
 rail:
   - { lat: 43.8000, lon: 88.3500, above_ground_m: 1500, speed: 300 }   # Bogda Peak, 5,445 m

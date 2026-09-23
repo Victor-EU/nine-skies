@@ -138,6 +138,13 @@ export interface FrameCostOptions {
    */
   readonly placeAt: (station: CaptureStation) => void;
   /**
+   * How a frame is drawn: the look's passes (stage 3), so the number is the
+   * film's frame and not the terrain alone. Absent, the plain renderer.
+   */
+  readonly render?: (() => void) | undefined;
+  /** The look's pass switches, priced one at a time when given. */
+  readonly passes?: { sky: boolean; shadow: boolean; clouds: boolean; post: boolean } | undefined;
+  /**
    * Stop the host's own animation loop for the duration, returning the
    * function that starts it again.
    *
@@ -322,7 +329,7 @@ async function capture(
   renderer.setPixelRatio(1);
   setSize(width, height);
 
-  const draw = (): void => renderer.render(scene, camera);
+  const draw = (): void => (options.render ?? (() => renderer.render(scene, camera)))();
   const timer = gpuTimer(gl);
   if (!timer) {
     throw new Error(
@@ -405,6 +412,18 @@ async function capture(
     }
     showOnly(() => true, true);
     ms["all"] = await timeVariant("all");
+
+    // The look's passes, each switched off alone against `all`: what each
+    // one costs is the difference (stage 3's budget lines).
+    const passes = options.passes;
+    if (passes) {
+      for (const name of ["sky", "shadow", "clouds", "post"] as const) {
+        if (!passes[name]) continue;
+        passes[name] = false;
+        ms[`all.no-${name}`] = await timeVariant(`all.no-${name}`);
+        passes[name] = true;
+      }
+    }
 
     stations.push({
       station,

@@ -114,6 +114,9 @@ function publishedWorld(): Plugin {
 export default defineConfig({
   root: ".",
   plugins: [publishedWorld(), publishedFilm()],
+  // The engine lives outside the app root and would otherwise get its own
+  // copy of three next to the pre-bundled one the shell imports.
+  resolve: { dedupe: ["three"] },
   server: {
     // Honour PORT when a harness assigns one (the Claude Code preview does),
     // otherwise the usual 5173. Without this Vite silently auto-increments

@@ -12,10 +12,11 @@
  * a rail into the scene file (D83), and `__ns.still(name)` saves the frame
  * to `docs/stills/` (D77).
  */
-import { Color, PerspectiveCamera, Scene as ThreeScene, Vector3, WebGLRenderer } from "three";
+import { PerspectiveCamera, Scene as ThreeScene, Vector3, WebGLRenderer } from "three";
 import { Terrain, VIEW_RADIUS_TILES } from "../../engine/src/terrain/terrain.js";
 import { HorizonField, buildSyntheticHorizonField } from "../../engine/src/terrain/horizonField.js";
 import { DEFAULT_HAZE_DENSITY_PER_M, HAZE_SCALE_HEIGHT_M } from "../../engine/src/terrain/palette.js";
+import { LookRig } from "../../engine/src/look/look.js";
 import { SyntheticTileSource, loadWorld, type LoadedWorld } from "../../engine/src/terrain/tileSource.js";
 import { loadHeroCovers, type HeroCover } from "../../engine/src/terrain/heroSource.js";
 import { WorldCoverage } from "../../engine/src/terrain/coverage.js";
@@ -23,7 +24,6 @@ import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
 import { HorizonRing } from "../../engine/src/terrain/horizonRing.js";
 import { COUNTRY_EAST_KM, COUNTRY_NORTH_KM, projectAlbers, unprojectAlbers } from "../../engine/src/terrain/worldGrid.js";
 import { TILE_KM } from "../../engine/src/terrain/syntheticTiles.js";
-import { Aerial } from "../../engine/src/gfx/aerial.js";
 import { Input } from "../../engine/src/input/input.js";
 import { helpLines } from "../../engine/src/input/bindings.js";
 import type { PadSnapshot } from "../../engine/src/input/gamepad.js";
@@ -51,7 +51,8 @@ const PITCH_DOWN_DEG = 6;
 
 const el = (id: string) => document.getElementById(id)!;
 const canvas = document.getElementById("view") as HTMLCanvasElement;
-const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
+// No canvas antialiasing: the look's scene target is multisampled instead.
+const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene = new ThreeScene();
 const camera = new PerspectiveCamera(BUDGET_FOV_DEG, 1, 1, 1);
@@ -124,9 +125,6 @@ const horizonField = world
   : buildSyntheticHorizonField();
 const horizon = new HorizonScheduler(horizonField);
 const ring = new HorizonRing(horizon.front, {
-  hazeColor: new Color(0.72, 0.79, 0.86),
-  sunColor: new Color(1.0, 0.97, 0.92),
-  sunDirection: new Vector3(0.45, 0.72, 0.53).normalize(),
   hazeDensity: hazeDensityPerWorldUnit(DEFAULT_HAZE_DENSITY_PER_M, scale),
   hazeHeightFalloff: hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, scale),
 });
@@ -137,7 +135,17 @@ camera.near = toWorldH(CAMERA_NEAR_REAL_M, scale);
 camera.far = toWorldH(CAMERA_FAR_REAL_M, scale);
 camera.updateProjectionMatrix();
 
-const air = new Aerial();
+// The look (stage 3): sun, sky, shadow, clouds, water light and the grade,
+// over the terrain. A phone gets a smaller shadow map.
+const rig = new LookRig({
+  renderer,
+  scene,
+  camera,
+  terrain,
+  ring,
+  scale,
+  shadowResolution: matchMedia("(pointer: coarse)").matches ? 1024 : 2048,
+});
 
 // The lead-in map: the built window with a tile of margin, or the whole
 // country grid when there is no world.
@@ -251,6 +259,8 @@ function startScene(i: number): void {
   flight = new RailFlight(rails[i]!, { corridorRad: (s.corridorDeg * Math.PI) / 180 });
   altitude.reset();
   lastState = null;
+  lastFlightS = null;
+  rig.setScene(s);
   el("titleZh").textContent = s.title.zh;
   el("titlePinyin").textContent = s.title.pinyin;
   el("titleEn").textContent = s.title.en;
@@ -290,7 +300,7 @@ function drawBar(pos: TimelinePosition): void {
  * capture measures the picture the film draws and not an arrangement that
  * resembles it.
  */
-function placeAt(eastM: number, northM: number, altitudeM: number, headingRad: number, rollRad: number): void {
+function placeAt(eastM: number, northM: number, altitudeM: number, headingRad: number, rollRad: number, clockMinutes = clockNow()): void {
   const eye = terrain.update(eastM, northM, altitudeM);
   if (horizon.update(eastM, northM, altitudeM)) ring.rebuild(scale);
   ring.update(terrain.toWorld(horizon.front.eastM, horizon.front.northM, horizon.front.altitudeM), eye);
@@ -303,22 +313,50 @@ function placeAt(eastM: number, northM: number, altitudeM: number, headingRad: n
   const pitch = (PITCH_DOWN_DEG * Math.PI) / 180;
   camera.lookAt(eye.clone().addScaledVector(fwd, reach * Math.cos(pitch)).add(new Vector3(0, -reach * Math.sin(pitch), 0)));
 
-  air.update(eastM / 1000, terrain.groundElevationM(eastM, northM) ?? 0, altitudeM);
-  renderer.setClearColor(air.sky, 1);
-  const hazeDensityWorld = hazeDensityPerWorldUnit(air.hazeDensityPerM, scale);
-  const hazeFalloffWorld = hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, scale);
-  for (const m of [...terrain.materials, ring.material]) {
-    (m.uniforms.uHazeColor!.value as Color).copy(air.sky);
-    (m.uniforms.uSunColor!.value as Color).copy(air.sun);
-    m.uniforms.uHazeDensity!.value = hazeDensityWorld;
-    m.uniforms.uHazeHeightFalloff!.value = hazeFalloffWorld;
-  }
+  const { latDeg, lonDeg } = unprojectAlbers(eastM, northM);
+  rig.frame({
+    eastM,
+    northM,
+    altitudeM,
+    headingRad,
+    eye,
+    groundM: terrain.groundElevationM(eastM, northM) ?? 0,
+    latDeg,
+    lonDeg,
+    clockMinutes,
+    month: film?.scenes[Math.max(0, current)]?.month ?? 6,
+    timeS: performance.now() / 1000,
+  });
 }
+
+/**
+ * The film's clock, Beijing time: the scene's hour plus the flight so far at
+ * 1x, so two minutes move the sun half a degree. With no scene, midday.
+ */
+function clockNow(): number {
+  const s = film?.scenes[Math.max(0, current)];
+  if (!s) return 12 * 60;
+  return s.hour * 60 + (lastFlightS ?? 0) / 60;
+}
+let lastFlightS: number | null = null;
 
 /** Set while a measurement owns the frame; see `frameCost.ts`. */
 let suspended = false;
 /** A hand-placed camera for a still (`__ns.look`), held until the clock moves again. */
-let pinned: { eastM: number; northM: number; altitudeM: number; headingRad: number } | null = null;
+/**
+ * A held camera. With `aboveGroundM` set, its height is taken again from the
+ * ground every frame, so a hold made before a hero grid's tiles arrived
+ * settles onto the ground that is finally drawn (the 1 km surface stands
+ * hundreds of metres over the 90 m one, F51).
+ */
+let pinned: {
+  eastM: number;
+  northM: number;
+  altitudeM: number;
+  aboveGroundM: number | null;
+  headingRad: number;
+  clockMinutes: number;
+} | null = null;
 
 function resize(): void {
   if (suspended) return;
@@ -426,15 +464,21 @@ function frame(now: number): void {
 
   if (recorder) {
     recordFrame(dt);
-    renderer.render(scene, camera);
+    rig.render();
     requestAnimationFrame(frame);
     return;
   }
   if (pinned) {
     el("title").hidden = true;
     el("caption").textContent = "";
-    placeAt(pinned.eastM, pinned.northM, pinned.altitudeM, pinned.headingRad, 0);
-    renderer.render(scene, camera);
+    if (pinned.aboveGroundM !== null) {
+      const band = film?.scenes[Math.max(0, current)]?.band ?? { minM: 50, maxM: 6000 };
+      // Placed afresh, not eased: a zero step would hold the first frame's guess.
+      altitude.reset();
+      pinned.altitudeM = altitude.update(0, pinned.eastM, pinned.northM, pinned.headingRad, pinned.aboveGroundM, band, groundAt);
+    }
+    placeAt(pinned.eastM, pinned.northM, pinned.altitudeM, pinned.headingRad, 0, pinned.clockMinutes);
+    rig.render();
     requestAnimationFrame(frame);
     return;
   }
@@ -442,7 +486,7 @@ function frame(now: number): void {
   if (!film) {
     // Nothing to fly: hold a view of whatever world there is.
     placeAt(world?.manifest.start.eastM ?? 120_000, world?.manifest.start.northM ?? 1_500_000, 3000, -Math.PI / 2, 0);
-    renderer.render(scene, camera);
+    rig.render();
     requestAnimationFrame(frame);
     return;
   }
@@ -471,6 +515,7 @@ function frame(now: number): void {
       held ? 0 : dt,
     );
     lastState = state;
+    lastFlightS = pos.flightS;
     const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt);
     placeAt(state.eastM, state.northM, alt, state.headingRad, state.bankRad);
     el("caption").textContent = captionAt(s, pos.flightS);
@@ -484,7 +529,7 @@ function frame(now: number): void {
     if (lastState) placeAt(lastState.eastM, lastState.northM, altitude.current ?? 0, lastState.headingRad, 0);
   }
   drawBar(pos);
-  renderer.render(scene, camera);
+  rig.render();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -506,32 +551,86 @@ if (import.meta.env.DEV) {
     recorder,
     flight: () => flight,
     state: () => lastState,
+    pinned: () => pinned,
+    altitude,
     jumpTo: (i: number) => {
       pinned = null;
       return timeline.jumpTo(i);
     },
+    rig,
     /**
      * Place the camera by hand for a still: latitude, longitude, metres
-     * above the ground, heading in degrees. Pauses the clock.
+     * above the ground, heading in degrees, and the hour if not the scene's.
+     * Pauses the clock.
      */
-    look(lat: number, lon: number, aboveGroundM: number, headingDeg: number): void {
+    look(lat: number, lon: number, aboveGroundM: number, headingDeg: number, hour?: number): void {
       timeline.paused = true;
       const p = projectAlbers(lat, lon);
       const h = (headingDeg * Math.PI) / 180;
+      const clock = hour === undefined ? clockNow() : hour * 60;
       // Placed twice: once to stream the ground, then at the ground's own height.
-      placeAt(p.eastM, p.northM, aboveGroundM + (groundAt(p.eastM, p.northM) ?? 0), h, 0);
+      placeAt(p.eastM, p.northM, aboveGroundM + (groundAt(p.eastM, p.northM) ?? 0), h, 0, clock);
       const ground = groundAt(p.eastM, p.northM) ?? 0;
-      pinned = { eastM: p.eastM, northM: p.northM, altitudeM: ground + aboveGroundM, headingRad: h };
+      pinned = { eastM: p.eastM, northM: p.northM, altitudeM: ground + aboveGroundM, aboveGroundM: null, headingRad: h, clockMinutes: clock };
     },
-    /** Save the frame as drawn to docs/stills/<name>.png, at the canvas's own size. */
-    async still(name: string): Promise<string> {
-      renderer.render(scene, camera);
+    /**
+     * Hold scene `i` at `flightS` seconds into its flight, on the rail in
+     * auto, for a still that any build can take again (D77). An `hour`
+     * overrides the scene's, to try a light before it is written down.
+     */
+    hold(i: number, flightS: number, hour?: number): void {
+      timeline.jumpTo(i);
+      timeline.advance(LEAD_IN_S + flightS);
+      timeline.paused = true;
+      if (i !== current) startScene(i);
+      lastFlightS = flightS;
+      const rail = rails[i]!;
+      // The rail's own clock: authored speed from the start.
+      let km = 0;
+      let left = flightS;
+      for (let k = 0; k + 1 < rail.keys.length && left > 0; k++) {
+        const segKm = (rail.path.cumM[k + 1]! - rail.path.cumM[k]!) / 1000;
+        const segS = (segKm / rail.keys[k]!.kmPerMin) * 60;
+        const take = Math.min(segS, left);
+        km += (take / 60) * rail.keys[k]!.kmPerMin;
+        left -= take;
+      }
+      const fix = railAtKm(rail, km);
+      const s = film!.scenes[i]!;
+      altitude.reset();
+      const alt = altitude.update(0, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, s.band, groundAt);
+      pinned = {
+        eastM: fix.eastM,
+        northM: fix.northM,
+        altitudeM: alt,
+        aboveGroundM: fix.aboveGroundM,
+        headingRad: fix.headingRad,
+        clockMinutes: hour === undefined ? clockNow() : hour * 60,
+      };
+    },
+    /**
+     * Save the frame as drawn to docs/stills/<name>.png: at the canvas's own
+     * size, or at a size given, drawn once at that size and put back.
+     */
+    async still(name: string, width?: number, height?: number): Promise<string> {
+      const ratio = renderer.getPixelRatio();
+      if (width && height) {
+        renderer.setPixelRatio(1);
+        renderer.setSize(width, height, false);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+      rig.render();
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (width && height) {
+        renderer.setPixelRatio(ratio);
+        resize();
+      }
       if (!blob) throw new Error("no frame to save");
       const r = await fetch(`/still?name=${encodeURIComponent(name)}`, { method: "POST", body: blob });
       return r.text();
     },
-    probe: createProbe(renderer, scene, camera, ring),
+    probe: createProbe(renderer, scene, camera, ring, () => rig.render()),
     suspend: () => {
       suspended = true;
       return () => {
@@ -551,6 +650,8 @@ if (import.meta.env.DEV) {
         terrain,
         ring,
         placeAt: (st) => placeAt(st.eastM, st.northM, st.altitudeM, st.headingRad, 0),
+        render: () => rig.render(),
+        passes: rig.passes,
         ...(size ? { width: size[0], height: size[1] } : {}),
         ...(only ? { only } : {}),
         suspend: () => {

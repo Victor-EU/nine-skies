@@ -11,7 +11,7 @@ title: { zh: 三峡, pinyin: Sānxiá, en: The Three Gorges }
 line: "One river, three gorges, 190 km of walls."
 hero: three-gorges
 month: 5
-hour: 9.5
+hour: 17
 
 rail:
   - { lat: 30.7097, lon: 111.2675, above_ground_m: 250, speed: 90 }
@@ -97,10 +97,10 @@ band: { above_ground_m: [120, 900] }
 corridor_deg: 60
 
 look:
-  sky: gorge-morning
+  sky: gorge-afternoon
   palette: limestone-green
   cloud: valley-mist
-  grade: cool
+  grade: clear
 
 captions:
   - { at: 18, text: "The camera is below the rim." }

@@ -64,7 +64,7 @@ and up, with the sun moving from dawn to dusk across the film.
 | # | Scene | Where | Light | Ground on screen | What you see |
 | --- | --- | --- | --- | --- | --- |
 | 1 | The River's Mouth | Yangtze delta, Shanghai to Chongming | Dawn, November, haze | ~200 km | Sea, then the widest river you have seen, then land so flat and wet it is barely land. The east: low, humid, crowded. |
-| 2 | The Three Gorges | Yichang west through Xiling, Wu and Qutang | Morning, mist in the gorge | ~150 km, low | The walls close in. The camera is below the rim for most of two minutes. The Yangtze as a corridor through rock. 90 m hero grid, already built. |
+| 2 | The Three Gorges | Yichang west through Xiling, Wu and Qutang | Late afternoon, the sun ahead, mist on the water | ~150 km, low | The walls close in. The camera is below the rim for most of two minutes. The Yangtze as a corridor through rock. 90 m hero grid, already built. |
 | 3 | Karst | Guilin to Yangshuo along the Li | Morning, mist | ~60 km, low and slow | Limestone towers at eye level, the river threading between them. The one scene that needs the source's own 30 m. |
 | 4 | The First Bend | Shigu to Tiger Leaping Gorge | Midday, hard light | ~80 km | The Jinsha turns back on itself and cuts the deepest gorge in the film, 360 m wide where you fly it, under snow peaks. 90 m hero grid, already built. |
 | 5 | Loess | The Yellow River's great bend, Shaanxi–Shanxi | Afternoon, dust | ~400 km | Ochre ground gullied in every direction, and a yellow river cut into it. The second step. |

@@ -1,6 +1,5 @@
 import {
   BufferAttribute,
-  Color,
   InstancedBufferAttribute,
   InstancedBufferGeometry,
   Mesh,
@@ -15,7 +14,8 @@ import { SyntheticTileSource, type TileSource } from "./tileSource.js";
 import { NO_WATER } from "./tileStream.js";
 import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M, RESOLVED_RIBBON_SAMPLES } from "./water.js";
 import type { AreaBounds, HeroCover } from "./heroSource.js";
-import { createRimMaterial, createTerrainMaterial, MAX_CUT_RECTS } from "./terrainMaterial.js";
+import { createRimMaterial, createTerrainMaterial, MAX_CUT_RECTS, setTerrainPalette } from "./terrainMaterial.js";
+import type { ScenePalette } from "./palette.js";
 import { RimCurtain, type DrawnTiles } from "./rimCurtain.js";
 import {
   hazeDensityPerWorldUnit,
@@ -194,9 +194,6 @@ class TileLattice implements DrawnTiles {
       // and, for a hero area, between grids: the cutter measures its own rim
       // against the country grid and refuses to publish one deeper than this.
       skirtDepth: SKIRT_DEPTH_M * scale.verticalExaggeration,
-      sunDirection: new Vector3(0.45, 0.72, 0.53).normalize(),
-      sunColor: new Color(1.0, 0.97, 0.92),
-      hazeColor: new Color(0.72, 0.79, 0.86),
       maxCuts,
       // Authored per real metre; the shader integrates in world units.
       hazeDensity: hazeDensityPerWorldUnit(hazeDensityPerM, scale),
@@ -640,6 +637,25 @@ export class Terrain {
   setScale(scale: WorldScale): void {
     this.options.scale = scale;
     for (const lattice of this.lattices) lattice.setScale(scale, this.hazeDensityPerM);
+  }
+
+  /**
+   * The scene's colours (design v2, "A palette per scene"): every lattice's
+   * shader and the curtain's are regenerated with the palette's constants.
+   */
+  setPalette(palette: ScenePalette): void {
+    for (const m of this.materials) setTerrainPalette(m, palette);
+    if (this.rim) setTerrainPalette(this.rim.mesh.material as ShaderMaterial, palette);
+  }
+
+  /** Every mesh that stands in the sun: the lattices' tiles and the curtain. */
+  get casters(): readonly Mesh[] {
+    return this.meshes;
+  }
+
+  /** Every material the look writes its sun, sky and shadow into: the lattices' and the curtain's. */
+  get lookMaterials(): ShaderMaterial[] {
+    return this.rim ? [...this.materials, this.rim.mesh.material as ShaderMaterial] : [...this.materials];
   }
 
   /**

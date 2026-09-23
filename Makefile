@@ -16,6 +16,7 @@
 #   make reference                  # re-cut the projection reference table
 #   make film                       # every scene checked: captions, text budget, hero grids
 #   make rails                      # every rail flown over the built world, and what the camera does
+#   make stations                   # the film's frame-cost stations, one a scene, from its rails
 #   make test                       # every suite, TypeScript and Python
 #
 # Source rasters land in data/source/ and intermediates in data/work/, both
@@ -43,7 +44,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film rails test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film rails stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -218,6 +219,11 @@ film:
 ## over a hero grid. Needs a world; its report is committed beside the scenes.
 rails:
 	npm run content:rails
+
+## The film's frame-cost stations, one a scene at sixty seconds on its rail
+## (plan v2, stage 3). Needs the world for the ground under each.
+stations:
+	npm run content:stations
 
 typecheck:
 	npm run typecheck

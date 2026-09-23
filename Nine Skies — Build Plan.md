@@ -89,7 +89,7 @@ title: { zh: 三峡, pinyin: Sānxiá, en: The Three Gorges }
 line: One river, three gorges, 190 km of walls.
 hero: three-gorges            # optional: the 90 m grid to draw here
 month: 5
-hour: 9.5                     # Beijing time; the sun comes from it
+hour: 17                      # Beijing time; the sun comes from it
 rail:                         # recorded in the app, projected at load
   - { lat: 30.76, lon: 111.28, above_ground_m: 250, speed: 95 }
   - { lat: 30.84, lon: 111.02, above_ground_m: 300, speed: 80 }
@@ -97,7 +97,7 @@ rail:                         # recorded in the app, projected at load
 band: { above_ground_m: [120, 600] }   # what the controller holds between keys
 corridor_deg: 60              # how far off the rail's heading a viewer may turn
 look:
-  sky: gorge-morning
+  sky: gorge-afternoon
   palette: limestone-green
   cloud: valley-mist
   grade: cool

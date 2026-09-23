@@ -119,11 +119,24 @@ function rampGlsl(stops: readonly ElevationStop[]): string {
   return lines.join("\n");
 }
 
-export const ELEVATION_RAMP_GLSL = /* glsl */ `
+/**
+ * The ramp chunk for one set of stops: the film's palettes (design v2, "A
+ * palette per scene") are each a set of stops, and a scene's terrain shader
+ * is generated from its own at scene start. The default is the ramp above.
+ */
+export function elevationRampGlsl(stops: readonly ElevationStop[]): string {
+  if (stops.length < 2) throw new Error("a ramp needs at least two stops");
+  for (let i = 1; i < stops.length; i++) {
+    if (stops[i]!.m <= stops[i - 1]!.m) throw new Error(`ramp stops out of order at ${stops[i]!.name}`);
+  }
+  return /* glsl */ `
 vec3 elevationRampSrgb(float m) {
-${rampGlsl(ELEVATION_STOPS)}
+${rampGlsl(stops)}
+}
+${ELEVATION_COLOR_GLSL}`;
 }
 
+const ELEVATION_COLOR_GLSL = /* glsl */ `
 // The stops above are picked by eye, which means they are sRGB. Lighting and
 // haze are physics, which means they are linear. three converts the clear
 // colour from linear on its way to the screen and does not touch a custom
@@ -134,6 +147,8 @@ vec3 elevationColor(float m) {
   return srgbToLinear(elevationRampSrgb(m));
 }
 `;
+
+export const ELEVATION_RAMP_GLSL = elevationRampGlsl(ELEVATION_STOPS);
 
 /**
  * Aerial perspective, integrated along the sight line.
@@ -239,12 +254,79 @@ export function halfVisibleKm(eyeM: number, densityPerM: number): number {
  * distance. Keeping one function means the band and the terrain cannot drift
  * apart in brightness, which is exactly what shows up as a step at the
  * handover between them.
+ *
+ * Three lights (design v2, "A sun"): the sun, shadowed where the look says
+ * so; the sky from above, which is what makes the cold side of a ridge
+ * cold; and the ground's own bounce from below. The two ambient colours
+ * are the look's uniforms, written every frame with the sun's.
  */
 export const GROUND_LIGHT_GLSL = /* glsl */ `
-vec3 groundLight(vec3 n, vec3 sunDirection, vec3 sunColor) {
-  return sunColor * max(dot(n, sunDirection), 0.0) + vec3(0.28 + 0.22 * n.y);
+uniform vec3 uAmbientZenith;
+uniform vec3 uAmbientGround;
+
+vec3 groundLight(vec3 n, vec3 sunDirection, vec3 sunColor, float shadow) {
+  vec3 direct = sunColor * max(dot(n, sunDirection), 0.0) * shadow;
+  vec3 ambient = mix(uAmbientGround, uAmbientZenith, 0.5 + 0.5 * n.y);
+  return direct + ambient;
 }
 `;
 
 /** How much darker a distant range is than flat sunlit ground. */
 export const RIDGE_SHADE = 0.9;
+
+/**
+ * What one scene's terrain is coloured with (design v2, "A palette per
+ * scene"): its ramp, its rock and snow, where its snow starts, and the three
+ * colours of its water. Everything the fragment shader bakes in as constants
+ * at scene start; `look/presets.ts` builds one from a named preset.
+ */
+export interface ScenePalette {
+  readonly stops: readonly ElevationStop[];
+  readonly rockSrgb: readonly [number, number, number];
+  readonly snowSrgb: readonly [number, number, number];
+  /** Real metres: permanent snow from here up, on ground that can hold it. */
+  readonly snowLineM: number;
+  /**
+   * Where ground reads as rock, as a slope (1 minus the facet normal's rise,
+   * 0 flat to 1 vertical): none below the first, all above the second. At
+   * six times relief most hillsides are steep, so a green gorge wants the
+   * rock later than a scree slope does.
+   */
+  readonly rockSlope: readonly [number, number];
+  readonly seaSrgb: readonly [number, number, number];
+  readonly lakeSrgb: readonly [number, number, number];
+  readonly riverSrgb: readonly [number, number, number];
+}
+
+/**
+ * The snow line by latitude (design v2, "A snow line"): about 5,700 m on the
+ * Himalaya's north side at 28 N, 4,800 m in the Qilian at 36 N, 4,000 m in
+ * the Tian Shan at 43 N. A straight line through those, held between
+ * 3,000 and 6,000 m. Wetter ranges run lower and a preset may say so.
+ */
+export function snowLineForLatitude(latDeg: number): number {
+  return Math.min(6000, Math.max(3000, 6000 - 110 * (latDeg - 25)));
+}
+
+export const DEFAULT_PALETTE: ScenePalette = {
+  stops: ELEVATION_STOPS,
+  rockSrgb: [0.4, 0.37, 0.35],
+  snowSrgb: [0.95, 0.95, 0.97],
+  snowLineM: 5400,
+  rockSlope: [0.35, 0.75],
+  seaSrgb: [0.15, 0.27, 0.38],
+  lakeSrgb: [0.2, 0.4, 0.5],
+  riverSrgb: [0.42, 0.66, 0.84],
+};
+
+/** The palette's constants, for the fragment shader that draws it. */
+export function paletteConstantsGlsl(p: ScenePalette): string {
+  const v = (c: readonly [number, number, number]) => `vec3(${c.map((x) => x.toFixed(3)).join(", ")})`;
+  return /* glsl */ `
+const vec3 ROCK_SRGB = ${v(p.rockSrgb)};
+const vec3 SNOW_SRGB = ${v(p.snowSrgb)};
+const float SNOW_LINE_M = ${p.snowLineM.toFixed(1)};
+const float ROCK_FROM = ${p.rockSlope[0].toFixed(3)};
+const float ROCK_TO = ${p.rockSlope[1].toFixed(3)};
+`;
+}

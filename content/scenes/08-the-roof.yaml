@@ -9,7 +9,7 @@ title: { zh: 青藏高原, pinyin: Qīng-Zàng gāoyuán, en: The Roof }
 line: "Flat ground at 4,500 metres for the whole scene."
 # hero: none; the country grid alone
 month: 9
-hour: 19.5
+hour: 18.9
 
 rail:
   - { lat: 36.9000, lon: 100.2000, above_ground_m: 1200, speed: 360 }   # Qinghai Lake, 3,196 m

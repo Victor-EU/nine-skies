@@ -130,3 +130,101 @@ rail (the gorges are 190 of its 576 km), 52 % of the Li, 47 % of the Jinsha,
 (the first bend higher, the steppe further west), one scene is still
 provisional (the estuary), and every frame says the same thing: the look
 is the film, and stage 3 is where the time goes.
+
+## F78 — Stage 3: the look, 23 September 2026
+
+**What was done.** A look layer over the terrain renderer, `engine/src/look/`
+(design v2, "The look"):
+
+- *A sun.* Direction from the scene's month and hour and the camera's
+  place, through the NOAA position `gfx/solar.ts` already had; its colour a
+  transmittance by air mass (gold at ten degrees, orange on the horizon),
+  scaled by the sky preset's turbidity. The clock runs at 1x: two minutes
+  move the sun half a degree.
+- *A sky per scene.* A dome drawn first from one GLSL chunk, `skyAt`, and a
+  haze colour every surface takes from the same chunk, `skyHorizonAt(dir)`,
+  which carries the sun's glow: ground towards the sun fades into warm air,
+  ground away from it into cool, and the seam the version-1 rule forbade is
+  still one number. Nine sky presets: haze density and scale height, a tint,
+  a turbidity, the glow's strength and width, the zenith's depth.
+- *Shadows.* One 2,048² depth map from the sun (1,024 on a phone) over a
+  square ahead of the camera that scales with its height (4–16 km of world),
+  drawn with the terrain's own vertex shader and cut, texel-snapped, read
+  with nine hardware-compared taps and faded at the map's edge.
+- *Clouds.* Mist as a slab in the terrain shader, banked by noise, from the
+  ground to a level; a cloud layer as one quad of five-octave noise for a
+  deck or cirrus. No summit plume: `summit-plume` is thin cirrus for now.
+- *A palette per scene.* The ramp's stops, rock, snow, the slope at which
+  ground turns to rock, and the three water colours, baked into the fragment
+  shader as constants and recompiled at scene start; a snow line by latitude
+  (5,700 m at 28 N to 4,000 m at 43 N) unless the preset says a height.
+- *Water with light in it.* A surface tilted by noise, reflecting the sky by
+  Fresnel (never the disc: a mirror of a disc twenty-five times white is a
+  hole in the picture), glinting in the sun's own colour at twice white.
+- *A grade.* Linear light into a multisampled half-float target, a bloom
+  from what is brighter than white, then exposure, warmth, saturation,
+  contrast, a filmic curve, a vignette and sRGB. Five grade presets.
+
+The names a scene file may use are the four tables in `look/presets.ts`,
+and the content gate refuses any other. Deleted with their subjects: the
+region-blend atmosphere (`gfx/aerial.ts`, the stand-in region weights, the
+flight-model atmosphere). New tools: `__ns.hold(i, s, hour?)` holds a scene
+at a second on its rail in auto and `__ns.still(name, w, h)` saves it;
+`make stations` cuts the frame-cost stations from the rails
+(`app/public/capture-stations.json`, one a scene at sixty seconds).
+
+**What the sun said about the hours.** Five scenes named an evening light
+and were lit at noon: with one time zone, 19:00 in Turpan is a sun 28° up.
+Moved: the loess to 16:00 (20°), the steppe to 19:00 (5°), Turpan to 21:12
+(5°), the plateau to 18:54 (6°), Everest to 19:15 (5°). And the gorges from
+09:30 to 17:00: at 09:30 the sun stood behind a camera heading west and lit
+both walls alike; at 17:00 it stands ahead, one wall lit and one in shade,
+the river carrying its glint. The design's row 2 now says so.
+
+**The reference still**, `docs/stills/02-three-gorges.png`: scene 2 held
+sixty seconds in, inside Xiling Gorge at 280 m over the water, the sun
+ahead-left at 28°, green walls with rock on the steepest facets, mist in
+banks on the water, the far ridges layered in haze, the sky deepening to
+blue. Signed off as the rule the other eight inherit. Four other stills are
+taken at 1,280 × 720 (`docs/stills/README.md`); four remain, because the
+app's browser pane stopped compositing when the session's window closed,
+and a frame that is not composited cannot be read back.
+
+**What the stills taught, in the order it cost time:**
+
+- *Mist must top out under the rail.* The first gorge mist stood at 350 m
+  with the camera at 250 m, and every frame was white. At 230 m, under the
+  band's floor over the reservoir, it lies on the water. A slab also whites
+  out any low plain in view - the Jianghan plain east of Yichang was one
+  sheet - so the density is a quarter of the first guess and two octaves of
+  noise bank it.
+- *The horizon ring's skirt is a wall in clear air.* Version 1's band hung
+  fourteen degrees below each ridge and hazed its foot by 38 %; the film's
+  plateau and Himalaya presets were ten times clearer than its air, and the
+  skirt showed as a grey wall where the streamed ground ran out at 384 km.
+  The foot now fades all the way to the sky, and no preset is clearer than
+  2 × 10⁻⁶ a metre: the plateau's clean horizon is its scale height and its
+  blue, not a vacuum.
+- *A held camera must be placed from the ground that is finally drawn.* A
+  hold made before a hero grid's tiles arrived sat on the 1 km surface,
+  hundreds of metres over the 90 m one (F51), and two holds of the same
+  frame gave two pictures. The hold re-places its height every frame.
+- *The first bend's rail is a wall at 300 m and the sky at 2,200 m.* At six
+  times relief Tiger Leaping Gorge is a slot; from 300 m over the river the
+  frame is the wall, from 2,200 m over the highest ground ahead it is peaks
+  from an airliner. The rail now flies 1,000 m up in a 400–2,500 m band,
+  unverified until the pane composites again.
+- *The sky's fill was blue.* Sky light straight from the zenith colour made
+  every shade side blue; it is pulled a third of the way to grey.
+
+**Frame cost: not yet measured.** The GPU timer is available in the app's
+browser; the capture at the nine stations (`__ns.frameCost()`, now drawing
+through every pass and pricing sky, shadow, clouds and post one at a time)
+needs a compositing pane. The machine is an M3, not the plan's M1, and the
+plan's 8 ms line will be read against that. Phones are unmeasured.
+
+**What it changes.** The gorges are an afternoon scene. Two decisions still
+open for the user: scene 1 is a green plain under a hazy sky at sixty
+seconds (the estuary against Huangshan, D-open), and scene 6's steppe reads
+but is flat. Stage 3 continues with the four stills, the capture, and a
+phone; stage 4 (packs) can start beside it.

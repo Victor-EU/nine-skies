@@ -9,7 +9,7 @@ title: { zh: 黄土高原, pinyin: Huángtǔ gāoyuán, en: Loess }
 line: "Ochre ground gullied everywhere, and a yellow river cut into it."
 # hero: none; the country grid alone
 month: 10
-hour: 15
+hour: 16
 
 rail:
   - { lat: 40.2081, lon: 111.1848, above_ground_m: 600, speed: 180 }

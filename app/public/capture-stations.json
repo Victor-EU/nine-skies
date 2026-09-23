@@ -1,77 +1,97 @@
 {
-  "version": 1,
-  "expedition": "sea-to-sky",
-  "lengthKm": 2931,
+  "version": 2,
+  "expedition": "the film",
+  "world": "dist-world/china",
   "stations": [
     {
-      "id": "shanghai",
-      "km": 0,
-      "eastM": 4996128,
-      "northM": 1645840,
-      "altitudeM": 1200,
-      "headingRad": -1.806707,
-      "groundM": 10,
-      "why": "a named waypoint on the route"
+      "id": "rivers-mouth",
+      "km": 150,
+      "eastM": 4963711,
+      "northM": 1691539,
+      "altitudeM": 312,
+      "headingRad": -1.059239,
+      "groundM": 0,
+      "why": "scene rivers-mouth at 60 s on its rail"
     },
     {
-      "id": "wuhan",
-      "km": 678.9,
-      "eastM": 4336048,
-      "northM": 1487166,
-      "altitudeM": 4229,
-      "headingRad": -1.779053,
-      "groundM": 20,
-      "why": "a named waypoint on the route"
+      "id": "three-gorges",
+      "km": 90,
+      "eastM": 3970861,
+      "northM": 1509258,
+      "altitudeM": 814,
+      "headingRad": -1.614808,
+      "groundM": 293,
+      "why": "scene three-gorges at 60 s on its rail"
     },
     {
-      "id": "chongqing",
-      "km": 1426.6,
-      "eastM": 3604513,
-      "northM": 1332577,
-      "altitudeM": 5560,
-      "headingRad": -1.095943,
-      "groundM": 254,
-      "why": "a named waypoint on the route"
+      "id": "karst",
+      "km": 30,
+      "eastM": 4005104,
+      "northM": 843343,
+      "altitudeM": 549,
+      "headingRad": 2.936139,
+      "groundM": 140,
+      "why": "scene karst at 60 s on its rail"
     },
     {
-      "id": "chengdu",
-      "km": 1692.5,
-      "eastM": 3368036,
-      "northM": 1454147,
-      "altitudeM": 5659,
-      "headingRad": -1.587563,
-      "groundM": 507,
-      "why": "a named waypoint on the route"
+      "id": "first-bend",
+      "km": 50,
+      "eastM": 2956753,
+      "northM": 1061334,
+      "altitudeM": 3142,
+      "headingRad": 2.568153,
+      "groundM": 1942,
+      "why": "scene first-bend at 60 s on its rail"
     },
     {
-      "id": "wall-foot",
-      "km": 1760,
-      "eastM": 3300516,
-      "northM": 1453015,
-      "altitudeM": 5682,
-      "headingRad": -1.587563,
-      "groundM": 1208,
-      "why": "the foot of the steepest rise on the route"
+      "id": "loess",
+      "km": 180,
+      "eastM": 3965805,
+      "northM": 2399352,
+      "altitudeM": 1529,
+      "headingRad": 3.067964,
+      "groundM": 929,
+      "why": "scene loess at 60 s on its rail"
     },
     {
-      "id": "wall-rim",
-      "km": 1860,
-      "eastM": 3200530,
-      "northM": 1451338,
-      "altitudeM": 5715,
-      "headingRad": -1.587563,
-      "groundM": 4708,
-      "why": "its rim - the most relief in one view"
+      "id": "steppe-to-stone",
+      "km": 450,
+      "eastM": 3600512,
+      "northM": 2462417,
+      "altitudeM": 2092,
+      "headingRad": -2.352883,
+      "groundM": 1080,
+      "why": "scene steppe-to-stone at 60 s on its rail"
     },
     {
-      "id": "lhasa",
-      "km": 2931,
-      "eastM": 2129718,
-      "northM": 1433383,
-      "altitudeM": 6054,
-      "headingRad": -1.587563,
-      "groundM": 3652,
-      "why": "a named waypoint on the route"
+      "id": "below-the-sea",
+      "km": 300,
+      "eastM": 2056741,
+      "northM": 2837996,
+      "altitudeM": 1911,
+      "headingRad": -1.967793,
+      "groundM": 1236,
+      "why": "scene below-the-sea at 60 s on its rail"
+    },
+    {
+      "id": "the-roof",
+      "km": 360,
+      "eastM": 2777156,
+      "northM": 1942641,
+      "altitudeM": 5500,
+      "headingRad": -1.711789,
+      "groundM": 4282,
+      "why": "scene the-roof at 60 s on its rail"
+    },
+    {
+      "id": "the-wall",
+      "km": 60,
+      "eastM": 1740789,
+      "northM": 1389114,
+      "altitudeM": 6172,
+      "headingRad": -2.193766,
+      "groundM": 4672,
+      "why": "scene the-wall at 60 s on its rail"
     }
   ]
 }

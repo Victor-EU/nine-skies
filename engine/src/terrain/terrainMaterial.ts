@@ -1,14 +1,19 @@
-import { Color, ShaderMaterial, GLSL3, Vector2, Vector3, Vector4 } from "three";
+import { Color, ShaderMaterial, GLSL3, Vector3, Vector4 } from "three";
 import {
   AERIAL_HAZE_GLSL,
   COLOR_SPACE_GLSL,
-  ELEVATION_RAMP_GLSL,
+  DEFAULT_PALETTE,
   GROUND_LIGHT_GLSL,
+  elevationRampGlsl,
+  paletteConstantsGlsl,
+  type ScenePalette,
 } from "./palette.js";
+import { MIST_GLSL, NOISE_GLSL, SHADOW_GLSL, SKY_GLSL, TIME_GLSL } from "../look/glsl.js";
+import { lookUniformDefaults } from "../look/uniforms.js";
 import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
 
 /**
- * Terrain shader (build plan D3 and D12).
+ * Terrain shader (build plan D3 and D12; design v2, "The look").
  *
  * Two things earn their place here:
  *
@@ -21,9 +26,12 @@ import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
  *    free, with no normal attribute, no baking and no split vertices. The
  *    low-poly faceting the art direction asks for falls out of the maths.
  *
- * Colour is elevation plus slope for now. Land cover fractions arrive from the
- * pipeline as a second texture array and blend in here; the GDD's rule is that
- * colour is never hand-painted.
+ * Colour is the scene's palette: an elevation ramp, rock on the steep, snow
+ * above a line, baked in as constants and regenerated at scene start
+ * (`setTerrainPalette`). Light is the sun with its shadow, the sky and the
+ * ground's bounce (`GROUND_LIGHT_GLSL`); the air is mist in the valleys and
+ * haze to the sky's own colour in the direction looked (`look/glsl.ts`).
+ * The output is linear: the post pass (`look/post.ts`) grades it.
  */
 
 /** What the water layer adds to each stage, when there is one (F72). */
@@ -46,7 +54,7 @@ flat in float vWater;`;
 // A tile whose water has landed. Flat per instance, so every fragment of a
 // triangle takes the same branch and the derivatives inside it hold.
 const WATER_FRAGMENT_BODY = /* glsl */ `
-  if (vWater > 0.5) lit = withWater(lit, normalize(uSunDirection), uSunColor, vTexel, vLayer);`;
+  if (vWater > 0.5) lit = withWater(lit, sun, uSunColor, shadow, vTexel, vLayer, dir, vWorld);`;
 
 const vertexShader = (water: boolean): string => /* glsl */ `
 precision highp float;
@@ -144,7 +152,7 @@ const cutBody = (maxCuts: number): string =>
   }
 `;
 
-const fragmentShader = (maxCuts: number, waterSamples: number): string => /* glsl */ `
+const fragmentShader = (maxCuts: number, waterSamples: number, palette: ScenePalette): string => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp usampler2DArray;
@@ -153,9 +161,7 @@ in vec3 vWorld;
 in float vElevation;
 ${waterSamples > 0 ? WATER_FRAGMENT_INPUTS : ""}
 
-uniform vec3 uSunDirection;
 uniform vec3 uSunColor;
-uniform vec3 uHazeColor;
 uniform float uHazeDensity;
 uniform float uHazeHeightFalloff;
 uniform vec3 uCameraWorld;
@@ -163,34 +169,57 @@ uniform vec3 uCameraWorld;
 out vec4 fragColor;
 
 ${COLOR_SPACE_GLSL}
-${ELEVATION_RAMP_GLSL}
+${elevationRampGlsl(palette.stops)}
+${paletteConstantsGlsl(palette)}
 ${AERIAL_HAZE_GLSL}
 ${GROUND_LIGHT_GLSL}
+${SKY_GLSL}
+${NOISE_GLSL}
+${MIST_GLSL}
+${SHADOW_GLSL}
+${TIME_GLSL}
 ${cutUniforms(maxCuts)}
-${waterSamples > 0 ? waterGlsl(waterSamples) : ""}
+${waterSamples > 0 ? waterGlsl(waterSamples, palette) : ""}
 
 void main() {
 ${cutBody(maxCuts)}
   // Flat-shaded facet normal from the derivative of world position.
   vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
   if (n.y < 0.0) n = -n;
+  vec3 sun = normalize(uSunDirection);
 
   vec3 base = elevationColor(vElevation);
 
-  // Steep ground reads as rock wherever it is.
+  // Steep ground reads as rock wherever it is; snow lies where the ground
+  // can hold it, above the scene's line.
   float slope = 1.0 - clamp(n.y, 0.0, 1.0);
-  base = mix(base, srgbToLinear(vec3(0.40, 0.37, 0.35)), smoothstep(0.35, 0.75, slope));
+  base = mix(base, srgbToLinear(ROCK_SRGB), smoothstep(ROCK_FROM, ROCK_TO, slope));
+  float snow = smoothstep(SNOW_LINE_M - 400.0, SNOW_LINE_M + 300.0, vElevation) * (1.0 - smoothstep(0.55, 0.85, slope));
+  base = mix(base, srgbToLinear(SNOW_SRGB), snow);
 
-  vec3 lit = base * groundLight(n, normalize(uSunDirection), uSunColor);
+  float shadow = sunShadow(vWorld, n, sun);
+  vec3 lit = base * groundLight(n, sun, uSunColor, shadow);
+
+  vec3 toFrag = vWorld - uCameraWorld;
+  vec3 dir = toFrag / max(length(toFrag), 1e-3);
 ${waterSamples > 0 ? WATER_FRAGMENT_BODY : ""}
 
-  // Analytic haze, integrated along the sight line. Cheap, art-directable per
-  // region, and it is what makes the plateau horizon read as hard and clean
+  // Mist first, then the analytic haze integrated along the sight line: the
+  // valley fills with white and the whole fades to the sky in the direction
+  // looked, which is what makes the plateau horizon read as hard and clean
   // while the Sichuan Basin reads as milk.
+  lit = mix(lit, uMistColor, mistAlong(uCameraWorld, vWorld));
   float fog = aerialFog(uCameraWorld, vWorld, uHazeDensity, uHazeHeightFalloff);
-  fragColor = vec4(linearToSrgb(mix(lit, uHazeColor, fog)), 1.0);
+  fragColor = vec4(mix(lit, skyHorizonAt(dir), fog), 1.0);
 }
 `;
+
+/** What a material remembers so its shader can be regenerated for a palette. */
+interface Recipe {
+  readonly kind: "terrain" | "rim";
+  readonly maxCuts: number;
+  readonly waterSamples: number;
+}
 
 export interface TerrainUniformValues {
   tileWorldSize: number;
@@ -202,11 +231,10 @@ export interface TerrainUniformValues {
   maxCuts?: number;
   verticalExaggeration: number;
   skirtDepth: number;
-  sunDirection: Vector3;
-  sunColor: Color;
-  hazeColor: Color;
   hazeDensity: number;
   hazeHeightFalloff: number;
+  /** The scene's colours; the default until a scene names its own. */
+  palette?: ScenePalette;
   /**
    * The water layer (F72): the array beside the heights, and what its bytes
    * mean. Absent compiles a shader with no water in it.
@@ -255,25 +283,38 @@ export function createTerrainMaterial(
         uWaterRibbonMaxM: { value: water.ribbonMaxM ?? NO_RIBBON_CAP_M },
       }
     : {};
-  return new ShaderMaterial({
+  const recipe: Recipe = { kind: "terrain", maxCuts, waterSamples: water?.samples ?? 0 };
+  const material = new ShaderMaterial({
     glslVersion: GLSL3,
     vertexShader: vertexShader(water !== undefined),
-    fragmentShader: fragmentShader(maxCuts, water?.samples ?? 0),
+    fragmentShader: fragmentShader(maxCuts, recipe.waterSamples, values.palette ?? DEFAULT_PALETTE),
     uniforms: {
+      ...lookUniformDefaults(),
       ...cuts,
       ...waterUniforms,
       uHeights: { value: heights },
       uTileWorldSize: { value: values.tileWorldSize },
       uVerticalExaggeration: { value: values.verticalExaggeration },
       uSkirtDepth: { value: values.skirtDepth },
-      uSunDirection: { value: values.sunDirection },
-      uSunColor: { value: values.sunColor },
-      uHazeColor: { value: values.hazeColor },
       uHazeDensity: { value: values.hazeDensity },
       uHazeHeightFalloff: { value: values.hazeHeightFalloff },
       uCameraWorld: { value: new Vector3() },
     },
   });
+  material.userData.recipe = recipe;
+  return material;
+}
+
+/**
+ * Regenerate a material's fragment shader for a scene's palette. The stops
+ * and the rock, snow and water colours are constants in the shader, so a
+ * palette is a recompile: once a scene, during its lead-in.
+ */
+export function setTerrainPalette(material: ShaderMaterial, palette: ScenePalette): void {
+  const recipe = material.userData.recipe as Recipe | undefined;
+  if (!recipe) throw new Error("not a terrain material");
+  material.fragmentShader = fragmentShader(recipe.kind === "rim" ? 0 : recipe.maxCuts, recipe.waterSamples, palette);
+  material.needsUpdate = true;
 }
 
 /**
@@ -300,71 +341,81 @@ void main() {
 }
 `;
 
+/** The uniforms the rim and the depth pass borrow from the country material. */
+const SHARED_WITH_RIM = [
+  "uVerticalExaggeration",
+  "uSkirtDepth",
+  "uHazeDensity",
+  "uHazeHeightFalloff",
+  "uCameraWorld",
+] as const;
+
 /**
  * The country material's shading on the curtain's geometry.
  *
- * Every uniform is the country material's own object, not a copy, so the haze
- * the app writes each frame, a scale change and the camera all reach it
- * without anyone writing to it. No cut, since the curtain stands exactly on
- * the rectangle's edge and a `discard` would take it or leave it by rounding,
- * and no water, since it is a wall.
+ * The uniforms the curtain shares with the country are the country's own
+ * objects, not copies, so a scale change and the camera reach it without
+ * anyone writing to it; the look's uniforms are its own, because the rig
+ * writes every material it draws with. No cut, since the curtain stands
+ * exactly on the rectangle's edge and a `discard` would take it or leave it
+ * by rounding, and no water, since it is a wall.
  */
-export function createRimMaterial(country: ShaderMaterial): ShaderMaterial {
+export function createRimMaterial(country: ShaderMaterial, palette: ScenePalette = DEFAULT_PALETTE): ShaderMaterial {
   const u = country.uniforms;
-  const shared = [
-    "uVerticalExaggeration",
-    "uSkirtDepth",
-    "uSunDirection",
-    "uSunColor",
-    "uHazeColor",
-    "uHazeDensity",
-    "uHazeHeightFalloff",
-    "uCameraWorld",
-  ] as const;
-  return new ShaderMaterial({
+  const material = new ShaderMaterial({
     glslVersion: GLSL3,
     vertexShader: rimVertexShader,
-    fragmentShader: fragmentShader(0, 0),
-    uniforms: Object.fromEntries(shared.map((name) => [name, u[name]!])),
+    fragmentShader: fragmentShader(0, 0, palette),
+    uniforms: {
+      ...lookUniformDefaults(),
+      ...Object.fromEntries(SHARED_WITH_RIM.map((name) => [name, u[name]!])),
+    },
+  });
+  material.userData.recipe = { kind: "rim", maxCuts: 0, waterSamples: 0 } satisfies Recipe;
+  return material;
+}
+
+const depthFragmentShader = (maxCuts: number): string => /* glsl */ `
+precision highp float;
+
+in vec3 vWorld;
+in float vElevation;
+${cutUniforms(maxCuts)}
+out vec4 fragColor;
+
+void main() {
+${cutBody(maxCuts)}
+  fragColor = vec4(1.0);
+}
+`;
+
+/**
+ * The same geometry from the sun's point of view (`look/shadows.ts`): the
+ * terrain's own vertex shader, so the depth the shadow reads is the depth
+ * the picture drew, and the same cut, so the country ground under a hero
+ * area does not shadow the hero ground that replaces it. Every uniform it
+ * needs is the source material's own object.
+ */
+export function createDepthMaterial(source: ShaderMaterial): ShaderMaterial {
+  const recipe = source.userData.recipe as Recipe | undefined;
+  if (!recipe) throw new Error("not a terrain material");
+  const u = source.uniforms;
+  if (recipe.kind === "rim") {
+    return new ShaderMaterial({
+      glslVersion: GLSL3,
+      vertexShader: rimVertexShader,
+      fragmentShader: depthFragmentShader(0),
+      uniforms: { uVerticalExaggeration: u.uVerticalExaggeration!, uSkirtDepth: u.uSkirtDepth! },
+    });
+  }
+  const names = ["uHeights", "uTileWorldSize", "uVerticalExaggeration", "uSkirtDepth"];
+  if (recipe.maxCuts > 0) names.push("uCutRects", "uCutCount");
+  return new ShaderMaterial({
+    glslVersion: GLSL3,
+    vertexShader: vertexShader(false),
+    fragmentShader: depthFragmentShader(recipe.maxCuts),
+    uniforms: Object.fromEntries(names.map((name) => [name, u[name]!])),
   });
 }
 
-/**
- * Per-region atmosphere parameters (build plan D12). Nine of these, blended by
- * region weight. Three are enough to prove the technique in the spike.
- */
-export interface RegionAtmosphere {
-  name: string;
-  hazeColor: Color;
-  /**
-   * Extinction per **real** metre of sight line. Convert with
-   * `hazeDensityPerWorldUnit` at the point of upload; these numbers are a
-   * claim about the air over a place and must not depend on how hard the
-   * world happens to be compressed.
-   */
-  hazeDensity: number;
-  sunColor: Color;
-}
-
-export const SPIKE_REGIONS: RegionAtmosphere[] = [
-  {
-    name: "Yangtze & East coast",
-    hazeColor: new Color(0.78, 0.80, 0.82),
-    hazeDensity: 3.5e-6,
-    sunColor: new Color(1.0, 0.97, 0.92),
-  },
-  {
-    name: "Sichuan Basin",
-    hazeColor: new Color(0.86, 0.88, 0.86),
-    hazeDensity: 7.0e-6,
-    sunColor: new Color(0.96, 0.96, 0.94),
-  },
-  {
-    name: "Qinghai-Tibet Plateau",
-    hazeColor: new Color(0.55, 0.68, 0.86),
-    hazeDensity: 8.5e-7,
-    sunColor: new Color(1.0, 0.99, 0.96),
-  },
-];
-
-export { Vector2 };
+export { Color };

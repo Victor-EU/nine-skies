@@ -218,32 +218,3 @@ function continentality({ latDeg, lonDeg }: GeoDegrees): number {
   const north = clamp01((latDeg - SOUTH_LAT_DEG) / (NORTH_LAT_DEG - SOUTH_LAT_DEG));
   return clamp01((west + north) / 2);
 }
-
-/**
- * Stand-in region weights, for blending the atmosphere table.
- *
- * REPLACED BY THE REGION RASTER (build plan D14): production blends nine
- * parameter sets by per-pixel region weight, and the same weights drive music,
- * card triggers and the map. This is three regions keyed off elevation and
- * distance inland, evaluated once per frame at the aircraft - enough to prove
- * that the plateau's air reads as clean and the basin's as milk, which is the
- * half of the look that gate G1 is actually asking about.
- *
- * Order matches `SPIKE_REGIONS`: east coast, Sichuan Basin, plateau.
- */
-export function standInRegionWeights(
-  inlandKm: number,
-  groundElevationM: number,
-): [number, number, number] {
-  // The plateau is a height, not a place: above 4,000 m you are on it.
-  const plateau = smooth(
-    Math.min(1, Math.max(0, (groundElevationM - 2400) / 1600)),
-  );
-  // The basin is the hole in the second step - low ground, but a long way in.
-  const inBowl = ramp(inlandKm, 2300, 2450) * (1 - ramp(inlandKm, 2950, 3150));
-  const low = 1 - smooth(Math.min(1, Math.max(0, (groundElevationM - 400) / 1200)));
-  const basin = inBowl * low * (1 - plateau);
-  const coast = Math.max(0, 1 - plateau - basin);
-  const total = plateau + basin + coast;
-  return [coast / total, basin / total, plateau / total];
-}

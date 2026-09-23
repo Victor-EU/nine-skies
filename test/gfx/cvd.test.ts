@@ -14,7 +14,6 @@ import { describe, expect, it } from "vitest";
 import { Color } from "three";
 import { simulate, VISION_TYPES, VISION_LABELS, type VisionType } from "../../engine/src/gfx/cvd.js";
 import { deltaE, labFromLinear, JND } from "../../engine/src/gfx/perceptual.js";
-import { Aerial } from "../../engine/src/gfx/aerial.js";
 import { ELEVATION_STOPS, elevationRampSrgb } from "../../engine/src/terrain/palette.js";
 
 const srgb = (r: number, g: number, b: number) => new Color().setRGB(r, g, b, "srgb");
@@ -65,26 +64,6 @@ describe("the instrument", () => {
     expect(VISION_TYPES).toHaveLength(4);
     expect(VISION_LABELS.normal).toBe("trichromat");
     for (const v of DICHROMATS) expect(VISION_LABELS[v]).toMatch(/cone/);
-  });
-});
-
-describe("the cue G1 is scored on", () => {
-  const air = new Aerial();
-  const skyAt = (inlandKm: number, groundM: number, altitudeM: number): Color =>
-    air.update(inlandKm, groundM, altitudeM).sky.clone();
-  const climbCue = (v: VisionType): number =>
-    deltaE(simulate(skyAt(300, 69, 0), v), simulate(skyAt(300, 69, 4500), v));
-
-  it("survives every deficiency, because the sky moves along the axis they keep", () => {
-    // F36 measured 32.1 for a trichromat. The pass criterion is that six of
-    // ten remark on the climb unprompted, and this is the cue that carries
-    // it - so the question is whether a participant who cannot see red and
-    // green gets a different experiment. They do not.
-    expect(climbCue("normal")).toBeCloseTo(32.1, 1);
-    for (const v of DICHROMATS) expect(climbCue(v)).toBeGreaterThan(30);
-    // Deuteranopia sees slightly *more* of it, which is luck rather than
-    // design: a deep blue against a pale haze is a blue-yellow difference.
-    expect(climbCue("deutan")).toBeGreaterThan(climbCue("normal"));
   });
 });
 

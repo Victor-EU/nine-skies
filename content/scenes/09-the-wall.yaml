@@ -9,7 +9,7 @@ title: { zh: 珠穆朗玛, pinyin: Zhūmùlǎngmǎ, en: The Wall }
 line: "The plateau ends in a wall, and the wall is 8,000 metres."
 hero: everest
 month: 10
-hour: 19.5
+hour: 19.25
 
 rail:
   - { lat: 29.0800, lon: 87.6300, above_ground_m: 1500, speed: 60 }   # Lhatse

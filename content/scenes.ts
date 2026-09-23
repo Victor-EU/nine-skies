@@ -12,7 +12,9 @@
  *   the whole film says fewer than forty lines;
  * - an hour with no sun at the scene's first key, because the look is lit by
  *   the sun the hour gives it;
- * - a hero grid the world has not built, when the world is there to ask.
+ * - a hero grid the world has not built, when the world is there to ask;
+ * - a look that names a sky, palette, cloud or grade preset that does not
+ *   exist, because the look is the film and a typo there is a dull scene.
  */
 import {
   buildRail,
@@ -25,6 +27,7 @@ import {
 import { DEFAULT_RAIL } from "../engine/src/film/rail.js";
 import { FLIGHT_S } from "../engine/src/film/timeline.js";
 import { dayOfYear, sunPosition } from "../engine/src/gfx/solar.js";
+import { lookProblems } from "../engine/src/look/presets.js";
 
 /** The whole film says fewer than this many lines. */
 export const TEXT_LINE_BUDGET = 40;
@@ -216,6 +219,8 @@ export function validateScene(scene: Scene, options: ValidateOptions = {}): Prob
 
   if (scene.hero && options.heroBuilt && !options.heroBuilt(scene.hero))
     add("hero", `"${scene.hero}" is not a built hero grid`);
+
+  for (const p of lookProblems(scene.look)) add(`look.${p.field}`, p.message);
 
   return problems;
 }

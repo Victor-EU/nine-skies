@@ -10,7 +10,7 @@ title: { zh: 内蒙古, pinyin: Nèi Měnggǔ, en: Steppe to Stone }
 line: "Grass fades to stone under the biggest sky in the film."
 # hero: none; the country grid alone
 month: 8
-hour: 17
+hour: 19
 
 rail:
   - { lat: 40.8400, lon: 111.7500, above_ground_m: 800, speed: 450 }   # Hohhot

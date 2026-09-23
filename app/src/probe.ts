@@ -42,6 +42,8 @@ export function createProbe(
   scene: Scene,
   camera: Camera,
   ring: HorizonRing,
+  /** How a frame is drawn: through the look's passes, so the pixels read are the pixels shown. */
+  render: () => void = () => renderer.render(scene, camera),
 ) {
   /** The live vertical field of view, or the prototype's if this is not one. */
   const fovDeg = (): number => (camera instanceof PerspectiveCamera ? camera.fov : 62);
@@ -49,7 +51,7 @@ export function createProbe(
   const readColumn = (): { px: Uint8Array; height: number } => {
     const gl = renderer.getContext();
     const { width, height } = renderer.domElement;
-    renderer.render(scene, camera);
+    render();
     const px = new Uint8Array(4 * height);
     gl.readPixels(
       Math.floor(width / 2),

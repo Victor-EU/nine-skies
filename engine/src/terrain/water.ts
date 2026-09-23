@@ -196,10 +196,26 @@ function glslVec3(c: readonly [number, number, number]): string {
 
 /**
  * The fragment half, generated from the tables above so the shader and the
- * tests read one set of numbers. Needs `COLOR_SPACE_GLSL` and
- * `GROUND_LIGHT_GLSL` before it, and the uniforms and inputs it names.
+ * tests read one set of numbers. Needs `COLOR_SPACE_GLSL`, `GROUND_LIGHT_GLSL`,
+ * `SKY_GLSL`, `NOISE_GLSL` and `TIME_GLSL` before it, and the uniforms and
+ * inputs it names. The colours are the scene's palette (design v2).
+ *
+ * Water with light in it (design v2, "Water with light in it"): a flat
+ * surface with a little wind on it, reflecting the sky by Fresnel - so a
+ * lake seen at a low angle is the sky and seen from above is its own colour,
+ * which reads as depth - and glinting where the sun's reflection lands, in
+ * the sun's own colour and brighter than white, so the bloom finds it.
  */
-export function waterGlsl(samples: number): string {
+export interface WaterColours {
+  readonly seaSrgb: readonly [number, number, number];
+  readonly lakeSrgb: readonly [number, number, number];
+  readonly riverSrgb: readonly [number, number, number];
+}
+
+/** The defaults above, as one palette. */
+export const DEFAULT_WATER_COLOURS: WaterColours = { seaSrgb: SEA_SRGB, lakeSrgb: LAKE_SRGB, riverSrgb: RIVER_SRGB };
+
+export function waterGlsl(samples: number, colours: WaterColours = DEFAULT_WATER_COLOURS): string {
   const halfWidths = Array.from({ length: RIVER_CLASSES }, (_, k) => riverHalfWidthM(k));
   const minPx = Array.from({ length: RIVER_CLASSES }, (_, k) => riverMinPx(k));
   return /* glsl */ `
@@ -266,14 +282,33 @@ vec4 waterCover(vec2 texel, int layer) {
   );
 }
 
-vec3 withWater(vec3 lit, vec3 sunDirection, vec3 sunColor, vec2 texel, float layer) {
+// \`view\` is the unit vector from the eye to the fragment.
+vec3 withWater(vec3 lit, vec3 sun, vec3 sunColor, float shadow, vec2 texel, float layer, vec3 view, vec3 world) {
   vec4 cover = waterCover(texel, int(layer + 0.5));
-  vec3 flatLight = groundLight(vec3(0.0, 1.0, 0.0), sunDirection, sunColor);
-  vec3 river = srgbToLinear(${glslVec3(RIVER_SRGB)});
-  vec3 still = mix(srgbToLinear(${glslVec3(SEA_SRGB)}), river, cover.w);
-  still = mix(still, srgbToLinear(${glslVec3(LAKE_SRGB)}), cover.z);
-  lit = mix(lit, still * flatLight, cover.x);
-  return mix(lit, river * flatLight, cover.y);
+  float wet = max(cover.x, cover.y);
+  if (wet <= 0.001) return lit;
+
+  // A little wind: two octaves of noise tilt the surface by a few degrees,
+  // drifting slowly, so the glint breaks into sparkle rather than one spot.
+  vec2 p = world.xz * 0.05 + vec2(uTime * 0.03, uTime * 0.02);
+  vec2 tilt = vec2(vnoise(p) - 0.5, vnoise(p * 1.7 + 31.0) - 0.5) * 0.10;
+  vec3 n = normalize(vec3(tilt.x, 1.0, tilt.y));
+
+  vec3 river = srgbToLinear(${glslVec3(colours.riverSrgb)});
+  vec3 body = mix(srgbToLinear(${glslVec3(colours.seaSrgb)}), river, cover.w);
+  body = mix(body, srgbToLinear(${glslVec3(colours.lakeSrgb)}), cover.z);
+  body = mix(body, river, cover.y);
+
+  vec3 own = body * groundLight(vec3(0.0, 1.0, 0.0), sun, sunColor, shadow);
+  vec3 r = reflect(view, n);
+  r.y = abs(r.y);
+  vec3 reflected = skyReflect(r);
+  float facing = max(dot(-view, n), 0.0);
+  float fresnel = 0.03 + 0.97 * pow(1.0 - facing, 5.0);
+  vec3 water = mix(own, reflected, min(fresnel, 0.7));
+  float glint = pow(max(dot(r, sun), 0.0), 400.0) * shadow;
+  water += sunColor * glint * 2.0;
+  return mix(lit, water, wet);
 }
 `;
 }

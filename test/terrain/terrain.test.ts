@@ -5,7 +5,6 @@ import {
   TILE_KM,
   generateTile,
   sampleElevationM,
-  standInRegionWeights,
   stepProfileM,
 } from "../../engine/src/terrain/syntheticTiles.js";
 
@@ -224,42 +223,5 @@ describe("stand-in terrain has China's shape", () => {
     for (let j = 0; j < TILE_SAMPLES; j++) {
       expect(a[j * TILE_SAMPLES + (TILE_SAMPLES - 1)]).toBe(b[j * TILE_SAMPLES]);
     }
-  });
-});
-
-describe("stand-in region weights", () => {
-  const cases: Array<[string, number, number, 0 | 1 | 2]> = [
-    ["Yangtze delta", 120, 20, 0],
-    ["Sichuan Basin", 2760, 550, 1],
-    ["Qinghai-Tibet Plateau", 3900, 4500, 2],
-  ];
-
-  it.each(cases)("picks %s", (_name, inlandKm, groundM, expected) => {
-    const w = standInRegionWeights(inlandKm, groundM);
-    const winner = w.indexOf(Math.max(...w));
-    expect(winner).toBe(expected);
-    expect(w[expected]).toBeGreaterThan(0.5);
-  });
-
-  it("always blends to exactly one", () => {
-    for (let inland = 0; inland < 5200; inland += 53) {
-      for (const m of [-150, 0, 800, 2000, 3500, 5000, 8000]) {
-        const w = standInRegionWeights(inland, m);
-        expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
-        expect(Math.min(...w)).toBeGreaterThanOrEqual(0);
-      }
-    }
-  });
-
-  it("hands the basin over to the plateau as the ground climbs", () => {
-    // The wall is a handover, not a boundary: nothing may pop.
-    let previous = standInRegionWeights(3000, 600)[2];
-    for (let m = 600; m <= 4600; m += 100) {
-      const p = standInRegionWeights(3000, m)[2];
-      expect(p).toBeGreaterThanOrEqual(previous - 1e-9);
-      expect(p - previous).toBeLessThan(0.2);
-      previous = p;
-    }
-    expect(previous).toBeGreaterThan(0.9);
   });
 });

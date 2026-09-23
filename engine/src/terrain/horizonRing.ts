@@ -1,7 +1,6 @@
 import {
   BufferAttribute,
   BufferGeometry,
-  Color,
   GLSL3,
   Mesh,
   ShaderMaterial,
@@ -10,10 +9,14 @@ import {
 import {
   AERIAL_HAZE_GLSL,
   COLOR_SPACE_GLSL,
-  ELEVATION_RAMP_GLSL,
+  DEFAULT_PALETTE,
   GROUND_LIGHT_GLSL,
   RIDGE_SHADE,
+  elevationRampGlsl,
+  type ScenePalette,
 } from "./palette.js";
+import { MIST_GLSL, NOISE_GLSL, SKY_GLSL } from "../look/glsl.js";
+import { lookUniformDefaults } from "../look/uniforms.js";
 import type { HorizonProfile } from "./horizon.js";
 import type { WorldScale } from "../sim/scale.js";
 
@@ -36,10 +39,16 @@ import type { WorldScale } from "../sim/scale.js";
 /** How far each band hangs below its ridge, as a tangent. ~14 degrees. */
 const BASE_DROP_TAN = 0.25;
 
-/** Extra haze at the foot of a band. Distant ranges pale towards their base. */
-const BASE_HAZE = 0.38;
+/**
+ * How much of the way to the sky the foot of a band goes. All of it: the
+ * skirt hangs fourteen degrees below a ridge that may stand a degree above
+ * the horizon, and in the film's clear air (the plateau, the Himalaya)
+ * anything less than the sky at its foot is a grey wall across the frame
+ * where the streamed ground runs out.
+ */
+const BASE_HAZE = 1.0;
 
-const VERTEX = /* glsl */ `
+const vertexGlsl = (palette: ScenePalette): string => /* glsl */ `
 precision highp float;
 
 in float aRidgeM;
@@ -52,22 +61,28 @@ uniform float uHazeHeightFalloff;
 uniform float uBaseHaze;
 
 out vec3 vColor;
+out vec3 vDir;
 out float vFog;
+out float vMist;
 
 ${COLOR_SPACE_GLSL}
-${ELEVATION_RAMP_GLSL}
+${elevationRampGlsl(palette.stops)}
 ${AERIAL_HAZE_GLSL}
+${NOISE_GLSL}
+${MIST_GLSL}
 
 void main() {
   vec3 world = uAnchorWorld + position;
   vColor = elevationColor(aRidgeM);
+  vDir = world - uCameraWorld;
 
   // Same analytic haze as the terrain, evaluated per vertex: at this distance
   // a band is a handful of pixels tall and nothing inside it needs per-pixel
   // anything. The height term is what pales the foot of a range - the sight
   // line to a ridge climbs out of the thick air, the one to its base does not.
   float fog = aerialFog(uCameraWorld, world, uHazeDensity, uHazeHeightFalloff);
-  vFog = clamp(fog + aBase * uBaseHaze, 0.0, 1.0);
+  vFog = clamp(fog + aBase * uBaseHaze * (1.0 - fog), 0.0, 1.0);
+  vMist = mistAlong(uCameraWorld, world);
 
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
@@ -77,33 +92,36 @@ const FRAGMENT = /* glsl */ `
 precision highp float;
 
 in vec3 vColor;
+in vec3 vDir;
 in float vFog;
+in float vMist;
 
-uniform vec3 uHazeColor;
 uniform vec3 uSunColor;
-uniform vec3 uSunDirection;
 uniform float uRidgeShade;
 
 out vec4 fragColor;
 
 ${COLOR_SPACE_GLSL}
 ${GROUND_LIGHT_GLSL}
+${SKY_GLSL}
+${NOISE_GLSL}
+${MIST_GLSL}
 
 void main() {
   // The response of flat sunlit ground, darkened for the mix of faces a range
   // presents. Shading it by a made-up normal is how distant mountains start
   // looking like painted scenery.
-  vec3 lit = vColor * groundLight(vec3(0.0, 1.0, 0.0), normalize(uSunDirection), uSunColor);
-  fragColor = vec4(linearToSrgb(mix(lit * uRidgeShade, uHazeColor, vFog)), 1.0);
+  vec3 lit = vColor * groundLight(vec3(0.0, 1.0, 0.0), normalize(uSunDirection), uSunColor, 1.0);
+  lit = mix(lit * uRidgeShade, uMistColor, vMist);
+  fragColor = vec4(mix(lit, skyHorizonAt(normalize(vDir)), vFog), 1.0);
 }
 `;
 
 export interface HorizonRingUniforms {
-  hazeColor: Color;
-  sunColor: Color;
-  sunDirection: Vector3;
   hazeDensity: number;
   hazeHeightFalloff: number;
+  /** The scene's colours; the default until a scene names its own. */
+  palette?: ScenePalette;
 }
 
 export class HorizonRing {
@@ -153,16 +171,14 @@ export class HorizonRing {
 
     this.material = new ShaderMaterial({
       glslVersion: GLSL3,
-      vertexShader: VERTEX,
+      vertexShader: vertexGlsl(values.palette ?? DEFAULT_PALETTE),
       fragmentShader: FRAGMENT,
       depthTest: false,
       depthWrite: false,
       uniforms: {
+        ...lookUniformDefaults(),
         uCameraWorld: { value: new Vector3() },
         uAnchorWorld: { value: new Vector3() },
-        uHazeColor: { value: values.hazeColor },
-        uSunColor: { value: values.sunColor },
-        uSunDirection: { value: values.sunDirection },
         uRidgeShade: { value: RIDGE_SHADE },
         uHazeDensity: { value: values.hazeDensity },
         uHazeHeightFalloff: { value: values.hazeHeightFalloff },
@@ -174,6 +190,12 @@ export class HorizonRing {
     this.mesh.frustumCulled = false;
     // Before the terrain, so the terrain paints over it.
     this.mesh.renderOrder = -1;
+  }
+
+  /** The scene's colours: the ramp is baked into the vertex shader, so it recompiles. */
+  setPalette(palette: ScenePalette): void {
+    this.material.vertexShader = vertexGlsl(palette);
+    this.material.needsUpdate = true;
   }
 
   get triangleCount(): number {
