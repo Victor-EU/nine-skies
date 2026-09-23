@@ -7,6 +7,10 @@ import {
   sampleElevationM,
   stepProfileM,
 } from "../../engine/src/terrain/syntheticTiles.js";
+import { Terrain } from "../../engine/src/terrain/terrain.js";
+import { SyntheticTileSource } from "../../engine/src/terrain/tileSource.js";
+import { DEFAULT_SCALE } from "../../engine/src/sim/scale.js";
+import type { InstancedBufferGeometry } from "three";
 
 describe("shared grid geometry", () => {
   it("wraps the surface in a skirt ring", () => {
@@ -91,6 +95,63 @@ describe("heightmap texture array", () => {
  * sent every time any tile did; now a frame sends the layers it wrote, each a
  * `texSubImage3D`, unless it wrote more than half of them.
  */
+describe("each tile knows its neighbours, for the smooth normals along its edge", () => {
+  it("peeks at a layer without keeping it from eviction", () => {
+    const arr = new HeightTileArray(2);
+    const tile = new Int16Array(TILE_SAMPLES * TILE_SAMPLES);
+    arr.insert(0, 0, tile);
+    arr.insert(1, 0, tile);
+    expect(arr.peekLayer(0, 0)).toBe(0);
+    expect(arr.peekLayer(5, 5)).toBe(-1);
+    arr.insert(2, 0, tile); // evicts the least recently used: (0, 0), peeked or not
+    expect(arr.has(0, 0)).toBe(false);
+    expect(arr.has(1, 0)).toBe(true);
+  });
+
+  it("gives every drawn tile the layers west, east, south and north of it, -1 where none is resident", () => {
+    const terrain = new Terrain({ scale: { ...DEFAULT_SCALE }, viewRadiusTiles: 2, layers: 64, source: new SyntheticTileSource() });
+    const tileM = TILE_KM * 1000;
+    terrain.update(20.5 * tileM, 20.5 * tileM, 2000);
+    const tileOfLayer = new Map<number, string>();
+    for (let j = 15; j <= 26; j++) {
+      for (let i = 15; i <= 26; i++) {
+        const layer = terrain.heights.peekLayer(i, j);
+        if (layer >= 0) tileOfLayer.set(layer, `${i},${j}`);
+      }
+    }
+    let drawn = 0;
+    let edges = 0;
+    for (const mesh of terrain.meshes) {
+      const geometry = mesh.geometry as InstancedBufferGeometry;
+      if (!geometry.getAttribute("iNeighbours")) continue; // the rim curtain
+      const layers = geometry.getAttribute("iLayer").array as Float32Array;
+      const neighbours = geometry.getAttribute("iNeighbours").array as Float32Array;
+      for (let k = 0; k < geometry.instanceCount; k++) {
+        const [i, j] = tileOfLayer.get(layers[k]!)!.split(",").map(Number) as [number, number];
+        const around = [
+          [i - 1, j],
+          [i + 1, j],
+          [i, j - 1],
+          [i, j + 1],
+        ] as const;
+        around.forEach(([x, y], side) => {
+          const got = neighbours[k * 4 + side]!;
+          expect(got).toBe(terrain.heights.peekLayer(x, y));
+          if (got < 0) edges++;
+        });
+        drawn++;
+      }
+    }
+    expect(drawn).toBeGreaterThan(9);
+    // The disc's own rim has nothing beyond it.
+    expect(edges).toBeGreaterThan(0);
+    expect(tileOfLayer.get(terrain.heights.peekLayer(20, 20))).toBe("20,20");
+    for (const [x, y] of [[19, 20], [21, 20], [20, 19], [20, 21]]) {
+      expect(terrain.heights.peekLayer(x!, y!)).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
 describe("uploading the heightmap array", () => {
   const tile = (v: number) => new Int16Array(TILE_SAMPLES * TILE_SAMPLES).fill(v);
   /** What the renderer does once it has made the upload. */

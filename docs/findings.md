@@ -638,3 +638,84 @@ none of it made here. The player stays; it plays nothing until
 `content/sound.yaml` names licensed files, and the launch gate
 (`--complete`) refuses a film without nine cues and a wind bed.
 
+
+## F86 — The terrain lit smooth, and where its detail can come from, 24 September 2026
+
+**The Lego was the lighting.** Version 1 lit every triangle flat, from the
+screen-space derivatives of its world position (its D3), because that
+game's art direction asked for low-poly facets. Over the country grid's
+1 km samples that drew China as bricks a kilometre wide, and over the
+hero grids as crystals; it is most of what viewers of the film called a
+game built with Lego. D86 reverses it. Each vertex now takes a central
+difference of the heights around its texel, at the finest spacing whatever
+the LOD, so a tile's shading does not change when its LOD does, and the
+fragment lights the interpolated normal. Along a tile's edge the
+difference reads the neighbour's row: every instance carries the layers of
+the four tiles beside it (`iNeighbours`), filled at the end of the frame
+once every tile the frame lands is in, and read without marking them used,
+so a neighbour looked at is not kept from eviction. A one-sided difference
+stands in where a neighbour is not resident, so the only seam is at the
+edge of what is loaded. The rim's curtain, a wall with no heights around
+it, keeps the flat normal.
+
+**The shadow has to read the same normal.** Lit smooth and shadowed flat,
+The Wall kept sharp tan triangles in the shade of its ridges: the shadow
+skips its test for a surface turned from the sun, and a facet turned away
+was being lit by a smooth normal that was not, so it shone out of a cast
+shadow. On the smooth normal the triangles went, and Huangshan and Guilin,
+the two scenes with the most vertical rock, show no acne.
+
+**The stills.** All nine re-taken (the previous ones are at e977ebb). The
+facets are gone everywhere; the plateau reads as rolling ground instead of
+tilted plates, and the Three Gorges' walls as walls. What is left is what
+the data holds rather than how it is lit: the 1 km ground's silhouettes
+are still polygons where the camera is low over it (The Wall's
+foreground), the country reads smooth as clay because nothing below the
+grid's spacing is drawn, and the colour is still elevation bands alone.
+
+**What it costs.** Four more height reads a vertex. Two captures, cheapest
+of each, GPU ms at 1920 × 1080 on the M3 (resolution ±1.28 and ±1.71):
+
+| Station | F83 | Now |
+| --- | ---: | ---: |
+| huangshan | 3.9 | 3.9 |
+| three-gorges | 3.1 | 3.3 |
+| karst | 3.5 | 4.6 |
+| first-bend | 3.1 | 4.1 |
+| loess | 2.1 | 2.1 |
+| grassland-to-heaven-lake | 2.1 | 2.4 |
+| below-the-sea | 1.8 | 1.9 |
+| the-roof | 1.9 | 2.1 |
+| the-wall | 2.2 | 2.3 |
+
+Karst is the only rise both runs agree on outside the resolution, and it
+is the station with twice anyone else's triangles (1.5 M, Guilin's 30 m
+grid). Karst and the First Bend are now over the 4 ms line F83 drew for an
+M1 at half this GPU, and well inside the 33 ms frame. If an M1 reads
+over, the lever is a normal baked per tile when it lands, one read a
+vertex instead of five.
+
+**Where the detail can come from.** Researched, each source's terms read
+at the provider:
+
+- *Land cover:* ESA WorldCover 2021, 10 m, CC BY 4.0, a class map per
+  scene at 50 to 100 m under 3 MB for all nine. GlobeLand30 forbids release
+  over the internet.
+- *Imagery:* EOX Sentinel-2 cloudless, but only its 2016 and 2017 mosaics,
+  CC BY 4.0; from 2018 it is CC BY-NC-SA, which would bind the repository.
+  Esri and Mapbox imagery cannot be redistributed. About 5 to 7 MB for the
+  nine scenes at 2048².
+- *Glaciers:* the Randolph Glacier Inventory 7.0, CC BY 4.0, a few kB.
+- *Forest and water:* Hansen Global Forest Change (CC BY 4.0), JRC Global
+  Surface Water (free, credited); OpenStreetMap's water would make a
+  derived mask ODbL inside an MIT repository.
+- *Elevation:* nothing open is finer than 30 m over China. Copernicus
+  GLO-30, already the source, is the best there is; the gain is using it
+  at 30 or 90 m in more places.
+
+And rendering, in the order the research ranks it: sampling the heights
+bicubically on a denser mesh, which rounds the 1 km silhouettes; sky
+occlusion baked from the DEM, 8 bits at 90 m, about 0.3 MB a scene;
+colour from the imagery with its own shadows divided out, or from land
+cover; noise below the grid's spacing bent into the normals, by slope
+and cover, faded with distance; and haze that turns distance blue.

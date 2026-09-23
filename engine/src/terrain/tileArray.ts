@@ -237,6 +237,14 @@ export class HeightTileArray {
     return this.layerOf.has(tileId(x, y));
   }
 
+  /**
+   * Layer holding this tile, or -1, without marking it used: a neighbour
+   * read for its edge row (the smooth normals) is not a reason to keep it.
+   */
+  peekLayer(x: number, y: number): number {
+    return this.layerOf.get(tileId(x, y)) ?? -1;
+  }
+
   /** Layer holding this tile, or -1. Marks it used. */
   layerFor(x: number, y: number): number {
     const layer = this.layerOf.get(tileId(x, y));

@@ -20,11 +20,20 @@ import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
  * 1. The mesh is displaced by a vertex texture fetch, so the CPU never builds
  *    terrain geometry. One grid, many tiles, one integer texture array.
  *
- * 2. Normals come from screen-space derivatives of the interpolated world
- *    position. Because that position is linear across a triangle, its
- *    derivatives are constant across it - which is exactly flat shading, for
- *    free, with no normal attribute, no baking and no split vertices. The
- *    low-poly faceting the art direction asks for falls out of the maths.
+ * 2. Normals are the ground's own, not the triangles': each vertex takes a
+ *    central difference of the heights around its texel, read at the finest
+ *    spacing whatever the LOD, and the fragment lights the interpolated
+ *    normal. Version 1 lit each triangle flat from the derivatives of the
+ *    world position, a low-poly look its art direction asked for; over 1 km
+ *    samples that drew the country as facets a kilometre wide, which viewers
+ *    of the film read as a game built of bricks (stage 7, F86). The shadow
+ *    reads the same normal: on the flat one, a triangle turned from the sun
+ *    skipped the shadow test and shone out of a mountain's cast shadow as a
+ *    lit facet. Along a tile's edge the difference reads the neighbour's row
+ *    (`iNeighbours`), since tiles share their edge samples; a one-sided
+ *    difference stands in where the neighbour is not resident, so the only
+ *    seam is at the edge of what is loaded. The rim's curtain, a wall with
+ *    no heights around it, keeps the flat normal.
  *
  * Colour is the scene's palette: an elevation ramp, rock on the steep, snow
  * above a line, baked in as constants and regenerated at scene start
@@ -56,7 +65,49 @@ flat in float vWater;`;
 const WATER_FRAGMENT_BODY = /* glsl */ `
   if (vWater > 0.5) lit = withWater(lit, sun, uSunColor, shadow, vTexel, vLayer, dir, vWorld);`;
 
-const vertexShader = (water: boolean): string => /* glsl */ `
+/** The ground's normal at a vertex, for the lit pass (not the depth pass). */
+const NORMAL_VERTEX_INPUTS = /* glsl */ `
+in vec4 iNeighbours;
+out vec3 vNormal;
+
+// The height one texel from t along d, which is on the neighbouring tile when
+// the step leaves this one: tiles share their edge row, so the neighbour's
+// texel one in from its own edge. False where that neighbour is not resident.
+bool heightNear(ivec2 t, ivec2 d, int last, out float h) {
+  ivec2 p = t + d;
+  float layer = iLayer;
+  if (p.x < 0) { layer = iNeighbours.x; p.x += last; }
+  else if (p.x > last) { layer = iNeighbours.y; p.x -= last; }
+  else if (p.y < 0) { layer = iNeighbours.z; p.y += last; }
+  else if (p.y > last) { layer = iNeighbours.w; p.y -= last; }
+  if (layer < 0.0) return false;
+  h = float(texelFetch(uHeights, ivec3(p, int(layer)), 0).r);
+  return true;
+}
+
+// A central difference where both sides are there, one-sided where one is not.
+float slopeAcross(float before, bool hasBefore, float here, float after, bool hasAfter) {
+  if (hasBefore && hasAfter) return (after - before) * 0.5;
+  if (hasAfter) return after - here;
+  if (hasBefore) return here - before;
+  return 0.0;
+}
+
+vec3 groundNormal(ivec2 t, float here) {
+  int last = textureSize(uHeights, 0).x - 1;
+  float w, e, s, n;
+  bool hw = heightNear(t, ivec2(-1, 0), last, w);
+  bool he = heightNear(t, ivec2(1, 0), last, e);
+  bool hs = heightNear(t, ivec2(0, -1), last, s);
+  bool hn = heightNear(t, ivec2(0, 1), last, n);
+  // Metres of rise per texel, to world units of rise per world unit across.
+  float k = uVerticalExaggeration * float(last) / uTileWorldSize;
+  float dx = slopeAcross(w, hw, here, e, he) * k;
+  float dz = slopeAcross(s, hs, here, n, hn) * k;
+  return normalize(vec3(-dx, 1.0, -dz));
+}`;
+
+const vertexShader = (water: boolean, normals: boolean): string => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp isampler2DArray;
@@ -74,6 +125,7 @@ uniform float uSkirtDepth;
 
 out vec3 vWorld;
 out float vElevation;
+${normals ? NORMAL_VERTEX_INPUTS : ""}
 
 void main() {
   int h = texelFetch(uHeights, ivec3(int(aTexel.x), int(aTexel.y), int(iLayer)), 0).r;
@@ -91,6 +143,7 @@ void main() {
 
   vWorld = world;
   vElevation = elevationM;
+${normals ? "  vNormal = groundNormal(ivec2(aTexel), elevationM);" : ""}
 ${water ? WATER_VERTEX_BODY : ""}
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
@@ -152,13 +205,28 @@ const cutBody = (maxCuts: number): string =>
   }
 `;
 
-const fragmentShader = (maxCuts: number, waterSamples: number, palette: ScenePalette): string => /* glsl */ `
+// The ground's normal, interpolated from its vertices (header).
+const SMOOTH_NORMAL = /* glsl */ `
+  vec3 n = normalize(vNormal);`;
+
+// The drawn triangle's own, from the derivative of world position: the rim's.
+const FLAT_NORMAL = /* glsl */ `
+  vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+  if (n.y < 0.0) n = -n;`;
+
+const fragmentShader = (
+  maxCuts: number,
+  waterSamples: number,
+  palette: ScenePalette,
+  smooth: boolean,
+): string => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp usampler2DArray;
 
 in vec3 vWorld;
 in float vElevation;
+${smooth ? "in vec3 vNormal;" : ""}
 ${waterSamples > 0 ? WATER_FRAGMENT_INPUTS : ""}
 
 uniform vec3 uSunColor;
@@ -183,9 +251,7 @@ ${waterSamples > 0 ? waterGlsl(waterSamples, palette) : ""}
 
 void main() {
 ${cutBody(maxCuts)}
-  // Flat-shaded facet normal from the derivative of world position.
-  vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
-  if (n.y < 0.0) n = -n;
+${smooth ? SMOOTH_NORMAL : FLAT_NORMAL}
   vec3 sun = normalize(uSunDirection);
 
   vec3 base = elevationColor(vElevation);
@@ -286,8 +352,8 @@ export function createTerrainMaterial(
   const recipe: Recipe = { kind: "terrain", maxCuts, waterSamples: water?.samples ?? 0 };
   const material = new ShaderMaterial({
     glslVersion: GLSL3,
-    vertexShader: vertexShader(water !== undefined),
-    fragmentShader: fragmentShader(maxCuts, recipe.waterSamples, values.palette ?? DEFAULT_PALETTE),
+    vertexShader: vertexShader(water !== undefined, true),
+    fragmentShader: fragmentShader(maxCuts, recipe.waterSamples, values.palette ?? DEFAULT_PALETTE, true),
     uniforms: {
       ...lookUniformDefaults(),
       ...cuts,
@@ -313,7 +379,8 @@ export function createTerrainMaterial(
 export function setTerrainPalette(material: ShaderMaterial, palette: ScenePalette): void {
   const recipe = material.userData.recipe as Recipe | undefined;
   if (!recipe) throw new Error("not a terrain material");
-  material.fragmentShader = fragmentShader(recipe.kind === "rim" ? 0 : recipe.maxCuts, recipe.waterSamples, palette);
+  const terrain = recipe.kind === "terrain";
+  material.fragmentShader = fragmentShader(terrain ? recipe.maxCuts : 0, recipe.waterSamples, palette, terrain);
   material.needsUpdate = true;
 }
 
@@ -358,14 +425,15 @@ const SHARED_WITH_RIM = [
  * anyone writing to it; the look's uniforms are its own, because the rig
  * writes every material it draws with. No cut, since the curtain stands
  * exactly on the rectangle's edge and a `discard` would take it or leave it
- * by rounding, and no water, since it is a wall.
+ * by rounding, no water, since it is a wall, and the flat normal, since a
+ * wall has no heights around it to difference.
  */
 export function createRimMaterial(country: ShaderMaterial, palette: ScenePalette = DEFAULT_PALETTE): ShaderMaterial {
   const u = country.uniforms;
   const material = new ShaderMaterial({
     glslVersion: GLSL3,
     vertexShader: rimVertexShader,
-    fragmentShader: fragmentShader(0, 0, palette),
+    fragmentShader: fragmentShader(0, 0, palette, false),
     uniforms: {
       ...lookUniformDefaults(),
       ...Object.fromEntries(SHARED_WITH_RIM.map((name) => [name, u[name]!])),
@@ -412,7 +480,7 @@ export function createDepthMaterial(source: ShaderMaterial): ShaderMaterial {
   if (recipe.maxCuts > 0) names.push("uCutRects", "uCutCount");
   return new ShaderMaterial({
     glslVersion: GLSL3,
-    vertexShader: vertexShader(false),
+    vertexShader: vertexShader(false, false),
     fragmentShader: depthFragmentShader(recipe.maxCuts),
     uniforms: Object.fromEntries(names.map((name) => [name, u[name]!])),
   });

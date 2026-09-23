@@ -16,7 +16,7 @@ inherits; their numbering continues here rather than starting again.
 | 4 — Delivery | **Done.** Nine packs, 16.4 MB with what is read before them; no tile fetched outside them; the build ships them. First frame on a phone over 4G is arithmetic, not measured. | F84 |
 | 5 — Text, sound, credits | **Text and credits done**, every figure in metric and imperial. **No sound**: a stand-in and a synthesised wind were both rejected, and all of it is to be found on the web (D85). | — |
 | 6 — Launch | Not started. | |
-| 7 — Detail | Not started: the landscape reads as Lego. Research the data, then fine-tune. | |
+| 7 — Detail | **Started.** The data researched; the terrain lit smooth (D86), which takes the facets out of every scene. Next: colour, sub-grid detail, the 1 km ground's silhouettes. | F86 |
 
 Stages 0 to 4 and most of 3 and 5 took one day against five and a half
 weeks planned.
@@ -78,6 +78,10 @@ Everything else in the repository served the version-1 game and goes.
   on the web, credited on the credits page. A wind synthesised in the
   browser from shaped noise was built and heard on 23 September 2026 and
   rejected as sounding like a machine; so was the stand-in before it.
+- **D86** The terrain is lit by the ground's normal, not the triangle's,
+  reversing version 1's D3. Flat facets were that game's art direction;
+  over a 1 km grid they drew the country as bricks a kilometre wide, and
+  the film is to look like the place (F86).
 
 
 ## What each part of the repository becomes
@@ -224,6 +228,17 @@ recordings from libraries on the web whose licences allow a public web
 build, listed with their credits in `content/sound.yaml`. Finding them is
 research: which libraries carry music with Chinese instruments and field
 recordings of wind at altitude, and on what terms.
+
+Researched 24 September 2026. The site serves every cue as a file anyone
+can download, and the `packs` release is public, so only CC0 and CC BY 4.0
+recordings qualify: Freesound (per sound) and Kevin MacLeod's Incompetech
+(CC BY 4.0) carry both music with Chinese instruments and CC0 mountain,
+valley and dune wind. Nothing non-commercial, no-derivatives or
+share-alike, which synced to picture would make the film share-alike;
+Pixabay, the BBC's library and the paid libraries all forbid handing out
+the files. The one way to nine cues written for these places is a
+commissioned score, licensed CC BY 4.0 by contract. The choice is the
+author's.
 
 ### Stage 6 — Launch (2 days)
 

@@ -84,8 +84,10 @@ float mistAlong(vec3 eye, vec3 target) {
  * the sun's point of view (`look/shadows.ts`). Nine compared taps, which the
  * hardware filters, so the edge is soft; a fade at the map's border, so the
  * ground beyond it - lit by the sun and the sky alone - joins without a
- * line; and a slope-scaled bias with a normal offset, because the terrain
- * is flat facets and a facet edge-on to the sun shadows itself otherwise.
+ * line; and a slope-scaled bias with a normal offset, because a triangle
+ * edge-on to the sun shadows itself otherwise. The normal is the one the
+ * ground is lit by (F86): a test skipped by one normal and lit by another
+ * shines out of a cast shadow.
  */
 export const SHADOW_GLSL = /* glsl */ `
 uniform highp sampler2DShadow uShadowMap;

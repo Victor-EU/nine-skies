@@ -287,7 +287,7 @@ export interface ScenePalette {
   /** Real metres: permanent snow from here up, on ground that can hold it. */
   readonly snowLineM: number;
   /**
-   * Where ground reads as rock, as a slope (1 minus the facet normal's rise,
+   * Where ground reads as rock, as a slope (1 minus the ground normal's rise,
    * 0 flat to 1 vertical): none below the first, all above the second. At
    * six times relief most hillsides are steep, so a green gorge wants the
    * rock later than a scree slope does.

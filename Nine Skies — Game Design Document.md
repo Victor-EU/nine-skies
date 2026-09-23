@@ -156,9 +156,10 @@ English first. Characters on every title. Other languages after launch.
 
 ## The look
 
-Low-poly, flat-shaded terrain, kept from version 1, because it lets the shape
-of the ground carry the frame. What version 1 did not build and this design
-requires:
+Terrain that looks like the place: smooth-lit ground (D86), not version 1's
+flat-shaded facets, which over a 1 km grid read as a game built of bricks.
+The shape of the ground still carries the frame. What version 1 did not
+build and this design requires:
 
 - **A sun.** Direction from the scene's date and hour, shadows on the ground,
   a warm side and a cold side to every ridge.

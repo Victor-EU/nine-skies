@@ -144,6 +144,15 @@ interface LodBucket {
   layers: InstancedBufferAttribute;
   /** 1 where the instance's tile has its water, 0 where it has none yet (F72). */
   water: InstancedBufferAttribute;
+  /**
+   * The layers of the tiles west, east, south and north of the instance's,
+   * -1 where one is not resident: the smooth normal along a tile's edge reads
+   * its neighbour's row (`terrainMaterial.ts`). Filled at the end of the
+   * frame, once every tile the frame makes resident is in.
+   */
+  neighbours: InstancedBufferAttribute;
+  /** Each instance's tile, as (i, j) pairs, for `neighbours`. */
+  tiles: Int32Array;
   trianglesPerInstance: number;
   count: number;
 }
@@ -279,6 +288,8 @@ class TileLattice implements DrawnTiles {
     arr[b.count * 2 + 1] = (j * this.tileM - originNorthM) / c;
     (b.layers.array as Float32Array)[b.count] = layer;
     (b.water.array as Float32Array)[b.count] = this.heights.hasWater(layer) ? 1 : 0;
+    b.tiles[b.count * 2] = i;
+    b.tiles[b.count * 2 + 1] = j;
     b.count++;
     this.drawnLod.set(tileId(i, j), lod);
     return true;
@@ -294,14 +305,28 @@ class TileLattice implements DrawnTiles {
       b.geometry.instanceCount = b.count;
       b.mesh.visible = b.count > 0;
       if (b.count === 0) continue;
+      this.fillNeighbours(b);
       b.origins.needsUpdate = true;
       b.layers.needsUpdate = true;
       b.water.needsUpdate = true;
+      b.neighbours.needsUpdate = true;
       drawCalls++;
       instances += b.count;
       triangles += b.count * b.trianglesPerInstance;
     }
     return { drawCalls, instances, triangles };
+  }
+
+  private fillNeighbours(b: LodBucket): void {
+    const out = b.neighbours.array as Float32Array;
+    for (let k = 0; k < b.count; k++) {
+      const i = b.tiles[k * 2]!;
+      const j = b.tiles[k * 2 + 1]!;
+      out[k * 4] = this.heights.peekLayer(i - 1, j);
+      out[k * 4 + 1] = this.heights.peekLayer(i + 1, j);
+      out[k * 4 + 2] = this.heights.peekLayer(i, j - 1);
+      out[k * 4 + 3] = this.heights.peekLayer(i, j + 1);
+    }
   }
 
   setScale(scale: WorldScale, hazeDensityPerM: number): void {
@@ -340,12 +365,15 @@ class TileLattice implements DrawnTiles {
       1,
     );
     const water = new InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
+    const neighbours = new InstancedBufferAttribute(new Float32Array(this.maxInstances * 4), 4);
     origins.setUsage(35048 /* DynamicDrawUsage */);
     layers.setUsage(35048);
     water.setUsage(35048);
+    neighbours.setUsage(35048);
     geometry.setAttribute("iOrigin", origins);
     geometry.setAttribute("iLayer", layers);
     geometry.setAttribute("iWater", water);
+    geometry.setAttribute("iNeighbours", neighbours);
     geometry.instanceCount = 0;
 
     const mesh = new Mesh(geometry, this.material);
@@ -360,6 +388,8 @@ class TileLattice implements DrawnTiles {
       origins,
       layers,
       water,
+      neighbours,
+      tiles: new Int32Array(this.maxInstances * 2),
       trianglesPerInstance: grid.triangleCount,
       count: 0,
     };
