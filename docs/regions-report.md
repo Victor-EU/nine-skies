@@ -14,13 +14,13 @@ region map; nothing else reads it (F66).
 | Band | km² | Share |
 | --- | ---: | ---: |
 | first step (the GDD's 0-500 m) | 2,540,582 | 27.1 % |
-| between the first and second | 1,296,759 | 13.8 % |
-| second step (1,000-2,000 m) | 2,515,691 | 26.8 % |
+| between the first and second | 1,476,344 | 15.7 % |
+| second step (1,000-2,000 m) | 2,336,106 | 24.9 % |
 | between the second and third | 1,102,203 | 11.8 % |
 | third step (4,000-5,000 m) | 1,229,080 | 13.1 % |
 | above the third | 692,038 | 7.4 % |
 
-The GDD gives each step a typical height, and 25.6 % of China stands
+The GDD gives each step a typical height, and 27.5 % of China stands
 between them. A step is a description; an edge between two of them is a
 height somebody chooses, which is why everything below is read at more
 than one.

@@ -25,8 +25,10 @@ that rule to the grid rather than to a list of basins:
   would raise the lowest land in China to its rim; `SINKS` is the list of
   basins that are closed in life and that the map cannot say so about, each
   entry a `places.py` id and a sentence of why. It is applied at the basin's
-  own floor rather than at the named coordinate, and the report prints what
-  each entry kept beside what the rule would have done instead.
+  own floor rather than at the named coordinate, and at the floor of each
+  hollow inside that basin the coordinate lies in, so the ground under a
+  named place is never raised (F68); the report prints what each entry kept
+  beside what the rule would have done instead.
 
 **Direction is read off the ground, one run at a time.** Natural Earth does
 not draw its lines downstream (F60), so each run is turned so that it flows
@@ -130,7 +132,8 @@ class Sink:
 
     #: A `places.py` id. The coordinate lives there and nowhere else (D46);
     #: it only has to fall *inside* the basin, because what marks the basin
-    #: is the basin's own floor.
+    #: is the basin's own floor -- and the ground under it is never raised,
+    #: because each hollow it lies in is kept at its own floor too (F68).
     place: str
     #: Why this basin has no outlet, in the same voice a place's source is
     #: written in. It is the whole of what this entry claims.
@@ -164,11 +167,10 @@ SINKS: tuple[Sink, ...] = (
         "tarim-terminus",
         "The Tarim ends in the sand rather than in a sea: Natural Earth draws "
         "its last river, the Konqi, stopping inside the basin, and draws no lake "
-        "at the end of it. On the 1 km grid this entry keeps the basin the one "
-        "above keeps -- filled to its spill level the Tarim and the Turpan "
-        "depression are one 494,979 km² basin with one floor -- and it is named "
-        "anyway, because they are two sinks in life and a finer grid may part "
-        "them (F64).",
+        "at the end of it. On the 1 km grid the end's lowest way out runs up the "
+        "carved Konqi into Bosten Lake, which the rule keeps as a place water "
+        "may leave, so without this entry the fill pours the end flat at "
+        "Bosten's floor, 261 m over its own (F67, F68).",
     ),
 )
 
@@ -517,22 +519,88 @@ def sink_cells(
 
 
 @dataclass(frozen=True)
+class Hollow:
+    """One closed basin a named sink keeps, and what the rule would have done
+    to it instead."""
+
+    #: Its lowest cell, which is what marks it as a place water may leave.
+    floor: int
+    #: Its cells, how far the fill would have raised its floor, and the mean
+    #: rise over the whole of it -- with every hollow outside it already kept.
+    cells: int
+    deepest_m: float
+    mean_m: float
+    floor_m: float
+
+
+@dataclass(frozen=True)
 class Kept:
-    """What one named sink kept on one grid, and what the rule would have
-    done to it instead."""
+    """What one named sink kept on one grid."""
 
     place: str
     #: The sink's own cell, where its coordinate falls.
     cell: int
-    #: The floor of the closed basin it lies in, and what marks that basin as
-    #: a place water may leave. None where its cell is in no closed basin.
-    floor: int | None
-    #: The basin: its cells, how far the fill would have raised its floor, and
-    #: the mean rise over the whole of it.
-    cells: int = 0
-    deepest_m: float = 0.0
-    mean_m: float = 0.0
-    floor_m: float = 0.0
+    #: The closed basins it keeps, outermost first: the basin its coordinate
+    #: lies in, then the hollow inside that one the coordinate still lies in
+    #: once the basin's floor is kept, and so on until the coordinate drains.
+    #: Empty where its cell is in no closed basin at all.
+    hollows: tuple[Hollow, ...] = ()
+
+    @property
+    def floors(self) -> tuple[int, ...]:
+        return tuple(hollow.floor for hollow in self.hollows)
+
+
+#: What the ground outside a basin reads while the basin is looked inside:
+#: above any ground there is, so that the one way out is the floor kept.
+WALL_M = 1.0e7
+
+
+def _hollow(basin: hydro.Depression, top: int, left: int, width: int) -> Hollow:
+    return Hollow(
+        floor=(top + basin.row) * width + left + basin.col,
+        cells=basin.cells,
+        deepest_m=basin.deepest_m,
+        mean_m=basin.mean_m,
+        floor_m=basin.floor_m,
+    )
+
+
+def hollows_within(heights: np.ndarray, basin: np.ndarray, floor: int, cell: int) -> list[Hollow]:
+    """The hollows inside a kept basin that a cell lies in, outermost first.
+
+    With the basin's floor kept, the fill still raises every hollow in it
+    that can only reach the floor by climbing; if `cell` is in one, that
+    hollow's floor is kept too and it is looked inside in turn, until the
+    cell drains. Looked for in the basin alone, with everything round it a
+    wall: every cell of a closed basin is below its rim, so the way from any
+    hollow in it to its floor runs inside it, and a flood of the basin by
+    itself fills it exactly as a flood of the whole grid would. On the
+    country that is a flood of one basin's box rather than of 29.7 million
+    cells, once for each level.
+    """
+    height, width = heights.shape
+    out: list[Hollow] = []
+    target_row, target_col = divmod(int(cell), width)
+    while True:
+        rows, cols = np.nonzero(basin)
+        # A closed basin never reaches the map edge, which is an outlet, so
+        # a box one cell wider than it is always on the grid.
+        top, bottom = max(int(rows.min()) - 1, 0), min(int(rows.max()) + 2, height)
+        left, right = max(int(cols.min()) - 1, 0), min(int(cols.max()) + 2, width)
+        inside = basin[top:bottom, left:right]
+        window = np.where(inside, heights[top:bottom, left:right], WALL_M).astype("float32")
+        kept = np.zeros(window.shape, dtype=bool)
+        floor_row, floor_col = divmod(int(floor), width)
+        kept[floor_row - top, floor_col - left] = True
+        labels, found = hydro.basins(window, hydro.flood(window, outlets=kept))
+        label = int(labels[target_row - top, target_col - left])
+        if not label:
+            return out
+        out.append(_hollow(found[label - 1], top, left, width))
+        floor = out[-1].floor
+        basin = np.zeros(heights.shape, dtype=bool)
+        basin[top:bottom, left:right] = labels == label
 
 
 def kept_sinks(
@@ -541,25 +609,40 @@ def kept_sinks(
     cells: Mapping[str, int],
     drainage: hydro.Drainage | None = None,
 ) -> dict[str, Kept]:
-    """The closed basin each named sink lies in, marked at its own floor.
+    """The closed basin each named sink lies in, kept at its own floor, and
+    each hollow inside it that the sink's own coordinate lies in.
 
-    The floor rather than the coordinate, because what a marked cell does is
+    `outlets` is every cell the rule lets water leave at besides these --
+    ground nobody measured, and the kept lakes -- so a basin here is one the
+    rule would fill, and what a row of the report says the rule would have
+    done is what it would have done. Found from the map edge alone, the
+    Tarim's end and the Turpan depression were one basin with its floor in
+    Turpan, and keeping that floor kept nothing of the Tarim's: the rule
+    lets water leave at Bosten Lake, the lowest way out of the Tarim's end
+    runs up the carved Konqi into it, and the fill poured 220,244 km² flat
+    at Bosten's floor, 1,044.5 m (F67, F68).
+
+    The floor rather than the coordinate, because what a kept cell does is
     let water leave there: the fill raises everything that can only reach the
     mark by climbing, so marking a sink anywhere but its lowest cell would
     pour a floor into the deepest part of the basin it was meant to keep. A
     coordinate therefore only has to fall inside the basin, which is what
     makes this a short list of names rather than a survey.
 
-    A basin inside the kept basin is not kept: a hollow the 1 km grid invented
-    in the Taklamakan is the same artefact inside an endorheic basin as
-    outside one, and the entry says the basin has no outlet, not that nothing
-    in it was ever mis-measured.
+    And the hollows inside it the coordinate lies in, so that the ground
+    under an entry's own coordinate is never raised by the rule: a basin the
+    1 km grid draws can hold the place an entry names in a hollow of its own
+    above the basin's floor (F68). A hollow no entry lies in is still raised
+    to its own rim: one the 1 km grid invented in the Taklamakan is the same
+    artefact inside an endorheic basin as outside one, and an entry says the
+    place it names has no outlet, not that nothing near it was ever
+    mis-measured.
 
-    `floor` is None where a sink's cell is in no closed basin at all -- the
-    carve has already drained it, the coordinate is on a rim, or the ground
-    under it was never fetched. Reported rather than passed over: an entry
-    that keeps nothing is either finished work or a wrong coordinate, and the
-    report prints which.
+    `hollows` is empty where a sink's cell is in no closed basin at all --
+    the carve has already drained it, the coordinate is on a rim, or the
+    ground under it was never fetched. Reported rather than passed over: an
+    entry that keeps nothing is either finished work or a wrong coordinate,
+    and the report prints which.
     """
     if not cells:
         return {}
@@ -571,18 +654,11 @@ def kept_sinks(
     for place, cell in cells.items():
         label = int(labels.ravel()[cell])
         if not label:
-            out[place] = Kept(place=place, cell=cell, floor=None)
+            out[place] = Kept(place=place, cell=cell)
             continue
-        basin = found[label - 1]
-        out[place] = Kept(
-            place=place,
-            cell=cell,
-            floor=basin.row * width + basin.col,
-            cells=basin.cells,
-            deepest_m=basin.deepest_m,
-            mean_m=basin.mean_m,
-            floor_m=basin.floor_m,
-        )
+        outer = _hollow(found[label - 1], 0, 0, width)
+        inner = hollows_within(heights, labels == label, outer.floor, cell)
+        out[place] = Kept(place=place, cell=cell, hollows=(outer, *inner))
     return out
 
 
@@ -600,8 +676,7 @@ def kept_mask(
     """
     mask = np.isin(lakes, kept) & measured
     for sink in (sinks or {}).values():
-        if sink.floor is not None:
-            mask.ravel()[sink.floor] = True
+        mask.ravel()[list(sink.floors)] = True
     return mask
 
 
@@ -715,7 +790,8 @@ def condition(
     carved = carve(heights, made, lakes, floors)
     outlets = ~measured
     kept = closed_lakes(carved, lakes, floors, outlets)
-    here = kept_sinks(carved, outlets, sink_cells(cells_of, sinks))
+    lake_cells = kept_mask(lakes, kept, measured)
+    here = kept_sinks(carved, outlets | lake_cells, sink_cells(cells_of, sinks))
     kept_cells = kept_mask(lakes, kept, measured, here)
     river = np.zeros(heights.shape, dtype=bool)
     for ch in made:
@@ -778,7 +854,7 @@ def inputs(rule: str, radius: int, sinks: Mapping[str, Kept] | None = None) -> d
     record = vectors.read()["digests"]
     named = {source: record[source]["sha256"] for source in (rivers.RIVERS, rivers.LAKES)}
     body = {"rule": rule, "radiusCells": radius, "vectors": named}
-    applied = sorted(p for p, sink in (sinks or {}).items() if sink.floor is not None)
+    applied = sorted(p for p, sink in (sinks or {}).items() if sink.hollows)
     if applied:
         body["sinks"] = applied
     digest = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
@@ -1134,9 +1210,16 @@ class SinkRow:
     #: None where the entry's coordinate is off this grid entirely, which is
     #: every entry on every grid but the country one.
     kept: Kept | None
-    km2: float = 0.0
-    km3: float = 0.0
-    floor_at: tuple[float, float] | None = None
+    #: Each hollow it keeps, outermost first, as the report prints it.
+    hollows: tuple[HollowRow, ...] = ()
+
+
+@dataclass(frozen=True)
+class HollowRow:
+    hollow: Hollow
+    km2: float
+    km3: float
+    floor_at: tuple[float, float]
 
 
 def sink_rows(
@@ -1156,12 +1239,14 @@ def sink_rows(
             at=(place.lat, place.lon),
             source=sink.source,
             kept=kept,
-            km2=(kept.cells * source.cell_km2) if kept else 0.0,
-            km3=(kept.cells * kept.mean_m * 1e-3 * source.cell_km2) if kept else 0.0,
-            floor_at=(
-                _where(source.transform, kept.floor, width)
-                if kept is not None and kept.floor is not None
-                else None
+            hollows=tuple(
+                HollowRow(
+                    hollow=hollow,
+                    km2=hollow.cells * source.cell_km2,
+                    km3=hollow.cells * hollow.mean_m * 1e-3 * source.cell_km2,
+                    floor_at=_where(source.transform, hollow.floor, width),
+                )
+                for hollow in (kept.hollows if kept is not None else ())
             ),
         ))
     return rows
@@ -1344,24 +1429,29 @@ def render(result: dict) -> str:
         where = f"{row.at[0]:.2f} N {row.at[1]:.2f} E"
         if kept is None:
             lines.append(f"| {row.name} | {where} | not on this grid | — | — |")
-        elif kept.floor is None:
+        elif not row.hollows:
             lines.append(
                 f"| {row.name} | {where} | **in no closed basin here** | — | — |"
             )
-        else:
-            at = row.floor_at
+        for depth, shown in enumerate(row.hollows):
+            hollow, at = shown.hollow, shown.floor_at
+            name, coordinate = (row.name, where) if depth == 0 else ("…and the hollow inside it", "")
             lines.append(
-                f"| {row.name} | {where} | {_n(row.km2)} km² | {_n(kept.floor_m)} m at "
-                f"{at[0]:.2f} N {at[1]:.2f} E | {_n(kept.deepest_m)} m, {_n(row.km3)} km³ |"
+                f"| {name} | {coordinate} | {_n(shown.km2)} km² | {_n(hollow.floor_m)} m at "
+                f"{at[0]:.2f} N {at[1]:.2f} E | {_n(hollow.deepest_m)} m, {_n(shown.km3)} km³ |"
             )
     lines += [""]
     lines += _para(
         """An entry whose basin reads *in no closed basin here* has either been
         drained already, by a mapped river running through it, or been named at a
         coordinate outside the basin it meant -- and the first is finished work
-        where the second is a fault. Hollows inside a kept basin are not kept: one
-        the 1 km cell invented inside an endorheic basin is the same artefact as
-        one outside it, so it is raised to its own rim rather than to the basin's.
+        where the second is a fault. A row beneath an entry is a hollow inside its
+        basin that the entry's own coordinate lies in, which the fill would still
+        have raised with the basin's floor kept, and it is kept too, so the ground
+        under a named coordinate is never raised (F68). Every other hollow inside a
+        kept basin is raised to its own rim rather than to the basin's: one the
+        1 km cell invented inside an endorheic basin is the same artefact as one
+        outside it.
         What each entry claims is only that the basin has no way out:"""
     )
     lines += [""]

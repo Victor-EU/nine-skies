@@ -264,10 +264,11 @@ class TestTheNamedSinks(unittest.TestCase):
         g = ground(heights)
         sink = self.kept(heights)
         self.assertEqual(sink.cell, at(g, 4, 6))
-        self.assertEqual(sink.floor, at(g, 4, 3))  # 10 m, three cells west
-        self.assertAlmostEqual(sink.floor_m, 10.0, places=3)
-        self.assertAlmostEqual(sink.deepest_m, 50.0, places=3)  # to a rim at 60
-        self.assertEqual(sink.cells, 15)
+        self.assertEqual(sink.floors, (at(g, 4, 3),))  # 10 m, three cells west
+        (basin,) = sink.hollows
+        self.assertAlmostEqual(basin.floor_m, 10.0, places=3)
+        self.assertAlmostEqual(basin.deepest_m, 50.0, places=3)  # to a rim at 60
+        self.assertEqual(basin.cells, 15)
 
     def test_the_basin_it_names_is_left_alone_and_the_rule_still_has_the_rest(self):
         heights = self.bowl()
@@ -292,22 +293,179 @@ class TestTheNamedSinks(unittest.TestCase):
             np.testing.assert_allclose(out[3:6, 3:8], heights[3:6, 3:8], err_msg=rule)
 
     def test_a_hollow_inside_a_kept_basin_is_filled_to_its_own_rim(self):
-        # The entry says the basin has no outlet, not that nothing inside it
-        # was ever mis-measured: a 20 m hollow in a floor of 30 is the same
-        # artefact of a 1 km cell inside an endorheic basin as outside one.
+        # The entry says the place it names has no outlet, not that nothing
+        # near it was ever mis-measured: a 20 m hollow in a floor of 30 that
+        # the coordinate is not in is the same artefact of a 1 km cell inside
+        # an endorheic basin as outside one.
         heights = self.bowl(inner=20.0)
         outlets = np.zeros(heights.shape, dtype=bool)
         sink = self.kept(heights)
-        self.assertEqual(sink.floor, at(ground(heights), 4, 3))  # still the 10 m cell
+        self.assertEqual(sink.floors, (at(ground(heights), 4, 3),))  # still the 10 m cell
         mask = carve.kept_mask(np.zeros(heights.shape, dtype=int), [], ~outlets, {"t": sink})
         out = carve.apply_rule(heights, carve.FILL, outlets, mask)
         self.assertAlmostEqual(float(out[4, 3]), 10.0, places=3)
         self.assertAlmostEqual(float(out[4, 7]), 30.0, places=3)  # its own rim, not 60
 
+    def test_a_hollow_the_coordinate_lies_in_is_kept_as_well(self):
+        # The same 20 m hollow with the coordinate in it: the fill would raise
+        # the named place itself to 30, so its floor is kept too.
+        heights = self.bowl(inner=20.0)
+        g = ground(heights)
+        outlets = np.zeros(heights.shape, dtype=bool)
+        sink = self.kept(heights, row=4, col=7)
+        self.assertEqual(sink.floors, (at(g, 4, 3), at(g, 4, 7)))
+        inner = sink.hollows[1]
+        self.assertEqual(inner.cells, 1)
+        self.assertAlmostEqual(inner.floor_m, 20.0, places=3)
+        self.assertAlmostEqual(inner.deepest_m, 10.0, places=3)  # to the floor's 30
+        mask = carve.kept_mask(np.zeros(heights.shape, dtype=int), [], ~outlets, {"t": sink})
+        out = carve.apply_rule(heights, carve.FILL, outlets, mask)
+        np.testing.assert_allclose(out[3:6, 3:8], heights[3:6, 3:8])
+
+    def two_sinks(self) -> np.ndarray:
+        """Two sinks in one closed basin, as the 1 km grid draws Turpan and the
+        Tarim (F67). A ring at 2,000 m round a floor that a ridge parts, with a
+        pass through it at 1,044 m. West of the ridge a floor at 100 m whose
+        lowest cell is -150; east of it a floor at 900 m whose lowest cell is
+        800, and a hollow of 850 m in it that nobody named."""
+        heights = np.tile(np.linspace(2500.0, 0.0, 20, dtype="float32"), (9, 1))
+        ring = np.zeros(heights.shape, dtype=bool)
+        ring[2:7, 2:17] = True
+        ring[3:6, 3:16] = False
+        heights[ring] = np.maximum(heights[ring], 2000.0)
+        heights[3:6, 3:9] = 100.0
+        heights[4, 3] = -150.0
+        heights[3:6, 9] = 1500.0
+        heights[4, 9] = 1044.0
+        heights[3:6, 10:16] = 900.0
+        heights[4, 13] = 800.0
+        heights[3, 11] = 850.0
+        return heights
+
+    def test_two_sinks_in_one_basin_each_keep_their_own_floor(self):
+        heights = self.two_sinks()
+        g = ground(heights)
+        outlets = np.zeros(heights.shape, dtype=bool)
+        sinks = carve.kept_sinks(
+            heights, outlets, {"turpan": at(g, 4, 5), "tarim": at(g, 4, 14)}
+        )
+        self.assertEqual(sinks["turpan"].floors, (at(g, 4, 3),))
+        self.assertEqual(sinks["tarim"].floors, (at(g, 4, 3), at(g, 4, 13)))
+        inner = sinks["tarim"].hollows[1]
+        self.assertEqual(inner.cells, 18)  # the whole floor east of the ridge
+        self.assertAlmostEqual(inner.deepest_m, 244.0, places=3)  # 800 m to the pass
+
+        empty = np.zeros(heights.shape, dtype=int)
+        out = carve.apply_rule(
+            heights, carve.FILL, outlets, carve.kept_mask(empty, [], ~outlets, sinks)
+        )
+        np.testing.assert_allclose(out[3:6, 3:9], heights[3:6, 3:9])
+        self.assertAlmostEqual(float(out[4, 13]), 800.0, places=3)
+        self.assertAlmostEqual(float(out[4, 14]), 900.0, places=3)
+        self.assertAlmostEqual(float(out[3, 11]), 900.0, places=3)  # its own rim
+
+        # What keeping the shared floor alone did, which is F67's finding: the
+        # east floor poured flat to the pass, the named place with it.
+        alone = np.zeros(heights.shape, dtype=bool)
+        alone[4, 3] = True
+        before = carve.apply_rule(heights, carve.FILL, outlets, alone)
+        self.assertAlmostEqual(float(before[4, 14]), 1044.0, places=3)
+        self.assertAlmostEqual(float(before[4, 13]), 1044.0, places=3)
+
+    def test_the_basins_are_found_with_the_kept_lakes_open_as_the_rule_fills(self):
+        # F67 and F68: the rule lets water leave at a kept lake, so a hollow
+        # whose lowest way out climbs into one is filled to the lake's floor.
+        # Here a kept lake at 1,000 m lies on the east floor, as Bosten Lake
+        # lies up the carved Konqi from the Tarim's end.
+        heights = self.two_sinks()
+        g = ground(heights)
+        heights[5, 15] = 1000.0
+        lakes = np.zeros(heights.shape, dtype=int)
+        lakes[5, 15] = 1
+        measured = np.ones(heights.shape, dtype=bool)
+        lake_cells = carve.kept_mask(lakes, [1], measured)
+        sinks = carve.kept_sinks(
+            heights, ~measured | lake_cells, {"turpan": at(g, 4, 5), "tarim": at(g, 4, 14)}
+        )
+        # Two basins rather than one: the east floor drains to the lake, and
+        # the west spills over the pass into it.
+        self.assertEqual(sinks["tarim"].floors, (at(g, 4, 13),))
+        self.assertAlmostEqual(sinks["tarim"].hollows[0].deepest_m, 200.0, places=3)  # to 1,000
+        self.assertEqual(sinks["tarim"].hollows[0].cells, 17)
+        self.assertEqual(sinks["turpan"].floors, (at(g, 4, 3),))
+        self.assertAlmostEqual(sinks["turpan"].hollows[0].deepest_m, 1194.0, places=3)  # to the pass
+
+        out = carve.apply_rule(
+            heights, carve.FILL, ~measured, carve.kept_mask(lakes, [1], measured, sinks)
+        )
+        self.assertAlmostEqual(float(out[4, 14]), 900.0, places=3)
+        self.assertAlmostEqual(float(out[4, 13]), 800.0, places=3)
+
+        # Found from the map edge alone, as they were: one basin, one floor
+        # kept for both, and the east floor poured flat at the lake's level.
+        edge_only = carve.kept_sinks(heights, ~measured, {"tarim": at(g, 4, 14)})
+        self.assertEqual(edge_only["tarim"].floors[0], at(g, 4, 3))
+        alone = lake_cells.copy()
+        alone.ravel()[at(g, 4, 3)] = True
+        before = carve.apply_rule(heights, carve.FILL, ~measured, alone)
+        self.assertAlmostEqual(float(before[4, 14]), 1000.0, places=3)
+
+    def rough(self, seed: int) -> np.ndarray:
+        """Ground with hollows inside hollows: noise on a bowl, so that most of
+        it is one closed basin and the basin is full of smaller ones."""
+        rng = np.random.default_rng(seed)
+        r, c = np.mgrid[0:16, 0:16]
+        bowl = 40.0 - 30.0 * np.exp(-((r - 7.5) ** 2 + (c - 7.5) ** 2) / 40.0)
+        heights = (bowl + rng.normal(0.0, 4.0, bowl.shape)).astype("float32")
+        heights[0, :] = heights[-1, :] = heights[:, 0] = heights[:, -1] = 60.0
+        heights[0, 0] = 0.0  # one way out, in a corner
+        return heights
+
+    def test_the_ground_under_a_named_coordinate_is_never_raised(self):
+        for seed in (1, 2):
+            heights = self.rough(seed)
+            outlets = np.zeros(heights.shape, dtype=bool)
+            empty = np.zeros(heights.shape, dtype=int)
+            nested = 0
+            for cell in range(heights.size):
+                sink = carve.kept_sinks(heights, outlets, {"t": cell})["t"]
+                nested += len(sink.hollows) > 1
+                mask = carve.kept_mask(empty, [], ~outlets, {"t": sink})
+                for rule in carve.RULES:
+                    out = carve.apply_rule(heights, rule, outlets, mask)
+                    # To the centimetre that counts as drowned, which is what
+                    # a basin is made of: less is the arithmetic talking.
+                    self.assertLessEqual(
+                        float(out.ravel()[cell]), float(heights.ravel()[cell]) + hydro.DROWNED_M,
+                        f"seed {seed}, cell {cell}, {rule}",
+                    )
+            self.assertGreater(nested, 10, "the ground has no hollows inside hollows to test")
+
+    def test_looking_inside_a_basin_alone_finds_what_flooding_the_whole_grid_finds(self):
+        # What `hollows_within` claims, checked the slow way: flood the whole
+        # grid with each floor found so far kept, until the cell drains.
+        heights = self.rough(3)
+        width = heights.shape[1]
+        outlets = np.zeros(heights.shape, dtype=bool)
+        for cell in range(heights.size):
+            kept = outlets.copy()
+            slow = []
+            while True:
+                labels, found = hydro.basins(heights, hydro.flood(heights, outlets=kept))
+                label = int(labels.ravel()[cell])
+                if not label:
+                    break
+                basin = found[label - 1]
+                slow.append((basin.row * width + basin.col, basin.cells, round(basin.deepest_m, 3)))
+                kept.ravel()[slow[-1][0]] = True
+            sink = carve.kept_sinks(heights, outlets, {"t": cell})["t"]
+            fast = [(h.floor, h.cells, round(h.deepest_m, 3)) for h in sink.hollows]
+            self.assertEqual(fast, slow, f"cell {cell}")
+
     def test_a_sink_in_no_closed_basin_here_keeps_nothing(self):
         heights = self.bowl()
         sink = self.kept(heights, row=0, col=13)  # on the open slope, off the bowl
-        self.assertIsNone(sink.floor)
+        self.assertEqual(sink.hollows, ())
         mask = carve.kept_mask(
             np.zeros(heights.shape, dtype=int), [], np.ones(heights.shape, bool), {"t": sink}
         )
@@ -319,11 +477,12 @@ class TestTheNamedSinks(unittest.TestCase):
         plain = carve.inputs(carve.RULE, carve.RADIUS_CELLS)
         self.assertNotIn("sinks", plain)
         missed = carve.inputs(
-            carve.RULE, carve.RADIUS_CELLS, {"turpan": carve.Kept("turpan", 7, None)}
+            carve.RULE, carve.RADIUS_CELLS, {"turpan": carve.Kept("turpan", 7)}
         )
         self.assertEqual(missed["sha256"], plain["sha256"])
         applied = carve.inputs(
-            carve.RULE, carve.RADIUS_CELLS, {"turpan": carve.Kept("turpan", 7, 7)}
+            carve.RULE, carve.RADIUS_CELLS,
+            {"turpan": carve.Kept("turpan", 7, (carve.Hollow(7, 1, 1.0, 1.0, 0.0),))},
         )
         self.assertEqual(applied["sinks"], ["turpan"])
         self.assertNotEqual(applied["sha256"], plain["sha256"])

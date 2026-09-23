@@ -191,11 +191,13 @@ PLACES: tuple[Place, ...] = (
         "cannot name. Read off the fetched line rather than recalled, and the "
         "country grid reads 803 m of basin floor here",
         anchor=False,
-        note="On the 1 km grid this is not its own basin: filled to its spill "
-        "level the Tarim, the Taklamakan and the Turpan depression are one "
-        "closed basin of 494,979 km² whose floor is Ayding Lake, so one entry "
-        "of carve.SINKS keeps both. They are two sinks in life, and a finer "
-        "grid may part them, which is why both are named (D65, F64).",
+        note="Filled from the map edge alone, the Tarim, the Taklamakan and the "
+        "Turpan depression are one closed basin of 494,979 km² whose floor is "
+        "Ayding Lake (F64). Filled as stage 3 fills, with the kept lakes open, "
+        "the Tarim's end is a basin of its own whose way out climbs the carved "
+        "Konqi into Bosten Lake, and the fill would pour it flat at Bosten's "
+        "floor; its entry in carve.SINKS keeps the end's own floor, and the "
+        "hollow this coordinate lies in, instead (D65, F68).",
     ),
     Place(
         "qinghai-lake", "Qinghai Lake", 36.90, 100.20, "lake",

@@ -112,7 +112,7 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      the warp says land; it is 45 of 45 today with nothing tuned to make it
      so. What this does *not* settle is the ocean inside a fetched raster,
      which is stage 3's business and is why `c` has its own name.
-3. **Hydro-condition** (`make carve`, `carve.py`, D62–D65, F61, F63) — the
+3. **Hydro-condition** (`make carve`, `carve.py`, D62–D65, D69, F61, F63) — the
    mapped rivers carved, the mapped lakes kept, every other closed basin
    filled. Each run of a Natural Earth river over ground the source reached
    is followed down the valley it lies in — the way water would take through
@@ -121,7 +121,10 @@ vector driver. What the data itself asks of anyone who redistributes it is in
    and a lake still closed afterwards keeps its basin. A basin on
    `carve.SINKS` keeps its level too (D65): the short list of basins that are
    closed in life and that no map this stage reads says so about, each named
-   by its `places.py` id and marked at the basin's own floor. Writes
+   by its `places.py` id and marked at the basin's own floor, found as the
+   rule fills with the kept lakes open, and at the floor of each hollow in it
+   that the named coordinate lies in, so the ground under a named place is
+   never raised (D69, F68). Writes
    `sea-to-sky-1km-conditioned.tif` beside stage 2's grid, which is what the
    tiles, the golden probes and the hero areas' seam check now read, and a
    record naming the vector files by digest, which the manifest and every
@@ -213,8 +216,9 @@ vector driver. What the data itself asks of anyone who redistributes it is in
    and names that file's digest. The engine streams a world that has one and
    refuses a package cut from any other `heights.bin`, which stays what every
    section is signed against. A tile of zeros has no file and two identical
-   tiles share one — which on the country is thirty tiles of the lower Tarim
-   at one level, 1,044.5 m, and a finding (F67). The horizon field is next.
+   tiles share one — which on the country was thirty tiles of the lower Tarim
+   at one level, 1,044.5 m, and a finding (F67, F68). The horizon field is
+   next.
 
 **Not a stage: D14's region raster.** The nine regions the air, the music,
 the weather and the journal all read have no position -> region map yet, and

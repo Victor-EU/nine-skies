@@ -42,10 +42,11 @@ A file is named by the digest of what it holds, so it is immutable and a
 rebuild that moves one river re-fetches the tiles the river is in rather than
 the country. A tile that is all zeros — open sea, which is every tile without
 land in both built worlds — has no file at all; the index says so and the
-engine makes the zeros itself. Two tiles that are the same are one file, which
-on the country is 30 tiles, and that turned out to be a finding rather than a
-saving: they are all 1,044 m, the lower Tarim filled flat (F67). The index
-lists a file by its digest alone, and the engine adds the `.bin`.
+engine makes the zeros itself. Two tiles that are the same are one file. On
+the country that was 30 tiles, and it turned out to be a finding rather than a
+saving: they were all 1,044 m, the lower Tarim poured flat at Bosten Lake's
+floor (F67, F68), and since that was put right no two land tiles are the same.
+The index lists a file by its digest alone, and the engine adds the `.bin`.
 
 The index names the `heights.bin` it was cut from by digest. That file stays
 the world's authoritative form: every committed section and patch is signed

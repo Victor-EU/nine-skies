@@ -8413,6 +8413,16 @@ Kuruktag. So either entry alone keeps both, and the Turpan golden probe reads
 **−153.1 m against −154 ± 15** — a pass with 1 m to spare on ground the rule
 would otherwise have raised by 1,361.
 
+> **Corrected, 23 September 2026 (F68).** The table above found the basin from
+> the map edge alone, and stage 3 does not fill from the map edge alone: it
+> also lets water leave at the 141 lakes it keeps. Found the way the rule
+> fills, the Tarim and the Turpan depression are two basins. Turpan's is
+> **79,575 km²**, spilling at 1,149.2 m over the Kuruktag, and the fill would
+> have raised it by up to **1,303 m, 36,567 km³**; the Tarim's end spills up
+> the carved Konqi into Bosten Lake. So "either entry alone keeps both" was
+> false, and the Tarim's entry kept nothing until F68. The probe's reading is
+> unchanged, because the floor kept for Turpan is the same cell either way.
+
 Both are named anyway. They are two sinks in life, a finer grid may part them,
 and an entry that keeps a basin another entry already keeps costs nothing: the
 report prints the basin beside each, so the overlap is visible rather than
@@ -8837,6 +8847,10 @@ A plateau that stands where Yunnan's does is in the bands the GDD's table
 gives to no step, and a quarter of China is: 25.6 % of its land is at
 500–1,000 m or 2,000–4,000 m.
 
+> **Moved, 23 September 2026 (F68).** 27.5 % since the lower Tarim was put
+> back: 179,585 km² that stage 3 had poured flat at 1,044.5 m went back below
+> 1,000 m. Nothing else in the regions report moved.
+
 Two facts about the named places decide how much of that could be anchored
 by name, and both are about `places.py` rather than about the ground. **Three
 of the nine regions have no named place at all**: North China & Loess, Inner
@@ -9095,6 +9109,19 @@ Tarim ends in the sand. F64 recorded the two entries marking one floor and
 named both anyway, because they are two sinks in life and a finer grid may part
 them. Measured at the entry's own coordinate, the ground went up 241 m.
 
+> **Corrected, 23 September 2026 (F68).** The level is not the rim of a hollow
+> inside the basin Ayding keeps. It is **Bosten Lake's floor**: 1,044.50 m, the
+> lowest measured ground inside the outline of one of the 141 lakes stage 3
+> keeps. The rule lets water leave at every kept lake, and the lowest way out of
+> the Tarim's end runs up the carved Konqi into Bosten, so the fill poured the
+> end flat at the lake's level. `kept_sinks` had found its basins from the map
+> edge alone, where the Tarim and Turpan are one basin, and so kept Ayding's
+> floor for both entries and nothing of the Tarim's. Kept at Ayding's floor
+> alone, the end would have filled to 1,149.2 m, not 1,044.5. The 220,331 km²
+> above counts every cell raised by any amount; at the centimetre stage 3
+> counts as drowned it is 220,246, of which 220,244 are the end's basin. And
+> the fix does not move F65's tail, which counts from the map edge.
+
 The fix is engineering, because D65 already decided the list: an entry keeps
 the depression its own coordinate lies in, not only the basin that depression
 drains to on a 1 km grid, and hollows nobody named are filled as before. It is
@@ -9111,3 +9138,160 @@ which `test_package.py` decodes to the same tile — and twelve for the streamed
 source, the terrain over it and the loader's choice between package and file.
 353 Python tests, up from 342: eleven for the package, one of which checks
 every tile of every built world against its `heights.bin`.
+
+## F68 — The Tarim's end was poured flat at Bosten Lake's floor, not at a rim: a named sink now keeps the basin the rule itself fills and the hollow its own coordinate lies in, and 220,244 km² went back down by up to 261 m
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+F67 found 220,331 km² of the lower Tarim standing at one level, 1,044.5 m, put
+it down to the rule that fills a hollow inside a kept basin to its own rim, and
+filed the fix: an entry keeps the depression its coordinate lies in. Building
+that fix measured the depression first, and it does not fill to 1,044.5 m.
+
+### The level is Bosten Lake's floor
+
+Kept at Ayding's floor and nowhere else, the hollow the `tarim-terminus`
+coordinate lies in is 341,106 km², and it fills to **1,149.2 m**, the pass
+over the Kuruktag at 41.71 N 91.31 E. What stands at exactly 1,044.50 m is
+something else on the grid: **Bosten Lake**, one of the 141 lakes stage 3
+keeps, 1,004 km², whose lowest measured ground is 1,044.50 m at 42.09 N
+86.83 E.
+
+Stage 3 lets water leave at every lake it keeps, as it lets it leave at
+ground nobody measured, because that is how a lake's basin is left alone.
+The carve cuts a river out of a lake at the lake's own floor and carries that
+level downstream until the ground falls below it. So the lowest way out of
+the Tarim's end is into Bosten. Measured from the end's floor to the lake's,
+the way is 598 cells up the Tarim's and the Konqi's valley past Korla, and the
+carve cut 148 of them. Its highest ground is **1,044.50 m at 41.81 N 86.20 E,
+on the Konqi's channel below the lake, cut at the lake's floor**. The fill
+poured the end flat at that level. `kept_sinks` found its basins from the map
+edge alone, without the kept lakes, and from the map edge the Tarim and Turpan
+are one basin. So it kept Turpan's floor for both entries and nothing of the
+Tarim's:
+
+| Found | from the map edge (F64) | as the rule fills, kept lakes open |
+| --- | ---: | ---: |
+| Turpan's basin | 494,979 km² | **79,575 km²** |
+| …what the fill would have done to it | up to 1,361 m, 119,820 km³ | up to 1,303 m, 36,567 km³ |
+| …where it spills | 1,206.5 m | 1,149.2 m, over the Kuruktag into the Tarim's end |
+| The Tarim's end | inside Turpan's | **220,244 km²**, floor 783.5 m at 41.02 N 91.61 E |
+| …what the fill would have done to it | — | up to 261.0 m, 27,486 km³, to Bosten's 1,044.5 m |
+
+F67's 220,331 counted every cell raised by any amount; at the centimetre
+stage 3 counts as drowned it is 220,246, and 220,244 of those are this basin.
+
+So three earlier sentences were wrong, and each finding carries a correction.
+F64's table measured a basin the rule never fills: without the Turpan entry
+the fill would have raised 79,575 km² by up to 1,303 m, not 494,979 by 1,361,
+and *either entry alone keeps both* was false. The probe's pass does not move,
+because the floor kept for Turpan is the same cell either way. F67's cause was
+the wrong one. And F67 said packing found *what no report had*: the country's
+probe report has printed the Tarim's place at **1,044 m with 0 m of relief in
+a 20 km box** since F64, and nothing read it.
+
+### The fix is two things
+
+**The basins are the rule's own.** `kept_sinks` is now given every cell the
+rule lets water leave at, ground nobody measured and the kept lakes, so a
+basin it finds is one the rule would fill, and what a row of the report says
+the rule would have done is what it would have done. That alone keeps the
+Tarim's end at its own floor.
+
+**An entry keeps each hollow its coordinate lies in.** With the end's floor
+kept, the coordinate still lies in a hollow: 30,532 km², floor 784.7 m at
+40.65 N 91.34 E, 24.5 m deep, and the fill would have raised the named place
+by 5.8 m. So an entry keeps the hollow its coordinate is in once its basin's
+floor is kept, and the one inside that, until the coordinate drains. That is
+F67's fix, and what it makes true is the thing a test can check: **no rule
+raises the ground under a named coordinate**. The test says so for every cell
+of two rough grids, each tried as the coordinate under all three rules, to the
+centimetre stage 3 counts as drowned.
+
+The search floods the basin by itself, with everything round it a wall. That
+is exactly the whole grid's flood there, because every cell of a closed basin
+is below its rim, so the way from any hollow in it to its floor runs inside
+it. A second test checks the claim against flooding the whole grid again for
+each level. On the country the Tarim's basin is a box of 421 × 1,195 cells,
+and both levels took **1.6 s**. One flood of the country's 29.7 million cells
+took about four minutes on this machine today, which had 93 MB free and a
+load average of 64.
+
+A hollow no entry lies in is filled to its own rim, as D62 fills every other.
+That is D69, and D65's list stays the user's.
+
+### What the country is now
+
+| | stage 2 | stage 3, F67 | stage 3 now |
+| --- | ---: | ---: | ---: |
+| `tarim-terminus`, 40.63 N 89.39 E | 803.4 m | 1,044.5 m | **803.4 m** |
+| the end's floor, 41.02 N 91.61 E | 783.5 m | 1,044.5 m | 783.5 m |
+| Lop Nur, 40.3 N 90.3 E | 787.6 m | 1,044.5 m | 794.8 m |
+| Taitema Lake, 39.5 N 88.3 E | 804.1 m | 1,044.5 m | 804.3 m |
+| Kashgar | 1,303.4 m | 1,303.4 m | 1,303.4 m |
+| Ayding Lake | −153.0 m | −153.0 m | −153.0 m |
+
+**Exactly 220,244 cells moved, every one of them down**, by up to 261.0 m,
+and 27,152 km³ came back out. Of them 49,742 are still raised, by up to
+66.7 m and 334 km³ in all: 7,305 hollows that no entry lies in.
+
+- **The largest is Lop Nur's own bed**: 17,517 km² with its floor at 785.5 m
+  at 40.18 N 90.52 E, raised up to 9.3 m (83 km³). It is a place with a name
+  and a coordinate of its own, which F65 said four of the five unkept Gobi
+  floors lack. Whether it gets an entry is the list's question, and so the
+  user's. It is filed.
+- **The deepest lie between the dunes of the eastern Taklamakan**, 86.3–87.6 E
+  near 40 N: 45 km² raised up to 66.7 m, and others of 100–270 km² raised
+  42–60 m. Hollows a 1 km cell draws between dunes are what D62's fill is for.
+
+| Stage 3 on the country | F67 | now |
+| --- | ---: | ---: |
+| cells the fill raises | 2,015,646 | **1,845,142** |
+| …in km³ | 91,863 | 64,711 |
+| …by more than 100 m | 302,742 | 175,779 |
+| still closed after the fill | 965,640 cells, 298 basins | the same |
+| basins of 1,000 km² or more, and kept | 154, 48 | the same |
+
+The last two rows do not move, and F67 said the fix would move them. Both are
+counted from the map edge, and from there the Tarim's end is inside the
+Tarim–Turpan basin, which is kept either way.
+
+Downstream of the grid:
+
+- **The probes.** All seven still pass. The Tarim's place reads 804 m with
+  123 m of relief in its 20 km box.
+- **The package.** It is now 4,665 files and 18.67 MB, where it was 4,636 and
+  18.52 MB: one file for each land tile, because **no two tiles share a file**
+  any more. The thirty that did were all this sheet. 53 files that no tile
+  names any more were removed, and `heights.bin` went from `1bd98da1…` to
+  `5ca137f7…`.
+- **The regions report** moves by one table. 179,585 km² go from the second
+  step back below 1,000 m, and F66's 25.6 % of China between the steps is now
+  27.5 %.
+- **The conditioning record's digest** is unchanged at `e19606ec…`. It names
+  what stage 3 read and chose (the rule, the band, the vectors and the entries
+  that kept something), and those are the same. What the world was carved
+  into is `heights.bin`'s digest, which is what every section is signed
+  against.
+
+**The corridor is untouched.** No entry falls on it. Its stage 3, re-run in
+memory with this code, is identical cell for cell to the grid on disk, and its
+digest is `d3d54264a79f` as before, so no section or patch moves.
+
+Stage 3 on the country took 23 minutes 20 seconds against F64's 14:29. That
+was on the machine above, so the two are not comparable. The part this change
+adds is the 1.6 s search and one more lake mask.
+
+### What this leaves
+
+358 Python tests, up from 353, all five for the named sinks:
+
+- a hollow the coordinate lies in is kept;
+- two sinks in one basin each keep their own floor, on a grid shaped like
+  Turpan and the Tarim with a pass at 1,044 m;
+- the basins are found with the kept lakes open, with a lake standing in for
+  Bosten, including what the old way did there;
+- no rule raises a named coordinate, over every cell of two grids;
+- the search inside a basin finds what flooding the whole grid finds.
+
+808 TypeScript tests, unchanged.

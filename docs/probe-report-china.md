@@ -144,7 +144,7 @@ One figure from outside the data, for whatever it is worth: Mongolia's polygon m
 | Lhasa | city | 3,652 m | 3,644 m | 8 m | 1,701 m |
 | Everest summit | summit | 8,268 m | 6,445 m | 1,823 m | 3,928 m |
 | Ayding Lake, Turpan | lake | -153 m | -154 m | 1 m | 212 m |
-| The Tarim's terminal basin | valley | 1,044 m | 1,044 m | 0 m | 0 m |
+| The Tarim's terminal basin | valley | 804 m | 803 m | 1 m | 123 m |
 | Qinghai Lake | lake | 3,194 m | 3,194 m | 0 m | 28 m |
 | Heihe, Heilongjiang | city | 129 m | 127 m | 2 m | 93 m |
 | Tengchong, Yunnan | city | 1,719 m | 1,634 m | 85 m | 1,123 m |

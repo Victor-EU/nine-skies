@@ -16,8 +16,8 @@ measured to decide of it (F60).
 | | cells | km³ | deepest |
 | --- | ---: | ---: | ---: |
 | Cut along mapped rivers | 95,072 | 7,327 | 1,997 m |
-| Other closed basins, raised | 2,015,646 | 91,863 | 627 m |
-| Unchanged | 27,575,939 of 29,686,657 | — | — |
+| Other closed basins, raised | 1,845,142 | 64,711 | 627 m |
+| Unchanged | 27,746,443 of 29,686,657 | — | — |
 
 ## The rivers
 
@@ -98,20 +98,24 @@ something here.
 
 | Sink | coordinate | basin | its floor | the rule would have moved |
 | --- | ---: | ---: | ---: | ---: |
-| Ayding Lake, Turpan | 42.68 N 89.26 E | 494,979 km² | -154 m at 42.66 N 89.26 E | 1,361 m, 119,820 km³ |
-| The Tarim's terminal basin | 40.63 N 89.39 E | 494,979 km² | -154 m at 42.66 N 89.26 E | 1,361 m, 119,820 km³ |
+| Ayding Lake, Turpan | 42.68 N 89.26 E | 79,575 km² | -154 m at 42.66 N 89.26 E | 1,303 m, 36,567 km³ |
+| The Tarim's terminal basin | 40.63 N 89.39 E | 220,244 km² | 783 m at 41.02 N 91.61 E | 261 m, 27,486 km³ |
+| …and the hollow inside it |  | 30,532 km² | 785 m at 40.65 N 91.34 E | 24 m, 430 km³ |
 
 An entry whose basin reads *in no closed basin here* has either been
 drained already, by a mapped river running through it, or been named at a
 coordinate outside the basin it meant -- and the first is finished work
-where the second is a fault. Hollows inside a kept basin are not kept: one
-the 1 km cell invented inside an endorheic basin is the same artefact as
-one outside it, so it is raised to its own rim rather than to the basin's.
-What each entry claims is only that the basin has no way out:
+where the second is a fault. A row beneath an entry is a hollow inside its
+basin that the entry's own coordinate lies in, which the fill would still
+have raised with the basin's floor kept, and it is kept too, so the ground
+under a named coordinate is never raised (F68). Every other hollow inside
+a kept basin is raised to its own rim rather than to the basin's: one the
+1 km cell invented inside an endorheic basin is the same artefact as one
+outside it. What each entry claims is only that the basin has no way out:
 
 
 - **Ayding Lake, Turpan** — The Turpan depression has no outlet and never has: its floor is the lowest exposed land in China at -154 m, and what reaches it evaporates. Ayding Lake is a salt flat that holds water only after rain, which is why no map that draws lakes draws one here.
-- **The Tarim's terminal basin** — The Tarim ends in the sand rather than in a sea: Natural Earth draws its last river, the Konqi, stopping inside the basin, and draws no lake at the end of it. On the 1 km grid this entry keeps the basin the one above keeps -- filled to its spill level the Tarim and the Turpan depression are one 494,979 km² basin with one floor -- and it is named anyway, because they are two sinks in life and a finer grid may part them (F64).
+- **The Tarim's terminal basin** — The Tarim ends in the sand rather than in a sea: Natural Earth draws its last river, the Konqi, stopping inside the basin, and draws no lake at the end of it. On the 1 km grid the end's lowest way out runs up the carved Konqi into Bosten Lake, which the rule keeps as a place water may leave, so without this entry the fill pours the end flat at Bosten's floor, 261 m over its own (F67, F68).
 
 ## Where the water can go
 
@@ -167,9 +171,9 @@ ground the player sees move.
 
 | Rule | cells raised | cells lowered | km³ | deepest | moved over 100 m | still closed |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| **fill** | 2,015,646 | 0 | 91,863 | 627 m at 49.98 N 86.15 E | 302,742 | 965,640 cells, 298 basins |
+| **fill** | 1,845,142 | 0 | 64,711 | 627 m at 49.98 N 86.15 E | 175,779 | 965,640 cells, 298 basins |
 | leave | 0 | 0 | 0 | 0 m | 0 | 2,649,887 cells, 314,876 basins |
-| breach | 0 | 763,120 | 13,730 | 627 m at 50.01 N 86.21 E | 22,898 | 1,011,600 cells, 363 basins |
+| breach | 0 | 762,756 | 13,693 | 627 m at 50.01 N 86.21 E | 22,783 | 1,011,600 cells, 363 basins |
 
 The 12 largest of those basins, on the carved grid and before any rule is
 applied to it. A basin this size is either a real one or a valley the 1 km
