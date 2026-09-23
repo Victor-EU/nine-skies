@@ -8378,3 +8378,159 @@ report, rasters and tiles to the byte on a second run. `make gorges` is the
 cost of the change, at three minutes of searches, and it is the report that
 moved most. Nothing was downloaded, the country grid was not rebuilt, and no
 committed artefact changed.
+
+## F64 — The full country is built, and a two-line list keeps the basins no map names: Turpan reads −153.1 m where the fill would have raised 494,979 km² by 1,361 m — and the build's own probe report was running two of seven
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+Phase 2's opening deliverable. Stage 1 fetched the rest of GLO-30, stages 2–5
+built the country, and stage 3 carried the rule the user chose for the basins
+no mapped river drains and no mapped lake marks — plus the one thing D62 could
+not answer, which is which of those basins is closed in life.
+
+### The list, and what it kept
+
+`carve.SINKS` is two entries. Each is a `places.py` id (D46) and the sentence
+that is its whole evidence, and the carve marks **the basin's own floor**
+rather than the named coordinate: what a marked cell does is let water leave
+there, so marking anything above the floor pours a flat floor into the deepest
+part of the basin the entry meant to keep. A coordinate therefore only has to
+fall *inside* its basin, which is what makes this a list of names rather than
+a survey.
+
+Measured on the country grid, the basin the entries keep is one basin:
+
+| | |
+| --- | --- |
+| Its area | **494,979 km²** |
+| Its depth at the floor | **1,361 m** |
+| Its floor | **−154.1 m at 42.6638 N 89.2566 E**, which is Ayding Lake |
+| What the fill would have moved | **119,820 km³** |
+
+Filled to its spill level the Tarim, the Taklamakan and the Turpan depression
+are one closed basin, because a lake standing at 1,207 m joins them over the
+Kuruktag. So either entry alone keeps both, and the Turpan golden probe reads
+**−153.1 m against −154 ± 15** — a pass with 1 m to spare on ground the rule
+would otherwise have raised by 1,361.
+
+Both are named anyway. They are two sinks in life, a finer grid may part them,
+and an entry that keeps a basin another entry already keeps costs nothing: the
+report prints the basin beside each, so the overlap is visible rather than
+implied. The Tarim's is sited off Natural Earth's own Konqi line, at the point
+where the map stops inside the basin rather than at a confluence or a coast —
+which is the fact that makes the basin a sink the map cannot name.
+
+**A box could not have sited it.** Tried first, and its answer moved with the
+box: 39–41 N / 89–92 E gives 776.5 m at 40.99 N 91.56 E, 49 samples from the
+box's own edge, and widened to 39–42 N it gives 693 m at 41.92 N 89.00 E, near
+another edge and in a different depression. A box cannot site a basin whose
+floor may lie outside it. The country grid can, with no edge and with
+`hydro.basins` naming the basin outright, and it is also the grid the carve
+acts on.
+
+**Hollows inside a kept basin are not kept.** One the 1 km cell invented
+inside an endorheic basin is the same artefact as one outside it, so it is
+raised to its own rim rather than to the basin's. The entry claims only that
+the basin has no way out.
+
+### What the list does not cover, which is the user's
+
+The report now ranks the twelve largest closed basins on the carved grid,
+before any rule touches them, with a column saying what keeps each. That
+column is the point: a list of names cannot be checked against what is not
+printed. Five of the twelve have nothing keeping them —
+
+| km² | deepest | floor |
+| ---: | ---: | --- |
+| 68,989 | 288 m | 44.39 N 110.12 E |
+| 23,195 | **569 m** | 43.90 N 94.72 E |
+| 14,025 | 229 m | 35.56 N 84.36 E |
+| 12,889 | 216 m | 44.52 N 103.62 E |
+| 12,611 | 157 m | 45.27 N 110.30 E |
+
+— and at that size none is a 1 km artefact. No probe reads any of them, so the
+build passes with all five filled. That is D62's question again with country
+numbers in front of it, and it is a decision rather than a defect.
+
+### The build
+
+| | |
+| --- | --- |
+| Stage 1 | 1,969 tiles, **68 GB**; 1,384 fetched here, 585 already on disk |
+| Stage 2 | **15:17**, 6,721 × 4,417 = 29.7 M samples, 49.9 MB, **−154 to 8,418 m** |
+| Stage 3 | **14:29**, peak **1.78 GB** of RSS |
+| Stages 4–5 | 7,245 tiles, **4,665 with land**, 61.22 MB, plus 841 × 553 of horizon field at 0.93 MB |
+
+Stage 3 cut 315 channels from 315 runs of mapped line over the 64.2 % of this
+grid that is measured: 133,889 cells of channel, **95,072 cells cut**, 7,327
+km³, the deepest **1,997 m** in the Bolshoy Yenisei at 52.30 N 98.44 E. 182
+mapped lakes have measured ground here, 44 lie on a carved channel and **141
+are still closed afterwards and keep their basins**. The fill raised 2,015,646
+cells by up to 627 m. Closed ground went from **3,106,617 cells in 307,707
+basins (10.46 %)** to **965,640 in 298 (3.25 %)**, and every basin left is one
+that is kept on purpose.
+
+**The download was priced at 69 GB more and cost 48.6.** The over-estimate was
+named in advance and for the right reason: it extrapolated from the mean size
+of the corridor's own tiles, and GLO-30 thins its columns above 50 N. **More
+connections buy nothing**: 24 workers grew the directory at 7.3 MB/s against
+8 workers' 7.2, so the line is the limit, not the mirror.
+
+**The coverage record earns its keep at country scale** (D53, F54): 4,361
+tiles have every source cell under them fetched, 994 have no cell in the
+mirror at all, 328 are fetched on one side, and **1,562 have a cell that
+exists and this build did not fetch** — the corners of a rectangle drawn round
+a curved quadrilateral, 296 of them in the corridor and 1,562 here. Stage 3
+lets water leave the world through those, which is why they must be a state
+and not a silence.
+
+**Nothing in the corridor moved.** Its conditioned grid still hashes to
+`fadc78a7…` and its conditioning record is identical to the byte, because
+`inputs()` names a sink only where one kept something: a list that touched
+nothing did not change the grid, so its digest does not change either and no
+section or patch was re-cut or re-signed.
+
+### What the build found about the probes
+
+**Two of seven were running.** `probe.py` takes `--phase`, it defaults to
+`corridor`, and the Makefile never passed it — so `make probes CORRIDOR=china`
+measured the country world against phase 0's probe set and printed *all
+runnable probes pass* having run Lhasa and the Yangtze. The report's own title
+said `corridor build, country grid`, so it was not lying; it was answering a
+question nobody had asked it. The phase now follows the corridor, and the full
+set runs: Lhasa 3,651.9 m, Turpan −153.1 m, the Yangtze monotonic with every
+reach's sill at its own upstream cell, and one failure below.
+
+**The seventh probe has never run at all.** `AreaRatioProbe` — the
+Heihe–Tengchong split, 57/43, the one probe that tests the equal-area claim
+the GDD's honest-scale pillar rests on — is collected into `runnable["area"]`
+by `probes_by_type` and then never read: `run()` renders `point`, `flat` and
+`monotonic`. It has been latent since the probe was written and could not
+matter until tonight, because it is phase 2's. Fixing the runner is not the
+whole job: the probe needs China's own boundary to know which land is China's,
+and the box is a rectangle holding Mongolia, Kazakhstan and Russia. Natural
+Earth's admin-0 countries would answer it, is public domain and is small — and
+it is a fetch, so it is the user's.
+
+**Qinghai Lake fails on flatness, and the water is not what is rough.** It
+reads 3,194.6 m, inside the ±2 m level tolerance, with a standard deviation of
+1.5 against < 1.0. The surface itself is exactly flat, as F56 found for every
+lake in the corridor: within 5 km of the probe's centre it is **one float32
+value, 3,194.50 m, sd 0.000**. The probe reads a **25 km disc**, and 30 of its
+1,961 cells stand above the water by up to **28.1 m** — islands and shore.
+Across the mapped polygon instead, **90.9 % of 4,464 cells carry the one
+value** and the highest stands 62.7 m over it. So both a disc and a polygon
+include land, and neither can be flat; what this probe should measure is a
+question about what it is for, not about how it is built — the same class as
+the open question about the two river probes and their sills. For scale, the
+same measurement over the other large lakes: Khanka 97.0 % at one value,
+Issyk-Kul 94.2 %, Balkhash 85.6 %.
+
+### What it also unblocked
+
+Everest's four one-degree cells and Guilin's southern ones are on disk now, so
+`hero.cut` no longer refuses either area — and Everest is the probe that needs
+the full country *and* the hero grid (F12). Whether to publish those two areas
+is the open question F52 left about each, not a consequence of this build.
+
+294 Python tests, up from 286, and 782 TypeScript.

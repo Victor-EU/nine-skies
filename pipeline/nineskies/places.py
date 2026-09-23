@@ -184,6 +184,20 @@ PLACES: tuple[Place, ...] = (
         "The lowest exposed land in China, -154 m", anchor=False,
     ),
     Place(
+        "tarim-terminus", "The Tarim's terminal basin", 40.633, 89.387, "valley",
+        "Where Natural Earth's Konqi line stops: the last river the map draws "
+        "into the Tarim's sink, and it stops inside the basin rather than at a "
+        "confluence or a coast, which is what makes the basin a sink the map "
+        "cannot name. Read off the fetched line rather than recalled, and the "
+        "country grid reads 803 m of basin floor here",
+        anchor=False,
+        note="On the 1 km grid this is not its own basin: filled to its spill "
+        "level the Tarim, the Taklamakan and the Turpan depression are one "
+        "closed basin of 494,979 km² whose floor is Ayding Lake, so one entry "
+        "of carve.SINKS keeps both. They are two sinks in life, and a finer "
+        "grid may part them, which is why both are named (D65, F64).",
+    ),
+    Place(
         "qinghai-lake", "Qinghai Lake", 36.90, 100.20, "lake",
         "Lake surface at 3,196 m, flattened by the lake table rather than by "
         "the DEM minimum", anchor=False,

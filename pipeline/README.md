@@ -110,13 +110,16 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      the warp says land; it is 45 of 45 today with nothing tuned to make it
      so. What this does *not* settle is the ocean inside a fetched raster,
      which is stage 3's business and is why `c` has its own name.
-3. **Hydro-condition** (`make carve`, `carve.py`, D62, D63, D64, F61, F63) — the
+3. **Hydro-condition** (`make carve`, `carve.py`, D62–D65, F61, F63) — the
    mapped rivers carved, the mapped lakes kept, every other closed basin
    filled. Each run of a Natural Earth river over ground the source reached
    is followed down the valley it lies in — the way water would take through
    the cells within 5 km of the line — and cut, lower only, until it runs
    downhill; nothing inside a mapped lake is cut below the lake's own floor,
-   and a lake still closed afterwards keeps its basin. Writes
+   and a lake still closed afterwards keeps its basin. A basin on
+   `carve.SINKS` keeps its level too (D65): the short list of basins that are
+   closed in life and that no map this stage reads says so about, each named
+   by its `places.py` id and marked at the basin's own floor. Writes
    `sea-to-sky-1km-conditioned.tif` beside stage 2's grid, which is what the
    tiles, the golden probes and the hero areas' seam check now read, and a
    record naming the vector files by digest, which the manifest and every

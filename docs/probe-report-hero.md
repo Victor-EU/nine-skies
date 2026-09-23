@@ -77,6 +77,7 @@ The source rows ask the same question of the 1″ cells this area was cut from, 
 | Lhasa | city | — | — | — | outside this build |
 | Everest summit | summit | — | — | — | outside this build |
 | Ayding Lake, Turpan | lake | — | — | — | outside this build |
+| The Tarim's terminal basin | valley | — | — | — | outside this build |
 | Qinghai Lake | lake | — | — | — | outside this build |
 | Heihe, Heilongjiang | city | — | — | — | outside this build |
 | Tengchong, Yunnan | city | — | — | — | outside this build |
@@ -119,6 +120,7 @@ The GDD's *thread a gorge at low speed* wants a gorge the aeroplane can be flown
 | Lhasa | city | — | — | — | outside this build |
 | Everest summit | summit | — | — | — | outside this build |
 | Ayding Lake, Turpan | lake | — | — | — | outside this build |
+| The Tarim's terminal basin | valley | — | — | — | outside this build |
 | Qinghai Lake | lake | — | — | — | outside this build |
 | Heihe, Heilongjiang | city | — | — | — | outside this build |
 | Tengchong, Yunnan | city | — | — | — | outside this build |

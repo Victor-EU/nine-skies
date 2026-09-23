@@ -552,7 +552,7 @@ def cut(
         problem = carve.differs(
             json.loads(record.read_text()),
             result.rule,
-            carve.inputs(result.rule, result.radius)["vectors"],
+            carve.inputs(result.rule, result.radius, result.sinks)["vectors"],
         )
         if problem:
             raise SystemExit(
@@ -648,7 +648,7 @@ def cut(
         "boundary": gaps or {"unchecked": True},
         "elevationM": {"min": int(cut_array.min()), "max": int(cut_array.max())},
         # What stage 3 read and did, as the country manifest carries it (F61).
-        "conditioning": {**carve.inputs(result.rule, result.radius), **done},
+        "conditioning": {**carve.inputs(result.rule, result.radius, result.sinks), **done},
     }
     manifest_path = out_dir / f"{area.id}.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

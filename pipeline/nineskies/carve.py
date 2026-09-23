@@ -20,6 +20,13 @@ that rule to the grid rather than to a list of basins:
   what stops a river rising on Yamdrok's rim from draining Yamdrok (F60).
 - **Whatever is still closed afterwards gets `RULE`** -- except a basin a
   kept lake lies in, which is left as the source has it.
+- **A basin on the short list of named sinks keeps its level too** (D65).
+  Natural Earth draws no lake in the Turpan depression, so the rule above
+  would raise the lowest land in China to its rim; `SINKS` is the list of
+  basins that are closed in life and that the map cannot say so about, each
+  entry a `places.py` id and a sentence of why. It is applied at the basin's
+  own floor rather than at the named coordinate, and the report prints what
+  each entry kept beside what the rule would have done instead.
 
 **Direction is read off the ground, one run at a time.** Natural Earth does
 not draw its lines downstream (F60), so each run is turned so that it flows
@@ -67,7 +74,7 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import Callable, Mapping, Sequence
 
 import numpy as np
 
@@ -101,9 +108,62 @@ LEAVE = "leave"
 BREACH = "breach"
 RULES = (FILL, LEAVE, BREACH)
 
+#: How many of the largest closed basins the report ranks, which is how a
+#: named sink that ought to exist is seen rather than assumed absent (D65).
+TOP_BASINS = 12
+
 #: D62, the user's, 22 September 2026: filled, as HydroSHEDS filled every
 #: sink it did not inspect.
 RULE = FILL
+
+
+@dataclass(frozen=True)
+class Sink:
+    """A closed basin that is closed in life, kept the way a mapped lake is."""
+
+    #: A `places.py` id. The coordinate lives there and nowhere else (D46);
+    #: it only has to fall *inside* the basin, because what marks the basin
+    #: is the basin's own floor.
+    place: str
+    #: Why this basin has no outlet, in the same voice a place's source is
+    #: written in. It is the whole of what this entry claims.
+    source: str
+
+
+#: The closed basins the map cannot name, named here instead (D65, the user's,
+#: 22 September 2026). D62 fills every basin no mapped river drains and no
+#: mapped lake marks, which is right for a sink stage 2 invented and wrong for
+#: one that has been closed since before there were maps. Natural Earth draws
+#: no lake in the Turpan depression and none at the Tarim's end, so the fill
+#: would raise the lowest land in China to its rim and take the Turpan golden
+#: probe with it (F61). Qaidam and Junggar need no entry: Natural Earth draws
+#: lakes in both, so D62's own clause keeps them.
+#:
+#: It is a list because there is no fetched source that says which sink is
+#: real -- that was HydroRIVERS' endorheic flag, ruled out by the project's
+#: licence (D61), and RiverATLAS' 2.42 GB, which D62 also left on the shelf.
+#: So each entry carries its own source sentence, and the report prints what
+#: the entry kept and what the fill would have done instead, which is how a
+#: wrong entry is seen rather than believed.
+SINKS: tuple[Sink, ...] = (
+    Sink(
+        "ayding-lake",
+        "The Turpan depression has no outlet and never has: its floor is the "
+        "lowest exposed land in China at -154 m, and what reaches it evaporates. "
+        "Ayding Lake is a salt flat that holds water only after rain, which is "
+        "why no map that draws lakes draws one here.",
+    ),
+    Sink(
+        "tarim-terminus",
+        "The Tarim ends in the sand rather than in a sea: Natural Earth draws "
+        "its last river, the Konqi, stopping inside the basin, and draws no lake "
+        "at the end of it. On the 1 km grid this entry keeps the basin the one "
+        "above keeps -- filled to its spill level the Tarim and the Turpan "
+        "depression are one 494,979 km² basin with one floor -- and it is named "
+        "anyway, because they are two sinks in life and a finer grid may part "
+        "them (F64).",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -429,6 +489,115 @@ def closed_lakes(
     return sorted(kept)
 
 
+def sink_cells(
+    cells_of: Callable[[np.ndarray, np.ndarray], np.ndarray], sinks: Sequence[Sink] = SINKS
+) -> dict[str, int]:
+    """Each named sink's own cell, for the entries that fall on this grid.
+
+    Through `grid.project`, which is the one place in the pipeline that calls
+    a projection library, so a sink lands where a probe reading the same place
+    lands and not one cell away.
+    """
+    if not sinks:
+        return {}
+    from . import grid as albers
+    from . import places
+
+    where = [places.BY_ID[sink.place] for sink in sinks]
+    xs, ys = albers.project([p.lat for p in where], [p.lon for p in where])
+    found = cells_of(np.asarray(xs, dtype="float64"), np.asarray(ys, dtype="float64"))
+    return {sink.place: int(cell) for sink, cell in zip(sinks, found.tolist()) if cell >= 0}
+
+
+@dataclass(frozen=True)
+class Kept:
+    """What one named sink kept on one grid, and what the rule would have
+    done to it instead."""
+
+    place: str
+    #: The sink's own cell, where its coordinate falls.
+    cell: int
+    #: The floor of the closed basin it lies in, and what marks that basin as
+    #: a place water may leave. None where its cell is in no closed basin.
+    floor: int | None
+    #: The basin: its cells, how far the fill would have raised its floor, and
+    #: the mean rise over the whole of it.
+    cells: int = 0
+    deepest_m: float = 0.0
+    mean_m: float = 0.0
+    floor_m: float = 0.0
+
+
+def kept_sinks(
+    heights: np.ndarray,
+    outlets: np.ndarray,
+    cells: Mapping[str, int],
+    drainage: hydro.Drainage | None = None,
+) -> dict[str, Kept]:
+    """The closed basin each named sink lies in, marked at its own floor.
+
+    The floor rather than the coordinate, because what a marked cell does is
+    let water leave there: the fill raises everything that can only reach the
+    mark by climbing, so marking a sink anywhere but its lowest cell would
+    pour a floor into the deepest part of the basin it was meant to keep. A
+    coordinate therefore only has to fall inside the basin, which is what
+    makes this a short list of names rather than a survey.
+
+    A basin inside the kept basin is not kept: a hollow the 1 km grid invented
+    in the Taklamakan is the same artefact inside an endorheic basin as
+    outside one, and the entry says the basin has no outlet, not that nothing
+    in it was ever mis-measured.
+
+    `floor` is None where a sink's cell is in no closed basin at all -- the
+    carve has already drained it, the coordinate is on a rim, or the ground
+    under it was never fetched. Reported rather than passed over: an entry
+    that keeps nothing is either finished work or a wrong coordinate, and the
+    report prints which.
+    """
+    if not cells:
+        return {}
+    if drainage is None:
+        drainage = hydro.flood(heights, outlets=outlets)
+    labels, found = hydro.basins(heights, drainage)
+    width = heights.shape[1]
+    out: dict[str, Kept] = {}
+    for place, cell in cells.items():
+        label = int(labels.ravel()[cell])
+        if not label:
+            out[place] = Kept(place=place, cell=cell, floor=None)
+            continue
+        basin = found[label - 1]
+        out[place] = Kept(
+            place=place,
+            cell=cell,
+            floor=basin.row * width + basin.col,
+            cells=basin.cells,
+            deepest_m=basin.deepest_m,
+            mean_m=basin.mean_m,
+            floor_m=basin.floor_m,
+        )
+    return out
+
+
+def kept_mask(
+    lakes: np.ndarray,
+    kept: Sequence[int],
+    measured: np.ndarray,
+    sinks: Mapping[str, Kept] | None = None,
+) -> np.ndarray:
+    """Every cell the rule for the other basins must leave alone.
+
+    One function, because the rule is applied in `condition` and priced again
+    in `price`, and a kept basin the two disagreed about would be a cost
+    reported for a world nobody built.
+    """
+    mask = np.isin(lakes, kept) & measured
+    for sink in (sinks or {}).values():
+        if sink.floor is not None:
+            mask.ravel()[sink.floor] = True
+    return mask
+
+
 def breach(heights: np.ndarray, outlets: np.ndarray) -> np.ndarray:
     """Drain every closed basin by lowering its way out instead of filling it.
 
@@ -493,6 +662,8 @@ class Conditioned:
     outlets: np.ndarray
     radius: int = RADIUS_CELLS
     runs: int = 0
+    #: The named sinks that fall on this grid, and the basin each kept (D65).
+    sinks: dict[str, Kept] = field(default_factory=dict)
     notes: dict = field(default_factory=dict)
 
 
@@ -519,11 +690,14 @@ def condition(
     rule: str = RULE,
     radius: int = RADIUS_CELLS,
     step: float = rivers.STEP_M,
+    sinks: Sequence[Sink] = SINKS,
 ) -> Conditioned:
     """Stage 3 on one grid: carve the rivers, keep the lakes, apply the rule.
 
     `radius` is the band in this grid's cells and `step` the walk along a
-    line, a quarter of one: both default to stage 2's 1 km grid.
+    line, a quarter of one: both default to stage 2's 1 km grid. `sinks` are
+    the named closed basins kept whatever the rule, of which only the ones
+    inside this grid cost anything (D65).
     """
     if rule not in RULES:
         raise ValueError(f"no rule called {rule!r}; the rules are {', '.join(RULES)}")
@@ -534,7 +708,8 @@ def condition(
     carved = carve(heights, made, lakes, floors)
     outlets = ~measured
     kept = closed_lakes(carved, lakes, floors, outlets)
-    kept_cells = np.isin(lakes, kept) & measured
+    here = kept_sinks(carved, outlets, sink_cells(cells_of, sinks))
+    kept_cells = kept_mask(lakes, kept, measured, here)
     river = np.zeros(heights.shape, dtype=bool)
     for ch in made:
         river.ravel()[ch.cells] = True
@@ -550,6 +725,7 @@ def condition(
         outlets=outlets,
         radius=radius,
         runs=len(found),
+        sinks=here,
     )
 
 
@@ -577,18 +753,27 @@ def record_path(corridor: str) -> Path:
     return data_root() / "work" / f"{corridor}-conditioning.json"
 
 
-def inputs(rule: str, radius: int) -> dict:
+def inputs(rule: str, radius: int, sinks: Mapping[str, Kept] | None = None) -> dict:
     """What stage 3 read and chose, and one digest over all of it.
 
     The rivers and lakes are named by the SHA-256 `make vectors` recorded
     when it fetched them (D60), so a world names the vector bytes it was
     carved with as it names the rasters it was cut from (D24).
+
+    `sinks` names the kept basins of D65 -- the ones on this grid that kept
+    something, since an entry whose basin is elsewhere or already drained
+    left the grid exactly as it found it. The key is absent when there are
+    none, which is why the corridor's digest is what it was before the list
+    existed and no section had to be signed again.
     """
     from . import vectors
 
     record = vectors.read()["digests"]
     named = {source: record[source]["sha256"] for source in (rivers.RIVERS, rivers.LAKES)}
     body = {"rule": rule, "radiusCells": radius, "vectors": named}
+    applied = sorted(p for p, sink in (sinks or {}).items() if sink.floor is not None)
+    if applied:
+        body["sinks"] = applied
     digest = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
     return {**body, "sha256": digest}
 
@@ -696,7 +881,7 @@ def write(corridor: str, source: Corridor, result: Conditioned) -> tuple[Path, d
         dataset.write(result.heights.astype("float32"), 1)
         dataset.update_tags(**source.tags, stage3=result.rule, radius=str(result.radius))
     record = {
-        **inputs(result.rule, result.radius),
+        **inputs(result.rule, result.radius, result.sinks),
         "from": source.path.name,
         "fromSha256": file_digest(source.path),
         **counts(source.heights, result),
@@ -712,7 +897,10 @@ def differs(record: dict, rule: str, vectors: dict) -> str | None:
     stage 6 cuts it (D64), and the country grid it is dropped into was
     conditioned by the same stage earlier, so a build that changed the rule or
     re-fetched the vectors between the two would draw two rules across one
-    seam. The band is not compared: it is in cells of its own grid.
+    seam. The band is not compared: it is in cells of its own grid. Nor are
+    the kept sinks (D65), for the same reason -- a named sink costs a grid
+    nothing unless it falls inside it, so an 11.52 km area and the country
+    grid around it disagree about the list whenever the list is not empty.
     """
     if record.get("rule") != rule:
         return f"the grid beside it was carved with rule {record.get('rule')!r} and this is {rule!r}"
@@ -753,33 +941,75 @@ class Closed:
 
     cells: int
     basins: int
-    #: Of those, the cells and basins a kept lake lies in.
-    lake_cells: int
-    lake_basins: int
+    #: Of those, the cells and basins a kept lake lies in, or a named sink
+    #: (D65) -- the two things the rule for the other basins leaves alone.
+    kept_cells: int
+    kept_basins: int
     #: ...and the rest that touch ground nobody measured, where stage 3 lets
     #: water leave the world rather than guess at what is there.
     edge_cells: int
     edge_basins: int
+    #: The largest of them, when a caller asks for them, largest first. What
+    #: makes a short list of named sinks checkable rather than assumed
+    #: complete (D65): a basin big enough to be a real one is printed with
+    #: what the rule does to it, so a missing entry is seen.
+    largest: tuple[BasinRow, ...] = ()
 
 
-def closed(heights: np.ndarray, kept_cells: np.ndarray, outlets: np.ndarray) -> Closed:
+@dataclass(frozen=True)
+class BasinRow:
+    """One closed basin, as the report ranks them."""
+
+    cells: int
+    km2: float
+    deepest_m: float
+    km3: float
+    #: Its floor, in degrees; None where the caller passed no transform.
+    at: tuple[float, float] | None
+    #: True where a kept lake or a named sink already keeps this basin.
+    kept: bool
+
+
+def closed(
+    heights: np.ndarray,
+    kept_cells: np.ndarray,
+    outlets: np.ndarray,
+    transform=None,
+    cell_km2: float = 1.0,
+    top: int = 0,
+) -> Closed:
     drainage = hydro.flood(heights)
     labels, found = hydro.basins(heights, drainage)
-    in_lake = np.unique(labels[kept_cells & (labels > 0)])
+    in_kept = np.unique(labels[kept_cells & (labels > 0)])
     near = np.zeros(outlets.shape, dtype=bool)
     height, width = outlets.shape
     for drow, dcol in hydro.NB8 + ((0, 0),):
         near[max(0, drow):height + min(0, drow), max(0, dcol):width + min(0, dcol)] |= outlets[
             max(0, -drow):height + min(0, -drow), max(0, -dcol):width + min(0, -dcol)
         ]
-    at_edge = np.setdiff1d(np.unique(labels[near & (labels > 0)]), in_lake)
+    at_edge = np.setdiff1d(np.unique(labels[near & (labels > 0)]), in_kept)
     return Closed(
         cells=int((labels > 0).sum()),
         basins=len(found),
-        lake_cells=int(np.isin(labels, in_lake).sum()),
-        lake_basins=len(in_lake),
+        kept_cells=int(np.isin(labels, in_kept).sum()),
+        kept_basins=len(in_kept),
         edge_cells=int(np.isin(labels, at_edge).sum()),
         edge_basins=len(at_edge),
+        largest=tuple(
+            BasinRow(
+                cells=basin.cells,
+                km2=basin.cells * cell_km2,
+                deepest_m=basin.deepest_m,
+                km3=basin.cells * basin.mean_m * 1e-3 * cell_km2,
+                at=(
+                    _where(transform, basin.row * width + basin.col, width)
+                    if transform is not None
+                    else None
+                ),
+                kept=bool((rank + 1) in in_kept),
+            )
+            for rank, basin in enumerate(found[:top])
+        ),
     )
 
 
@@ -799,7 +1029,7 @@ class Cost:
 
 def price(source: Corridor, result: Conditioned) -> list[Cost]:
     """Every rule applied to the same carved grid, measured the same way."""
-    kept_cells = np.isin(source.lakes, result.kept) & source.measured
+    kept_cells = kept_mask(source.lakes, result.kept, source.measured, result.sinks)
     width = source.heights.shape[1]
     costs = []
     for rule in RULES:
@@ -819,7 +1049,8 @@ def price(source: Corridor, result: Conditioned) -> list[Cost]:
             deepest_m=float(moved.ravel()[deepest]),
             at=_where(source.transform, deepest, width) if moved.ravel()[deepest] > 0 else None,
             over_100=int((moved > 100).sum()),
-            still_closed=closed(out, kept_cells, result.outlets),
+            still_closed=closed(out, kept_cells, result.outlets,
+                                source.transform, source.cell_km2, top=TOP_BASINS),
         ))
     return costs
 
@@ -856,6 +1087,49 @@ def river_rows(source: Corridor, result: Conditioned) -> list[RiverRow]:
     return sorted(rows, key=lambda r: (-r.deepest_m, r.name))
 
 
+@dataclass(frozen=True)
+class SinkRow:
+    """One entry of the named list, against this grid."""
+
+    name: str
+    at: tuple[float, float]
+    source: str
+    #: None where the entry's coordinate is off this grid entirely, which is
+    #: every entry on every grid but the country one.
+    kept: Kept | None
+    km2: float = 0.0
+    km3: float = 0.0
+    floor_at: tuple[float, float] | None = None
+
+
+def sink_rows(
+    source: Corridor, result: Conditioned, sinks: Sequence[Sink] = SINKS
+) -> list[SinkRow]:
+    """The whole list against this grid, the entries that fall outside it
+    included -- a list is only short enough to read if it is all printed."""
+    from . import places
+
+    width = source.heights.shape[1]
+    rows = []
+    for sink in sinks:
+        place = places.BY_ID[sink.place]
+        kept = result.sinks.get(sink.place)
+        rows.append(SinkRow(
+            name=place.name,
+            at=(place.lat, place.lon),
+            source=sink.source,
+            kept=kept,
+            km2=(kept.cells * source.cell_km2) if kept else 0.0,
+            km3=(kept.cells * kept.mean_m * 1e-3 * source.cell_km2) if kept else 0.0,
+            floor_at=(
+                _where(source.transform, kept.floor, width)
+                if kept is not None and kept.floor is not None
+                else None
+            ),
+        ))
+    return rows
+
+
 def stem(heights: np.ndarray, transform, prefer: np.ndarray | None = None) -> dict:
     """The grid's own largest river and what it does, as `hydro` reports it."""
     drainage = hydro.flood(heights, prefer=prefer)
@@ -881,7 +1155,7 @@ def reaches(raw: Path, conditioned: Path) -> dict[str, list]:
 
 
 def measure(corridor: str, source: Corridor, result: Conditioned, out: Path) -> dict:
-    kept_cells = np.isin(source.lakes, result.kept) & source.measured
+    kept_cells = kept_mask(source.lakes, result.kept, source.measured, result.sinks)
     lowered = source.heights.astype("float64") - result.carved
     lake_ids = source.lakes.ravel()
     on_channel = set(int(k) for k in lake_ids[result.river.ravel()] if k > 0)
@@ -895,7 +1169,7 @@ def measure(corridor: str, source: Corridor, result: Conditioned, out: Path) -> 
         "corridor": corridor,
         "raw": source.path,
         "out": out,
-        "inputs": inputs(result.rule, result.radius),
+        "inputs": inputs(result.rule, result.radius, result.sinks),
         "shape": source.heights.shape,
         "measured_share": float(source.measured.mean()),
         "runs": result.runs,
@@ -910,8 +1184,10 @@ def measure(corridor: str, source: Corridor, result: Conditioned, out: Path) -> 
         "lakes_measured": len(measured_lakes),
         "lakes_on_channel": len(on_channel & measured_lakes),
         "lakes_kept": kept_rows,
+        "sinks": sink_rows(source, result),
         "lakes_open": len(measured_lakes - set(result.kept)),
-        "before": closed(source.heights, kept_cells, result.outlets),
+        "before": closed(source.heights, kept_cells, result.outlets,
+                         source.transform, source.cell_km2, top=TOP_BASINS),
         "costs": price(source, result),
         "stem_before": stem(source.heights, source.transform),
         "stem_after": stem(result.heights, source.transform, prefer=result.river),
@@ -1010,6 +1286,52 @@ def render(result: dict) -> str:
         rest: Chao Lake is on the list."""
     )
 
+    lines += ["## The named sinks", ""]
+    sinks = result["sinks"]
+    on_grid = [row for row in sinks if row.kept is not None]
+    lines += _para(
+        f"""The basins that are closed in life and that no map this stage reads
+        says so about (D65). Each is kept the way a mapped lake's basin is kept:
+        the basin's own floor is a place water may leave, so the rule above
+        passes over it and the ground inside it stays as the source has it.
+        {len(sinks)} on the list, {len(on_grid)} on this grid. An entry only
+        costs the grid it falls inside, which is why this table prints the whole
+        list and not the part of it that did something here."""
+    )
+    lines += [
+        "| Sink | coordinate | basin | its floor | the rule would have moved |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    for row in sinks:
+        kept = row.kept
+        where = f"{row.at[0]:.2f} N {row.at[1]:.2f} E"
+        if kept is None:
+            lines.append(f"| {row.name} | {where} | not on this grid | — | — |")
+        elif kept.floor is None:
+            lines.append(
+                f"| {row.name} | {where} | **in no closed basin here** | — | — |"
+            )
+        else:
+            at = row.floor_at
+            lines.append(
+                f"| {row.name} | {where} | {_n(row.km2)} km² | {_n(kept.floor_m)} m at "
+                f"{at[0]:.2f} N {at[1]:.2f} E | {_n(kept.deepest_m)} m, {_n(row.km3)} km³ |"
+            )
+    lines += [""]
+    lines += _para(
+        """An entry whose basin reads *in no closed basin here* has either been
+        drained already, by a mapped river running through it, or been named at a
+        coordinate outside the basin it meant -- and the first is finished work
+        where the second is a fault. Hollows inside a kept basin are not kept: one
+        the 1 km cell invented inside an endorheic basin is the same artefact as
+        one outside it, so it is raised to its own rim rather than to the basin's.
+        What each entry claims is only that the basin has no way out:"""
+    )
+    lines += [""]
+    for row in sinks:
+        lines.append(f"- **{row.name}** — {row.source}")
+    lines += [""]
+
     before, after = result["before"], chosen.still_closed
     lines += ["## Where the water can go", ""]
     lines += [
@@ -1018,8 +1340,8 @@ def render(result: dict) -> str:
         f"| Cells with no outlet | {_n(before.cells)} ({100 * before.cells / total:.2f} %) | "
         f"{_n(after.cells)} ({100 * after.cells / total:.2f} %) |",
         f"| Closed basins | {_n(before.basins)} | {_n(after.basins)} |",
-        f"| …holding a kept lake | {_n(before.lake_basins)}, {_n(before.lake_cells)} km² | "
-        f"{_n(after.lake_basins)}, {_n(after.lake_cells)} km² |",
+        f"| …holding a kept lake or a named sink | {_n(before.kept_basins)}, "
+        f"{_n(before.kept_cells)} km² | {_n(after.kept_basins)}, {_n(after.kept_cells)} km² |",
         f"| …against ground nobody measured | {_n(before.edge_basins)}, "
         f"{_n(before.edge_cells)} km² | {_n(after.edge_basins)}, {_n(after.edge_cells)} km² |",
         "",
@@ -1093,6 +1415,31 @@ def render(result: dict) -> str:
             f"{_n(c.still_closed.cells)} cells, {_n(c.still_closed.basins)} basins |"
         )
     lines += [""]
+
+    ranked = costs[LEAVE].still_closed.largest
+    if ranked:
+        lines += _para(
+            f"""The {len(ranked)} largest of those basins, on the carved grid and
+            before any rule is applied to it. A basin this size is either a real
+            one or a valley the 1 km cell sealed, and the *kept* column says
+            which this build thinks it is: a mapped lake lies in it, or it is on
+            the short list of named sinks (D65), or the rule above moves it.
+            Printed because a list of names cannot be checked against what is not
+            printed — an entry that ought to exist is a large basin here with no
+            mark beside it."""
+        )
+        lines += [
+            "| # | km² | deepest | km³ | its floor | kept |",
+            "| ---: | ---: | ---: | ---: | ---: | :-: |",
+        ]
+        for rank, basin in enumerate(ranked, 1):
+            at = (f"{basin.at[0]:.2f} N {basin.at[1]:.2f} E" if basin.at else "—")
+            lines.append(
+                f"| {rank} | {_n(basin.km2)} | {_n(basin.deepest_m)} m | {_n(basin.km3)} | "
+                f"{at} | {'yes' if basin.kept else '—'} |"
+            )
+        lines += [""]
+
     lines += _para(
         """**Fill** raises every hollow to the lowest point of its rim: HydroSHEDS'
         default for a sink nobody inspected, and right for a grid whose job is to
@@ -1192,14 +1539,14 @@ def measure_area(
             "from_river_km": float(_distance_m(np.array([index]), river_cells, width,
                                                source.resolution_m)[0]) / 1000,
         })
-    kept_cells = np.isin(source.lakes, result.kept) & source.measured
+    kept_cells = kept_mask(source.lakes, result.kept, source.measured, result.sinks)
     return {
         "id": area_id,
         "name": name,
         "shape": shape,
         "resolution_m": source.resolution_m,
         "cell_km2": source.cell_km2,
-        "inputs": inputs(result.rule, result.radius),
+        "inputs": inputs(result.rule, result.radius, result.sinks),
         "lost": [r.name for r in result.lost],
         "rivers": found_rivers,
         "carved_cells": int((lowered > hydro.DROWNED_M).sum()),

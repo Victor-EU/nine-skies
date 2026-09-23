@@ -440,15 +440,20 @@ class TestProbesReadTheOneTable(unittest.TestCase):
         # `anchor` is what keeps "somewhere to measure" apart from "somewhere
         # to be sent". Adding five probe subjects must not have added five
         # places an operator can jump to.
-        for place_id in ("everest", "ayding-lake", "qinghai-lake", "heihe", "tengchong"):
+        # `tarim-terminus` joined them for the carve rather than for a probe
+        # (D65): a named sink is somewhere to measure too, and an operator has
+        # no more reason to be sent to the middle of the Taklamakan than to the
+        # summit of Everest.
+        measured = {
+            "everest", "ayding-lake", "tarim-terminus", "qinghai-lake",
+            "heihe", "tengchong",
+        }
+        for place_id in measured:
             self.assertFalse(places.BY_ID[place_id].anchor, place_id)
         # Stated as the rule rather than as a count, so that siting a place an
         # operator *should* be able to jump to does not read as a regression.
-        self.assertEqual(
-            {p.id for p in places.PLACES if not p.anchor},
-            {"everest", "ayding-lake", "qinghai-lake", "heihe", "tengchong"},
-        )
-        self.assertEqual(len(places.anchors()), len(places.PLACES) - 5)
+        self.assertEqual({p.id for p in places.PLACES if not p.anchor}, measured)
+        self.assertEqual(len(places.anchors()), len(places.PLACES) - len(measured))
 
 
 class TestTheGorgeProbe(unittest.TestCase):

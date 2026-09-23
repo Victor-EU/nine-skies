@@ -29,6 +29,22 @@
 # gitignored. Set NINESKIES_DATA to put them on another disk.
 
 CORRIDOR ?= sea-to-sky
+
+# Reports are named after the corridor they measure, and the phase 0 one keeps
+# the bare name every finding quotes. Without this a country build overwrites
+# `docs/carve-report.md` with a different world's numbers under the same name,
+# which is the kind of thing nobody notices until a finding is read back.
+SUFFIX := $(if $(filter sea-to-sky,$(CORRIDOR)),,-$(CORRIDOR))
+
+# Which probes a build can reach. `probes_for` answers it from the phase, and
+# the phase is a fact about what was built: a country build is phase 2's and
+# reaches Turpan, Qinghai Lake and the area ratio; a corridor build is not and
+# does not. Passed from here rather than left at the default, because a
+# country world probed as a corridor reports `all runnable probes pass` having
+# run two of seven -- which is the failure this repository keeps saying is
+# worse than a probe that fails.
+PHASE := $(if $(filter china,$(CORRIDOR)),full,corridor)
+
 VENV := pipeline/.venv
 PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
@@ -76,7 +92,7 @@ vectors: $(PY)
 ## vectors`; not part of `make world`, which reads those files for stage 3 but
 ## never fetches them (D60).
 rivers: $(PY)
-	$(PIPELINE) -m nineskies.rivers --corridor $(CORRIDOR) --report docs/rivers-report.md
+	$(PIPELINE) -m nineskies.rivers --corridor $(CORRIDOR) --report docs/rivers-report$(SUFFIX).md
 
 ## Stage 2 — mosaic and reproject to Albers 1 km.
 grid: $(PY)
@@ -93,7 +109,7 @@ grid: $(PY)
 ## Needs the two Natural Earth files from `make vectors` and refuses without
 ## them, naming the command; `world` never fetches them itself (D60).
 carve: $(PY)
-	$(PIPELINE) -m nineskies.carve --corridor $(CORRIDOR) --report docs/carve-report.md
+	$(PIPELINE) -m nineskies.carve --corridor $(CORRIDOR) --report docs/carve-report$(SUFFIX).md
 
 ## Stages 4 and 5 — cut 64 km tiles and reduce the horizon field.
 tiles: $(PY)
@@ -106,8 +122,8 @@ tiles: $(PY)
 ## hero report also reads each area's source mosaic, so the sill under a river
 ## probe's pass has the source's beside it (F58).
 probes: $(PY)
-	$(PIPELINE) -m nineskies.probe --corridor $(CORRIDOR) \
-		--report docs/probe-report.md
+	$(PIPELINE) -m nineskies.probe --corridor $(CORRIDOR) --phase $(PHASE) \
+		--report docs/probe-report$(SUFFIX).md
 	$(PIPELINE) -m nineskies.probe --area all \
 		--report docs/probe-report-hero.md
 
@@ -122,7 +138,7 @@ probes: $(PY)
 ## the same questions of the grid the tiles are cut from (F61).
 hydro: $(PY)
 	$(PIPELINE) -m nineskies.hydro --corridor $(CORRIDOR) \
-		--report docs/hydro-report.md
+		--report docs/hydro-report$(SUFFIX).md
 
 ## The projection table the engine checks itself against (D22). Needs PROJ
 ## rather than a built world: it is the pipeline publishing the one thing only

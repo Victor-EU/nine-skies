@@ -21,6 +21,13 @@ from affine import Affine  # noqa: E402
 
 from nineskies import carve, hydro, rivers  # noqa: E402
 
+try:  # the suite still runs where PROJ is not installed
+    import rasterio  # noqa: F401
+
+    HAVE_RASTERIO = True
+except ImportError:  # pragma: no cover - a bare interpreter
+    HAVE_RASTERIO = False
+
 
 def ground(heights: np.ndarray) -> rivers.Grid:
     height, width = heights.shape
@@ -224,6 +231,129 @@ class TestOneWorldOneRule(unittest.TestCase):
         # 5 on the country grid, 56 on a hero area: the same 5 km.
         record = {**self.RECORD, "radiusCells": carve.radius_cells(90.0)}
         self.assertIsNone(carve.differs(record, carve.FILL, self.RECORD["vectors"]))
+
+
+class TestTheNamedSinks(unittest.TestCase):
+    """The short list of basins that are closed in life, which no map this
+    stage reads says so about (D65, F64)."""
+
+    def bowl(self, inner: float | None = None) -> np.ndarray:
+        """A ring at 60 m round a floor of 30 m, on ground falling east to the
+        map edge. The lowest cell is 10 m at the bowl's west end, so it is not
+        the cell a coordinate in the middle of the bowl lands on. With `inner`,
+        one cell of the floor is that much lower again."""
+        heights = np.tile(np.linspace(100.0, 0.0, 14, dtype="float32"), (9, 1))
+        ring = np.zeros(heights.shape, dtype=bool)
+        ring[2:7, 2:9] = True
+        ring[3:6, 3:8] = False
+        heights[ring] = np.maximum(heights[ring], 60.0)
+        heights[3:6, 3:8] = 30.0
+        heights[4, 3] = 10.0
+        if inner is not None:
+            heights[4, 7] = inner
+        return heights
+
+    def kept(self, heights, row=4, col=6):
+        g = ground(heights)
+        return carve.kept_sinks(
+            heights, np.zeros(heights.shape, dtype=bool), {"turpan": at(g, row, col)}
+        )["turpan"]
+
+    def test_a_sink_is_marked_at_its_basin_s_floor_and_not_at_its_own_cell(self):
+        heights = self.bowl()
+        g = ground(heights)
+        sink = self.kept(heights)
+        self.assertEqual(sink.cell, at(g, 4, 6))
+        self.assertEqual(sink.floor, at(g, 4, 3))  # 10 m, three cells west
+        self.assertAlmostEqual(sink.floor_m, 10.0, places=3)
+        self.assertAlmostEqual(sink.deepest_m, 50.0, places=3)  # to a rim at 60
+        self.assertEqual(sink.cells, 15)
+
+    def test_the_basin_it_names_is_left_alone_and_the_rule_still_has_the_rest(self):
+        heights = self.bowl()
+        outlets = np.zeros(heights.shape, dtype=bool)
+        empty = np.zeros(heights.shape, dtype=int)
+        filled = carve.apply_rule(heights, carve.FILL, outlets, np.zeros(heights.shape, bool))
+        self.assertAlmostEqual(float(filled[4, 3]), 60.0, places=3)  # raised to the rim
+
+        mask = carve.kept_mask(empty, [], ~outlets, {"turpan": self.kept(heights)})
+        out = carve.apply_rule(heights, carve.FILL, outlets, mask)
+        np.testing.assert_allclose(out[3:6, 3:8], heights[3:6, 3:8])
+        self.assertAlmostEqual(float(out[4, 3]), 10.0, places=3)
+
+    def test_every_rule_leaves_a_named_sink_alone(self):
+        heights = self.bowl()
+        outlets = np.zeros(heights.shape, dtype=bool)
+        mask = carve.kept_mask(
+            np.zeros(heights.shape, dtype=int), [], ~outlets, {"turpan": self.kept(heights)}
+        )
+        for rule in carve.RULES:
+            out = carve.apply_rule(heights, rule, outlets, mask)
+            np.testing.assert_allclose(out[3:6, 3:8], heights[3:6, 3:8], err_msg=rule)
+
+    def test_a_hollow_inside_a_kept_basin_is_filled_to_its_own_rim(self):
+        # The entry says the basin has no outlet, not that nothing inside it
+        # was ever mis-measured: a 20 m hollow in a floor of 30 is the same
+        # artefact of a 1 km cell inside an endorheic basin as outside one.
+        heights = self.bowl(inner=20.0)
+        outlets = np.zeros(heights.shape, dtype=bool)
+        sink = self.kept(heights)
+        self.assertEqual(sink.floor, at(ground(heights), 4, 3))  # still the 10 m cell
+        mask = carve.kept_mask(np.zeros(heights.shape, dtype=int), [], ~outlets, {"t": sink})
+        out = carve.apply_rule(heights, carve.FILL, outlets, mask)
+        self.assertAlmostEqual(float(out[4, 3]), 10.0, places=3)
+        self.assertAlmostEqual(float(out[4, 7]), 30.0, places=3)  # its own rim, not 60
+
+    def test_a_sink_in_no_closed_basin_here_keeps_nothing(self):
+        heights = self.bowl()
+        sink = self.kept(heights, row=0, col=13)  # on the open slope, off the bowl
+        self.assertIsNone(sink.floor)
+        mask = carve.kept_mask(
+            np.zeros(heights.shape, dtype=int), [], np.ones(heights.shape, bool), {"t": sink}
+        )
+        self.assertFalse(mask.any())
+
+    def test_the_digest_names_only_the_sinks_a_grid_kept(self):
+        # The corridor's digest is what it was before the list existed, which
+        # is why no section had to be signed again (F64).
+        plain = carve.inputs(carve.RULE, carve.RADIUS_CELLS)
+        self.assertNotIn("sinks", plain)
+        missed = carve.inputs(
+            carve.RULE, carve.RADIUS_CELLS, {"turpan": carve.Kept("turpan", 7, None)}
+        )
+        self.assertEqual(missed["sha256"], plain["sha256"])
+        applied = carve.inputs(
+            carve.RULE, carve.RADIUS_CELLS, {"turpan": carve.Kept("turpan", 7, 7)}
+        )
+        self.assertEqual(applied["sinks"], ["turpan"])
+        self.assertNotEqual(applied["sha256"], plain["sha256"])
+
+    def test_the_list_names_places_rather_than_coordinates(self):
+        from nineskies import places
+
+        for sink in carve.SINKS:
+            self.assertIn(sink.place, places.BY_ID, sink.place)
+            self.assertGreater(len(sink.source), 40, sink.place)
+
+    @unittest.skipUnless(HAVE_RASTERIO, "needs rasterio for the projection")
+    def test_only_the_entries_on_a_grid_cost_it_anything(self):
+        from nineskies import grid as albers
+        from nineskies import places
+
+        place = places.BY_ID[carve.SINKS[0].place]
+        (x,), (y,) = albers.project([place.lat], [place.lon])
+        over = rivers.Grid(
+            heights=np.zeros((9, 9), dtype="float32"),
+            transform=Affine(1000.0, 0.0, x - 4500.0, 0.0, -1000.0, y + 4500.0),
+            fetched=np.ones((9, 9), dtype=bool),
+        )
+        self.assertEqual(carve.sink_cells(over.cells), {place.id: at(over, 4, 4)})
+        away = rivers.Grid(
+            heights=over.heights,
+            transform=Affine(1000.0, 0.0, x + 1e6, 0.0, -1000.0, y + 1e6),
+            fetched=over.fetched,
+        )
+        self.assertEqual(carve.sink_cells(away.cells), {})
 
 
 class TestTheBand(unittest.TestCase):

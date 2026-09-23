@@ -68,13 +68,38 @@ has it, whatever the rule, which is D62's lake clause -- and its named
 failure, since a lake that drains through a river Natural Earth leaves out
 is kept closed with the rest: Chao Lake is on the list.
 
+## The named sinks
+
+The basins that are closed in life and that no map this stage reads says
+so about (D65). Each is kept the way a mapped lake's basin is kept: the
+basin's own floor is a place water may leave, so the rule above passes
+over it and the ground inside it stays as the source has it. 1 on the
+list, 0 on this grid. An entry only costs the grid it falls inside, which
+is why this table prints the whole list and not the part of it that did
+something here.
+
+| Sink | coordinate | basin | its floor | the rule would have moved |
+| --- | ---: | ---: | ---: | ---: |
+| Ayding Lake, Turpan | 42.68 N 89.26 E | not on this grid | — | — |
+
+An entry whose basin reads *in no closed basin here* has either been
+drained already, by a mapped river running through it, or been named at a
+coordinate outside the basin it meant -- and the first is finished work
+where the second is a fault. Hollows inside a kept basin are not kept: one
+the 1 km cell invented inside an endorheic basin is the same artefact as
+one outside it, so it is raised to its own rim rather than to the basin's.
+What each entry claims is only that the basin has no way out:
+
+
+- **Ayding Lake, Turpan** — The Turpan depression has no outlet and never has: its floor is the lowest exposed land in China at -154 m, and what reaches it evaporates. Ayding Lake is a salt flat that holds water only after rain, which is why no map that draws lakes draws one here.
+
 ## Where the water can go
 
 | From the map edge | stage 2 | stage 3 |
 | --- | ---: | ---: |
 | Cells with no outlet | 598,780 (12.64 %) | 35,607 (0.75 %) |
 | Closed basins | 74,019 | 183 |
-| …holding a kept lake | 108, 65,135 km² | 183, 35,607 km² |
+| …holding a kept lake or a named sink | 108, 65,135 km² | 183, 35,607 km² |
 | …against ground nobody measured | 95, 1,739 km² | 0, 0 km² |
 
 Counted from the map edge, as the hydrology report counts it. Stage 3 lets
@@ -125,6 +150,29 @@ ground the player sees move.
 | **fill** | 387,919 | 0 | 11,750 | 542 m at 27.81 N 92.50 E | 25,472 | 35,607 cells, 183 basins |
 | leave | 0 | 0 | 0 | 0 m | 0 | 416,920 cells, 79,511 basins |
 | breach | 0 | 193,316 | 4,548 | 542 m at 27.79 N 92.51 E | 8,196 | 41,224 cells, 216 basins |
+
+The 12 largest of those basins, on the carved grid and before any rule is
+applied to it. A basin this size is either a real one or a valley the 1 km
+cell sealed, and the *kept* column says which this build thinks it is: a
+mapped lake lies in it, or it is on the short list of named sinks (D65),
+or the rule above moves it. Printed because a list of names cannot be
+checked against what is not printed — an entry that ought to exist is a
+large basin here with no mark beside it.
+
+| # | km² | deepest | km³ | its floor | kept |
+| ---: | ---: | ---: | ---: | ---: | :-: |
+| 1 | 4,124 | 5 m | 14 | 29.77 N 116.13 E | yes |
+| 2 | 3,280 | 74 m | 112 | 29.30 N 119.51 E | — |
+| 3 | 2,545 | 36 m | 81 | 30.86 N 90.28 E | yes |
+| 4 | 2,401 | 155 m | 197 | 31.55 N 91.03 E | yes |
+| 5 | 2,294 | 6 m | 5 | 32.30 N 119.71 E | yes |
+| 6 | 2,095 | 13 m | 16 | 31.53 N 117.36 E | yes |
+| 7 | 2,086 | 6 m | 3 | 31.13 N 120.35 E | yes |
+| 8 | 2,072 | 7 m | 5 | 31.56 N 119.58 E | yes |
+| 9 | 2,016 | 5 m | 2 | 33.33 N 119.70 E | — |
+| 10 | 1,985 | 113 m | 108 | 25.56 N 111.67 E | — |
+| 11 | 1,850 | 10 m | 5 | 31.47 N 118.86 E | yes |
+| 12 | 1,557 | 223 m | 125 | 26.93 N 97.71 E | — |
 
 **Fill** raises every hollow to the lowest point of its rim: HydroSHEDS'
 default for a sink nobody inspected, and right for a grid whose job is to
