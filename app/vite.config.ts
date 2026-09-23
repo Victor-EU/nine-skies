@@ -1,7 +1,8 @@
 import { cpSync, existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
-import { formatProblems, loadFilm, writeRail, type RecordedKey } from "../tools/film.ts";
+import { formatProblems, loadFilm, loadSound, writeRail, type RecordedKey } from "../tools/film.ts";
+import { renderCredits } from "../content/credits.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 
 /**
@@ -11,6 +12,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
  */
 function publishedFilm(): Plugin {
   const scenesDir = resolve(__dirname, "..", "content", "scenes");
+  const soundFile = resolve(__dirname, "..", "content", "sound.yaml");
+  const soundDir = resolve(__dirname, "public", "sound");
   const read = () => loadFilm(scenesDir);
   return {
     name: "nine-skies-film",
@@ -20,6 +23,13 @@ function publishedFilm(): Plugin {
         if (problems.length > 0) console.error(`film problems:\n${formatProblems(problems)}`);
         response.setHeader("Content-Type", "application/json");
         response.end(JSON.stringify(film));
+      });
+      // The sound the film plays (stage 5), read beside it the same way.
+      server.middlewares.use("/sound.json", (_request, response) => {
+        const { sound, problems } = loadSound(read().film, { file: soundFile, dir: soundDir });
+        if (problems.length > 0) console.error(`sound problems:\n${formatProblems(problems)}`);
+        response.setHeader("Content-Type", "application/json");
+        response.end(JSON.stringify(sound));
       });
       const body = (request: import("node:http").IncomingMessage): Promise<Buffer> =>
         new Promise((resolve, reject) => {
@@ -57,10 +67,21 @@ function publishedFilm(): Plugin {
         });
       });
     },
+    // The credits page, from NOTICE.md and the sound's credits (stage 5).
+    transformIndexHtml(html, context) {
+      if (!context.filename.endsWith("credits.html")) return html;
+      const { film } = read();
+      const titles = new Map(film.scenes.filter((s) => s.music).map((s) => [s.music!, s.title.en]));
+      const notice = readFileSync(resolve(__dirname, "..", "NOTICE.md"), "utf8");
+      return html.replace("<!--credits-->", renderCredits(notice, loadSound(film, { file: soundFile, dir: soundDir }).sound, titles));
+    },
     generateBundle() {
       const { film, problems } = read();
       if (problems.length > 0) throw new Error(`film problems:\n${formatProblems(problems)}`);
       this.emitFile({ type: "asset", fileName: "film.json", source: JSON.stringify(film) });
+      const sound = loadSound(film, { file: soundFile, dir: soundDir });
+      if (sound.problems.length > 0) throw new Error(`sound problems:\n${formatProblems(sound.problems)}`);
+      this.emitFile({ type: "asset", fileName: "sound.json", source: JSON.stringify(sound.sound) });
     },
   };
 }
@@ -167,5 +188,9 @@ export default defineConfig({
     // The app imports engine sources from outside its own root.
     fs: { allow: [".."] },
   },
-  build: { target: "es2022", outDir: "dist" },
+  build: {
+    target: "es2022",
+    outDir: "dist",
+    rollupOptions: { input: { main: resolve(__dirname, "index.html"), credits: resolve(__dirname, "credits.html") } },
+  },
 });

@@ -1,0 +1,23 @@
+# The film's sound (design v2, "Sound"): nine cues, one a scene, and one
+# bed of wind that thins with altitude. Licensed or commissioned; none of it
+# is made in this repository. Each file goes in app/public/sound/ and is
+# credited on the credits page from the entry here. The launch gate
+# (`npm run content:validate -- --complete`) refuses a film with a scene
+# whose cue has no entry, or no wind bed.
+#
+# cues:
+#   - cue: cue-01                 # the name a scene's `music:` gives
+#     file: cue-01.m4a            # in app/public/sound/
+#     title: The piece's title
+#     author: Who made it
+#     licence: CC BY 4.0          # or "commissioned", with the agreement's date
+#     source: https://where-it-came-from.example
+# wind:
+#   file: wind.m4a
+#   title: ...
+#   author: ...
+#   licence: ...
+#   source: ...
+
+cues: []
+wind: null

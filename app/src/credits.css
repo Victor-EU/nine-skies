@@ -1,0 +1,15 @@
+/* The credits page: the film's ink on its night, and room to read. */
+:root { --ink: #f2ede4; --night: #0d1117; --quiet: rgba(242,237,228,.7); --rule: rgba(242,237,228,.18); }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--night); color: var(--ink); }
+body { font: 16px/1.6 -apple-system, "Helvetica Neue", "Segoe UI", "Noto Sans", "PingFang SC", sans-serif; }
+.credits { max-width: 44em; margin: 0 auto; padding: 32px 16px 64px; overflow-wrap: anywhere; }
+h1 { font-size: 2.2em; letter-spacing: .08em; font-weight: 500; margin: .4em 0 .2em; }
+h2 { font-size: 1.3em; font-weight: 500; margin: 2em 0 .6em; padding-top: 1em; border-top: 1px solid var(--rule); }
+h3, h4 { font-size: 1.05em; font-weight: 600; margin: 1.6em 0 .4em; }
+.lede, .back { color: var(--quiet); }
+.ask { font-size: 1.25em; line-height: 1.45; }
+a { color: inherit; }
+code { font-family: ui-monospace, Menlo, monospace; font-size: .9em; }
+blockquote { margin: 1em 0; padding: .2em 1em; border-left: 3px solid var(--rule); color: var(--quiet); }
+ul { padding-left: 1.2em; }

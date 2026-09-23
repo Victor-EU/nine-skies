@@ -80,6 +80,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1117; }
 .chapters button.now i { position: absolute; left: 0; top: 0; bottom: 0; background: #f2ede4; }
 .chapters button:hover { outline: 1px solid rgba(242,237,228,.6); }
 .time { font-variant-numeric: tabular-nums; opacity: .8; font-size: 12px; min-width: 7em; text-align: right; }
+#sound.off { opacity: .45; text-decoration: line-through; }
+.creditsLink { color: inherit; font-size: 12px; opacity: .6; text-decoration: none; pointer-events: auto; }
+.creditsLink:hover { opacity: 1; text-decoration: underline; }
+.end .creditsLink { font-size: 14px; margin-top: .5em; }
 
 .touch { position: absolute; right: 16px; bottom: 64px; display: none; gap: 10px; }
 .touch button { width: 52px; height: 52px; font-size: 24px; border-radius: 26px; }

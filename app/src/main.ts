@@ -43,6 +43,8 @@ import { AltitudeController } from "../../engine/src/film/altitude.js";
 import { captureFrameCost, frameCostTable, BUDGET_FOV_DEG } from "./frameCost.js";
 import { FrameClock, formatSummary } from "./frameTime.js";
 import { ScenePacks, loadPackIndex } from "./packs.js";
+import { SoundTrack } from "./sound.js";
+import { NO_SOUND, type Sound } from "../../content/sound.ts";
 import { createProbe } from "./probe.js";
 import { chooseWorld } from "./worldChoice.js";
 import { LeadInMap } from "./leadIn.js";
@@ -80,6 +82,17 @@ async function loadFilm(): Promise<Film | null> {
 }
 
 const film = await loadFilm();
+
+// The sound (stage 5): licensed cues and the wind bed, from /sound.json.
+async function loadSound(): Promise<Sound> {
+  try {
+    const response = await fetch("/sound.json");
+    return response.ok ? ((await response.json()) as Sound) : NO_SOUND;
+  } catch {
+    return NO_SOUND;
+  }
+}
+const soundTrack = new SoundTrack(await loadSound());
 if (!film) notice("No film to play: <code>content/scenes/</code> holds no valid scene.");
 /** Every scene's rail on the grid, built once: the map draws them all. */
 const rails: BuiltRail[] = (film?.scenes ?? []).map((s) => buildRail(s.rail));
@@ -284,6 +297,17 @@ el("again").addEventListener("click", () => {
   timeline.paused = false;
   el("end").hidden = true;
 });
+// A browser starts sound only for something the viewer does.
+for (const type of ["pointerdown", "keydown"] as const) addEventListener(type, () => soundTrack.wake());
+if (soundTrack.hasSound) {
+  const button = el("sound");
+  button.hidden = false;
+  button.addEventListener("click", () => {
+    const muted = soundTrack.toggleMute();
+    button.classList.toggle("off", muted);
+    button.setAttribute("aria-label", muted ? "sound on" : "mute");
+  });
+}
 
 const groundAt = (eastM: number, northM: number): number | null => terrain.groundElevationM(eastM, northM);
 
@@ -543,6 +567,12 @@ function frame(now: number): void {
   if (pos.scene !== current) startScene(pos.scene);
   const s = film.scenes[current]!;
   const intent = input.poll(connectedPad());
+  soundTrack.update({
+    cue: pos.phase === "end" ? null : s.music,
+    sceneS: pos.t,
+    playing: !held && pos.phase !== "end",
+    altitudeM: altitude.current ?? 0,
+  });
 
   if (pos.phase === "lead-in") {
     // The map and the title over the first frame of the rail, which also
@@ -743,5 +773,6 @@ if (import.meta.env.DEV) {
     frameCostTable,
     /** The scene packs: `__ns.packs.stats.misses` is tiles fetched outside them. */
     packs,
+    sound: soundTrack,
   };
 }

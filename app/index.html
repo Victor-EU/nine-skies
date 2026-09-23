@@ -30,12 +30,16 @@
         <div class="en">Nine Skies</div>
         <div class="line">Eighteen minutes over real ground.</div>
         <button id="again" type="button">Watch again</button>
+        <a class="creditsLink" href="./credits.html">Credits, sources and the question this asks</a>
       </div>
       <!-- The player bar: play and pause, the chapters, the time. Navigation, not flight. -->
       <div id="bar" class="bar">
         <button id="play" type="button" aria-label="pause">❚❚</button>
+        <!-- Shown when there is licensed sound to play: mutes it. -->
+        <button id="sound" type="button" aria-label="mute" hidden>♪</button>
         <div id="chapters" class="chapters"></div>
         <span id="time" class="time">0:00 / 0:00</span>
+        <a class="creditsLink" href="./credits.html">Credits</a>
       </div>
       <!-- Touch: two held buttons for speed; the drag for direction is the canvas itself. -->
       <div class="touch">

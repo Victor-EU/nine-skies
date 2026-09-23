@@ -8,9 +8,9 @@ source asks, and why the rivers are not HydroSHEDS, is in
 
 ## Elevation — Copernicus DEM GLO-30
 
-Elevation data committed here — the route sections in `content/sections/`,
-the challenge ground in `content/patches/`, images rendered from either — and
-every world `make world` builds, are produced using Copernicus WorldDEM-30:
+Elevation data here — every world `make world` builds, the scene packs
+`make scenes` cuts from it and the film plays, and the stills rendered from
+them in `docs/stills/` — are produced using Copernicus WorldDEM-30:
 
 > produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus
 > Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European
@@ -35,3 +35,11 @@ The 1:10m rivers, lake centrelines and lakes, version 5.0.0, fetched by `make
 vectors`. Stage 3 carves the rivers into every world `make world` builds and
 keeps the lakes at their level (`make carve`), on the 90 m hero areas as well
 as the country grid, so the elevation above is also made with Natural Earth. It is in the public domain and asks for no credit.
+
+## Music and sound
+
+Nine cues, one a scene, and a bed of wind, each licensed or commissioned
+and none of them made here. Each is listed with its author, its licence and
+where it came from in `content/sound.yaml`, and credited on the film's
+credits page from there.
+

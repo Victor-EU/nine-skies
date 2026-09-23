@@ -11,6 +11,7 @@ import { parse } from "yaml";
 import { FILM_VERSION, type Film, type Scene } from "../engine/src/film/scene.js";
 import { HERO_DIRS } from "../engine/src/terrain/heroSource.js";
 import { sceneFromRaw, validateFilm, type FilmOptions, type Problem } from "../content/scenes.ts";
+import { soundFromRaw, validateSound, type Sound } from "../content/sound.ts";
 
 export const SCENES_DIR = "content/scenes";
 const FILE = /^(\d\d)-([a-z0-9][a-z0-9-]*)\.yaml$/;
@@ -44,6 +45,36 @@ export function loadFilm(dir = SCENES_DIR, options: FilmOptions = {}): LoadedFil
   const film: Film = { version: FILM_VERSION, scenes };
   problems.push(...validateFilm(film, options));
   return { film, problems };
+}
+
+export const SOUND_FILE = "content/sound.yaml";
+export const SOUND_DIR = "app/public/sound";
+
+export interface LoadedSound {
+  readonly sound: Sound;
+  readonly problems: readonly Problem[];
+}
+
+/**
+ * The film's sound, held to the film and to the files in `app/public/sound/`
+ * (plan v2, stage 5). `complete` is the launch setting: a cue for every scene.
+ */
+export function loadSound(film: Film, options: { complete?: boolean; file?: string; dir?: string } = {}): LoadedSound {
+  const file = options.file ?? SOUND_FILE;
+  const dir = options.dir ?? SOUND_DIR;
+  if (!existsSync(file)) return { sound: { cues: [], wind: null }, problems: [{ scene: "sound", field: "", message: `${file} is missing` }] };
+  let raw: unknown;
+  try {
+    raw = parse(readFileSync(file, "utf8"));
+  } catch (error) {
+    return { sound: { cues: [], wind: null }, problems: [{ scene: "sound", field: "", message: `not YAML: ${(error as Error).message}` }] };
+  }
+  const read = soundFromRaw(raw);
+  const problems = [
+    ...read.problems,
+    ...validateSound(read.sound, film, { complete: options.complete, fileExists: (f) => existsSync(join(dir, f)) }),
+  ];
+  return { sound: read.sound, problems };
 }
 
 /** Whether a world has built a hero grid of this id, from its published index. */
