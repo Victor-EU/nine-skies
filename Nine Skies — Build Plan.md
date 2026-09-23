@@ -96,6 +96,7 @@ rail:                         # recorded in the app, projected at load
   # ... slack past 114 s of flight at authored speed
 band: { above_ground_m: [120, 600] }   # what the controller holds between keys
 corridor_deg: 60              # how far off the rail's heading a viewer may turn
+pitch_deg: 6                  # how far below level the camera looks; a rail key may say `pitch:` (F79)
 look:
   sky: gorge-afternoon
   palette: limestone-green
