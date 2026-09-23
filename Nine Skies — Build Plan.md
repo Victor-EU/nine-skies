@@ -11,14 +11,15 @@ inherits; their numbering continues here rather than starting again.
 | --- | --- | --- |
 | 0 — Risky scenes | **Done.** Guilin's towers read at 30 m, so scene 3 stands; Everest and the Taklamakan cut at 90 m. | F76 |
 | 1 — The cut | **Done.** Version 1 deleted, `engine/src/film` and the shell written, `npm run check` green. | F75 |
-| 2 — Rough cut | **Done but the music.** Nine rails, 18:00 to the frame, every rail in its band. Huangshan opens; the steppe ends at Heaven Lake. No music sourced yet. | F77, F79 |
-| 3 — The look | **Built, not done.** Look layer, gorges still signed off, nine stills, per-scene look-ahead. 3.5–5.7 ms of GPU at 1080p on an M3, all nine stations whole. Open: an M1 measurement, where the four heavy scenes are estimated over 8 ms; an iPhone measurement; Heaven Lake's palette. | F78–F82 |
-| 4 — Delivery | Not started. | |
-| 5 — Text, sound, credits | Captions drafted and inside the budget. No cues, no credits page. | |
+| 2 — Rough cut | **Done.** Nine rails, 18:00 to the frame, every rail in its band. Huangshan opens; the steppe ends at Heaven Lake. | F77, F79 |
+| 3 — The look | **Built, not done.** Nine stills; every station under 4 ms of GPU at 1080p on an M3 with FXAA. Open: an M1 and an iPhone measured (`?frametime` is the phone's tool). | F78–F83 |
+| 4 — Delivery | **Done.** Nine packs, 16.4 MB with what is read before them; no tile fetched outside them; the build ships them. First frame on a phone over 4G is arithmetic, not measured. | F84 |
+| 5 — Text, sound, credits | **Text and credits done**, every figure in metric and imperial. **No sound**: a stand-in and a synthesised wind were both rejected, and all of it is to be found on the web (D85). | — |
 | 6 — Launch | Not started. | |
+| 7 — Detail | Not started: the landscape reads as Lego. Research the data, then fine-tune. | |
 
-Stages 0 to 2 and the build of stage 3 took one day against three and a
-half weeks planned.
+Stages 0 to 4 and most of 3 and 5 took one day against five and a half
+weeks planned.
 
 ## Where this starts
 
@@ -218,6 +219,12 @@ Earth, the licences of the music, and the question the project asks.
 Done when the text test passes, every scene has its cue, and the credits
 page renders the notices verbatim from `NOTICE.md`.
 
+All the sound is found, not made (D85): the nine cues and the wind bed are
+recordings from libraries on the web whose licences allow a public web
+build, listed with their credits in `content/sound.yaml`. Finding them is
+research: which libraries carry music with Chinese instruments and field
+recordings of wind at altitude, and on what terms.
+
 ### Stage 6 — Launch (2 days)
 
 Create the public GitHub repository (there is no remote today), CI on `main`,
@@ -226,6 +233,28 @@ the README rewritten for the film, `docs/findings.md` opened with what the
 build measured, and the link published.
 
 Done when the link plays on a phone that has never seen it.
+
+### Stage 7 — Detail (last, as fine-tuning)
+
+The landscape reads as a game built with Lego: flat-shaded facets, a 1 km
+country grid under six times the relief, and colour from elevation bands
+alone. The fix is more data and a finer rendering of it, and it comes last
+because it is tuning, not structure.
+
+- *Research the data.* Where land cover (forest, grass, desert, rock, snow,
+  farmland) comes from at 10 to 30 m and on what terms; whether a cloud-free
+  satellite mosaic can colour the ground, and under which licence; glacier
+  and snow outlines; whether more hero areas or a finer country grid pay
+  for their bytes. Each source's terms are read before a byte is fetched,
+  as for Copernicus and Natural Earth (F59).
+- *Render it finer.* Normals from the height field per pixel rather than
+  per face, detail below the grid's resolution, ground coloured by what
+  covers it rather than by its height, and the relief exaggeration looked
+  at again where it turns hills into spikes.
+
+Done when the nine stills are re-taken beside the current ones and signed
+off, and the frame cost and the 30 MB still hold, or are revised with the
+reason written down.
 
 **Calendar:** seven to nine weeks of one person's time with Claude, so a
 launch in the second half of November 2026 if stage 0 raises nothing. Stage 3 is
