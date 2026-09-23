@@ -301,3 +301,44 @@ Huangshan, long over the plateau); that is the next change, not this one.
 The frame-cost capture refused to run twice, both times with animation
 frames arriving at 1 Hz: the app's window has to be in front for the two
 minutes it takes.
+
+## F80 — What a frame costs with the look on it, 23 September 2026
+
+**How.** `__ns.frameCost(8)` at the film's nine stations
+(`app/public/capture-stations.json`, `make stations`), drawn through every
+pass of the look at 1920 × 1080 on an Apple M3 (not the plan's M1), the
+cheapest of eight timings per variant. The instrument fitted 2.25 ms per
+megapixel plus 0.61 ms per pass, r² 0.97; its resolution was ±2.3 ms,
+because the `clear` variant now carries the sky dome, the shadow pass and
+the post pipeline and is no longer the same small work everywhere.
+
+**The numbers**, whole frame, GPU milliseconds:
+
+| Station | Tiles drawn | Triangles | Frame | Of which post |
+| --- | ---: | ---: | ---: | ---: |
+| huangshan | 167 | 742 k | 3.9 | 2.5 |
+| first-bend | 161 | 722 k | 4.7 | 2.9 |
+| below-the-sea | 137 | 261 k | 3.8 | 2.5 |
+| the-roof | 137 | 261 k | 3.8 | 2.6 |
+| the-wall | 146 | 283 k | 4.2 | 2.6 |
+| karst | 199 | 1,268 k | 7.0 | 5.4 |
+| three-gorges | 46 | 519 k | 4.6 | 3.4 |
+| grassland-to-heaven-lake | 97 | 209 k | 4.7 | 3.8 |
+| loess | 0 | 0 | 2.8 | 2.4 |
+
+The first five are whole frames: every tile the station wants was
+resident. The last four are not: the capture jumps a thousand kilometres
+between stations and its settle gave up with 52 to 137 tiles still to
+fetch, so the karst's 7.0 ms is 180 tiles of the 30 m lattice over a
+half-drawn country and the loess drew nothing at all. The settle has to
+wait for the fetch, not only for the upload; that is a capture fix.
+
+**What it says.** With the look on, a frame is 4 to 5 ms at 1080p on this
+machine, under the plan's 8 ms line with room, and the post pipeline -
+the multisampled half-float scene, the bloom chain, the composite - is
+2.5 to 3 ms of it, the largest single cost and the same at every station.
+The sky, the shadow map and the clouds each cost less than the
+instrument's ±2.3 ms can see; their differences came out on both sides of
+zero. An M1 is roughly half this GPU, so 8 to 10 ms there, which is the
+budget or a little over it; the post pass's resolution is the lever, and
+a phone will be measured by wall clock as the plan says.
