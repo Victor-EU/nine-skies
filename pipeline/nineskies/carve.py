@@ -899,7 +899,7 @@ def ground_over(
     """
     ground = rivers.Grid(heights=heights, transform=transform, fetched=measured)
     box = rivers.extent(ground)
-    lake_shapes = rivers.load(rivers.LAKES)
+    lake_shapes = rivers.lake_shapes()
     return Corridor(
         heights=heights,
         transform=transform,

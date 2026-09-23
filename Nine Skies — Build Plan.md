@@ -246,7 +246,7 @@ machinery was a fifth of the repository, and it goes.
 | Music rights | A film with no sound, or a takedown | Sourced in stage 5 under licences that allow a public web build; credited on the page |
 | Data terms on a public build | Copernicus asks for its notices and no implied endorsement; Natural Earth asks nothing; HydroSHEDS was refused in version 1 for exactly this reason and is not used | The credits page carries the notices verbatim, tested |
 | Size | 40 MB of tiles plus 122 MB of water for a world the viewer sees a tenth of | Per-scene packs (D79) |
-| Scene 1 | The flattest ground in the slot that decides whether anyone sees scene 2 | Decided at the rough cut: the sea at sunrise earns it, or Huangshan at 90 m in mist opens the film instead |
+| Scene 1 | The flattest ground in the slot that decides whether anyone sees scene 2 | Decided at the rough cut (F79): Huangshan opens the film, on the 30 m lattice, in a sea of cloud |
 | Scope creep from version 1 | Something from the deleted game comes back "because it exists" | It does not exist: D74 and D76 delete rather than disable |
 
 ## Not in this plan

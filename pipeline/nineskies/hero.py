@@ -222,6 +222,8 @@ def area_around(
 # Sited by `area_around` from `places.py`, written down like the areas above.
 TAKLAMAKAN_HX0, TAKLAMAKAN_HY0 = 138, 221
 GUILIN_HX0, GUILIN_HY0, GUILIN_TX, GUILIN_TY = 1037, 210, 10, 18
+HUANGSHAN_HX0, HUANGSHAN_HY0, HUANGSHAN_TX, HUANGSHAN_TY = 1223, 382, 5, 6
+CHANGBAI_HX0, CHANGBAI_HY0, CHANGBAI_TX, CHANGBAI_TY = 460, 255, 4, 3
 
 AREAS: tuple[HeroArea, ...] = (
     HeroArea(
@@ -301,6 +303,37 @@ AREAS: tuple[HeroArea, ...] = (
         "own; whether the engine grows a second lattice is stage 0's answer.",
         published=False,
         resolution_m=30,
+    ),
+    HeroArea(
+        id="huangshan",
+        name="Huangshan, the granite massif",
+        hx0=HUANGSHAN_HX0,
+        hy0=HUANGSHAN_HY0,
+        tiles_x=HUANGSHAN_TX,
+        tiles_y=HUANGSHAN_TY,
+        holds=("huangshan",),
+        why="Design v2 as decided on 23 September 2026: the film opens on "
+        "Huangshan in a sea of clouds. The massif's ridges read at 90 m; its "
+        "spires are the picture, and they are 30 m features like the karst.",
+        note="On the 30 m lattice beside Guilin (F76): 30 tiles of 3,840 m, "
+        "a 19 x 23 km box on Lotus Peak with 9 km to spare.",
+        published=False,
+        resolution_m=30,
+    ),
+    HeroArea(
+        id="changbai",
+        name="Changbai Mountain and Heaven Lake",
+        hx0=CHANGBAI_HX0,
+        hy0=CHANGBAI_HY0,
+        tiles_x=CHANGBAI_TX,
+        tiles_y=CHANGBAI_TY,
+        holds=("changbai-tianchi",),
+        why="Design v2 as decided on 23 September 2026: scene 6 crosses the "
+        "grassland and ends circling the crater lake. The caldera is 5 km "
+        "across, five samples on the country grid; at 90 m it is a crater.",
+        note="A 23 x 17 km box on the lake with 14 km to spare, straddling "
+        "the border: the source is global and the grid covers the bounding "
+        "box, so nothing stops at the line.",
     ),
 )
 
@@ -588,6 +621,14 @@ class Cut:
     water: dict | None = None
 
 
+def default_out_dir(area: HeroArea, corridor: str) -> Path:
+    """One lattice per directory: the 90 m areas in `hero/`, any other
+    resolution in `hero-<n>m/` beside it, which is what the engine reads
+    (`HERO_DIRS`)."""
+    name = "hero" if area.resolution_m == RESOLUTION_M else f"hero-{area.resolution_m}m"
+    return Path(__file__).resolve().parents[2] / "dist-world" / corridor / name
+
+
 def cut(
     area_id: str,
     corridor: str = "sea-to-sky",
@@ -701,7 +742,7 @@ def cut(
                        hx1=str(area.hx1), hy1=str(area.hy1),
                        stage3=result.rule, radius=str(result.radius))
 
-    out_dir = out_dir or Path(__file__).resolve().parents[2] / "dist-world" / corridor / "hero"
+    out_dir = out_dir or default_out_dir(area, corridor)
     out_dir.mkdir(parents=True, exist_ok=True)
     cut_array = cut_tiles(array, area)
     heights_path = out_dir / f"{area.id}.bin"

@@ -63,24 +63,24 @@ and up, with the sun moving from dawn to dusk across the film.
 
 | # | Scene | Where | Light | Ground on screen | What you see |
 | --- | --- | --- | --- | --- | --- |
-| 1 | The River's Mouth | Yangtze delta, Shanghai to Chongming | Dawn, November, haze | ~200 km | Sea, then the widest river you have seen, then land so flat and wet it is barely land. The east: low, humid, crowded. |
+| 1 | Huangshan | The granite massif, a loop over Lotus Peak | Dawn, November, a sea of cloud | ~85 km, slow | Peaks standing out of cloud that fills every valley: the picture painters made for a thousand years. Decided over the estuary at the rough cut (F79): the flattest ground in the slot that decides whether anyone watches scene 2. 30 m hero grid. |
 | 2 | The Three Gorges | Yichang west through Xiling, Wu and Qutang | Late afternoon, the sun ahead, mist on the water | ~150 km, low | The walls close in. The camera is below the rim for most of two minutes. The Yangtze as a corridor through rock. 90 m hero grid, already built. |
 | 3 | Karst | Guilin to Yangshuo along the Li | Morning, mist | ~60 km, low and slow | Limestone towers at eye level, the river threading between them. The one scene that needs the source's own 30 m. |
 | 4 | The First Bend | Shigu to Tiger Leaping Gorge | Midday, hard light | ~80 km | The Jinsha turns back on itself and cuts the deepest gorge in the film, 360 m wide where you fly it, under snow peaks. 90 m hero grid, already built. |
 | 5 | Loess | The Yellow River's great bend, Shaanxi–Shanxi | Afternoon, dust | ~400 km | Ochre ground gullied in every direction, and a yellow river cut into it. The second step. |
-| 6 | Steppe to Stone | Hohhot west across Inner Mongolia into the Gobi | Late afternoon, huge sky | ~900 km, the fastest scene | The colour drains from green to grey-tan under the biggest sky in the film. Emptiness as a speed. |
+| 6 | Grassland to Heaven Lake | Xilingol east across the plain to Changbai | Evening, huge sky, then last light on a volcano | ~940 km, the fastest scene, then the slowest | Grass to the horizon at the film's fastest, then the rail slows over Changbai and circles the crater lake. Two landscapes in one time box, by speed (F79). At half speed the lake never arrives; that is the time box's rule. 90 m hero grid. |
 | 7 | Below the Sea | Tian Shan snow down into Turpan, to Ayding Lake at −154 m, then the Taklamakan's edge | Evening, orange | ~600 km | Snow, then a bowl below sea level, then dunes. The three things a desert can be, in two minutes. |
 | 8 | The Roof | Qinghai Lake or Namtso, across the plateau | Dusk, thin clean air | ~700 km, high and fast | Flat ground at 4,500 m for the whole scene. Turquoise salt lakes. The horizon sharp because there is no air to soften it. The third step. |
 | 9 | The Wall | The Himalaya from the north: Rongbuk, then Everest | Last light | ~150 km | The plateau ends in a wall and the wall is 8,000 m. The sun goes behind the ridge and the film ends on the map, showing the whole route flown. |
 
-Three scenes are provisional until the rough cut is watched, and are decided
-by watching it, not by a playtest. Scene 1 is the flattest ground in the
-film in the slot that decides whether anyone watches scene 2: either the sea
-at sunrise and the river's mouth earn it, or Huangshan, granite peaks in
-mist at 90 m and just as eastern, opens the film instead. Scene 6 may be
-flat on screen despite its speed, in which case Changbai's crater lake in
-winter takes the slot. Scene 3 depends on a 30 m hero grid resolving the
-towers, which is measured before anything else is built (plan, stage 0).
+Three scenes were provisional until the rough cut was watched, and all
+three were decided by watching it, not by a playtest (F76, F79). Scene 1:
+the estuary was the flattest ground in the film in the slot that decides
+whether anyone watches scene 2, and Huangshan, granite peaks in a sea of
+cloud on a 30 m grid, opens the film instead. Scene 6: the steppe reads but
+is flat, and Changbai's crater lake is too good to leave out, so one scene
+carries both by speed, the grassland at the film's fastest and the lake
+circled at its slowest. Scene 3: the 30 m grid resolves the towers.
 
 Distances are author targets in real kilometres, not measurements. A rail
 key carries its speed as real kilometres of ground a minute, and the camera

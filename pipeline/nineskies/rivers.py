@@ -144,6 +144,39 @@ def touches(parts: Sequence[np.ndarray], box: Box | None) -> bool:
     return False
 
 
+#: Lakes the film needs that Natural Earth's 10 m file does not carry, as
+#: outer rings in longitude and latitude, clockwise like a shapefile's. Each
+#: was traced from the source itself: the cells flat at the lake's own level
+#: (GLO-30 flattens a lake), their convex hull. Not a coordinate recalled.
+HAND_LAKES: tuple[tuple[str, tuple[tuple[float, float], ...]], ...] = (
+    (
+        "Heaven Lake",  # Changbai's crater lake, flat at 2,188 m in the source, 11.9 km² of it
+        (
+            (128.0374, 42.0071), (128.0385, 42.0101), (128.0432, 42.0201), (128.0435, 42.0204),
+            (128.0532, 42.0260), (128.0540, 42.0260), (128.0785, 42.0162), (128.0788, 42.0160),
+            (128.0796, 42.0151), (128.0804, 42.0126), (128.0807, 42.0115), (128.0807, 42.0104),
+            (128.0582, 41.9854), (128.0571, 41.9849), (128.0543, 41.9849), (128.0510, 41.9857),
+            (128.0504, 41.9860), (128.0493, 41.9868), (128.0479, 41.9879), (128.0476, 41.9882),
+            (128.0462, 41.9896), (128.0454, 41.9904), (128.0451, 41.9907), (128.0449, 41.9910),
+            (128.0382, 41.9999), (128.0374, 42.0021), (128.0368, 42.0043),
+        ),
+    ),
+)
+
+
+def hand_lakes() -> list[shapefile.Shape]:
+    """`HAND_LAKES` as shapes, in the lake file's own coordinates."""
+    return [
+        shapefile.Shape(kind="polygon", parts=(np.array(ring, dtype="float64"),), record={"name_en": name})
+        for name, ring in HAND_LAKES
+    ]
+
+
+def lake_shapes() -> list[shapefile.Shape]:
+    """Every lake the build draws: the fetched file, then the hand-traced ones."""
+    return list(load(LAKES)) + hand_lakes()
+
+
 def name_of(record: dict) -> str:
     return str(record.get("name_en") or record.get("name") or "").strip() or "(unnamed)"
 

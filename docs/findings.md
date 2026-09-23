@@ -228,3 +228,47 @@ open for the user: scene 1 is a green plain under a hazy sky at sixty
 seconds (the estuary against Huangshan, D-open), and scene 6's steppe reads
 but is flat. Stage 3 continues with the four stills, the capture, and a
 phone; stage 4 (packs) can start beside it.
+
+## F79 — Huangshan opens, and the steppe ends at Heaven Lake, 23 September 2026
+
+**What was decided.** Two content decisions by the user, on the stills:
+Huangshan opens the film in place of the estuary, which was the flattest
+ground in the slot; and scene 6 keeps the steppe *and* takes Changbai's
+crater lake, since nine 120-second boxes leave no tenth slot and a split
+box breaks the one rule every test holds. The shape that fits is one scene
+carrying both by speed: east across the Xilingol grassland at 550 km a
+minute, the film's fastest, then the rail slows to 35 over the volcano and
+laps the lake three times, so a double-speed viewer arrives at forty-five
+seconds with two laps to fly and a normal viewer at about ninety. At half
+speed the lake never arrives, which is the time box (D73). The Gobi leaves
+the film; Turpan keeps the desert.
+
+**What was cut.** Two hero areas from the source, like stage 0's (F76):
+
+| Area | Grid | Tiles | Size | What the hillshade says |
+| --- | ---: | ---: | ---: | --- |
+| Huangshan, Lotus Peak | 30 m | 30 | 2.0 MB raw | The massif's ridges read at 90 m; the spires are 30 m features like the karst, so it joins Guilin's lattice |
+| Changbai, Heaven Lake | 90 m | 12 | 0.4 MB | The 5 km caldera is five country samples; at 90 m it is a crater, rim 2,730 m, floor flat at 2,188 m |
+
+The cutter now routes an area to `hero/` or `hero-<n>m/` by its resolution,
+so `make hero` cannot mix lattices in one index again.
+
+**Heaven Lake is not in Natural Earth's lakes**, and the water rule draws
+only mapped lakes. Its outline is now traced from the source itself: the
+cells flat at the lake's own level to the metre (2,188 m, 11.9 km² with the
+shore, the lake being 9.8), their convex hull, written as `HAND_LAKES` in
+`rivers.py` and appended to the fetched file wherever lakes are read. Cut
+again, the area keeps one lake and nine of its twelve tiles are wet.
+
+**The rails.** Huangshan: 84 km at 22 km a minute, 230 s, 97 % over its
+grid, 476–1,652 m over the ground; the cloud sea sits at 1,050 m under the
+rail's lowest point. Grassland to Heaven Lake: 938 km, 344 s at the
+authored speeds, 17 % over the crater's grid. The frame-cost stations are
+re-cut; Huangshan's is 22 km in at 1,216 m over the plain's edge.
+
+**What it changes.** The design's shot list rows 1 and 6 and the plan's
+scene-1 risk row. Two sky, palette and cloud presets: `huangshan-dawn`,
+`granite-pine`, `cloud-sea` (the first deck a scene names), and
+`grassland-volcano` with the lake a deep blue. Neither scene has a still:
+the browser pane is still not compositing. They are the first two stills
+to take when it is, with the first bend.

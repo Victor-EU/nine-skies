@@ -99,6 +99,7 @@ const WHITE: Rgb = [1, 1, 1];
 
 export const SKY_PRESETS: Readonly<Record<string, SkyPreset>> = {
   default: { hazeDensityPerM: 2.75e-6, scaleHeightM: 6000, hazeTint: WHITE, turbidity: 1, glow: 0.8, glowPower: 8, zenithDepth: 0.8 },
+  "huangshan-dawn": { hazeDensityPerM: 2.5e-6, scaleHeightM: 2000, hazeTint: [1.0, 0.96, 0.92], turbidity: 1.3, glow: 1.3, glowPower: 6, zenithDepth: 0.65 },
   "delta-dawn": { hazeDensityPerM: 3.5e-6, scaleHeightM: 2500, hazeTint: [1.0, 0.95, 0.9], turbidity: 1.4, glow: 1.2, glowPower: 6, zenithDepth: 0.55 },
   "gorge-afternoon": { hazeDensityPerM: 4.5e-6, scaleHeightM: 2500, hazeTint: [0.92, 0.97, 1.0], turbidity: 1.1, glow: 0.8, glowPower: 8, zenithDepth: 0.7 },
   "karst-mist": { hazeDensityPerM: 7e-6, scaleHeightM: 1500, hazeTint: [0.95, 1.0, 0.98], turbidity: 1.2, glow: 0.7, glowPower: 6, zenithDepth: 0.5 },
@@ -112,6 +113,18 @@ export const SKY_PRESETS: Readonly<Record<string, SkyPreset>> = {
 
 export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
   default: {},
+  "granite-pine": {
+    stops: { plain: [0.24, 0.36, 0.23], farmland: [0.28, 0.38, 0.24], loess: [0.34, 0.4, 0.28], highDry: [0.42, 0.42, 0.36] },
+    rock: [0.54, 0.52, 0.5],
+    rockSlope: [0.45, 0.8],
+    river: [0.4, 0.55, 0.58],
+  },
+  "grassland-volcano": {
+    stops: { plain: [0.42, 0.5, 0.28], farmland: [0.5, 0.52, 0.3], loess: [0.55, 0.55, 0.38], highDry: [0.48, 0.44, 0.4], plateau: [0.42, 0.4, 0.4] },
+    rock: [0.33, 0.31, 0.3],
+    rockSlope: [0.4, 0.75],
+    lake: [0.1, 0.32, 0.55],
+  },
   "delta-grey-green": {
     stops: { plain: [0.36, 0.46, 0.3], farmland: [0.45, 0.52, 0.3] },
     sea: [0.33, 0.39, 0.41],
@@ -179,6 +192,7 @@ export const CLOUD_PRESETS: Readonly<Record<string, CloudPreset>> = {
   "valley-mist": { mist: { topM: 230, densityPerM: 1.4e-4, tint: [0.97, 0.98, 1.0], bankKm: 12 }, deck: null, cirrus: null },
   "river-mist": { mist: { topM: 190, densityPerM: 7e-5, tint: [0.98, 0.99, 1.0], bankKm: 8 }, deck: null, cirrus: null },
   "dust-haze": { mist: { topM: 1500, densityPerM: 5e-5, tint: [1.0, 0.9, 0.72], bankKm: 40 }, deck: null, cirrus: null },
+  "cloud-sea": { mist: null, deck: { altitudeM: 1050, coverage: 0.92, scaleKm: 6, stretch: 1.3, density: 1.0 }, cirrus: null },
   "high-cirrus": { mist: null, deck: null, cirrus: { altitudeM: 9000, coverage: 0.45, scaleKm: 60, stretch: 3, density: 0.35 } },
   "summit-plume": { mist: null, deck: null, cirrus: { altitudeM: 8800, coverage: 0.3, scaleKm: 40, stretch: 4, density: 0.3 } },
 };

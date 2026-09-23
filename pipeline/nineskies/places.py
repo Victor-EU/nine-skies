@@ -216,6 +216,14 @@ PLACES: tuple[Place, ...] = (
         "where the dunes stand 100-300 m and run 1-3 km crest to crest",
     ),
     Place(
+        "huangshan", "Huangshan, Lotus Peak", 30.1317, 118.1686, "summit",
+        "The granite massif's highest summit, 1,864 m; the film opens here",
+    ),
+    Place(
+        "changbai-tianchi", "Changbai Mountain, Heaven Lake", 42.0064, 128.0563, "lake",
+        "The crater lake at 2,189 m on the border; the film's sixth scene ends here",
+    ),
+    Place(
         "qinghai-lake", "Qinghai Lake", 36.90, 100.20, "lake",
         "Lake surface at 3,196 m, flattened by the lake table rather than by "
         "the DEM minimum", anchor=False,

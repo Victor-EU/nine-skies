@@ -123,10 +123,13 @@ class TestTheAreas(unittest.TestCase):
 
     def test_the_plans_five_areas_are_all_accounted_for(self):
         named = {a.id for a in hero.AREAS} | {a for a, _, _ in hero.UNSITED}
+        # The plan's five, the film's three (Guilin, the Taklamakan, and
+        # Huangshan and Changbai decided on 23 September 2026 over the
+        # estuary and the Gobi), and the one still unsited.
         self.assertEqual(
             named,
             {"guilin", "zhangjiajie", "three-gorges", "everest",
-             "tiger-leaping-gorge", "taklamakan"},
+             "tiger-leaping-gorge", "taklamakan", "huangshan", "changbai"},
         )
 
     def test_an_area_is_a_whole_number_of_tiles(self):
@@ -249,7 +252,7 @@ class TestWhatMakeHeroCuts(unittest.TestCase):
                 for name in hero.missing_cells(area, source):
                     (source / f"{name}.tif").write_bytes(b"")
             ready = [a.id for a in hero.ready(source)]
-        self.assertEqual(ready, ["tiger-leaping-gorge", "three-gorges", "everest", "taklamakan"])
+        self.assertEqual(ready, ["tiger-leaping-gorge", "three-gorges", "everest", "taklamakan", "changbai"])
 
 
 class TestTheBias(unittest.TestCase):

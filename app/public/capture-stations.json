@@ -4,14 +4,14 @@
   "world": "dist-world/china",
   "stations": [
     {
-      "id": "rivers-mouth",
-      "km": 150,
-      "eastM": 4963711,
-      "northM": 1691539,
-      "altitudeM": 312,
-      "headingRad": -1.059239,
-      "groundM": 0,
-      "why": "scene rivers-mouth at 60 s on its rail"
+      "id": "huangshan",
+      "km": 22,
+      "eastM": 4709833,
+      "northM": 1485002,
+      "altitudeM": 1216,
+      "headingRad": 2.194058,
+      "groundM": 566,
+      "why": "scene huangshan at 60 s on its rail"
     },
     {
       "id": "three-gorges",
@@ -38,7 +38,7 @@
       "km": 50,
       "eastM": 2956753,
       "northM": 1061334,
-      "altitudeM": 3142,
+      "altitudeM": 3931,
       "headingRad": 2.568153,
       "groundM": 1942,
       "why": "scene first-bend at 60 s on its rail"
@@ -54,14 +54,14 @@
       "why": "scene loess at 60 s on its rail"
     },
     {
-      "id": "steppe-to-stone",
-      "km": 450,
-      "eastM": 3600512,
-      "northM": 2462417,
-      "altitudeM": 2092,
-      "headingRad": -2.352883,
-      "groundM": 1080,
-      "why": "scene steppe-to-stone at 60 s on its rail"
+      "id": "grassland-to-heaven-lake",
+      "km": 550,
+      "eastM": 5071016,
+      "northM": 2979119,
+      "altitudeM": 975,
+      "headingRad": 1.699711,
+      "groundM": 449,
+      "why": "scene grassland-to-heaven-lake at 60 s on its rail"
     },
     {
       "id": "below-the-sea",

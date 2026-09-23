@@ -347,6 +347,20 @@
       "lon": 83.3,
       "eastM": 1618949.9,
       "northM": 2573865.1
+    },
+    {
+      "name": "huangshan",
+      "lat": 30.1317,
+      "lon": 118.1686,
+      "eastM": 4705770.1,
+      "northM": 1477424.7
+    },
+    {
+      "name": "changbai-tianchi",
+      "lat": 42.0064,
+      "lon": 128.0563,
+      "eastM": 5322575.5,
+      "northM": 2951888.8
     }
   ]
 }
