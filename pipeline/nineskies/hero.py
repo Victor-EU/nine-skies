@@ -42,6 +42,15 @@ own boundary and refuses to write a hero area that exceeds it. The guarantee
 is checked rather than assumed, which is the only reason a non-nesting grid is
 allowed to exist here.
 
+A skirt only hangs down, though, so it closes the seam only where the hero
+edge stands higher. Where the country ground does, which is three-quarters of
+both rims, the sky showed through until the engine hung a curtain from the
+country's side as well (F74). And what this cut measures is the country grid
+read bilinearly, a point a kilometre, where the step the engine draws is
+between triangles at each lattice's LOD: 452 m at the finest where this reads
+330. The drawn step is held to the skirts by the engine's own test on the
+built world, `test/terrain/rimCurtain.test.ts`.
+
 **Stage 3 runs on every area as it is cut** (D64, F63). An area is cut from
 the source and not from the country grid, so the carve that conditions the
 country grid never reached one, and the Jinsha crossed a sill 119 m over
@@ -422,6 +431,11 @@ def boundary_disagreement(
     is that disagreement, measured rather than assumed. Returns None when there
     is no country grid on this machine to compare against, which the manifest
     then records as unchecked rather than as zero.
+
+    It is the size of the step and not its sign, on the country grid read
+    bilinearly rather than as drawn. Which side stands higher decides what
+    closes it: the hero skirts where the hero edge does, the country's curtain
+    where the country does (F74).
     """
     if not country_path.exists():
         return None

@@ -257,6 +257,24 @@ export class HeroCover implements TileSource {
     return this.areas.length;
   }
 
+  private lowest: number | null = null;
+
+  /**
+   * The lowest sample any area holds, in metres: what the country's curtain
+   * along a rim hangs below (F74). Read off the heights rather than the
+   * manifests, since it is the ground drawn that the curtain has to reach.
+   */
+  get lowestM(): number {
+    if (this.lowest === null) {
+      let lowest = Infinity;
+      for (const { heights } of this.areas) {
+        for (let k = 0; k < heights.length; k++) lowest = Math.min(lowest, heights[k]!);
+      }
+      this.lowest = Number.isFinite(lowest) ? lowest : 0;
+    }
+    return this.lowest;
+  }
+
   /** The hero tile holding a position given in metres from the country origin. */
   tileAt(eastM: number, northM: number): { hx: number; hy: number } {
     return {

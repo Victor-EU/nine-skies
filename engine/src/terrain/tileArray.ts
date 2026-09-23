@@ -307,6 +307,16 @@ export class HeightTileArray {
   }
 
   /**
+   * A resident tile's samples as the GPU has them: the array they live in and
+   * where the tile starts. Not a copy, and not a use for eviction's sake.
+   */
+  tileData(x: number, y: number): { data: Int16Array; base: number } | null {
+    const layer = this.layerOf.get(tileId(x, y));
+    if (layer === undefined) return null;
+    return { data: this.data, base: layer * this.samples * this.samples };
+  }
+
+  /**
    * Call once per frame before rendering. Sends the layers written since the
    * last call, each as its own `texSubImage3D`, or the whole array when more
    * than `WHOLE_UPLOAD_SHARE` of it changed at once (F70) - the heights and,

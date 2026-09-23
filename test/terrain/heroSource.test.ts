@@ -192,7 +192,7 @@ describe("hero cover's water (F73)", () => {
     expect(hero!.uniforms.uWaterRibbonMaxM!.value).toBe(45);
     terrain.update(10.5 * TILE_M, 20.5 * TILE_M, 3000);
     const flags = new Map<number, number>();
-    for (const mesh of terrain.meshes.slice(4)) {
+    for (const mesh of terrain.meshes.slice(4, 8)) {
       const geometry = mesh.geometry as import("three").InstancedBufferGeometry;
       const origins = geometry.getAttribute("iOrigin").array as Float32Array;
       const water = geometry.getAttribute("iWater").array as Float32Array;
@@ -314,9 +314,9 @@ describe("terrain over both grids at once", () => {
       hero,
     });
 
-  it("draws two lattices and says which bucket is which", () => {
+  it("draws two lattices and the rim between them, and says which bucket is which", () => {
     const terrain = build(cover());
-    expect(terrain.meshes.length).toBe(8);
+    expect(terrain.meshes.length).toBe(9);
     expect(terrain.stats.bucketLabels).toEqual([
       "L0",
       "L1",
@@ -326,7 +326,9 @@ describe("terrain over both grids at once", () => {
       "hero L1",
       "hero L2",
       "hero L3",
+      "hero rim",
     ]);
+    // The rim shares the country material's uniforms rather than adding one.
     expect(terrain.materials.length).toBe(2);
   });
 
@@ -346,8 +348,9 @@ describe("terrain over both grids at once", () => {
     expect(terrain.stats.hero.instances).toBe(6);
     expect(terrain.stats.hero.resident).toBe(6);
     expect(terrain.material.uniforms.uCutCount!.value).toBe(1);
-    // Every hero instance is in a bucket, and the buckets are the last four.
-    const heroBuckets = terrain.stats.perLod.slice(4);
+    // Every hero instance is in a bucket, and the buckets are the four after
+    // the country's; the rim's, last, counts stretches of rim.
+    const heroBuckets = terrain.stats.perLod.slice(4, 8);
     expect(heroBuckets.reduce((a, b) => a + b, 0)).toBe(6);
   });
 

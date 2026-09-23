@@ -9,13 +9,14 @@ import {
   type ShaderMaterial,
 } from "three";
 import { LOD_SEGMENTS, buildGrid, lodForDistance, type LodLevel } from "./grid.js";
-import { HeightTileArray, MAX_LAYERS, TILE_SAMPLES } from "./tileArray.js";
+import { HeightTileArray, MAX_LAYERS, TILE_SAMPLES, tileId } from "./tileArray.js";
 import { TILE_KM } from "./syntheticTiles.js";
 import { SyntheticTileSource, type TileSource } from "./tileSource.js";
 import { NO_WATER } from "./tileStream.js";
 import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M, RESOLVED_RIBBON_SAMPLES } from "./water.js";
 import type { AreaBounds, HeroCover } from "./heroSource.js";
-import { createTerrainMaterial, MAX_CUT_RECTS } from "./terrainMaterial.js";
+import { createRimMaterial, createTerrainMaterial, MAX_CUT_RECTS } from "./terrainMaterial.js";
+import { RimCurtain, type DrawnTiles } from "./rimCurtain.js";
 import {
   hazeDensityPerWorldUnit,
   hazeFalloffPerWorldUnit,
@@ -53,6 +54,16 @@ import { DEFAULT_HAZE_DENSITY_PER_M, HAZE_SCALE_HEIGHT_M } from "./palette.js";
  * pipeline's own test reads this file to check they still agree.
  */
 export const SKIRT_DEPTH_M = 900;
+
+/**
+ * How many country tiles out the app draws, in each direction: 384 km.
+ *
+ * Named because the seam at a hero rim depends on it (F74). The coarsest
+ * country LOD a view this wide draws is L2, and at L2 the hero edge stands at
+ * most 818 m over the country ground beside it, inside the 900 m the hero
+ * skirts hang. A view of 11 tiles or more would draw L3, where it is 1,200 m.
+ */
+export const VIEW_RADIUS_TILES = 6;
 
 /**
  * The hero grid's LOD ladder.
@@ -99,8 +110,9 @@ export interface TerrainStats {
    * Kept because the totals hide the number the frame budget is about: 8,192
    * triangles of L0 and 128 of L3 are the same triangle to `triangles` and
    * are not the same draw. Index-aligned with `meshes`, so when hero cover is
-   * flying this is eight entries rather than four - `bucketLabels` says which
-   * is which.
+   * flying this is nine entries rather than four - `bucketLabels` says which
+   * is which. The ninth is the country's curtain along the drawn rims (F74),
+   * and what it counts is stretches of rim, not instances.
    */
   perLod: number[];
   /** One name per bucket, index-aligned with `perLod` and `meshes`. */
@@ -111,6 +123,8 @@ export interface TerrainStats {
     instances: number;
     triangles: number;
     resident: number;
+    /** Points along the drawn rims the country's curtain hangs from (F74). */
+    rimPoints: number;
   };
 }
 
@@ -131,7 +145,7 @@ interface LodBucket {
  * Everything here is in terms of `tileM` and `samples`, so the country grid
  * and a hero grid are the same code with different numbers in it.
  */
-class TileLattice {
+class TileLattice implements DrawnTiles {
   readonly heights: HeightTileArray;
   readonly material: ShaderMaterial;
   readonly meshes: Mesh[] = [];
@@ -139,6 +153,8 @@ class TileLattice {
   private readonly maxInstances: number;
   /** Tiles this lattice made resident during the current frame. */
   generated = 0;
+  /** Each tile drawn this frame and the LOD it is drawn at. */
+  private readonly drawnLod = new Map<string, LodLevel>();
 
   constructor(
     readonly name: string,
@@ -210,6 +226,15 @@ class TileLattice {
   beginFrame(): void {
     for (const b of this.buckets) b.count = 0;
     this.generated = 0;
+    this.drawnLod.clear();
+  }
+
+  /** `DrawnTiles`: what the curtain along a hero rim hangs from (F74). */
+  drawn(i: number, j: number): { data: Int16Array; base: number; segments: number } | null {
+    const lod = this.drawnLod.get(tileId(i, j));
+    if (lod === undefined) return null;
+    const tile = this.heights.tileData(i, j);
+    return tile && { ...tile, segments: this.segments[lod]! };
   }
 
   /**
@@ -249,6 +274,7 @@ class TileLattice {
     (b.layers.array as Float32Array)[b.count] = layer;
     (b.water.array as Float32Array)[b.count] = this.heights.hasWater(layer) ? 1 : 0;
     b.count++;
+    this.drawnLod.set(tileId(i, j), lod);
     return true;
   }
 
@@ -344,6 +370,8 @@ export class Terrain {
   readonly heroCover: HeroCover | null;
   private readonly country: TileLattice;
   private readonly hero: TileLattice | null;
+  /** The country's curtain along each drawn rim, with hero cover (F74). */
+  private readonly rim: RimCurtain | null;
   /** Each drawn area's rectangle, world units from the rebase point. */
   private readonly cutRects: Vector4[] = [];
   /** Every published area, in real metres. Fixed for the life of the cover. */
@@ -370,7 +398,7 @@ export class Terrain {
     pending: 0,
     perLod: [],
     bucketLabels: [],
-    hero: { areasDrawn: 0, instances: 0, triangles: 0, resident: 0 },
+    hero: { areasDrawn: 0, instances: 0, triangles: 0, resident: 0, rimPoints: 0 },
   };
 
   constructor(private readonly options: TerrainOptions) {
@@ -438,8 +466,17 @@ export class Terrain {
         RESOLVED_RIBBON_SAMPLES * this.heroCover.resolutionM,
       );
       for (let i = 0; i < MAX_CUT_RECTS; i++) this.cutRects.push(new Vector4());
+      this.rim = new RimCurtain(
+        createRimMaterial(this.country.material),
+        this.publishedAreas,
+        this.country.tileM,
+        this.country.samples,
+        LOD_SEGMENTS[0],
+        this.heroCover.lowestM,
+      );
     } else {
       this.hero = null;
+      this.rim = null;
     }
 
     for (const lattice of this.lattices) {
@@ -451,6 +488,13 @@ export class Terrain {
           lattice === this.country ? `L${i}` : `hero L${i}`,
         );
       }
+    }
+    // Its uniforms are the country material's own objects, so it is not in
+    // `materials`: whatever is written there reaches it.
+    if (this.rim) {
+      this.meshes.push(this.rim.mesh);
+      this.stats.perLod.push(0);
+      this.stats.bucketLabels.push("hero rim");
     }
   }
 
@@ -529,6 +573,13 @@ export class Terrain {
 
     const heroStats = this.drawHeroAreas(eastM, northM, radius * tileM);
     this.publishCutRects();
+    this.rim?.update(
+      this.drawnAreas,
+      this.country,
+      this.originEastM,
+      this.originNorthM,
+      scale.horizontalCompression,
+    );
 
     let drawCalls = 0;
     let instances = 0;
@@ -540,6 +591,11 @@ export class Terrain {
       instances += frame.instances;
       triangles += frame.triangles;
       for (const b of lattice.buckets) this.stats.perLod[bucket++] = b.count;
+    }
+    if (this.rim) {
+      this.stats.perLod[bucket++] = this.rim.pieces;
+      if (this.rim.triangles > 0) drawCalls++;
+      triangles += this.rim.triangles;
     }
 
     this.stats.drawCalls = drawCalls;
@@ -555,6 +611,7 @@ export class Terrain {
       instances: heroStats.instances,
       triangles: heroStats.triangles,
       resident: this.hero?.heights.residentCount ?? 0,
+      rimPoints: this.rim?.points ?? 0,
     };
 
     const cameraWorld = this.toWorld(eastM, northM, altitudeM);

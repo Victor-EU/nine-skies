@@ -1,5 +1,5 @@
 import { Color, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
-import { Terrain } from "../../engine/src/terrain/terrain.js";
+import { Terrain, VIEW_RADIUS_TILES } from "../../engine/src/terrain/terrain.js";
 import {
   standInGroundTempC,
   standInPrecipMm,
@@ -311,7 +311,7 @@ const worldMs = performance.now() - worldT0;
 
 const terrain = new Terrain({
   scale,
-  viewRadiusTiles: 6,
+  viewRadiusTiles: VIEW_RADIUS_TILES,
   layers: 256,
   source: world?.source ?? standIn,
   hero,

@@ -202,11 +202,12 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      is 10, so nothing nests at any tile size; the lattice shares only the
      origin, and `country_tiles_under` answers with a span rather than an
      index. What keeps the seam closed is the 900 m skirt in
-     `engine/src/terrain/terrain.ts`, and the cut measures its own boundary
-     against the country grid and refuses to write an area that exceeds it
-     (71 m mean, 333 m worst for the gorge). Read back from the other side by
-     the engine, through the sampling the HUD uses, the same rim is 71.4 m
-     mean and 339.4 m worst (F51).
+     `engine/src/terrain/terrain.ts` where the hero edge stands higher, and
+     a curtain the country hangs along the rim where it does (F74); the cut
+     measures its own boundary against the country grid and refuses to write
+     an area that exceeds 900 m (71 m mean, 333 m worst for the gorge). Read
+     back from the other side by the engine, through the sampling the HUD
+     uses, the same rim is 71.4 m mean and 339.4 m worst (F51).
    - **Two grids is a cost as well as a fidelity gain, and it is measured on
      the other side.** The rim is where they are held together; the interior
      is where they are allowed to disagree, and inside these two areas the

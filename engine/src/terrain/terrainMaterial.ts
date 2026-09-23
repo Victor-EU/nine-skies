@@ -119,9 +119,13 @@ uniform int uCutCount;
  *
  * Per-fragment rather than per-vertex because a country tile's vertices are
  * 1 km apart at the finest LOD and 8 km apart at the coarsest, and the rim of
- * a hero area is a straight line at neither spacing. The gap it leaves is
- * covered by the hero tiles' own skirts, which drop 900 m against a rim that
- * the cutter measures and refuses to publish above 333 m.
+ * a hero area is a straight line at neither spacing. The gap it leaves is a
+ * step, and which way it steps changes along the rim. Where the hero edge
+ * stands higher, the hero tiles' own skirts fill it. Where the country ground
+ * does, which is three-quarters of both rims, the country hangs a curtain of
+ * its own from the surface it draws there (F74, `rimCurtain.ts`). Both drop
+ * 900 m, against a disagreement the cutter measures and refuses to publish
+ * above that.
  *
  * This is also why the block is generated rather than always present: a
  * shader containing `discard` gives up early-Z on most hardware whether the
@@ -269,6 +273,59 @@ export function createTerrainMaterial(
       uHazeHeightFalloff: { value: values.hazeHeightFalloff },
       uCameraWorld: { value: new Vector3() },
     },
+  });
+}
+
+/**
+ * The curtain the country grid hangs along a hero rim (F74): see
+ * `rimCurtain.ts`. Its x and z arrive in world units and its y in real
+ * metres, so exaggeration and depth are the lattice's own uniforms.
+ */
+const rimVertexShader = /* glsl */ `
+precision highp float;
+
+in float aSkirt;
+
+uniform float uVerticalExaggeration;
+uniform float uSkirtDepth;
+
+out vec3 vWorld;
+out float vElevation;
+
+void main() {
+  vec3 world = vec3(position.x, position.y * uVerticalExaggeration - aSkirt * uSkirtDepth, position.z);
+  vWorld = world;
+  vElevation = position.y;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
+}
+`;
+
+/**
+ * The country material's shading on the curtain's geometry.
+ *
+ * Every uniform is the country material's own object, not a copy, so the haze
+ * the app writes each frame, a scale change and the camera all reach it
+ * without anyone writing to it. No cut, since the curtain stands exactly on
+ * the rectangle's edge and a `discard` would take it or leave it by rounding,
+ * and no water, since it is a wall.
+ */
+export function createRimMaterial(country: ShaderMaterial): ShaderMaterial {
+  const u = country.uniforms;
+  const shared = [
+    "uVerticalExaggeration",
+    "uSkirtDepth",
+    "uSunDirection",
+    "uSunColor",
+    "uHazeColor",
+    "uHazeDensity",
+    "uHazeHeightFalloff",
+    "uCameraWorld",
+  ] as const;
+  return new ShaderMaterial({
+    glslVersion: GLSL3,
+    vertexShader: rimVertexShader,
+    fragmentShader: fragmentShader(0, 0),
+    uniforms: Object.fromEntries(shared.map((name) => [name, u[name]!])),
   });
 }
 

@@ -9988,3 +9988,159 @@ F72's 0.2–0.6 ms per frame of wet tiles until a capture says otherwise.
 - hero cover handing out a wet tile's water and none for a dry one, flying an
   area dry whose water does not fit, and holding its lattice's ribbon to 45 m;
 - on the built world, the Wu Gorge tile's 426 samples of reservoir.
+
+## F74 — The sky through every hero rim was a step only one side closed, and the country's side is deeper than the skirts
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+F73 found thin lines of sky along the rims of both hero areas. The country
+grid is cut out inside an area's rectangle, and the hero tiles' skirts hang
+900 m down from the area's edge. A skirt only hangs down. So where the
+country ground outside stands above the hero edge, nothing filled the gap
+between them.
+
+### The step, where it is drawn
+
+F73 sized it on the country grid read bilinearly. What the player sees is
+the step between the triangles each lattice actually draws at the rim, at
+whatever LOD each is drawn at. So it was measured again that way: every
+10 m along both rims, for every pairing of a country LOD with a hero LOD.
+The camera was then swept 2 km at a time over every position the area is
+drawn from, to find which pairings a flight actually makes.
+
+| At the rim | Tiger Leaping Gorge | Three Gorges |
+| --- | ---: | ---: |
+| rim | 230.4 km | 345.6 km |
+| country above the hero edge, finest LODs | 76.9 % of it | 72.3 % |
+| by, median | 64 m | 83 m |
+| by, at most | **384 m** | **452 m** |
+| what `hero.py` reads, either way | 353 m | 330 m |
+| country above, country at L1 | 543 m | 627 m |
+| country above, country at L2 | **1,032 m** | 876 m |
+| hero edge above, worst pairing a flight makes | 661 m | **803 m** |
+
+- **The cutter reads a different quantity.** Its seam check reads the country
+  grid bilinearly, one point a kilometre. The drawn step is triangles at a
+  LOD, and at the finest pair it is 384 and 452 m where the cutter reads
+  353 and 330. The check was also unsigned, and the sign decides which side
+  has to close the gap.
+- **The step grows with the country's LOD.** The country draws its third LOD
+  from 320 km, and a hero area is drawn to 384 km. With the country at L2,
+  Tiger Leaping Gorge's rim stands 1,032 m over the hero edge, deeper than
+  the skirts hang. So a curtain 900 m deep would not have closed it.
+- **The hero edge standing higher is the skirts' job, and they hold.** At the
+  pairings a flight makes, the worst is 803 m of their 900, at the Three
+  Gorges with the country at L2. The margin depends on how wide the view is:
+  - a view of six tiles, which is the app's, never draws the country's L3;
+  - a view of 11 tiles or more would, and there it is 1,200 m.
+
+  So the radius is a named constant now, `VIEW_RADIUS_TILES`, rather than a
+  literal in `main.ts`.
+
+### The curtain
+
+The country now hangs a curtain of its own along each drawn rim
+(`engine/src/terrain/rimCurtain.ts`).
+
+- **Its top is the surface the country draws there.** It is not the grid
+  read bilinearly. The rim cuts through the country's triangles along a
+  line, so the top gets a point wherever that line crosses a triangle's edge,
+  either a grid line or the quad's diagonal. It is straight between points
+  exactly where the surface is. Each stretch is taken from the country tile
+  just outside the rim, at the LOD that tile is drawn at this frame.
+- **It hangs to a floor, not by a depth.** The bottom is a skirt's depth below
+  the lowest sample the hero cover holds, 139 m. Every hero triangle stands
+  on samples, so no LOD's edge is below that floor, and the gap is closed
+  however far the country stands over the edge. The extra depth is never
+  seen: from inside the area it is behind the hero ground, and from outside
+  behind the country's.
+- **It faces into the area,** by the same winding arithmetic that makes the
+  lattice's own ground face up.
+- **It is shaded as the country is.** Its uniforms are the country material's
+  own objects, so haze, sun, scale and camera reach it without being written
+  twice. It has no cut, since it stands exactly on the rectangle's edge, and
+  no water.
+- **It is built on the CPU each frame.** It reads the same Int16 copy the
+  texture array is uploaded from, and uploads only when it has moved.
+  - Over the Three Gorges it is 702 points in 8 stretches and 1,388
+    triangles.
+  - It costs 0.03 ms of main thread: 0.024–0.058 ms a frame across four
+    rounds of 300 frames, timed with it and without.
+
+### Seen
+
+The views were rendered in the app at 2,048 × 1,536 with the clear colour set
+to magenta, 40 per area:
+
+- from inside the area, 3 km in from each quarter-point of each edge, at 200
+  and 1,500 m over the ground, looking out;
+- from 5 km outside, looking in;
+- from 7,000 m over the middle, looking at each edge.
+
+A pixel of sky with ground above it in the same column was counted as a
+hole. Each view was rendered with the curtain and without it:
+
+| | Tiger Leaping Gorge | Three Gorges |
+| --- | ---: | ---: |
+| hole pixels without the curtain | 151,172, in 15 views | 400,772, in 17 |
+| with it | 192, in 1 | 884, in 2 |
+
+What is left is the count's own error. Twelve pixels were traced from each
+of the three views left, 36 in all, and every one passes above the drawn
+ground to open sky beside a ridge. Near the edge of a pitched frame a column
+of pixels is not a vertical plane, so sky can sit below a ridge in the same
+column. The one view left at Tiger Leaping Gorge counts 192 with the curtain
+and without it.
+
+**The worst view.** From 200 m over the Three Gorges' west rim, looking out,
+the sky showed as a band under the country ground's cut edge. With the
+curtain there is a rock wall.
+
+### What the rim is now
+
+A wall. Where the sky showed through, the country ground over the hero edge
+is drawn as a cliff: a median 64 and 83 m at the finest LODs, up to 384 and
+452 m. The cliff is in neither grid's ground. It is honest about the two
+grids disagreeing, and it is the one place a player sees that they do.
+
+The other way is to feather the hero edge into the country over a band inside
+the rim, cut by `make hero`:
+
+- **It moves no probe.** No place an area holds is nearer its rim than
+  8.9 km, at Xiling, so a band of a few kilometres reaches none of them.
+- **It gives up 90 m ground.** The band is 90 m ground turned into a blend.
+- **The Yangtze runs through it.** The river crosses both of the Three
+  Gorges' short rims.
+- **Its target moves.** The country it would be feathered toward is drawn at a
+  different LOD from one frame to the next.
+
+Which one it is is a look, and it is the user's.
+
+### What this leaves
+
+- **Whether the rim is a step or a blend**, the user's.
+- **The hero skirts' margin is 97 m.** It is measured on the two built areas,
+  at the LODs a six-tile view draws. A new area, or a wider view, is checked
+  by the test on the built world rather than by the cutter.
+- **`hero.py`'s seam check reads a different quantity from the one drawn.**
+  Its docstrings now say so. The 900 m refusal still stands as a bound on
+  how far the grids disagree.
+
+852 TypeScript tests, up from 844, and 409 Python tests, as before:
+
+- the surface the curtain follows, against the grid's own triangles at every
+  LOD of both grids;
+- the curtain straight between its points, and not straight on the grid lines
+  alone: over 100 m off on rough ground;
+- a rim's stretches covering it once, each in the tile outside it, including
+  a rim that falls on a tile boundary;
+- in a live terrain: the curtain on the rim, its top the country's drawn
+  ground, its bottom at the floor, every triangle facing in, nothing hung
+  where no area is drawn, and nothing uploaded when nothing moved;
+- on the built world, the drawn step with the country at every LOD a
+  six-tile view draws and the hero at any of its own, which bounds what a
+  flight sees rather than measuring it:
+  - the hero edge above the country by at most 661 and 818 m, both under
+    900;
+  - the country above the hero edge by 1,047 and 908 m, which is why the
+    curtain hangs to the floor.
