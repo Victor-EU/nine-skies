@@ -603,3 +603,38 @@ connection that reads as about a second to the first frame and two to
 the ground, which is inside the plan's three seconds but is arithmetic,
 not a measurement: nothing here throttles a network or is a phone.
 
+## F85 — Stage 5: credits and figures done, and the sound is to be found, 23 September 2026
+
+**The credits page** (`app/credits.html`) is filled at build from
+`NOTICE.md`, rendered from its Markdown rather than retyped, with the
+question the project asks and the sound's credits from
+`content/sound.yaml`. A test holds both Copernicus notices to the file word
+for word. `NOTICE.md`'s own account of what carries the data had gone out
+of date with version 1 (route sections, challenge ground) and now names
+the worlds, the scene packs and the stills. The player bar and the end
+card link to the page.
+
+**Every figure in two systems**, asked for the American viewer: a scene
+file marks each figure, `{1800 m}`, `{190 km}`, `{47 °C}`, and the film
+shows "1,800 m (5,900 ft)". A figure written to the unit is converted
+exactly (8,849 m is 29,032 ft); a round one stays round (1,800 m is
+5,900 ft, not 5,906). The gate refuses a metric figure left unmarked,
+which found seventeen, and two more it could not see (Huangshan's "the
+cloud lies at 1,200", scene 6's "a thousand kilometres") were marked by
+hand. A figure and its conversion count as one word, so every line is
+still twelve or fewer. The lead-in map gives its jump in miles too.
+
+**The sound, twice rejected.** The player (`app/src/sound.ts`) plays a
+scene's cue from its lead-in, fades it across the cut, follows pauses and
+chapter jumps to the second, and thins a wind bed with altitude; it was
+checked with a stand-in, a sine tone and a loop of white noise. Those were
+heard - they kept playing in the browser pane after the files were
+deleted, because the page was not reloaded - and judged terrible, and
+the white noise in particular "machine noise". A wind synthesised from
+brown and pink noise, filtered in three layers under slow random gusts,
+with a spectrum falling about 6 dB an octave, was built next and rejected
+as well. D85: all the film's sound is recorded sound found on the web,
+none of it made here. The player stays; it plays nothing until
+`content/sound.yaml` names licensed files, and the launch gate
+(`--complete`) refuses a film without nine cues and a wind bed.
+
