@@ -6,7 +6,7 @@
 
 id: the-roof
 title: { zh: 青藏高原, pinyin: Qīng-Zàng gāoyuán, en: The Roof }
-line: "Flat ground at 4,500 metres for the whole scene."
+line: "Flat ground at {4500 m} for the whole scene."
 # hero: none; the country grid alone
 month: 9
 hour: 18.9
@@ -37,8 +37,8 @@ look:
   grade: clear
 
 captions:
-  - { at: 12, text: "Qinghai Lake. From here the ground stays above 4,000 metres." }
+  - { at: 12, text: "Qinghai Lake. From here the ground stays above {4000 m}." }
   - { at: 60, text: "Thin air, hard light, no trees. A plateau the size of Europe." }
-  - { at: 100, text: "Namtso, the sky lake, 4,718 metres up." }
+  - { at: 100, text: "Namtso, the sky lake, {4718 m} up." }
 
 music: cue-08

@@ -14,7 +14,10 @@
  *   the sun the hour gives it;
  * - a hero grid the world has not built, when the world is there to ask;
  * - a look that names a sky, palette, cloud or grade preset that does not
- *   exist, because the look is the film and a typo there is a dull scene.
+ *   exist, because the look is the film and a typo there is a dull scene;
+ * - a metric figure in the text without its braces (`{1800 m}`), because
+ *   the film shows every figure in feet, miles or Fahrenheit as well
+ *   (`content/units.ts`), and one left bare would be metric alone.
  */
 import {
   buildRail,
@@ -29,6 +32,7 @@ import { DEFAULT_RAIL } from "../engine/src/film/rail.js";
 import { FLIGHT_S } from "../engine/src/film/timeline.js";
 import { dayOfYear, sunPosition } from "../engine/src/gfx/solar.js";
 import { lookProblems } from "../engine/src/look/presets.js";
+import { bareFigures, figuresAsWords, showUnits } from "./units.ts";
 
 /** The whole film says fewer than this many lines. */
 export const TEXT_LINE_BUDGET = 40;
@@ -55,8 +59,9 @@ export interface Problem {
   readonly message: string;
 }
 
+/** Words as a reader meets them: a figure shown in both systems is one. */
 export function wordCount(text: string): number {
-  return text.split(/\s+/).filter((w) => w.length > 0).length;
+  return figuresAsWords(text).split(/\s+/).filter((w) => w.length > 0).length;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -92,8 +97,13 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     if (title.zh && !/[㐀-鿿]/.test(title.zh)) add("title.zh", "the characters, not a transliteration");
   }
 
-  const line = isStr(raw.line) ? raw.line.trim() : "";
-  if (!line) add("line", "the one line under the title is required");
+  const rawLine = isStr(raw.line) ? raw.line.trim() : "";
+  if (!rawLine) add("line", "the one line under the title is required");
+  const bare = (field: string, text: string) => {
+    for (const f of bareFigures(text)) add(field, `"${f}": mark it like {1800 m} so it is shown in feet or miles too`);
+  };
+  bare("line", rawLine);
+  const line = showUnits(rawLine);
 
   let hero: string | null = null;
   if (raw.hero !== undefined && raw.hero !== null) {
@@ -167,7 +177,8 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     else
       raw.captions.forEach((c, i) => {
         if (!isRecord(c) || !isNum(c.at) || !isStr(c.text)) return add(`captions[${i}]`, "needs at (seconds) and text");
-        captions.push({ at: c.at, text: c.text.trim() });
+        bare(`captions[${i}]`, c.text);
+        captions.push({ at: c.at, text: showUnits(c.text.trim()) });
       });
   }
 

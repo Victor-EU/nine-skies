@@ -71,7 +71,7 @@ look:
 
 captions:
   - { at: 8, text: "Inner Mongolia. Grass to the horizon, and the biggest sky." }
-  - { at: 60, text: "A thousand kilometres east in ninety seconds. Ahead, a volcano." }
-  - { at: 100, text: "Changbai's Heaven Lake, 2,189 metres up, on the Korean border." }
+  - { at: 60, text: "{1000 km} east in ninety seconds. Ahead, a volcano." }
+  - { at: 100, text: "Changbai's Heaven Lake, {2189 m} up, on the Korean border." }
 
 music: cue-06

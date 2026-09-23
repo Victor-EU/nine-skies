@@ -6,7 +6,7 @@
 
 id: the-wall
 title: { zh: 珠穆朗玛, pinyin: Zhūmùlǎngmǎ, en: The Wall }
-line: "The plateau ends in a wall, and the wall is 8,000 metres."
+line: "The plateau ends in a wall, and the wall is {8000 m}."
 hero: everest
 month: 10
 hour: 19.25
@@ -36,8 +36,8 @@ look:
   grade: cold
 
 captions:
-  - { at: 15, text: "Tingri, 4,300 metres. The wall ahead is the Himalaya." }
-  - { at: 60, text: "Rongbuk glacier. The summit is 3,500 metres above it." }
-  - { at: 95, text: "Everest. 8,849 metres, and rising four millimetres a year." }
+  - { at: 15, text: "Tingri, {4300 m}. The wall ahead is the Himalaya." }
+  - { at: 60, text: "Rongbuk glacier. The summit is {3500 m} above it." }
+  - { at: 95, text: "Everest. {8849 m}, and rising four millimetres a year." }
 
 music: cue-09

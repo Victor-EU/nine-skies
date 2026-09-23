@@ -56,7 +56,7 @@ look:
 
 captions:
   - { at: 8, text: "Huangshan. Granite, pines, and cloud filling every valley below." }
-  - { at: 50, text: "The peaks stand at 1,800 metres; the cloud lies at 1,200." }
+  - { at: 50, text: "The peaks stand at {1800 m}; the cloud lies at {1200 m}." }
   - { at: 96, text: "Painters came here for a thousand years. Now west, to the river." }
 
 music: cue-01

@@ -36,8 +36,8 @@ look:
   grade: warm
 
 captions:
-  - { at: 12, text: "Bogda: 5,445 metres of snow over a desert." }
-  - { at: 40, text: "Ayding Lake, 154 metres below the sea. 47 °C in July." }
+  - { at: 12, text: "Bogda: {5445 m} of snow over a desert." }
+  - { at: 40, text: "Ayding Lake, {154 m} below the sea. {47 °C} in July." }
   - { at: 90, text: "The Taklamakan: go in, and you will not come out." }
 
 music: cue-07

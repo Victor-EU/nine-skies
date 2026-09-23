@@ -8,7 +8,7 @@
 
 id: three-gorges
 title: { zh: 三峡, pinyin: Sānxiá, en: The Three Gorges }
-line: "One river, three gorges, 190 km of walls."
+line: "One river, three gorges, {190 km} of walls."
 hero: three-gorges
 month: 5
 hour: 17
@@ -104,7 +104,7 @@ look:
 
 captions:
   - { at: 18, text: "The camera is below the rim." }
-  - { at: 58, text: "Three gorges, 190 kilometres of rock, one river through all of it." }
-  - { at: 96, text: "The dam's locks lift ships 113 metres." }
+  - { at: 58, text: "Three gorges, {190 km} of rock, one river through all of it." }
+  - { at: 96, text: "The dam's locks lift ships {113 m}." }
 
 music: cue-02

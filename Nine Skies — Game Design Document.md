@@ -147,8 +147,10 @@ A title card per scene: the place in characters, in pinyin and in English,
 and one line under it. Up to three captions per scene, each twelve words or
 fewer, on screen for six seconds. The whole film says fewer than forty lines.
 Every line is something the viewer can see at that moment, or a number
-about it: *Below sea level. 47 °C in July.* Nothing is explained that the
-picture already says.
+about it: *Below sea level. 47 °C (117 °F) in July.* Every figure is shown in
+metric and, beside it, in the feet, miles or Fahrenheit an American viewer
+measures in; a figure and its conversion count as one word. Nothing is
+explained that the picture already says.
 
 English first. Characters on every title. Other languages after launch.
 

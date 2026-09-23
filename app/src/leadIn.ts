@@ -82,7 +82,8 @@ export class LeadInMap {
         stroke([end, tip], 1.5, INK, [8, 6]);
         const km = Math.hypot(start.eastM - end.eastM, start.northM - end.northM) / 1000;
         const mid = px((end.eastM + start.eastM) / 2, (end.northM + start.northM) / 2);
-        const label = `${km.toLocaleString("en", { maximumFractionDigits: 0 })} km`;
+        // Miles beside kilometres, for the reader who measures in them (content/units.ts).
+        const label = `${km.toLocaleString("en", { maximumFractionDigits: 0 })} km · ${(km / 1.609344).toLocaleString("en", { maximumFractionDigits: 0 })} mi`;
         ctx.font = `${Math.max(12, Math.round(canvas.height / 40))}px -apple-system, "Helvetica Neue", sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";

@@ -106,7 +106,7 @@ One YAML file per scene is the whole of the content format.
 ```yaml
 id: three-gorges
 title: { zh: 三峡, pinyin: Sānxiá, en: The Three Gorges }
-line: One river, three gorges, 190 km of walls.
+line: One river, three gorges, {190 km} of walls.   # a figure is marked, and shown in miles or feet too
 hero: three-gorges            # optional: the 90 m grid to draw here
 month: 5
 hour: 17                      # Beijing time; the sun comes from it

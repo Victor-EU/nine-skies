@@ -80,6 +80,6 @@ look:
 captions:
   - { at: 20, text: "The Jinsha, the Yangtze's upper name: the river of golden sand." }
   - { at: 55, text: "Here it turns north. This bend keeps the Yangtze inside China." }
-  - { at: 95, text: "Tiger Leaping Gorge: 360 metres wide, 3,000 metres deep." }
+  - { at: 95, text: "Tiger Leaping Gorge: {360 m} wide, {3000 m} deep." }
 
 music: cue-04
