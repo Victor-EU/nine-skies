@@ -66,6 +66,8 @@ export interface RailState {
   readonly bankRad: number;
   /** The camera's wanted height above the ground here, from the rail. */
   readonly aboveGroundM: number;
+  /** How far below level the camera looks here, degrees, from the rail. */
+  readonly pitchDeg: number;
   readonly km: number;
   readonly speedMul: number;
   readonly auto: boolean;
@@ -121,6 +123,7 @@ export class RailFlight {
       headingRad: heading,
       bankRad: this.bankRad,
       aboveGroundM: fix.aboveGroundM,
+      pitchDeg: fix.pitchDeg,
       km: this.km,
       speedMul: this.speedMul,
       auto: this.auto,

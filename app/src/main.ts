@@ -46,8 +46,6 @@ import { LeadInMap } from "./leadIn.js";
 
 /** Seconds a caption stays on screen. */
 const CAPTION_SHOW_S = 6;
-/** The camera looks this far down from level, degrees. */
-const PITCH_DOWN_DEG = 6;
 
 const el = (id: string) => document.getElementById(id)!;
 const canvas = document.getElementById("view") as HTMLCanvasElement;
@@ -300,7 +298,15 @@ function drawBar(pos: TimelinePosition): void {
  * capture measures the picture the film draws and not an arrangement that
  * resembles it.
  */
-function placeAt(eastM: number, northM: number, altitudeM: number, headingRad: number, rollRad: number, clockMinutes = clockNow()): void {
+function placeAt(
+  eastM: number,
+  northM: number,
+  altitudeM: number,
+  headingRad: number,
+  rollRad: number,
+  clockMinutes = clockNow(),
+  pitchDeg = film?.scenes[Math.max(0, current)]?.pitchDeg ?? 6,
+): void {
   const eye = terrain.update(eastM, northM, altitudeM);
   if (horizon.update(eastM, northM, altitudeM)) ring.rebuild(scale);
   ring.update(terrain.toWorld(horizon.front.eastM, horizon.front.northM, horizon.front.altitudeM), eye);
@@ -310,7 +316,7 @@ function placeAt(eastM: number, northM: number, altitudeM: number, headingRad: n
   camera.up.set(0, 1, 0);
   if (rollRad !== 0) camera.up.applyAxisAngle(fwd, -rollRad);
   const reach = toWorldH(10_000, scale);
-  const pitch = (PITCH_DOWN_DEG * Math.PI) / 180;
+  const pitch = (pitchDeg * Math.PI) / 180;
   camera.lookAt(eye.clone().addScaledVector(fwd, reach * Math.cos(pitch)).add(new Vector3(0, -reach * Math.sin(pitch), 0)));
 
   const { latDeg, lonDeg } = unprojectAlbers(eastM, northM);
@@ -356,6 +362,7 @@ let pinned: {
   aboveGroundM: number | null;
   headingRad: number;
   clockMinutes: number;
+  pitchDeg: number;
 } | null = null;
 
 function resize(): void {
@@ -477,7 +484,7 @@ function frame(now: number): void {
       altitude.reset();
       pinned.altitudeM = altitude.update(0, pinned.eastM, pinned.northM, pinned.headingRad, pinned.aboveGroundM, band, groundAt);
     }
-    placeAt(pinned.eastM, pinned.northM, pinned.altitudeM, pinned.headingRad, 0, pinned.clockMinutes);
+    placeAt(pinned.eastM, pinned.northM, pinned.altitudeM, pinned.headingRad, 0, pinned.clockMinutes, pinned.pitchDeg);
     rig.render();
     requestAnimationFrame(frame);
     return;
@@ -502,7 +509,7 @@ function frame(now: number): void {
     // streams the ground the flight is about to need.
     const start = railAtKm(rails[current]!, 0);
     const alt = altitude.update(0, start.eastM, start.northM, start.headingRad, start.aboveGroundM, s.band, groundAt);
-    placeAt(start.eastM, start.northM, alt, start.headingRad, 0);
+    placeAt(start.eastM, start.northM, alt, start.headingRad, 0, clockNow(), start.pitchDeg);
     el("title").hidden = false;
     el("caption").textContent = "";
     leadIn.draw(leadCanvas.getContext("2d")!, { rails, next: current, progress: pos.t / (LEAD_IN_S * 0.7) });
@@ -517,7 +524,7 @@ function frame(now: number): void {
     lastState = state;
     lastFlightS = pos.flightS;
     const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt);
-    placeAt(state.eastM, state.northM, alt, state.headingRad, state.bankRad);
+    placeAt(state.eastM, state.northM, alt, state.headingRad, state.bankRad, clockNow(), state.pitchDeg);
     el("caption").textContent = captionAt(s, pos.flightS);
     el("auto").classList.toggle("on", state.auto);
   } else {
@@ -571,7 +578,15 @@ if (import.meta.env.DEV) {
       // Placed twice: once to stream the ground, then at the ground's own height.
       placeAt(p.eastM, p.northM, aboveGroundM + (groundAt(p.eastM, p.northM) ?? 0), h, 0, clock);
       const ground = groundAt(p.eastM, p.northM) ?? 0;
-      pinned = { eastM: p.eastM, northM: p.northM, altitudeM: ground + aboveGroundM, aboveGroundM: null, headingRad: h, clockMinutes: clock };
+      pinned = {
+        eastM: p.eastM,
+        northM: p.northM,
+        altitudeM: ground + aboveGroundM,
+        aboveGroundM: null,
+        headingRad: h,
+        clockMinutes: clock,
+        pitchDeg: film?.scenes[Math.max(0, current)]?.pitchDeg ?? 6,
+      };
     },
     /**
      * Hold scene `i` at `flightS` seconds into its flight, on the rail in
@@ -606,6 +621,7 @@ if (import.meta.env.DEV) {
         aboveGroundM: fix.aboveGroundM,
         headingRad: fix.headingRad,
         clockMinutes: hour === undefined ? clockNow() : hour * 60,
+        pitchDeg: fix.pitchDeg,
       };
     },
     /**

@@ -65,8 +65,11 @@ rail:
   - { lat: 27.8452, lon: 100.3935, above_ground_m: 1000, speed: 50 }
   - { lat: 27.8385, lon: 100.4203, above_ground_m: 1000, speed: 50 }
 
-band: { above_ground_m: [400, 2500] }
+band: { above_ground_m: [400, 1600] }
 corridor_deg: 60
+# From the rim, looking down into the slot: at six times relief the river is
+# under a six-degree frame's bottom edge (F79).
+pitch_deg: 22
 
 look:
   sky: noon-hard

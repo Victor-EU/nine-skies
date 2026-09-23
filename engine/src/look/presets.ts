@@ -192,7 +192,7 @@ export const CLOUD_PRESETS: Readonly<Record<string, CloudPreset>> = {
   "valley-mist": { mist: { topM: 230, densityPerM: 1.4e-4, tint: [0.97, 0.98, 1.0], bankKm: 12 }, deck: null, cirrus: null },
   "river-mist": { mist: { topM: 190, densityPerM: 7e-5, tint: [0.98, 0.99, 1.0], bankKm: 8 }, deck: null, cirrus: null },
   "dust-haze": { mist: { topM: 1500, densityPerM: 5e-5, tint: [1.0, 0.9, 0.72], bankKm: 40 }, deck: null, cirrus: null },
-  "cloud-sea": { mist: null, deck: { altitudeM: 1050, coverage: 0.92, scaleKm: 6, stretch: 1.3, density: 1.0 }, cirrus: null },
+  "cloud-sea": { mist: null, deck: { altitudeM: 1050, coverage: 0.78, scaleKm: 5, stretch: 1.3, density: 1.0 }, cirrus: null },
   "high-cirrus": { mist: null, deck: null, cirrus: { altitudeM: 9000, coverage: 0.45, scaleKm: 60, stretch: 3, density: 0.35 } },
   "summit-plume": { mist: null, deck: null, cirrus: { altitudeM: 8800, coverage: 0.3, scaleKm: 40, stretch: 4, density: 0.3 } },
 };

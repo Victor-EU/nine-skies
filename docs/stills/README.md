@@ -1,9 +1,11 @@
 # Stills
 
 One still a scene, the frame the look is signed off on (design v2, "The
-look"; plan v2, stage 3, D77). Each is the scene held sixty seconds into
-its flight on its rail in auto, at the scene's own hour, drawn at
-1280 × 720 through every pass of the look, and taken from the running app:
+look"; plan v2, stage 3, D77). Each is the scene held at a second into its
+flight on its rail in auto, at the scene's own hour, drawn at 1280 × 720
+through every pass of the look, and taken from the running app. Sixty
+seconds unless the scene's picture is elsewhere: Huangshan at thirty, over
+Lotus Peak; Heaven Lake at 108, the first crossing of the crater.
 
 ```
 npm run dev                       # the film, with the world under dist-world/china
@@ -12,7 +14,7 @@ npm run dev                       # the film, with the world under dist-world/ch
 then in the browser console, scene by scene (`i` is the scene's index from 0):
 
 ```
-__ns.hold(i, 60); await __ns.still("0N-<id>", 1280, 720)
+__ns.hold(i, 60); await __ns.still("0N-<id>", 1280, 720)   // 30 for scene 1, 108 for scene 6
 ```
 
 A still is re-taken whenever the look or the scene changes, and committed

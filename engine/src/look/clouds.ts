@@ -74,11 +74,15 @@ void main() {
   vec3 dir = toFrag / max(dist, 1e-3);
   float above = uCameraWorld.y > vWorld.y ? 1.0 : 0.0;
 
-  // The top is sunlit with the billows brighter; the underside is the sky's
+  // The top is sunlit, its billows a surface: the noise's slope tilts a
+  // normal, so a low sun rakes across them. The underside is the sky's
   // light with the thick parts darker.
   float thick = smoothstep(edge, 1.0, n);
   vec3 sun = normalize(uSunDirection);
-  vec3 top = groundLight(vec3(0.0, 1.0, 0.0), sun, uSunColor, 1.0) * mix(0.85, 1.1, thick);
+  float e = 0.02;
+  vec2 g = vec2(fbm(p + vec2(e, 0.0)) - fbm(p - vec2(e, 0.0)), fbm(p + vec2(0.0, e)) - fbm(p - vec2(0.0, e))) / (2.0 * e);
+  vec3 billow = normalize(vec3(-g.x * 0.12, 1.0, -g.y * 0.12));
+  vec3 top = groundLight(billow, sun, uSunColor, 1.0) * mix(0.85, 1.05, thick);
   vec3 under = (uAmbientZenith * 1.3 + uSunColor * 0.35 * max(sun.y, 0.0)) * mix(1.0, 0.7, thick);
   vec3 lit = mix(under, top, above) + sunGlow(dir) * 0.5 * (1.0 - thick);
 
@@ -135,7 +139,7 @@ export class CloudLayer {
     u.uDensity!.value = preset.density;
     u.uScale!.value = toWorldH(preset.scaleKm * 1000, scale);
     (u.uStretch!.value as Vector2).set(1 / preset.stretch, 1);
-    u.uThickness!.value = toWorldV(400, scale);
+    u.uThickness!.value = toWorldV(250, scale);
   }
 
   /** Per frame: follow the camera, and the air it is seen through. */

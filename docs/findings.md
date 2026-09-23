@@ -272,3 +272,32 @@ scene-1 risk row. Two sky, palette and cloud presets: `huangshan-dawn`,
 `grassland-volcano` with the lake a deep blue. Neither scene has a still:
 the browser pane is still not compositing. They are the first two stills
 to take when it is, with the first bend.
+
+**Addendum, the same evening: the stills, and what the camera had to learn.**
+All nine stills are taken (`docs/stills/`). Three things the new scenes
+taught, each a change to the rail rather than the look:
+
+- *A camera pitched six degrees down never sees a slot canyon's floor from
+  its rim.* At six times relief the Jinsha lies sixty degrees below a camera
+  1,500 m over it, under the frame's bottom edge. The scene file may now say
+  `pitch_deg`, and a rail key `pitch:`, interpolated like height; the first
+  bend flies at 22 degrees and its still is the slot with the river in it.
+- *A ring rail looks along its own tangent.* Circling Heaven Lake, the lake
+  was always beside the camera and never in front, and a ring outside the
+  rim put the camera below it. The rail now crosses the caldera again and
+  again, forty degrees down on each crossing and twenty-five on the loops
+  outside the rim between them; the still at 108 s is the first crossing.
+- *One clock across ten degrees of longitude.* Scene 6's hour was chosen
+  for the grassland at 118 E; at the lake at 128 E the same clock is forty
+  minutes later and the sun was down. 18:00 keeps it four degrees up over
+  the crater and eleven over the grass.
+
+Huangshan's still is the cloud sea with the summits far below the camera:
+the altitude controller keeps the camera 250 m over the highest ground
+within eight kilometres ahead, which over a massif of 1,800 m spires means
+2,200 m and peaks under the frame. The scene wants peaks at eye level and
+cloud below, so the look-ahead has to become a scene value (short over
+Huangshan, long over the plateau); that is the next change, not this one.
+The frame-cost capture refused to run twice, both times with animation
+frames arriving at 1 Hz: the app's window has to be in front for the two
+minutes it takes.

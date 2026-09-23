@@ -11,8 +11,8 @@ import type { BuiltRail } from "../../engine/src/film/scene.js";
 /** 100 km due east at 60 km/min, which is a kilometre a second. */
 function eastward(): BuiltRail {
   const keys = [
-    { eastM: 0, northM: 0, aboveGroundM: 300, kmPerMin: 60 },
-    { eastM: 100_000, northM: 0, aboveGroundM: 500, kmPerMin: 60 },
+    { eastM: 0, northM: 0, aboveGroundM: 300, kmPerMin: 60, pitchDeg: 6 },
+    { eastM: 100_000, northM: 0, aboveGroundM: 500, kmPerMin: 60, pitchDeg: 12 },
   ];
   return { path: pathFrom(keys), keys };
 }

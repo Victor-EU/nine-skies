@@ -4,7 +4,9 @@
 # 23 September 2026 over the estuary, which was flat). Hand-typed: a loop
 # from the south over Lotus Peak, round the north side and back over the
 # east, slow, so a viewer at double speed still has the massif under them.
-# The cloud deck lies at 1,050 m; the peaks stand 600-800 m out of it.
+# The cloud deck lies at 1,050 m; the peaks stand 600-800 m out of it. Keys
+# over the massif fly 400 m over the highest ground ahead, keys round its
+# flanks 800 m over the ground under them, so the camera never skims the deck.
 
 id: huangshan
 title: { zh: 黄山, pinyin: Huángshān, en: Huangshan }
@@ -14,30 +16,33 @@ month: 11
 hour: 7.3
 
 rail:
-  - { lat: 30.0200, lon: 118.1500, above_ground_m: 700, speed: 22 }   # in from the south, over the plain
-  - { lat: 30.0700, lon: 118.1600, above_ground_m: 700, speed: 22 }
-  - { lat: 30.1100, lon: 118.1650, above_ground_m: 650, speed: 22 }   # the southern peaks
-  - { lat: 30.1320, lon: 118.1690, above_ground_m: 650, speed: 22 }   # Lotus Peak
-  - { lat: 30.1550, lon: 118.1750, above_ground_m: 650, speed: 22 }   # Bright Summit, the north
-  - { lat: 30.1800, lon: 118.1900, above_ground_m: 650, speed: 22 }
-  - { lat: 30.1950, lon: 118.2200, above_ground_m: 650, speed: 22 }   # round the north-east
-  - { lat: 30.1750, lon: 118.2450, above_ground_m: 650, speed: 22 }
-  - { lat: 30.1400, lon: 118.2500, above_ground_m: 650, speed: 22 }   # down the east side
-  - { lat: 30.1000, lon: 118.2350, above_ground_m: 650, speed: 22 }
-  - { lat: 30.0700, lon: 118.2000, above_ground_m: 650, speed: 22 }   # the south-east
-  - { lat: 30.0800, lon: 118.1500, above_ground_m: 650, speed: 22 }
-  - { lat: 30.1150, lon: 118.1300, above_ground_m: 650, speed: 22 }   # up the west side
-  - { lat: 30.1500, lon: 118.1350, above_ground_m: 650, speed: 22 }
-  - { lat: 30.1750, lon: 118.1550, above_ground_m: 650, speed: 22 }
-  - { lat: 30.1600, lon: 118.1950, above_ground_m: 650, speed: 22 }   # back over the top
-  - { lat: 30.1300, lon: 118.2100, above_ground_m: 650, speed: 22 }
-  - { lat: 30.1000, lon: 118.1900, above_ground_m: 650, speed: 22 }
-  - { lat: 30.0800, lon: 118.1600, above_ground_m: 650, speed: 22 }
-  - { lat: 30.1100, lon: 118.1450, above_ground_m: 650, speed: 22 }
-  - { lat: 30.1450, lon: 118.1600, above_ground_m: 650, speed: 22 }   # and once more over Lotus Peak
-  - { lat: 30.1750, lon: 118.2150, above_ground_m: 650, speed: 22 }
+  - { lat: 30.0500, lon: 118.1550, above_ground_m: 800, speed: 22 }   # in from the south, the peaks already ahead
+  - { lat: 30.0700, lon: 118.1600, above_ground_m: 800, speed: 22 }
+  - { lat: 30.1100, lon: 118.1650, above_ground_m: 400, speed: 22 }   # the southern peaks
+  - { lat: 30.1320, lon: 118.1690, above_ground_m: 400, speed: 22 }   # Lotus Peak
+  - { lat: 30.1550, lon: 118.1750, above_ground_m: 400, speed: 22 }   # Bright Summit, the north
+  - { lat: 30.1800, lon: 118.1900, above_ground_m: 400, speed: 22 }
+  - { lat: 30.1950, lon: 118.2200, above_ground_m: 800, speed: 22 }   # round the north-east
+  - { lat: 30.1750, lon: 118.2450, above_ground_m: 800, speed: 22 }
+  - { lat: 30.1400, lon: 118.2500, above_ground_m: 800, speed: 22 }   # down the east side
+  - { lat: 30.1000, lon: 118.2350, above_ground_m: 800, speed: 22 }
+  - { lat: 30.0700, lon: 118.2000, above_ground_m: 800, speed: 22 }   # the south-east
+  - { lat: 30.0800, lon: 118.1500, above_ground_m: 800, speed: 22 }
+  - { lat: 30.1150, lon: 118.1300, above_ground_m: 800, speed: 22 }   # up the west side
+  - { lat: 30.1500, lon: 118.1350, above_ground_m: 800, speed: 22 }
+  - { lat: 30.1750, lon: 118.1550, above_ground_m: 400, speed: 22 }
+  - { lat: 30.1600, lon: 118.1950, above_ground_m: 400, speed: 22 }   # back over the top
+  - { lat: 30.1300, lon: 118.2100, above_ground_m: 400, speed: 22 }
+  - { lat: 30.1000, lon: 118.1900, above_ground_m: 400, speed: 22 }
+  - { lat: 30.0800, lon: 118.1600, above_ground_m: 800, speed: 22 }
+  - { lat: 30.1100, lon: 118.1450, above_ground_m: 400, speed: 22 }
+  - { lat: 30.1450, lon: 118.1600, above_ground_m: 400, speed: 22 }   # and once more over Lotus Peak
+  - { lat: 30.1750, lon: 118.2150, above_ground_m: 400, speed: 22 }
+  - { lat: 30.1500, lon: 118.2400, above_ground_m: 800, speed: 22 }
+  - { lat: 30.1150, lon: 118.2300, above_ground_m: 800, speed: 22 }
 
-band: { above_ground_m: [300, 2200] }
+band: { above_ground_m: [250, 1500] }
+pitch_deg: 10
 corridor_deg: 90
 
 look:

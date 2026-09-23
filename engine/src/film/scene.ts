@@ -23,6 +23,8 @@ export interface RailKey {
   readonly aboveGroundM: number;
   /** Real kilometres of ground per minute, from this key to the next. */
   readonly kmPerMin: number;
+  /** How far below level the camera looks here, degrees; the scene's unless the key says. */
+  readonly pitchDeg: number;
 }
 
 export interface Caption {
@@ -58,6 +60,12 @@ export interface Scene {
   readonly band: Band;
   /** How far off the rail's heading the viewer may turn, degrees. */
   readonly corridorDeg: number;
+  /**
+   * How far below level the camera looks, degrees. Six is the film's
+   * default; a slot canyon flown from its rim wants more, since at six
+   * times relief the river is under the frame's bottom edge otherwise.
+   */
+  readonly pitchDeg: number;
   readonly look: SceneLook;
   readonly captions: readonly Caption[];
   readonly music: string | null;
@@ -76,6 +84,7 @@ export interface RailPoint {
   readonly northM: number;
   readonly aboveGroundM: number;
   readonly kmPerMin: number;
+  readonly pitchDeg: number;
 }
 
 export interface BuiltRail {
@@ -86,7 +95,7 @@ export interface BuiltRail {
 export function buildRail(keys: readonly RailKey[]): BuiltRail {
   const points: RailPoint[] = keys.map((k) => {
     const p = projectAlbers(k.lat, k.lon);
-    return { eastM: p.eastM, northM: p.northM, aboveGroundM: k.aboveGroundM, kmPerMin: k.kmPerMin };
+    return { eastM: p.eastM, northM: p.northM, aboveGroundM: k.aboveGroundM, kmPerMin: k.kmPerMin, pitchDeg: k.pitchDeg };
   });
   return { path: pathFrom(points), keys: points };
 }
@@ -99,6 +108,8 @@ export interface RailFix {
   readonly aboveGroundM: number;
   /** The speed of the segment this point is on. */
   readonly kmPerMin: number;
+  /** Interpolated between the keys either side. */
+  readonly pitchDeg: number;
 }
 
 export function railAtKm(rail: BuiltRail, km: number): RailFix {
@@ -111,6 +122,7 @@ export function railAtKm(rail: BuiltRail, km: number): RailFix {
     headingRad: at.headingRad,
     aboveGroundM: a.aboveGroundM + at.t * (b.aboveGroundM - a.aboveGroundM),
     kmPerMin: a.kmPerMin,
+    pitchDeg: a.pitchDeg + at.t * (b.pitchDeg - a.pitchDeg),
   };
 }
 

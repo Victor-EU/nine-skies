@@ -37,6 +37,8 @@ export const CAPTIONS_PER_SCENE = 3;
 export const CAPTION_SHOW_S = 6;
 /** The film is nine scenes when it is finished. */
 export const SCENES_IN_A_FILM = 9;
+/** How far below level the camera looks unless the scene says otherwise. */
+export const DEFAULT_PITCH_DEG = 6;
 /** The sun may be this far below the horizon at the scene's first key: civil twilight. */
 export const MIN_SUN_ELEVATION_DEG = -6;
 
@@ -101,6 +103,12 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
   const hour = isNum(raw.hour) ? raw.hour : NaN;
   if (!(hour >= 0 && hour < 24)) add("hour", "Beijing time, 0 to 24");
 
+  let pitchDeg = DEFAULT_PITCH_DEG;
+  if (raw.pitch_deg !== undefined) {
+    if (isNum(raw.pitch_deg) && raw.pitch_deg >= 0 && raw.pitch_deg <= 45) pitchDeg = raw.pitch_deg;
+    else add("pitch_deg", "degrees below level, 0 to 45");
+  }
+
   const rail: RailKey[] = [];
   if (!Array.isArray(raw.rail)) add("rail", "a list of keys is required");
   else
@@ -114,8 +122,13 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
       if (!isNum(lon) || lon < LON_RANGE[0] || lon > LON_RANGE[1]) add(`rail[${i}].lon`, `${String(lon)} is not in China`);
       if (!isNum(above) || above <= 0 || above > 10_000) add(`rail[${i}].above_ground_m`, "metres above the ground, 0 to 10,000");
       if (!isNum(speed) || speed <= 0) add(`rail[${i}].speed`, "real kilometres of ground a minute, above zero");
+      let pitch = pitchDeg;
+      if (k.pitch !== undefined) {
+        if (isNum(k.pitch) && k.pitch >= 0 && k.pitch <= 45) pitch = k.pitch;
+        else add(`rail[${i}].pitch`, "degrees below level, 0 to 45");
+      }
       if (isNum(lat) && isNum(lon) && isNum(above) && isNum(speed))
-        rail.push({ lat, lon, aboveGroundM: above, kmPerMin: speed });
+        rail.push({ lat, lon, aboveGroundM: above, kmPerMin: speed, pitchDeg: pitch });
     });
 
   let band = { minM: 0, maxM: 0 };
@@ -164,6 +177,7 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     rail,
     band,
     corridorDeg,
+    pitchDeg,
     look,
     captions,
     music,
