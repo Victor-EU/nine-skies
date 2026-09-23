@@ -18,33 +18,10 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
-      # Runs the schema checks and flies every authored route over real
-      # ground (D17, D19). CI has no world and needs none: the ground under
-      # each route is committed as a section beside it (D21), cut from the
-      # built corridor and checked against the route it was cut from, so this
-      # prints the same metres the author's machine printed. An expedition
-      # with no section fails here rather than printing NOT CHECKED.
-      #
-      # It also checks the section's signature (D23). CI cannot re-derive one
-      # elevation of it -- that needs 14 GB of rasters -- so what it can check
-      # is that the file came out of a cut rather than out of an editor. A
-      # section that does not verify is refused, never flown.
-      - name: Content validation
+      # Every scene parsed and checked, and the text budget counted (D81).
+      # Needs no world: rail clearance is `make rails` on the machine with one.
+      - name: Film validation
         run: npm run content:validate
-      # And flies every authored challenge (D38, D39). A challenge is a set of
-      # points rather than a route, so what is committed beside it is not a
-      # profile along a line but a swath of the world's own 1 km lattice,
-      # following the course the probe is steered along and as wide as the
-      # aeroplane's own full-bank reversal. Because that is a subset of the
-      # world rather than a resampling of it, the flight here is the flight the
-      # author's machine ran -- 68.9333 s either way, not to a tolerance.
-      #
-      # A challenge with neither a world nor a patch fails here rather than
-      # printing NOT CHECKED, and so does a flight that reads no ground: a
-      # patch cut too narrow completes this challenge over a hole at ten
-      # kilometres below sea level and reports `done` (F44).
-      - name: Challenges flown
-        run: npm run content:challenges
       - name: Build
         run: npm run build
 

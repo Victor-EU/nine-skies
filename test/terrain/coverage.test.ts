@@ -19,16 +19,6 @@ import type { WorldManifest } from "../../engine/src/terrain/tileSource.js";
 import { HorizonField } from "../../engine/src/terrain/horizonField.js";
 import { baseShade, NO_DATA, SEA } from "../../engine/src/map/palette.js";
 import { TILE_KM } from "../../engine/src/terrain/syntheticTiles.js";
-import {
-  corridorCache,
-  stationsAlong,
-  unvouchedGround,
-  type Corridor,
-} from "../../tools/corridor.ts";
-import { loadExpedition, projectedWaypoints } from "../../tools/expedition.ts";
-import { cutSection } from "../../tools/section.ts";
-import { committedSigner } from "../../tools/attest.ts";
-import type { Expedition } from "../../content/schema.ts";
 
 const worldDir = "dist-world/sea-to-sky";
 const built = existsSync(`${worldDir}/manifest.json`);
@@ -114,61 +104,6 @@ describe("what the map is allowed to paint blue", () => {
     // each other. It should be visible rather than painted over.
     expect(baseShade(-154, "ocean")).not.toEqual(SEA);
     expect(baseShade(12, "ocean")).not.toEqual(SEA);
-  });
-});
-
-describe.skipIf(!built)("a zero nothing stands behind", () => {
-  const open = corridorCache("dist-world");
-  const world = () => open("sea-to-sky")!;
-
-  /** Shanghai out to the north-west corner of the window, past what was fetched. */
-  const corner = (): Expedition =>
-    ({
-      id: "corner-run",
-      route: [
-        { id: "shanghai", lat: 31.23, lon: 121.47 },
-        { id: "xian", lat: 34.27, lon: 108.95 },
-        { id: "corner", lat: 34.9, lon: 90.0 },
-      ],
-    }) as unknown as Expedition;
-
-  it("is not what `covers` answers, and never was", () => {
-    // The tile is published and inside the window, so every existing check
-    // says there is ground here. The reading is 0 m and the plateau around
-    // it is four to five thousand.
-    const corridor = world();
-    const stations = stationsAlong(projectedWaypoints(corner()));
-    const blank = unvouchedGround(corridor, stations);
-    expect(blank.recorded).toBe(true);
-    expect(blank.over).toBeGreaterThan(100);
-    const at = stations[blank.firstAt]!;
-    expect(corridor.covers(at.eastM, at.northM)).toBe(true);
-    expect(corridor.groundAt(at.eastM, at.northM)).toBe(0);
-    expect(Math.max(...stations.map((p) => corridor.groundAt(p.eastM, p.northM)))).toBeGreaterThan(5000);
-  }, 30_000);
-
-  it("leaves the genuine sea-level zeros alone", () => {
-    // Expedition 1 starts at Shanghai and its first tens of kilometres read
-    // zero over real fetched farmland. A guard that could not tell those from
-    // a hole would refuse every route that starts at the coast.
-    const corridor = world();
-    const stations = stationsAlong(projectedWaypoints(loadExpedition("content/expeditions/sea-to-sky.yaml")));
-    expect(stations.some((p) => corridor.groundAt(p.eastM, p.northM) === 0)).toBe(true);
-    expect(unvouchedGround(corridor, stations).over).toBe(0);
-  }, 30_000);
-
-  it("stops the section being cut over it", () => {
-    const result = cutSection(corner(), world(), committedSigner("."));
-    expect("problem" in result).toBe(true);
-    if (!("problem" in result)) return;
-    expect(result.problem).toMatch(/read 0 m inside tiles the source only partly reached/);
-  }, 30_000);
-
-  it("reports nothing rather than nothing-found on a world with no record", () => {
-    const bare = { coverage: null, groundAt: () => 0 } as unknown as Corridor;
-    const blank = unvouchedGround(bare, [{ eastM: 0, northM: 0 }]);
-    expect(blank.over).toBe(0);
-    expect(blank.recorded).toBe(false);
   });
 });
 

@@ -26,7 +26,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from nineskies import sources  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-SECTIONS = ROOT / "content" / "sections"
 
 HEX32 = re.compile(r"^[0-9a-f]{32}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -89,31 +88,3 @@ class SetDigestTest(unittest.TestCase):
             sources.digest_of(["a", "b"], self.DIGESTS),
             sources.digest_of(["a", "b", "zzz"], self.DIGESTS),
         )
-
-
-class ChainTest(unittest.TestCase):
-    """Every committed section names a source set the record also names."""
-
-    def test_sections_and_the_record_agree_on_what_was_built_from(self) -> None:
-        found = sorted(SECTIONS.glob("*.json"))
-        self.assertTrue(found, f"no committed sections under {SECTIONS}")
-        corridors = sources.read(ROOT).get("corridors", {})
-        for path in found:
-            section = json.loads(path.read_text())
-            cut = section["cutFrom"]
-            with self.subTest(section["expedition"]):
-                recorded = corridors.get(cut["corridor"])
-                self.assertIsNotNone(
-                    recorded,
-                    f"{cut['corridor']} has no recorded source set; run `make sources`",
-                )
-                self.assertEqual(
-                    cut["sourceSha256"],
-                    recorded["sha256"],
-                    f"{section['expedition']} was cut from a different set of rasters "
-                    "than the record describes — re-run `make sources`, or re-cut",
-                )
-
-
-if __name__ == "__main__":
-    unittest.main()

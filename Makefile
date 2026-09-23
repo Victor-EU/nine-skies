@@ -13,19 +13,8 @@
 #   make sources                    # record the source raster digests
 #   make vectors                    # stage 3's river network, priced; nothing fetched
 #   make rivers                     # what the fetched rivers decide of the grid's closed basins
-#   make regions                    # what the country's ground draws of the nine regions
-#   make sections                   # re-cut the committed route sections
-#   make patches                    # re-cut the committed ground under each challenge
-#   make cut-key                    # generate this machine's cutting key
 #   make reference                  # re-cut the projection reference table
-#   make routes                     # every expedition flown over the world
-#   make sessions                   # what a playtest session of N minutes contains
-#   make teaches                    # what each route shows against what it claims
-#   make atlas                      # what the journal can show, and what it cannot yet
-#   make challenges                 # every authored challenge flown, and whether it can be done
-#   make ground                     # the two grids, and what is authored over them
-#   make gorges                     # room to turn round in a gorge, and to fly through it
-#   make stations                   # re-cut where the frame budget is measured
+#   make film                       # every scene checked: rails, captions, text budget
 #   make test                       # every suite, TypeScript and Python
 #
 # Source rasters land in data/source/ and intermediates in data/work/, both
@@ -53,7 +42,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers regions sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -96,15 +85,6 @@ vectors: $(PY)
 ## never fetches them (D60).
 rivers: $(PY)
 	$(PIPELINE) -m nineskies.rivers --corridor $(CORRIDOR) --report docs/rivers-report$(SUFFIX).md
-
-## What the country's ground draws of the nine regions by itself (D14, F66):
-## the plateau above a height and the route's crossings of it, and the pieces
-## each lowland falls into as its narrow ways are cut. A measurement of the
-## full-country grid and never a region map -- where the ground draws no
-## edge, what does is the user's. Needs `make world CORRIDOR=china` and the
-## countries file from `make vectors`, which it burns in memory (D10).
-regions: $(PY)
-	$(PIPELINE) -m nineskies.regions --report docs/regions-report.md
 
 ## Stage 2 — mosaic and reproject to Albers 1 km.
 grid: $(PY)
@@ -206,84 +186,13 @@ hero: $(PY)
 siting: $(PY)
 	$(PIPELINE) -m nineskies.siting places --report docs/siting-report.md
 
-## Cut the committed route sections out of what was built (D21). Not one of
-## workstream A's numbered stages -- it cuts content out of the world rather
-## than building the world -- and it used to be labelled "Stage 6" here, which
-## is the number the hero grid above actually has.
-## Part of `world` rather than a thing to remember, because a corridor rebuild
-## that leaves the sections behind is exactly the drift the gate then reports.
-sections:
-	npm run content:sections
-
-## Cut the committed ground patches out of what was built (D39), and see the
-## note above about the numbering.
-## The challenge equivalent of `sections`, and the one place in this repository
-## where cutting an artefact also flies it: only a few hundred of a patch's
-## cells are ever read and which ones depends on a flight, so the guarantee
-## cannot come from the geometry. A patch that does not fly like the world it
-## came from is refused rather than written.
-patches:
-	npm run content:patches
-
-## The key a section is signed with (D23). Run once per machine that builds
-## worlds; the public half is committed and the private half never is. A
-## machine that only reads sections -- CI, a writer's laptop -- needs neither.
-cut-key:
-	npm run content:cut-key
-
-world: acquire sources grid carve tiles water package hero siting probes hydro sections patches ground gorges
+world: acquire sources grid carve tiles water package hero siting probes hydro
 	@echo "world built: $(WORLD_OUT)"
-
-## The other gate: every authored route flown over real ground. Needs no flag
-## and no world -- the ground is committed in content/sections/ -- which is
-## what makes it the same check here and in CI.
-routes:
-	npm run content:validate
-
-## What a cohort actually flies. MINUTES=12 is the G1 protocol; G2 flies the
-## whole expedition. Reads the committed sections, so it needs no world and
-## the answer is the same everywhere (D17, F28).
-MINUTES ?= 12
-sessions:
-	npm run content:sessions -- $(MINUTES)
-
-## The claimed lesson against the measured ground (G2, F29). A report and
-## never a gate: a route crossing honest ground is not broken by a sentence
-## written above it, and which of the two moves is a writing decision.
-teaches:
-	npm run content:teaches
-
-## The planned atlas against the trigger that exists (F40). Counts the 228
-## entries by how each is meant to fire, the regions that hold anything, the
-## entries with no authored hint, and the comparison spreads -- of which G2
-## scores one. A report, for the same reason: every gap it finds is closed by
-## writing rather than by code.
-atlas:
-	npm run content:atlas
-
-## Every authored challenge flown by an autopilot, and whether it can be done
-## at all (D38). Unlike `atlas` and `teaches` this one is a gate: a challenge
-## whose objectives cannot be met, or whose gate is narrower than the
-## aeroplane's own turn, is broken rather than unwritten. Needs no world and no
-## flag: the ground is committed in content/patches/ (D39), which is what makes
-## it the same check here and in CI.
-challenges:
-	npm run content:challenges
 
 ## The two elevation grids this world has, and which of them every authored
 ## thing is checked against. Last in `world` because it reads the artefacts
 ## the two cutters above have just written.
 ##
-## A report and a gate at once, in the sense that the gate is elsewhere: the
-## cutters refuse to write a section or a patch over a hero area, so the only
-## thing this can ever print in its right-hand column is zero. What it is for
-## is saying so out loud. The cockpit prefers the 90 m grid and every
-## committed artefact is cut from the 1 km one, and through Tiger Leaping
-## Gorge the fine grid stands 374 m above the coarse -- more than the 333 m
-## Expedition 1 clears its own worst terrain by (F53).
-ground:
-	npm run content:ground
-
 ## Whether the GDD's *thread a gorge at low speed* has a gorge to be threaded
 ## in, both ways of reading *thread*. Turning round: a full-bank reversal needs
 ## a level disc of its own diameter with no ground in it, so this measures the
@@ -293,25 +202,15 @@ ground:
 ## through the flight model's own step, for any flight down the whole course.
 ## The searches make it the slowest report here, three or four minutes.
 ##
-## A report and never a gate: every number feeds the open question of which
-## reading the challenge means and which of the flight model, the speed modes
-## and the challenge moves (F43, F55, F57). Needs the 90 m cover -- on the 1 km
-## grid a hundred metres over the Three Gorges is inside the hill that grid
-## draws there, so the answer would be about resampling rather than about a
-## gorge.
-gorges:
-	npm run content:gorges
-
 ## Where the frame budget is measured (D25). Cut from the route, committed,
 ## and deliberately not part of `world`: a capture is only worth taking if it
 ## can be compared to the last one, and stations that move underneath two
 ## milestones make a regression and an improvement look the same.
 ##
-## Taking the capture itself needs a GPU and a browser, so it is not a target:
-##   make dev, then in the console
-##   __ns.frameCost().then((r) => console.log(__ns.frameCostTable(r)))
-stations:
-	npm run content:stations
+## The film's content gate (D81): every scene parsed and checked, the text
+## budget counted. Needs no world.
+film:
+	npm run content:validate
 
 typecheck:
 	npm run typecheck
@@ -322,7 +221,7 @@ test-ts:
 test-py: $(PY)
 	$(PY) -m unittest discover -s pipeline/tests
 
-test: typecheck test-ts test-py routes
+test: typecheck test-ts test-py film
 
 dev:
 	npm run -w app dev

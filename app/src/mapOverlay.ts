@@ -59,7 +59,7 @@ import {
   formatDistance,
   scaleBar,
   type UnitSystem,
-} from "../../engine/src/hud/units.js";
+} from "../../engine/src/map/units.js";
 
 export interface MapPin {
   readonly eastM: number;

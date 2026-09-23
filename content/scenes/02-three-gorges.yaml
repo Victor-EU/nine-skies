@@ -1,0 +1,54 @@
+# Scene 2 — The Three Gorges.
+#
+# Yichang west up the Yangtze through Xiling, Wu and Qutang, below the rim
+# for most of two minutes, on the 90 m hero grid (`three-gorges`). The rail
+# runs on past Fengjie to Wanzhou so a viewer at double speed never runs out
+# of river. Coordinates are the river's own course; `make rails` checks the
+# ground under them.
+#
+# The camera is at 250 m over the water in the narrows and higher over the
+# reservoir, which is what keeps it under the rim where there is one. Speed
+# is chosen for the picture, not for any aircraft (D74).
+
+id: three-gorges
+title: { zh: 三峡, pinyin: Sānxiá, en: The Three Gorges }
+line: One river, three gorges, 190 km of walls.
+hero: three-gorges
+month: 5
+hour: 9.5
+
+rail:
+  - { lat: 30.700, lon: 111.290, above_ground_m: 500, speed: 90 }   # Yichang
+  - { lat: 30.770, lon: 111.190, above_ground_m: 300, speed: 90 }   # Nanjinguan, the mouth of Xiling
+  - { lat: 30.825, lon: 111.010, above_ground_m: 250, speed: 90 }   # Sandouping, the dam
+  - { lat: 30.900, lon: 110.800, above_ground_m: 250, speed: 90 }   # Xiangxi
+  - { lat: 31.000, lon: 110.560, above_ground_m: 250, speed: 90 }
+  - { lat: 31.040, lon: 110.380, above_ground_m: 250, speed: 90 }   # Badong, the mouth of Wu
+  - { lat: 31.070, lon: 110.100, above_ground_m: 250, speed: 90 }
+  - { lat: 31.080, lon: 109.880, above_ground_m: 250, speed: 90 }   # Wushan
+  - { lat: 31.050, lon: 109.700, above_ground_m: 250, speed: 90 }   # Daixi, the east gate of Qutang
+  - { lat: 31.040, lon: 109.570, above_ground_m: 250, speed: 90 }   # Baidicheng
+  - { lat: 31.020, lon: 109.460, above_ground_m: 300, speed: 110 }  # Fengjie
+  - { lat: 30.950, lon: 108.950, above_ground_m: 400, speed: 120 }
+  - { lat: 30.930, lon: 108.700, above_ground_m: 400, speed: 120 }  # Yunyang
+  - { lat: 30.810, lon: 108.400, above_ground_m: 400, speed: 120 }  # Wanzhou
+  - { lat: 30.400, lon: 108.100, above_ground_m: 500, speed: 120 }
+  - { lat: 30.300, lon: 108.040, above_ground_m: 500, speed: 120 }  # Zhongxian
+  - { lat: 29.860, lon: 107.730, above_ground_m: 500, speed: 120 }  # Fengdu
+  - { lat: 29.700, lon: 107.390, above_ground_m: 500, speed: 120 }  # Fuling
+
+band: { above_ground_m: [120, 900] }
+corridor_deg: 60
+
+look:
+  sky: gorge-morning
+  palette: limestone-green
+  cloud: valley-mist
+  grade: cool
+
+captions:
+  - { at: 18, text: The camera is below the rim. }
+  - { at: 58, text: Three gorges, 190 kilometres of rock, one river through all of it. }
+  - { at: 96, text: The dam's locks lift ships 113 metres. }
+
+music: cue-02

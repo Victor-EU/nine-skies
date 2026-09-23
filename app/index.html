@@ -2,84 +2,44 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Nine Skies — prototype</title>
-    <link rel="stylesheet" href="./src/hud.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Nine Skies</title>
+    <link rel="stylesheet" href="./src/film.css" />
   </head>
   <body>
     <canvas id="view"></canvas>
-    <!-- Which blocks below are the player's and which two are the operator's
-         is declared in `src/hudBlocks.ts` and checked against this file by
-         `test/hud/blocks.test.ts`. It is a list rather than a wrapper because
-         F46 used a wrapper and a wrapper hides whatever is nested inside it:
-         the map and the narration beat went with it (F47). -->
-    <div id="hud">
-      <div class="block primary" id="readouts">
-        <!-- The unit labels are filled from the units setting rather than
-             written here, so a toggle cannot leave a number saying feet and
-             the word beside it saying metres (F45). -->
-        <div class="row"><span class="label">ALT</span><span class="value" id="alt">—</span><span class="unit" id="altUnit">m</span></div>
-        <div class="row"><span class="label">GND</span><span class="value" id="gnd">—</span><span class="unit" id="gndUnit">m</span></div>
-        <div class="row"><span class="label">TEMP</span><span class="value" id="temp">—</span><span class="unit" id="tempUnit">°C</span></div>
-        <div class="row"><span class="label">HUM</span><span class="value" id="hum">—</span><span class="unit">%</span></div>
-        <div class="row density">
-          <span class="label">AIR</span>
-          <span class="bar"><i id="densityBar"></i></span>
-          <span class="unit" id="densityText">—</span>
-        </div>
-        <div class="row"><span class="label">CLIMB</span><span class="value" id="climb">—</span><span class="unit" id="climbUnit">m/s</span></div>
-        <!-- "Time on the HUD. The clock shows Beijing time, which is the
-             point" - so Beijing time is here and the solar time it is to be
-             read against is drawn on the map, which is where the GDD puts it
-             (F47). -->
-        <div class="row clock"><span class="label">TIME</span><span class="value" id="clock">—</span><span class="unit">Beijing</span></div>
+    <div id="film">
+      <!-- The title card, over the lead-in. Characters, pinyin, English, one line. -->
+      <div id="title" class="title" hidden>
+        <div class="zh" id="titleZh"></div>
+        <div class="pinyin" id="titlePinyin"></div>
+        <div class="en" id="titleEn"></div>
+        <div class="line" id="titleLine"></div>
       </div>
-      <div class="block mode" id="mode">
-        <span id="modeText">CRUISE</span>
-        <span id="boostState" class="muted">boost ready</span>
+      <!-- Up to three captions a scene, twelve words or fewer, six seconds each. -->
+      <div id="caption" class="caption"></div>
+      <!-- Lit while the rail is flying. Tapping it resumes auto. -->
+      <button id="auto" class="auto" type="button">AUTO</button>
+      <!-- Something the film has to say about itself: no world, no film. -->
+      <div id="notice" class="notice" hidden></div>
+      <!-- After the last scene. -->
+      <div id="end" class="end" hidden>
+        <div class="en">Nine Skies</div>
+        <div class="line">Eighteen minutes over real ground.</div>
+        <button id="again" type="button">Watch again</button>
       </div>
-      <!-- What the game is saying, in one column so the two lines cannot be
-           placed on top of each other: a challenge's objectives above the
-           narration beat.
-
-           The challenge line is the player's - objectives nobody can see are
-           not objectives - and it is on screen only while one is being flown.
-           The beat is a placeholder, because what a beat looks like to a
-           player is the journal's question (F38); over Expedition 1 it is
-           also the only thing the game ever says, four city names in 36.7
-           minutes, with no card on the route firing at all. -->
-      <div class="block messages" id="messages">
-        <div class="challenge" id="challenge" hidden>—</div>
-        <div class="beat" id="beat"></div>
+      <!-- The player bar: play and pause, the chapters, the time. Navigation, not flight. -->
+      <div id="bar" class="bar">
+        <button id="play" type="button" aria-label="pause">❚❚</button>
+        <div id="chapters" class="chapters"></div>
+        <span id="time" class="time">0:00 / 0:00</span>
       </div>
-      <!-- The map overlay (F42). Hidden until M. Two canvases rather than one
-           because the profile has its own aspect and its own vertical scale,
-           and drawing them together would mean one of them lying about it. -->
-      <div class="map" id="map" hidden>
-        <canvas id="mapCanvas" width="760" height="520"></canvas>
-        <canvas id="profileCanvas" width="760" height="110"></canvas>
+      <!-- Touch: two held buttons for speed; the drag for direction is the canvas itself. -->
+      <div class="touch">
+        <button id="slower" type="button" aria-label="slower">−</button>
+        <button id="faster" type="button" aria-label="faster">+</button>
       </div>
-
-      <!-- The operator's two blocks, off until O. Nothing in either is in the
-           GDD's HUD paragraph, and together they were 92 % of the HUD's ink
-           (F46). Everything above this line is the player's. -->
-      <div class="block debug" id="debug">
-        <div id="ground">—</div>
-        <div id="fps">— fps</div>
-        <div id="draws">—</div>
-        <div id="tris">—</div>
-        <div id="horizon">—</div>
-        <div id="world">—</div>
-        <div id="scaleText">—</div>
-        <div id="pace">—</div>
-        <div id="device">—</div>
-        <div id="comfort">—</div>
-        <div id="expedition">—</div>
-        <div id="profile">—</div>
-        <div id="journal">—</div>
-      </div>
-      <!-- Filled from the binding table at boot, so it cannot disagree with the keys. -->
-      <div class="block help" id="help"></div>
+      <div id="hint" class="hint"></div>
     </div>
     <script type="module" src="./src/main.ts"></script>
   </body>

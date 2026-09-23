@@ -28,16 +28,18 @@ export function deadZone(v: number, zone = DEAD_ZONE): number {
 }
 
 /**
- * The axes as the table maps them. Pure, for the tests; `GamepadSource`
+ * The axes as the table maps them: a stick where the binding names one, and
+ * a pair of buttons where it does not. Pure, for the tests; `GamepadSource`
  * wraps it with the button edge-detection that needs memory.
  */
-export function axesFromPad(pad: PadSnapshot, invertPitch = false): AxisValues {
-  const out: AxisValues = { pitch: 0, roll: 0 };
+export function axesFromPad(pad: PadSnapshot): AxisValues {
+  const out: AxisValues = { speed: 0, heading: 0 };
   for (const b of AXIS_BINDINGS) {
-    const raw = pad.axes[b.padAxis] ?? 0;
-    let v = deadZone(b.padInvert ? -raw : raw);
-    if (b.axis === "pitch" && invertPitch) v = -v;
-    out[b.axis] = v;
+    let v = 0;
+    if (b.padAxis !== null) v = deadZone(pad.axes[b.padAxis] ?? 0);
+    if (b.padPlus !== null && pad.buttons[b.padPlus]?.pressed) v += 1;
+    if (b.padMinus !== null && pad.buttons[b.padMinus]?.pressed) v -= 1;
+    out[b.axis] = clampAxis(v);
   }
   return out;
 }
@@ -52,8 +54,6 @@ export interface PadReading {
 
 export class GamepadSource {
   private wasDown = new Set<number>();
-  /** Forward-stick climbs by default; see the note on `AXIS_BINDINGS`. */
-  invertPitch = false;
 
   /**
    * Read a pad, or `null` for none connected. The Gamepad API is polled, not
@@ -63,13 +63,12 @@ export class GamepadSource {
   read(pad: PadSnapshot | null): PadReading {
     if (!pad) {
       this.wasDown.clear();
-      return { axes: { pitch: 0, roll: 0 }, actions: [], active: false };
+      return { axes: { speed: 0, heading: 0 }, actions: [], active: false };
     }
-    const axes = axesFromPad(pad, this.invertPitch);
+    const axes = axesFromPad(pad);
     const actions: Action[] = [];
     const down = new Set<number>();
     for (const b of ACTION_BINDINGS) {
-      if (b.padButton === null) continue;
       if (!pad.buttons[b.padButton]?.pressed) continue;
       down.add(b.padButton);
       if (!this.wasDown.has(b.padButton)) actions.push(b.action);
@@ -78,7 +77,7 @@ export class GamepadSource {
     return {
       axes,
       actions,
-      active: axes.pitch !== 0 || axes.roll !== 0 || down.size > 0,
+      active: axes.speed !== 0 || axes.heading !== 0 || down.size > 0,
     };
   }
 }

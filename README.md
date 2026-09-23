@@ -1,5 +1,10 @@
 # Nine Skies
 
+> **Version 2, in progress.** This repository is being cut down from the
+> version-1 game to an eighteen-minute film. The design and the plan are
+> current; this README still describes version 1 and is rewritten at the
+> plan's stage 6.
+
 A relaxed 3D flying game across a geographically faithful China. See
 [the design document](Nine%20Skies%20%E2%80%94%20Game%20Design%20Document.md) for what it is
 and [the build plan](Nine%20Skies%20%E2%80%94%20Build%20Plan.md) for how it gets built.

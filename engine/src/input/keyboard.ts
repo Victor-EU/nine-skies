@@ -2,23 +2,22 @@ import { ACTION_BINDINGS, AXIS_BINDINGS, boundKeys, type Action } from "./bindin
 import type { AxisValues } from "./axes.js";
 
 /**
- * Keys are digital: a held key is the whole axis. There is deliberately no
- * ramp on top of that. The flight model already lags every command by its own
- * time constant - four seconds on pitch, one and a half on bank, both longer
- * over the plateau - so a ramp of any length a hand would tolerate is
- * invisible underneath it (F33). What a stick adds is not smoothness but
- * partial deflection, and that is the gamepad's job.
+ * Keys are digital: a held key is the whole axis. The ramp is the rail's
+ * (`film/rail.ts` integrates speed and heading over time), so there is no
+ * second ramp here.
  */
 export function axesFromHeld(held: ReadonlySet<string>): AxisValues {
-  const out: AxisValues = { pitch: 0, roll: 0 };
+  const out: AxisValues = { speed: 0, heading: 0 };
   for (const b of AXIS_BINDINGS) {
-    out[b.axis] = (held.has(b.plus) ? 1 : 0) - (held.has(b.minus) ? 1 : 0);
+    const plus = b.plus.some((k) => held.has(k)) ? 1 : 0;
+    const minus = b.minus.some((k) => held.has(k)) ? 1 : 0;
+    out[b.axis] = plus - minus;
   }
   return out;
 }
 
 const ACTION_BY_KEY: ReadonlyMap<string, Action> = new Map(
-  ACTION_BINDINGS.map((b) => [b.key, b.action]),
+  ACTION_BINDINGS.flatMap((b) => b.keys.map((k) => [k, b.action] as const)),
 );
 
 const BOUND = boundKeys();
