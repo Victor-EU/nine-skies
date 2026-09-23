@@ -14,6 +14,9 @@ import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import Sequence
+
+import numpy as np
 
 from . import hydro, places, probes
 from .acquire import data_root
@@ -244,21 +247,21 @@ def run(
             f"{'FAIL' if problem else 'pass'} |"
         )
 
-    for probe in runnable["flat"]:
-        mean, std = sampler.disc_stats(probe.lat, probe.lon, probe.radius_km)
-        bad = (
-            abs(mean - probe.expected_m) > probe.tolerance_m
-            or std > probe.max_std_dev_m
-        )
-        if bad:
-            failures.append(
-                f"{probe.name}: {mean:.1f} m ± {std:.1f} sd, "
-                f"expected {probe.expected_m} ± {probe.tolerance_m}, sd < {probe.max_std_dev_m}"
-            )
-        lines.append(
-            f"| {probe.name} | {probe.expected_m:,.0f} m, sd < {probe.max_std_dev_m} "
-            f"| {mean:,.1f} m, sd {std:.1f} | {'FAIL' if bad else 'pass'} |"
-        )
+    # Both of these read a fetched vector file rather than only the raster, and
+    # both put a row in the table above and a page under it, so each is measured
+    # here and rendered in two places. The boundary is loaded once for the two.
+    bound, why_not = (
+        boundary_for(sampler) if (runnable["flat"] or runnable["area"]) else (None, "")
+    )
+    china = bound.masks["administered"] if bound else None
+
+    lake_failures, lake_table, lake_section = lake_rows(runnable["flat"], sampler, china)
+    failures.extend(lake_failures)
+    lines.extend(lake_table)
+
+    area_failures, area_table, area_section = area_rows(runnable["area"], sampler, bound, why_not)
+    failures.extend(area_failures)
+    lines.extend(area_table)
 
     for probe in runnable["monotonic"]:
         raw = [sampler.elevation_m(lat, lon) for lat, lon in probe.waypoints]
@@ -335,6 +338,12 @@ def run(
             )
         lines.append("")
         lines.extend(monotonic_sensitivity(sampler, probe, found))
+
+    for section in (lake_section, area_section):
+        if section:
+            if lines and lines[-1] != "":
+                lines.append("")
+            lines.extend(section)
 
     place_failures, place_lines = named_places(sampler)
     failures.extend(place_failures)
@@ -595,6 +604,507 @@ def named_places(sampler: GridSampler) -> tuple[list[str], list[str]]:
     )
     lines.append("")
     return failures, lines
+
+
+#: How many lakes the flatness report ranks beside the one a probe reads: the
+#: share at one value turns out to be a fact about how the outline is drawn, and
+#: a spread is the only thing that shows that (F65).
+TOP_LAKES = 12
+
+#: A mapped lake smaller than this is not worth a row: at 1 km its outline is
+#: mostly the cells the outline cuts through.
+LAKE_FLOOR_CELLS = 200
+
+
+@dataclass(frozen=True)
+class Water:
+    """One mapped lake as this grid reads it."""
+
+    name: str
+    cells: int
+    outline_km: float
+    #: Cells with a neighbour outside the outline: the band it cuts through.
+    rim: int
+    #: The value the most cells carry, and how many carry it.
+    level_m: float
+    flat: int
+    #: Cells above that value and below it.
+    above: int
+    below: int
+    #: The highest cell, as metres over the level.
+    highest_m: float
+    #: Cells above the level in blobs that reach the rim, and clear of it.
+    on_rim: int
+    clear: int
+
+    @property
+    def share(self) -> float:
+        return self.flat / self.cells if self.cells else float("nan")
+
+    @property
+    def rim_share(self) -> float:
+        return self.rim / self.cells if self.cells else float("nan")
+
+
+def _rim(mask):
+    """The cells of a mask that have a four-neighbour outside it.
+
+    The band a 1 km cell puts along any shoreline: the outline runs through
+    these cells rather than around them, so each is part land by construction.
+    A mask reaching the raster's own edge has no rim there, which is right for
+    every inland lake and the only kind this reads.
+    """
+    inner = mask.copy()
+    inner[1:, :] &= mask[:-1, :]
+    inner[:-1, :] &= mask[1:, :]
+    inner[:, 1:] &= mask[:, :-1]
+    inner[:, :-1] &= mask[:, 1:]
+    return mask & ~inner
+
+
+def _blobs(above, rim) -> tuple[int, int]:
+    """(cells above the water that reach the rim, cells clear of it).
+
+    Four-connected, breadth first, over the handful of cells that are not at
+    the lake's one value. What it separates is a shore the outline cuts through
+    from an island the outline draws no hole for, which is the whole reason the
+    old tolerance could not be met (F65).
+    """
+    from collections import deque
+
+    height, width = above.shape
+    seen = np.zeros_like(above)
+    touching = clear = 0
+    for r0, c0 in zip(*np.nonzero(above)):
+        if seen[r0, c0]:
+            continue
+        queue, size, reaches = deque([(r0, c0)]), 0, False
+        seen[r0, c0] = True
+        while queue:
+            r, c = queue.popleft()
+            size += 1
+            reaches |= bool(rim[r, c])
+            for rr, cc in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):
+                if 0 <= rr < height and 0 <= cc < width and above[rr, cc] and not seen[rr, cc]:
+                    seen[rr, cc] = True
+                    queue.append((rr, cc))
+        if reaches:
+            touching += size
+        else:
+            clear += size
+    return touching, clear
+
+
+def read_water(heights, mask, name: str, outline_km: float) -> Water:
+    """What one mapped outline reads on this grid."""
+    values = heights[mask]
+    found, counts = np.unique(values, return_counts=True)
+    level = float(found[int(np.argmax(counts))])
+    rim = _rim(mask)
+    above = mask & (heights > level)
+    on_rim, clear = _blobs(above, rim)
+    return Water(
+        name=name,
+        cells=int(mask.sum()),
+        outline_km=outline_km,
+        rim=int(rim.sum()),
+        level_m=level,
+        flat=int(counts.max()),
+        above=int(above.sum()),
+        below=int((mask & (heights < level)).sum()),
+        highest_m=float(values.max()) - level,
+        on_rim=on_rim,
+        clear=clear,
+    )
+
+
+def lake_rows(
+    found: Sequence, sampler: GridSampler, inside=None
+) -> tuple[list[str], list[str], list[str]]:
+    """The flatness probes: (failures, rows for the summary table, their section).
+
+    Read over the mapped outline of the lake each probe's coordinate falls in,
+    rather than over a disc round the coordinate. The lake is found by the
+    coordinate and not named twice: a probe that carried the outline's name as
+    well as the place's would be two identifiers for one lake, which is F49's
+    fault in another spelling.
+    """
+    if not found:
+        return [], [], []
+
+    from . import grid as albers
+    from . import rivers
+
+    failures: list[str] = []
+    rows: list[str] = []
+    try:
+        lake_shapes = rivers.load(rivers.LAKES)
+    except SystemExit as why:
+        for probe in found:
+            failures.append(f"{probe.name}: {why}")
+            rows.append(
+                f"| {probe.name} | {probe.expected_m:,.0f} m, "
+                f"{probe.min_flat_share:.0%} of its outline at one value | "
+                f"the lakes are not fetched | FAIL |"
+            )
+        return failures, rows, ["### The lake surfaces", "", str(why), ""]
+
+    heights = sampler.array
+    transform = sampler.transform
+    burnt = rivers.polygons_raster(
+        lake_shapes, transform, heights.shape, box=rivers.extent(_footprint(sampler))
+    )
+    names = [rivers.name_of(shape.record) for shape in lake_shapes]
+
+    def outline_km(index: int) -> float:
+        total = 0.0
+        for ring in lake_shapes[index].parts:
+            xs, ys = albers.project(list(ring[:, 1]), list(ring[:, 0]))
+            x, y = np.asarray(xs), np.asarray(ys)
+            total += float(
+                np.sum(np.hypot(np.diff(x, append=x[0]), np.diff(y, append=y[0])))
+            )
+        return total / 1000
+
+    lines = ["### The lake surfaces", ""]
+    for probe in found:
+        col, row = sampler.to_pixel(probe.lat, probe.lon)
+        index = int(burnt[int(round(row)), int(round(col))])
+        if index == 0:
+            failures.append(
+                f"{probe.name}: its coordinate falls in no mapped lake, so there "
+                f"is no outline to read"
+            )
+            rows.append(
+                f"| {probe.name} | {probe.expected_m:,.0f} m, "
+                f"{probe.min_flat_share:.0%} at one value | in no mapped lake | FAIL |"
+            )
+            continue
+        water = read_water(heights, burnt == index, names[index - 1], outline_km(index - 1))
+        problem = probe.check(water.level_m, water.share, water.below)
+        if problem:
+            failures.append(problem)
+        rows.append(
+            f"| {probe.name} | {probe.expected_m:,.0f} m ± {probe.tolerance_m:.0f}, "
+            f"{probe.min_flat_share:.0%} of its outline at one value | "
+            f"{water.level_m:,.1f} m, {water.share:.1%} | "
+            f"{'FAIL' if problem else 'pass'} |"
+        )
+
+        mean, sd = sampler.disc_stats(probe.lat, probe.lon, probe.radius_km)
+        lines += [
+            f"**{probe.name}** is read over *{water.name}* — Natural Earth's own "
+            f"outline of the lake this probe's coordinate falls in, "
+            f"{water.cells:,} cells of it, rather than over a disc round the "
+            f"coordinate. The lake is found by the coordinate and never named a "
+            f"second time, on F49's rule. What the probe asks of it is what the "
+            f"source actually does over water: Copernicus flattens water bodies "
+            f"in production, so a lake here is **one value**, and the check is "
+            f"that value's level, how much of the outline carries it, and that "
+            f"nothing inside the outline lies under it (F56, F65).",
+            "",
+            "| What is read | Measured |",
+            "| --- | ---: |",
+            f"| the one value the most cells carry | {water.level_m:,.2f} m |",
+            f"| cells carrying it | {water.flat:,} of {water.cells:,} = "
+            f"{water.share:.2%} |",
+            f"| cells above it | {water.above:,}, the highest "
+            f"{water.highest_m:+,.1f} m |",
+            f"| cells below it | {water.below:,} |",
+            f"| of those above, in blobs reaching the outline | {water.on_rim:,} |",
+            f"| of those above, clear of the outline | {water.clear:,} |",
+            f"| the outline itself | {water.outline_km:,.0f} km, cutting through "
+            f"{water.rim:,} cells = {water.rim_share:.2%} |",
+            f"| the {probe.radius_km:.0f} km disc this probe used to read | "
+            f"{mean:,.1f} m, sd {sd:.3f} |",
+            "",
+            f"**The last two rows are why the old tolerance was dropped rather "
+            f"than raised.** The probe asked for a standard deviation under "
+            f"1.0 m over that disc and read {sd:.1f}; what it was measuring is "
+            f"the {water.on_rim:,} cells in the band the outline cuts through "
+            f"and the {water.clear:,} clear of it, which on this lake is Haixin "
+            f"Shan — an island Natural Earth draws no hole for. The water itself "
+            f"is one float32 value, and the same disc at 5 km reads "
+            f"sd {sampler.disc_stats(probe.lat, probe.lon, 5.0)[1]:.3f}. Neither "
+            f"a disc nor an outline is water only, so a spread over either "
+            f"cannot meet a tolerance the water meets exactly; raising the "
+            f"tolerance until it passes would hide that, and a share of the "
+            f"outline at one value says it (F64, F65).",
+            "",
+        ]
+
+    ranked = []
+    for index in np.unique(burnt[burnt > 0]):
+        mask = burnt == index
+        if mask.sum() < LAKE_FLOOR_CELLS:
+            continue
+        if inside is not None and not inside[mask].all():
+            continue
+        ranked.append(read_water(heights, mask, names[index - 1], outline_km(index - 1)))
+    ranked.sort(key=lambda water: -water.cells)
+    if ranked:
+        lines += [
+            f"**The same reading for the {TOP_LAKES} largest mapped lakes "
+            f"{'inside China' if inside is not None else 'on this grid'}**, of "
+            f"{len(ranked):,} over {LAKE_FLOOR_CELLS} cells. Not probes and not "
+            f"gates: they are what says the floor above is set where it is. The "
+            f"share at one value is mostly a fact about how generously the "
+            f"outline is drawn — the lakes that read low are the ones whose "
+            f"outline is a floodplain rather than a shore, and the column beside "
+            f"it says so.",
+            "",
+            "| Lake | Cells | Its one value | At it | Outline cuts | Highest | Below |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for water in ranked[:TOP_LAKES]:
+            lines.append(
+                f"| {water.name} | {water.cells:,} | {water.level_m:,.2f} m | "
+                f"{water.share:.1%} | {water.rim_share:.1%} | "
+                f"{water.highest_m:+,.1f} m | {water.below:,} |"
+            )
+        lines.append("")
+    return failures, rows, lines
+
+
+def _footprint(sampler: GridSampler):
+    """The sampler as `rivers.extent` wants it: heights and a transform."""
+    from . import rivers
+
+    return rivers.Grid(
+        heights=sampler.array, transform=sampler.transform, fetched=np.ones((1, 1), dtype=bool)
+    )
+
+
+@dataclass(frozen=True)
+class Bounded:
+    """The boundary file and the masks burnt from it, loaded once per report."""
+
+    shapes: list
+    masks: dict
+
+
+def boundary_for(sampler: GridSampler) -> tuple[Bounded | None, str]:
+    """(the boundary on this grid, or None and why not).
+
+    Two things in this report read it: the probe that counts China's land on
+    two sides of a line, and the lake table, which restricts itself to lakes
+    inside China because a lake in the corners of this rectangle stands on
+    ground the build never fetched and reads zero (F54, F65). The burn is the
+    expensive part, so it happens once.
+    """
+    from . import boundary
+
+    try:
+        shapes = boundary.load()
+    except SystemExit as why:
+        return None, str(why)
+    masks = {
+        view.id: boundary.mask(shapes, sampler.transform, sampler.array.shape, view)
+        for view in boundary.VIEWS
+    }
+    return Bounded(shapes=shapes, masks=masks), ""
+
+
+def area_rows(
+    found: Sequence, sampler: GridSampler, bound: Bounded | None = None, why_not: str = ""
+) -> tuple[list[str], list[str], list[str]]:
+    """The area-ratio probe: (failures, its rows for the summary table, its section).
+
+    In two pieces because the table at the top of the report is one block and
+    this probe's evidence is a page: the row belongs in the table and the page
+    belongs under it. It is the probe that tests what the projection was chosen
+    for, and until the country was built there was nothing for it to count --
+    `probes_by_type` collected it and nothing rendered it, so it had never run
+    (F64, F65).
+    """
+    if not found:
+        return [], [], []
+
+    from . import boundary
+
+    failures: list[str] = []
+    rows: list[str] = []
+    if bound is None:
+        why = why_not or "the boundary is not on this grid"
+        for probe in found:
+            failures.append(f"{probe.name}: {why}")
+            rows.append(
+                f"| {probe.name} | {probe.expected_west_pct:.0f} % west "
+                f"± {probe.tolerance_pct:.0f} | the boundary is not fetched | FAIL |"
+            )
+        return (
+            failures,
+            rows,
+            [
+                "### The equal-area claim",
+                "",
+                f"It did not run: {why}. A probe that cannot read its own "
+                f"source fails here rather than passing quietly, which is the "
+                f"rule the rest of this report is written to (F52).",
+                "",
+            ],
+        )
+
+    shapes, masks = bound.shapes, bound.masks
+    transform = sampler.transform
+    shape = sampler.array.shape
+    cell_km2 = abs(transform.a * transform.e) / 1e6
+
+    lines = ["### The equal-area claim", ""]
+    for probe in found:
+        north, south = probe.north_end, probe.south_end
+        counted: list[tuple[boundary.View, str, boundary.Split]] = []
+        for plane in boundary.PLANES:
+            west = boundary.west_of(transform, shape, north, south, plane)
+            for view in boundary.VIEWS:
+                counted.append(
+                    (view, plane, boundary.split(masks[view.id], west, view.id, plane))
+                )
+            del west
+        chosen = next(
+            split
+            for view, plane, split in counted
+            if view is boundary.ADMINISTERED and plane == "albers"
+        )
+        problem = probe.check(chosen.west_pct)
+        if problem:
+            failures.append(problem)
+        rows.append(
+            f"| {probe.name} | {probe.expected_west_pct:.0f} % west "
+            f"± {probe.tolerance_pct:.0f} | {chosen.west_pct:.1f} % of "
+            f"{chosen.cells * cell_km2:,.0f} km² | "
+            f"{'FAIL' if problem else 'pass'} |"
+        )
+
+        lines += [
+            f"The probe that tests what the projection was chosen for. Albers "
+            f"equal-area means a cell is a square kilometre wherever it lies, so "
+            f"*{probe.expected_west_pct:.0f} % of the land west of the "
+            f"Heihe–Tengchong line* is a claim a cell count can settle — once "
+            f"something says which cells are China's, because this grid is a "
+            f"rectangle that also holds Mongolia, Kazakhstan, Russia and northern "
+            f"India. That is Natural Earth's admin-0 countries, fetched under the "
+            f"same public domain and by the same `make vectors` as the rivers and "
+            f"lakes stage 3 reads, and burnt to a mask that is never written to a "
+            f"tile: D10 keeps border geometry out of the world, and this is "
+            f"arithmetic in memory (F65).",
+            "",
+            "**Two of the three choices under the number are the publisher's and "
+            "one is not.** Which polygon is China is not arithmetic, so both "
+            "readings the file itself carries are counted. Where the line runs is "
+            "arithmetic once it is said which plane it is straight in — and that "
+            "turns out to move the answer further than the politics does, because "
+            "straight in the equal-area plane runs up to 271 km west of straight "
+            "in degrees over this length. The row this probe's verdict is taken "
+            "from is marked; the rest are printed so that the choice is visible "
+            "rather than buried.",
+            "",
+            "| Which China | Which line | Land | West of it | Verdict |",
+            "| --- | --- | ---: | ---: | --- |",
+        ]
+        for view, plane, split in sorted(counted, key=lambda c: (c[0].id, c[1])):
+            taken = view is boundary.ADMINISTERED and plane == "albers"
+            said = probe.check(split.west_pct)
+            lines.append(
+                f"| {view.name} | {_PLANES[plane]} | {split.cells * cell_km2:,.0f} km² "
+                f"| {split.west_pct:.2f} % | "
+                + (
+                    f"**{'FAIL' if said else 'pass'}**, the verdict"
+                    if taken
+                    else ("would fail" if said else "would pass")
+                )
+                + " |"
+            )
+        lines += [
+            "",
+            "Each view's own evidence, in the file's words: "
+            + "; ".join(f"*{view.name}* — {view.why}" for view in boundary.VIEWS)
+            + ".",
+            "",
+        ]
+
+        china = boundary.features(shapes, boundary.ADMINISTERED)
+        with_taiwan = boundary.features(shapes, boundary.WITH_TAIWAN)
+        taiwan = [index for index in with_taiwan if index not in set(china)]
+        mongolia = boundary.named(shapes, "Mongolia")
+        planar = boundary.planar_km2(shapes, china)
+        on_sphere = boundary.sphere_km2(shapes, china)
+        counted_km2 = chosen.cells * cell_km2
+        published = boundary.PUBLISHED_KM2
+
+        lines += [
+            "**What a ratio cannot check, and what can.** A ratio is blind to a "
+            "projection that gets both halves equally wrong, so the same mask is "
+            "measured three more ways. The first two are the projection's; the "
+            "third is about which polygon, and says so.",
+            "",
+            "| What is compared | Measured | Against | Apart |",
+            "| --- | ---: | ---: | ---: |",
+            f"| the cell count against the polygon it burnt, by shoelace in the "
+            f"same plane | {counted_km2:,.0f} km² | {planar:,.0f} km² | "
+            f"{abs(counted_km2 - planar):,.0f} km², "
+            f"{100 * abs(counted_km2 - planar) / planar:.4f} % |",
+            f"| that polygon against the same rings on the equal-area sphere | "
+            f"{planar:,.0f} km² | {on_sphere:,.0f} km² | "
+            f"{abs(planar - on_sphere):,.0f} km², "
+            f"{100 * abs(planar - on_sphere) / on_sphere:.3f} % |",
+            f"| the mask against China's published total | {counted_km2:,.0f} km² "
+            f"| {published['China']:,.0f} km² | "
+            f"{abs(counted_km2 - published['China']):,.0f} km², "
+            f"{100 * abs(counted_km2 - published['China']) / published['China']:.2f} % |",
+            "",
+            "The first line is the one that says the count is the polygon and not "
+            "an artefact of where the cell centres fell along 36,000 km of "
+            "boundary. The second is the equal-area claim itself, checked without "
+            "going through the projection — and it is a bound rather than a "
+            "verdict, because the authalic sphere carries the ellipsoid's total "
+            "area and not its area element, which is worth a few tenths of a "
+            "percent one way near the equator and the other way further north. "
+            "The spread is what that looks like: the same comparison reads "
+            + " and ".join(
+                f"{sign}{value:.2f} % for {label}"
+                for label, value, sign in _spread(boundary, shapes, mongolia, taiwan)
+            )
+            + f", two shapes at the ends of this grid's latitude band, against "
+            f"{100 * (planar - on_sphere) / on_sphere:+.3f} % for a country that "
+            f"spans it. The third line is not a projection error at all: "
+            f"{boundary.planar_km2(shapes, taiwan):,.0f} km² of the gap is Taiwan, "
+            f"measured from this same file, and the largest piece of what is left "
+            f"is the eastern sector the de facto view draws inside India. Closing "
+            f"it needs the point-of-view file priced beside this one, which is why "
+            f"it is priced and not fetched.",
+            "",
+            f"One figure from outside the data, for whatever it is worth: "
+            f"Mongolia's polygon measures "
+            f"{boundary.planar_km2(shapes, mongolia):,.0f} km² in this plane "
+            f"against a published {published['Mongolia']:,.0f} — "
+            f"{abs(boundary.planar_km2(shapes, mongolia) - published['Mongolia']):,.0f} "
+            f"km², a thirtieth of a percent. Not a gate: a published area is a "
+            f"rounded convention and this report does not get to pick which one. "
+            f"What it corroborates is that the file and the plane agree with the "
+            f"world on a shape this projection is not centred on.",
+            "",
+        ]
+    return failures, rows, lines
+
+
+#: How each plane reads in the report's tables.
+_PLANES = {
+    "albers": "straight in the equal-area plane",
+    "geodesic": "the shortest path over the globe",
+    "graticule": "straight in degrees, as an atlas prints it",
+}
+
+
+def _spread(boundary, shapes, mongolia, taiwan) -> list[tuple[str, float, str]]:
+    """How far plane and sphere disagree for two shapes at the band's edges."""
+    out = []
+    for label, keep in (("Mongolia", mongolia), ("Taiwan", taiwan)):
+        planar = boundary.planar_km2(shapes, keep)
+        on_sphere = boundary.sphere_km2(shapes, keep)
+        value = 100 * (planar - on_sphere) / on_sphere
+        out.append((label, abs(value), "+" if value >= 0 else "−"))
+    return out
 
 
 def probes_by_type(

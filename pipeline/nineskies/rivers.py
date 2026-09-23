@@ -238,22 +238,40 @@ def lakes_raster(
     project: Callable[[list[float], list[float]], tuple[list[float], list[float]]] = grid.project,
     box: Box | None = None,
 ) -> np.ndarray:
-    """Which lake, by its index plus one, stands on each cell; 0 for none.
+    """Which lake, by its index plus one, stands on each cell; 0 for none."""
+    return polygons_raster(shapes, ground.transform, ground.shape, project, box)
+
+
+def polygons_raster(
+    shapes: Sequence[shapefile.Shape],
+    transform: object,
+    shape: tuple[int, int],
+    project: Callable[[list[float], list[float]], tuple[list[float], list[float]]] = grid.project,
+    box: Box | None = None,
+    keep: Callable[[int], bool] | None = None,
+) -> np.ndarray:
+    """Which shape, by its index plus one, stands on each cell; 0 for none.
 
     A shapefile writes outer rings clockwise and holes anticlockwise, and
     projection keeps the handedness, so a ring's signed area says which it
-    is; each hole joins the outer ring before it. A cell is the lake's when
+    is; each hole joins the outer ring before it. A cell is the shape's when
     its centre is inside.
+
+    The lakes of stage 3 and the countries of the area probe are the same
+    operation on different files (F64), so they are the same function: a
+    polygon that loses its holes takes an island's cells with it either way.
     """
     from rasterio import features
 
-    height, width = ground.shape
+    height, width = shape
     burn = []
-    for index, shape in enumerate(shapes):
-        if not touches(shape.parts, box):
+    for index, shape_ in enumerate(shapes):
+        if keep is not None and not keep(index):
+            continue
+        if not touches(shape_.parts, box):
             continue
         polygons: list[list[list[tuple[float, float]]]] = []
-        for ring in shape.parts:
+        for ring in shape_.parts:
             xs, ys = project(list(ring[:, 1]), list(ring[:, 0]))
             coords = list(zip(xs, ys))
             twice_area = sum(
@@ -268,7 +286,7 @@ def lakes_raster(
     if not burn:
         return np.zeros((height, width), dtype="int32")
     return features.rasterize(
-        burn, out_shape=(height, width), transform=ground.transform, fill=0, dtype="int32"
+        burn, out_shape=(height, width), transform=transform, fill=0, dtype="int32"
     )
 
 

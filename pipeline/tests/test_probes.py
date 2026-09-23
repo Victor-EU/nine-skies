@@ -564,6 +564,196 @@ if __name__ == "__main__":
 
 
 @unittest.skipUnless(HAVE_RASTERIO, "needs numpy and rasterio")
+class TestTheLakeSurfaceProbe(unittest.TestCase):
+    """What *flat* means here, after the probe first ran and half of it failed.
+
+    The country build read 3,194.6 m against 3,196 +/- 2 and a standard
+    deviation of 1.5 against < 1.0, and what was rough was not the water: 399
+    of the 407 cells inside the outline that are not at the water's one value
+    stand in blobs that reach the outline, and 8 are an island the outline
+    draws no hole for. So the claim is the level, the share of the outline at
+    one value, and nothing below it (F64, F65).
+    """
+
+    PROBE = FLATNESS_PROBES[0]
+
+    def test_one_value_at_the_right_level_passes(self):
+        self.assertIsNone(self.PROBE.check(3195.0, 0.95, 0))
+
+    def test_the_reading_that_failed_on_a_standard_deviation_passes_now(self):
+        # The country build's own numbers, and the reason the tolerance was
+        # dropped rather than raised: the level was never the problem.
+        self.assertIsNone(self.PROBE.check(3194.5, 0.9088, 0))
+
+    def test_a_level_outside_the_tolerance_still_fails(self):
+        self.assertIsNotNone(self.PROBE.check(3190.0, 0.99, 0))
+        self.assertIsNotNone(self.PROBE.check(3202.0, 0.99, 0))
+
+    def test_an_outline_that_is_mostly_not_one_value_fails(self):
+        # What a roughened lake would look like: the water stops being a single
+        # float32 value and the share collapses towards nothing.
+        self.assertIsNotNone(self.PROBE.check(3195.0, 0.50, 0))
+        self.assertIsNotNone(self.PROBE.check(3195.0, 0.01, 0))
+
+    def test_a_cell_under_its_own_water_fails_even_when_level_and_flat(self):
+        # The regression guard for stage 3: a carve that cut a channel through
+        # the lake, a fill that pushed it down, or a lake table that overwrote
+        # the level would each put cells below the surface (F56, F61).
+        self.assertIsNotNone(self.PROBE.check(3195.0, 0.99, 1))
+
+    def test_it_asks_for_a_share_rather_than_a_spread(self):
+        # Stated so that the retired tolerance cannot come back by accident:
+        # neither a disc nor an outline is water only, so no spread over either
+        # can meet a tolerance the water itself meets exactly.
+        self.assertFalse(hasattr(self.PROBE, "max_std_dev_m"))
+        self.assertGreater(self.PROBE.min_flat_share, 0.0)
+        self.assertLess(self.PROBE.min_flat_share, 1.0)
+
+
+@unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
+class TestReadingALakeOutline(unittest.TestCase):
+    """The shore the outline cuts through, and the island it draws no hole for.
+
+    A synthetic outline: water at one value, a band two cells wide along one
+    edge, and a block in the middle. The two have to be counted apart, because
+    one is what a 1 km cell does to any shoreline and the other is land the
+    outline never admitted to (F65).
+    """
+
+    def lake(self):
+        """A 10 x 10 outline inset in a 12 x 12 grid, so it has a rim at all."""
+        import numpy
+
+        mask = numpy.zeros((12, 12), dtype=bool)
+        mask[1:11, 1:11] = True
+        heights = numpy.full((12, 12), 100.0, dtype="float32")
+        heights[1:11, 1:3] = 105.0    # the shore, reaching the outline
+        heights[5:7, 5:7] = 130.0     # the island, clear of it
+        return heights, mask
+
+    def read(self):
+        from nineskies import probe
+
+        heights, mask = self.lake()
+        return probe.read_water(heights, mask, "Synthetic", 40.0)
+
+    def test_the_level_is_the_value_the_most_cells_carry(self):
+        water = self.read()
+        self.assertEqual(water.level_m, 100.0)
+        self.assertEqual(water.flat, 100 - 20 - 4)
+        self.assertAlmostEqual(water.share, 0.76)
+
+    def test_the_cells_above_and_below_are_counted_apart(self):
+        water = self.read()
+        self.assertEqual(water.above, 24)
+        self.assertEqual(water.below, 0)
+        self.assertAlmostEqual(water.highest_m, 30.0)
+
+    def test_the_shore_and_the_island_are_counted_apart(self):
+        water = self.read()
+        self.assertEqual((water.on_rim, water.clear), (20, 4))
+
+    def test_the_band_the_outline_cuts_through_is_the_mask_rim(self):
+        water = self.read()
+        self.assertEqual(water.rim, 36)  # the boundary ring of a 10 x 10 square
+        self.assertAlmostEqual(water.rim_share, 0.36)
+
+    def test_a_cell_below_the_water_is_seen(self):
+        from nineskies import probe
+
+        heights, mask = self.lake()
+        heights[7, 7] = 95.0
+        water = probe.read_water(heights, mask, "Synthetic", 40.0)
+        self.assertEqual(water.below, 1)
+
+
+@unittest.skipUnless(HAVE_RASTERIO, "probe.py imports the sampler")
+class TestNoCollectedProbeVanishes(unittest.TestCase):
+    """F64's fault, made structural.
+
+    `probes_by_type` collected four kinds of probe and `run` rendered three, so
+    the probe that tests the equal-area claim -- the one thing the projection was
+    chosen for -- had never run since it was written. A count would not have
+    caught it and did not: the report said *all runnable probes pass*. What
+    catches it is asking the runner for every probe it collected and looking for
+    each by name, in the report or in the failures (F64, F65).
+    """
+
+    class Chord:
+        """A sampler that gives every kind of probe something to read."""
+
+        resolution_m = 1000.0
+
+        def __init__(self, waypoints):
+            import numpy
+
+            self.waypoints = tuple(waypoints)
+            self.array = numpy.array([[9000.0 - 100.0 * i for i in range(len(self.waypoints))]])
+
+        def _index(self, lat, lon):
+            try:
+                return self.waypoints.index((lat, lon))
+            except ValueError:
+                return None
+
+        def channel_cell(self, lat, lon, radius_km):
+            return self._index(lat, lon)
+
+        def cells_read(self, points, radius_km):
+            return len(points)
+
+        def cell_latlon(self, index):
+            return self.waypoints[index]
+
+        def elevation_m(self, lat, lon):
+            found = self._index(lat, lon)
+            return float(self.array[0, found]) if found is not None else 1000.0
+
+        def channel_m(self, lat, lon, radius_km):
+            return self.elevation_m(lat, lon)
+
+        def relief_m(self, lat, lon, radius_km):
+            return 0.0
+
+        def disc_stats(self, lat, lon, radius_km):
+            return self.elevation_m(lat, lon), 0.0
+
+        def walk(self, waypoints, stride_km, radius_km=0.0):
+            return [self.channel_m(lat, lon, radius_km) for lat, lon in waypoints]
+
+    def test_every_probe_the_runner_collects_reaches_the_report(self):
+        from unittest import mock
+
+        from nineskies import probe, rivers
+
+        sampler = self.Chord(MONOTONIC_PROBES[0].waypoints)
+        # With no vector file fetched, the two probes that read one have to say
+        # so by name rather than disappear -- which is the same rule (F52).
+        with mock.patch.object(
+            rivers, "load", side_effect=SystemExit("nothing is fetched")
+        ):
+            failures, lines = probe.run(sampler, "full", "country")
+        report = "\n".join(lines + failures)
+        for kind, group in probe.probes_by_type("full", "country").items():
+            for collected in group:
+                with self.subTest(f"{kind}: {collected.name}"):
+                    self.assertIn(collected.name, report)
+
+    def test_a_probe_that_could_not_read_its_source_fails_rather_than_passes(self):
+        from unittest import mock
+
+        from nineskies import probe, rivers
+
+        sampler = self.Chord(MONOTONIC_PROBES[0].waypoints)
+        with mock.patch.object(
+            rivers, "load", side_effect=SystemExit("nothing is fetched")
+        ):
+            failures, _ = probe.run(sampler, "full", "country")
+        for name in ("Qinghai Lake surface", "Heihe-Tengchong land split"):
+            with self.subTest(name):
+                self.assertTrue(any(name in failure for failure in failures), failures)
+
+
 class TestTheChannelCheck(unittest.TestCase):
     """The column F50 added, and the tolerance it is read against.
 

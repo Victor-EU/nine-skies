@@ -287,4 +287,20 @@ fails.
 The area probe is the one worth understanding: if the Heihe-Tengchong split is
 not 57/43 within a point, the projection is not equal-area, and the GDD's
 "honest scale" pillar is a claim the player cannot see through but that is
-nonetheless false.
+nonetheless false. It had never run: `probes_by_type` collected it and the
+runner rendered the other three kinds, which a count of passes could not catch
+and did not (F64). It needs a boundary, because 57/43 is a claim about *China's*
+land and the built grid is a rectangle holding four other countries, and that is
+what `nineskies/boundary.py` is — Natural Earth's admin-0 countries burnt to a
+mask in memory, never written to a tile, so D10 still holds. Two choices sit
+under the number and only one is arithmetic: which polygon is China, which the
+file's own `FCLASS_CN` column answers two ways, and which plane the line is
+straight in, which moves the answer five times further. The report prints every
+reading with the verdict's marked, plus the two absolute-area checks a ratio
+cannot make (F65).
+
+The lake probe reads Natural Earth's outline of the lake its coordinate falls
+in, and asks for the water's one value rather than for a standard deviation:
+Copernicus flattens water bodies in production, so a lake on this grid is a
+single float32 value, and what a spread over a disc or an outline measures is
+the shore and the islands instead (D67, F56, F65).

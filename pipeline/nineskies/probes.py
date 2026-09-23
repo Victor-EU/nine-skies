@@ -66,14 +66,43 @@ class PointProbe:
 
 @dataclass(frozen=True)
 class FlatnessProbe:
-    """A lake surface must be flat, and at its real elevation."""
+    """A lake surface must be flat, and at its real elevation.
+
+    **What "flat" can mean here was settled by measurement, and it is not a
+    standard deviation** (F64, F65). The probe first ran on the country build
+    and half of it failed: 3,194.6 m against 3,196 +/- 2 passed, and a standard
+    deviation of 1.5 against < 1.0 did not. What is rough is not the water.
+    Within 5 km of the centre the surface is one float32 value at sd 0.000, and
+    of the 407 cells inside Natural Earth's outline that are not at that value,
+    399 stand in blobs that reach the outline itself and 8 are Haixin Shan --
+    the island the outline draws no hole for. Neither a disc nor a polygon is
+    water only, so no tolerance on a spread over either can be met, and raising
+    one until it is would hide the thing the probe exists to see.
+
+    So the claim is stated as what the source does rather than as a spread.
+    Copernicus flattens water bodies in production, so a lake on this grid is
+    *one value*: the check is the level of that value, how much of the mapped
+    outline carries it, and that nothing inside the outline lies below it. The
+    last of those is the regression guard -- a carve that cut a channel through
+    the lake, a fill that pushed it down or a lake table that overwrote the
+    level would all put cells under the water (F56, F61).
+    """
 
     name: str
     place: str
+    #: The disc this probe used to read. Kept because the report prints it as
+    #: the control: the standard deviation it fails on is the shore and the
+    #: island, and the same disc at 5 km is one value at sd 0.000.
     radius_km: float
     expected_m: float
     tolerance_m: float
-    max_std_dev_m: float
+    #: How much of the mapped outline has to carry the one value. Deliberately
+    #: not tight: what bounds it above is how generously a 1:10 million outline
+    #: is drawn round a shore -- 8.9 % of Qinghai's cells, and 38.8 % of
+    #: Dongting's, which reads 4.9 % for that reason and not for the water's --
+    #: while the failure it guards against, water that is no longer one value,
+    #: reads near zero rather than near ninety (F65).
+    min_flat_share: float
     phase: Phase
     source: str
 
@@ -84,6 +113,25 @@ class FlatnessProbe:
     @property
     def lon(self) -> float:
         return places.BY_ID[self.place].lon
+
+    def check(self, level_m: float, flat_share: float, below: int) -> str | None:
+        """Why this lake is not flat at the level it should be. None if it is."""
+        if abs(level_m - self.expected_m) > self.tolerance_m:
+            return (
+                f"{self.name}: its one value is {level_m:.1f} m, "
+                f"expected {self.expected_m} +/- {self.tolerance_m} m"
+            )
+        if flat_share < self.min_flat_share:
+            return (
+                f"{self.name}: {flat_share:.1%} of the mapped outline carries "
+                f"that value, and {self.min_flat_share:.0%} is the floor"
+            )
+        if below:
+            return (
+                f"{self.name}: {below} cell(s) inside the outline stand below "
+                f"its own water"
+            )
+        return None
 
 
 @dataclass(frozen=True)
@@ -228,9 +276,12 @@ FLATNESS_PROBES: tuple[FlatnessProbe, ...] = (
         radius_km=25,
         expected_m=3196,
         tolerance_m=2,
-        max_std_dev_m=1.0,
+        min_flat_share=0.80,
         phase="full",
-        source="Lake surface elevation; flattened by the lake table, not the DEM minimum",
+        source="Lake surface elevation, read over Natural Earth's own outline of "
+        "the lake the probe's coordinate falls in -- the outline rather than a "
+        "disc, because a 25 km disc round this coordinate is a quarter shore "
+        "(F65)",
     ),
 )
 

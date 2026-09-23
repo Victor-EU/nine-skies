@@ -12,6 +12,17 @@ binds whoever exercises any right in the data, and HydroATLAS says the same
 of downloading. So a fetch here is never a side effect of a build. It names
 the licence it accepts, and it refuses when that is not the source's licence.
 
+Two more are priced for a probe rather than for a stage. The area-ratio probe
+tests the one thing the projection is chosen for, and 57/43 is a claim about
+*China's* land: the built grid is a rectangle from 73 to 135 E holding Mongolia,
+Kazakhstan, Russia and northern India, so the probe needs a boundary before it
+can count anything (F64). The same fetch carries the coast D9's map is still
+waiting on (F54). The second of the two is the first drawn from China's own
+point of view, priced beside it and not fetched, because which polygon is
+China is a choice this build does not get to make quietly -- D10 keeps border
+geometry out of the world whichever way that goes, and the probe is arithmetic
+on a mask that never ships.
+
 Each source is pinned to the digest its publisher serves, measured by HEAD
 when it was priced. Backblaze B2 sends `x-bz-content-sha1`, S3 sends the MD5
 of a single-part upload as its ETag, and figshare publishes `computed_md5`
@@ -46,7 +57,7 @@ VECTORS_VERSION = 1
 VECTORS_FILE = Path("pipeline") / "sources" / "vectors.json"
 
 #: When every pin below was measured.
-PRICED = "2026-09-22"
+PRICED = "2026-09-23"
 
 
 class Refused(Exception):
@@ -183,6 +194,48 @@ SOURCES: tuple[Source, ...] = (
         licence=PUBLIC_DOMAIN,
         carries="lake and reservoir outlines with names, at 1:10 million; D9's "
         "lakes whichever river network is chosen",
+    ),
+    Source(
+        id="ne-countries",
+        title="Natural Earth 1:10m admin-0 countries",
+        url="https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries.zip",
+        filename="ne_10m_admin_0_countries.zip",
+        bytes=4_930_492,
+        pin=("md5", "0bc33f3e6f9ab457917430e57f6122a9"),
+        publisher="s3",
+        licence=PUBLIC_DOMAIN,
+        carries="one polygon per country against the coastline, each with the "
+        "type that says whether the publisher calls it a country or a disputed "
+        "area; which land is China's for the area-ratio probe, and D9's real "
+        "coast for the map (F54, F64)",
+    ),
+    Source(
+        id="ne-regions",
+        title="Natural Earth 1:10m physical region polygons",
+        url="https://naciscdn.org/naturalearth/10m/physical/ne_10m_geography_regions_polys.zip",
+        filename="ne_10m_geography_regions_polys.zip",
+        bytes=2_038_519,
+        pin=("md5", "d2339ed440d31153d8920c375bac4956"),
+        publisher="s3",
+        licence=PUBLIC_DOMAIN,
+        carries="named physical regions as polygons -- the publisher's deserts, "
+        "basins, plateaus and depressions -- which is what D65's list cannot "
+        "reach: a closed basin with no name of its own can be kept by the region "
+        "it lies in, and the extent then comes from outside this build instead of "
+        "from the basin the entry is exempting (F65)",
+    ),
+    Source(
+        id="ne-countries-chn",
+        title="Natural Earth 1:10m admin-0 countries, Chinese point of view",
+        url="https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries_chn.zip",
+        filename="ne_10m_admin_0_countries_chn.zip",
+        bytes=4_904_124,
+        pin=("md5", "5f36553d9e21e4cef74a4838e1da9761"),
+        publisher="s3",
+        licence=PUBLIC_DOMAIN,
+        carries="the same countries as the boundaries China's own maps draw "
+        "them; priced and not fetched, because which polygon is China is a "
+        "choice the probe cannot avoid and this build does not get to make",
     ),
 )
 

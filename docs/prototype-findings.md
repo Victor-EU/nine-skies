@@ -8534,3 +8534,212 @@ the full country *and* the hero grid (F12). Whether to publish those two areas
 is the open question F52 left about each, not a consequence of this build.
 
 294 Python tests, up from 286, and 782 TypeScript.
+
+## F65 — All seven golden probes run and all seven pass: the projection is equal-area to 0.02 %, the Heihe–Tengchong split turns on which plane the line is straight in far more than on which polygon is China, and what was rough at Qinghai Lake was never the water
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+The three things the country build left (F64), taken in the order the fetch
+dictates: the boundary answers the probe that had never run, and it also says
+which of the five unkept basins are China's at all.
+
+### One fetch, three prices, and a runner that was rendering three kinds of four
+
+`ne_10m_admin_0_countries.zip` — 4,930,492 bytes, md5 `0bc33f3e6f9a…`, public
+domain, from the same publisher and the same `make vectors` machinery as the
+rivers and lakes stage 3 already reads (D60, D61). Recorded in
+`pipeline/sources/vectors.json` with its sha256, and the only file fetched
+here. Two more are **priced and not fetched**, because pricing costs one HEAD
+and a fetch is never a side effect of a build: the same countries drawn from
+China's own point of view (4,904,124 bytes) and Natural Earth's named physical
+regions (2,038,519 bytes), which the last section is about. Every one of the
+seven candidates was re-checked against what its publisher serves today, so
+`PRICED` moved to 2026-09-23 with all seven pins still matching.
+
+The runner's half was one line and a page. `probes_by_type` had always
+collected the area probe into `runnable["area"]`, and `run()` rendered `point`,
+`flat` and `monotonic` — so the probe that tests the one thing the projection
+was chosen for had never executed since it was written (F64). What replaced the
+missing line is `area_rows`, which returns its row for the summary table and its
+own page for under it, and a **structural test that would have caught the
+original fault**: ask the runner for every probe it collected and look for each
+by name in the report or in the failures. A count would not have caught it and
+did not — the report said *all runnable probes pass* while running two of seven.
+
+### Which polygon is China, and which line — and the second matters twenty-five times more
+
+Two of the three choices under 57/43 are the publisher's. Natural Earth's de
+facto view draws each feature where control is exercised, and its own
+`FCLASS_CN` column records what China's point of view makes of each: three
+features carry `SOVEREIGNT=China` — China, Hong Kong and Macao — and one
+carries `FCLASS_CN=Admin-1 states provinces`, which in this file is Taiwan and
+only Taiwan. So one file carries both readings and both are counted. The third
+choice is not the publisher's at all, and it is the one that moves the answer:
+
+| Which China | Which line | Land | West of it |
+| --- | --- | ---: | ---: |
+| the de facto view | straight in the equal-area plane | 9,376,353 km² | **56.42 %** |
+| the de facto view | the shortest path over the globe | 9,376,353 km² | 55.92 % |
+| the de facto view | straight in degrees | 9,376,353 km² | 62.09 % |
+| plus Taiwan | straight in the equal-area plane | 9,412,545 km² | 56.20 % |
+
+Against 57 ± 1, the first row passes with 0.58 to spare. **Taiwan moves the
+answer by 0.22 points and the plane moves it by 5.67.** Between Heihe and
+Tengchong a line straight in the equal-area plane runs up to **271 km west** of
+one straight in degrees — at 37.6 N, 109.9 E against 113.0 E — which is roughly
+535,000 km² of land changing sides. The geodesic sits 36 km from the plane's
+straight line and reads 55.92 %, failing by 0.08: the two lines a reasonable
+person would draw agree with each other far better than either agrees with the
+atlas's.
+
+The sharpest way to say it is that the suite already contains the number.
+`test_a_mercator_style_distortion_fails` asserts that 62.0 % must fail, as the
+signature of shipping the wrong projection. Drawing the line straight in degrees
+on the *right* projection reads 62.09 %. The probe cannot tell a mis-drawn line
+from a mis-chosen projection, which is exactly why the report prints all three
+planes with the verdict's row marked rather than printing one number.
+
+### What a ratio cannot check
+
+A ratio is blind to a projection that gets both halves equally wrong, so the
+same mask is measured three more ways.
+
+| What is compared | Measured | Against | Apart |
+| --- | ---: | ---: | ---: |
+| the cell count, against the polygon it burnt | 9,376,353 km² | 9,376,301 km² | 52 km², 0.0006 % |
+| that polygon, against the same rings on the equal-area sphere | 9,376,301 km² | 9,374,475 km² | 1,826 km², 0.019 % |
+| the mask, against China's published total | 9,376,353 km² | 9,596,960 km² | 220,607 km², 2.30 % |
+
+The first is the one that says the count *is* the polygon rather than an
+artefact of where the cell centres fell along 36,000 km of boundary: 52 km² in
+9.38 million. The second is the equal-area claim itself, checked without going
+through the projection — and it is a bound rather than a verdict, because the
+authalic sphere carries the ellipsoid's total area and not its area element.
+The spread shows the size of that: the same comparison reads **+0.26 % for
+Mongolia and −0.23 % for Taiwan**, two shapes at the ends of this grid's
+latitude band, against +0.019 % for a country that spans it. One figure from
+outside the data corroborates both: Mongolia's polygon measures 1,564,651 km²
+in this plane against a published 1,564,116 — 535 km², a thirtieth of a percent.
+
+The third line is not a projection error. 36,198 km² of the gap is Taiwan,
+measured from the same file, and the largest piece of what is left is the
+eastern sector the de facto view draws inside India; closing it is what the
+point-of-view file is priced for. And one coverage fact worth having: **every
+one of the 9,376,353 cells inside China stands on ground this build fetched**,
+on a grid that is 64.2 % measured overall — the unfetched corners of the
+rectangle (F54) are all outside the country.
+
+### What the Qinghai probe should measure: the water's one value, and how much of the outline carries it
+
+It fails on a standard deviation and the water is not what is rough. Read over
+Natural Earth's own outline of the lake the probe's coordinate falls in — the
+outline rather than a disc, and the lake found by the coordinate so that no
+probe carries a second name for one place (F49):
+
+| What is read | Measured |
+| --- | ---: |
+| the one value the most cells carry | 3,194.50 m |
+| cells carrying it | 4,057 of 4,464 = 90.88 % |
+| cells above it | 407, the highest +62.7 m |
+| cells below it | **0** |
+| of those above, in blobs reaching the outline | 399 |
+| of those above, clear of the outline | 8 |
+| the outline itself | 329 km, cutting through 290 cells = 6.50 % |
+| the 25 km disc the probe used to read | sd 1.517 |
+| the same disc at 5 km | sd 0.000 |
+
+So of the 407 cells that are not water, **399 are the band a 1 km cell puts
+along any shoreline and 8 are Haixin Shan** — the island the outline draws no
+hole for. Eroding the outline does not rescue the old tolerance: one cell in
+reads sd 1.221, two 1.199, three 1.229. It plateaus, because erosion removes
+shore and the island survives it.
+
+The probe now asks for what the source actually does. Copernicus flattens water
+bodies in production, so a lake here is *one value*: the check is that value's
+level against 3,196 ± 2, the share of the outline carrying it against a floor
+of 80 %, and that **nothing inside the outline lies below it**. The last of
+those is the regression guard the old spread never was — a carve that cut a
+channel through the lake, a fill that pushed it down or a lake table that
+overwrote the level would each put cells under the water.
+
+**The floor is deliberately loose, and a derivation for a tight one is not
+available.** The obvious one — the share cannot exceed what the outline's own
+rim band leaves — was measured and is false: Namtso reads 92.2 % against a
+rim-implied ceiling of 88.8 % and Siling 97.1 % against 86.8 %, because those
+outlines are drawn inside their water. What bounds the statistic in practice is
+how generously the outline is drawn, which the twelve largest mapped lakes
+inside China say plainly:
+
+| Lake | At one value | Outline cuts |
+| --- | ---: | ---: |
+| Siling | 97.1 % | 13.2 % |
+| Namtso | 92.2 % | 11.2 % |
+| Qinghai | 90.9 % | 6.5 % |
+| Tai | 75.1 % | 11.4 % |
+| Hulun | 68.3 % | 12.2 % |
+| Poyang | 52.5 % | 27.2 % |
+| Gaoyou | 42.2 % | 33.6 % |
+| Hongze | 37.5 % | 25.5 % |
+
+Dongting is the limit case at **4.9 % of its outline at one value with 38.8 %
+of its cells on the rim**: its outline is drawn round a Yangtze floodplain, not
+round a lake. None of these is a probe or a gate, and printing them is what
+says the floor is set where it is rather than where Qinghai happens to read.
+A threshold tight enough to be interesting would be a threshold on Natural
+Earth's draughtsmanship; the failure the floor guards against — water that has
+stopped being one value — reads near zero, not near ninety.
+
+### The five basins the fill still raises: what they are, and why four of them cannot be kept by name
+
+The boundary answers the first question about them. Each floor, with what is
+mapped near it:
+
+| # | km² | deepest | its floor | where | nearest mapped line |
+| ---: | ---: | ---: | --- | --- | ---: |
+| 4 | 68,989 | 288 m | 702.9 m at 44.39 N 110.12 E | Mongolia, the east Gobi | 282 km (the Kherlen) |
+| 8 | 23,195 | 569 m | 291.2 m at 43.90 N 94.72 E | China, eastern Xinjiang north-east of Hami | 515 km |
+| 10 | 14,025 | 229 m | 4,777.0 m at 35.56 N 84.36 E | China, the Qiangtang | 198 km |
+| 11 | 12,889 | 216 m | 1,031.6 m at 44.52 N 103.62 E | Mongolia, Ömnögovi | 285 km (the Orkhon) |
+| 12 | 12,611 | 157 m | 821.2 m at 45.27 N 110.30 E | Mongolia, the east Gobi | 187 km (the Kherlen) |
+
+Three are in Mongolia's Gobi, one in the Qiangtang and one in eastern Xinjiang,
+and all five are endorheic country in life. **None of them was added to D65's
+list, and the reason is the instrument rather than the geography.** An entry is
+a `places.py` id plus the sentence that is its evidence, and the id has to be a
+place with a coordinate of its own: `ayding-lake` is the lowest exposed land in
+China and `tarim-terminus` is where Natural Earth's Konqi line stops. Four of
+these five floors have no name to hang an entry on. Siting a place at the floor
+this build measured and then using it to exempt that floor from the rule makes
+an entry that cannot be wrong — the evidence would be the measurement it is
+exempting — and an entry that cannot be wrong is F49 and F50's fault in a new
+place.
+
+What the carve report does instead is print two things it did not print before.
+The **nearest mapped line** for each ranked basin, which is a distance and not
+a verdict — the kinds overlap, and what it is good for is the order of
+magnitude: 2 km where a mapped river runs through the hollow, tens where one
+runs nearby, and 187–515 km for all five of these. And the **tail**, because
+twelve rows had been reading as the population. On the country grid **154 closed
+basins are 1,000 km² or larger and 48 of them are kept**, so the twelve are the
+head of 154 and the fill raises 106 large basins rather than five. On the
+corridor it is 32 and 13. That is the number the decision is actually about, and
+no list of twelve names would have reached it.
+
+What would reach an unnamed basin without the circularity is an extent from
+outside the build, and that is what `ne-regions` is priced for: Natural Earth's
+named physical regions as polygons — the publisher's deserts, basins, plateaus
+and depressions — where the polygon supplies the extent and the sentence stays
+the evidence. 2,038,519 bytes, public domain, one HEAD priced and no download.
+It is the user's, like every fetch.
+
+### What this leaves
+
+326 Python tests, up from 294: nineteen for the boundary, and thirteen for the
+lake surface and for the rule that no collected probe may vanish. All seven
+golden probes now run on the artefacts they belong to and all seven pass, which
+is the first time that sentence has been true.
+
+The corridor is untouched by all of it. `data/work/sea-to-sky-1km-conditioned.tif`
+still hashes to `fadc78a794cf…` after re-running stage 3, and its conditioning
+record is unchanged, so no section and no patch was re-cut or re-signed — the
+new sink list is empty of new entries and a report is not an input.

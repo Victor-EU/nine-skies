@@ -112,6 +112,13 @@ RULES = (FILL, LEAVE, BREACH)
 #: named sink that ought to exist is seen rather than assumed absent (D65).
 TOP_BASINS = 12
 
+#: The size at which a closed basin is counted in the tail beneath that table.
+#: A thousand cells is not a cell's mistake, and printing how many there are
+#: keeps the twelve from reading as all of them: of the five in that table that
+#: nothing keeps, four are anonymous floors inside endorheic country rather than
+#: named sinks, and the tail is where the rest of their kind are (F65).
+BIG_BASIN_KM2 = 1_000.0
+
 #: D62, the user's, 22 September 2026: filled, as HydroSHEDS filled every
 #: sink it did not inspect.
 RULE = FILL
@@ -954,6 +961,11 @@ class Closed:
     #: complete (D65): a basin big enough to be a real one is printed with
     #: what the rule does to it, so a missing entry is seen.
     largest: tuple[BasinRow, ...] = ()
+    #: How many basins are over `BIG_BASIN_KM2`, and how many of those are
+    #: kept. The table above is twelve rows and this is the tail it sits on:
+    #: without it, twelve reads as the whole population (F65).
+    big: int = 0
+    big_kept: int = 0
 
 
 @dataclass(frozen=True)
@@ -968,6 +980,12 @@ class BasinRow:
     at: tuple[float, float] | None
     #: True where a kept lake or a named sink already keeps this basin.
     kept: bool
+    #: Kilometres from its floor to the nearest mapped river line, where the
+    #: caller passed the lines. This is what separates the two kinds of large
+    #: closed basin: a valley the 1 km cell sealed has a mapped river running
+    #: through it, and an endorheic basin has no mapped line for hundreds of
+    #: kilometres, because there is no through-drainage to draw (F60, F65).
+    mapped_km: float | None = None
 
 
 def closed(
@@ -977,6 +995,7 @@ def closed(
     transform=None,
     cell_km2: float = 1.0,
     top: int = 0,
+    lines: Sequence = (),
 ) -> Closed:
     drainage = hydro.flood(heights)
     labels, found = hydro.basins(heights, drainage)
@@ -988,6 +1007,7 @@ def closed(
             max(0, -drow):height + min(0, -drow), max(0, -dcol):width + min(0, -dcol)
         ]
     at_edge = np.setdiff1d(np.unique(labels[near & (labels > 0)]), in_kept)
+    big = [rank + 1 for rank, basin in enumerate(found) if basin.cells * cell_km2 >= BIG_BASIN_KM2]
     return Closed(
         cells=int((labels > 0).sum()),
         basins=len(found),
@@ -1007,10 +1027,26 @@ def closed(
                     else None
                 ),
                 kept=bool((rank + 1) in in_kept),
+                mapped_km=(
+                    _to_lines(transform, basin.row * width + basin.col, width, lines)
+                    if lines and transform is not None
+                    else None
+                ),
             )
             for rank, basin in enumerate(found[:top])
         ),
+        big=len(big),
+        big_kept=len([label for label in big if label in in_kept]),
     )
+
+
+def _to_lines(transform, index: int, width: int, lines: Sequence) -> float:
+    """Kilometres from one cell to the nearest mapped river line."""
+    from . import rivers
+
+    row, col = divmod(int(index), width)
+    x, y = transform * (col + 0.5, row + 0.5)
+    return rivers.distance_to_lines(x, y, lines) / 1000.0
 
 
 @dataclass(frozen=True)
@@ -1050,7 +1086,8 @@ def price(source: Corridor, result: Conditioned) -> list[Cost]:
             at=_where(source.transform, deepest, width) if moved.ravel()[deepest] > 0 else None,
             over_100=int((moved > 100).sum()),
             still_closed=closed(out, kept_cells, result.outlets,
-                                source.transform, source.cell_km2, top=TOP_BASINS),
+                                source.transform, source.cell_km2, top=TOP_BASINS,
+                                lines=source.lines),
         ))
     return costs
 
@@ -1418,6 +1455,7 @@ def render(result: dict) -> str:
 
     ranked = costs[LEAVE].still_closed.largest
     if ranked:
+        still = costs[LEAVE].still_closed
         lines += _para(
             f"""The {len(ranked)} largest of those basins, on the carved grid and
             before any rule is applied to it. A basin this size is either a real
@@ -1426,19 +1464,38 @@ def render(result: dict) -> str:
             the short list of named sinks (D65), or the rule above moves it.
             Printed because a list of names cannot be checked against what is not
             printed — an entry that ought to exist is a large basin here with no
-            mark beside it."""
+            mark beside it. The last column is a distance and not a verdict: the
+            two kinds overlap in it, and what it is good for is the order of
+            magnitude — kilometres where a mapped river runs through the hollow,
+            tens where one runs nearby, hundreds where the map draws nothing at
+            all because there is no through-drainage to draw (F60, F65)."""
         )
         lines += [
-            "| # | km² | deepest | km³ | its floor | kept |",
-            "| ---: | ---: | ---: | ---: | ---: | :-: |",
+            "| # | km² | deepest | km³ | its floor | kept | nearest mapped line |",
+            "| ---: | ---: | ---: | ---: | ---: | :-: | ---: |",
         ]
         for rank, basin in enumerate(ranked, 1):
             at = (f"{basin.at[0]:.2f} N {basin.at[1]:.2f} E" if basin.at else "—")
+            near = "—" if basin.mapped_km is None else f"{_n(basin.mapped_km)} km"
             lines.append(
                 f"| {rank} | {_n(basin.km2)} | {_n(basin.deepest_m)} m | {_n(basin.km3)} | "
-                f"{at} | {'yes' if basin.kept else '—'} |"
+                f"{at} | {'yes' if basin.kept else '—'} | {near} |"
             )
         lines += [""]
+        if still.big:
+            lines += _para(
+                f"""**These {len(ranked)} rows are not the population.**
+                {_n(still.big)} of these basins are {_n(BIG_BASIN_KM2)} km² or
+                larger and {_n(still.big_kept)} of those are kept, so the table
+                above is the largest {len(ranked)} of {_n(still.big)}. That is a
+                fact about the instrument rather than about this table: a short
+                list of named sinks reaches a basin that has a name, and a basin
+                with no name can only be kept by siting a place inside it — from
+                the basin the entry is meant to exempt, which is the circularity
+                F49 and F50 are about. What would reach them is an extent from
+                outside this build, which is `ne-regions` in the price list and
+                is priced rather than fetched (F65)."""
+            )
 
     lines += _para(
         """**Fill** raises every hollow to the lowest point of its rim: HydroSHEDS'
