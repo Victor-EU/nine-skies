@@ -98,6 +98,7 @@ function publishedWorld(): Plugin {
   const types: Record<string, string> = {
     ".json": "application/json",
     ".bin": "application/octet-stream",
+    ".webp": "image/webp",
   };
   return {
     name: "nine-skies-published-world",

@@ -16,6 +16,8 @@
  */
 import { readPack, type PackHeader } from "../../engine/src/film/pack.js";
 import { decodeHeroArea, loadHeroArea, type HeroCover } from "../../engine/src/terrain/heroSource.js";
+import type { ColourIndex } from "../../engine/src/terrain/colour.js";
+import { colourFile } from "../../engine/src/film/pack.js";
 import { fetchBytes, type FetchBytes, type TileIndex } from "../../engine/src/terrain/tileStream.js";
 
 export interface PackIndexScene {
@@ -85,7 +87,7 @@ export class ScenePacks {
    * which covers its hero areas go to. Until this, requests pass straight
    * through: the only one made before it is the horizon field.
    */
-  attach(tiles: TileIndex, covers: readonly HeroCover[]): void {
+  attach(tiles: TileIndex, covers: readonly HeroCover[], colour: ColourIndex | null = null): void {
     const w = tiles.window;
     const width = w.tx1 - w.tx0;
     this.horizonName = tiles.horizon?.name ?? null;
@@ -94,19 +96,25 @@ export class ScenePacks {
       console.warn("scene packs were cut from other heights than this world's; fetching tiles one at a time");
       for (let i = 0; i < this.index.scenes.length; i++) this.state.set(i, "failed");
     }
+    const own = (name: string | undefined, i: number): void => {
+      if (!name) return;
+      const list = this.owners.get(name);
+      if (!list) this.owners.set(name, [i]);
+      else if (list[list.length - 1] !== i) list.push(i);
+    };
     this.index.scenes.forEach((scene, i) => {
       for (let k = 0; k < scene.tiles.length; k += 2) {
         const tx = scene.tiles[k]!;
         const ty = scene.tiles[k + 1]!;
         if (tx < w.tx0 || tx >= w.tx1 || ty < w.ty0 || ty >= w.ty1) continue;
         const at = (ty - w.ty0) * width + (tx - w.tx0);
-        for (const name of [tiles.names[at], tiles.water?.names[at]]) {
-          if (!name) continue;
-          const list = this.owners.get(name);
-          if (!list) this.owners.set(name, [i]);
-          else if (list[list.length - 1] !== i) list.push(i);
-        }
+        own(tiles.names[at], i);
+        own(tiles.water?.names[at], i);
+        const c = colour?.country[`${tx}_${ty}`];
+        if (c) own(colourFile(c), i);
       }
+      const hero = scene.hero && colour?.hero[scene.hero.area];
+      for (const c of hero ? hero.tiles : []) if (c) own(colourFile(c), i);
     });
     this.attached = true;
   }

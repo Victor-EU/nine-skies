@@ -6,7 +6,8 @@
 import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { ScenePacks, type PackIndex } from "../../app/src/packs.js";
-import { writePack } from "../../engine/src/film/pack.js";
+import { colourFile, writePack } from "../../engine/src/film/pack.js";
+import type { ColourIndex } from "../../engine/src/terrain/colour.js";
 import { HeroCover, type HeroManifest } from "../../engine/src/terrain/heroSource.js";
 import { HERO_TILE_SAMPLES } from "../../engine/src/terrain/tileArray.js";
 import { deltaPlanes } from "../../engine/src/terrain/tileCodec.js";
@@ -50,7 +51,15 @@ function world(heroInPack: boolean) {
   const heights = new Int16Array(SAMPLES * SAMPLES).fill(7);
   const packs: Record<string, Uint8Array> = {
     "/packs/a.bin": writePack("a", SHA, [{ name: "t0", bytes: new Uint8Array([10]) }, { name: "t1", bytes: new Uint8Array([11]) }], heroInPack ? { dir: "hero", area: "gorge", heights: new Uint8Array(gzipSync(deltaPlanes(heights, SAMPLES, SAMPLES))), water: null } : null),
-    "/packs/b.bin": writePack("b", SHA, [{ name: "t2", bytes: new Uint8Array([12]) }], null),
+    "/packs/b.bin": writePack(
+      "b",
+      SHA,
+      [
+        { name: "t2", bytes: new Uint8Array([12]) },
+        { name: colourFile("c2"), bytes: new Uint8Array([22]) },
+      ],
+      null,
+    ),
   };
   const index: PackIndex = {
     version: 1,
@@ -74,8 +83,12 @@ function world(heroInPack: boolean) {
     [],
     [heroManifest],
   );
+  const colour = {
+    country: { "2_0": "c2", "3_0": "c3" },
+    hero: {},
+  } as unknown as ColourIndex;
   const store = new ScenePacks(index, "", "/world", fetch);
-  store.attach(tileIndex, [cover]);
+  store.attach(tileIndex, [cover], colour);
   return { store, calls, cover, packs };
 }
 
@@ -114,6 +127,14 @@ describe("the scene packs at run time", () => {
     expect(got[0]).toBe(99);
     expect(store.stats.failed).toBe(1);
     expect(store.stats.misses).toBe(1);
+  });
+
+  it("answers a tile's colour from the pack that holds the tile (F87)", async () => {
+    const { store, calls } = world(false);
+    const got = await store.fetchTile("/world/colour/files/c2.webp");
+    expect(got[0]).toBe(22);
+    expect(calls).toEqual(["/packs/b.bin"]);
+    expect(store.stats.misses).toBe(0);
   });
 
   it("hands its scene's hero area to the cover, which draws it from then on", async () => {

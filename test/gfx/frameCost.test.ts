@@ -136,6 +136,9 @@ describe("the settle before a station is timed", () => {
     // F80: nothing in flight is not the same as nothing missing.
     expect(quietFrame({ ...done, missing: 52 })).toBe(false);
     expect(quietFrame({ ...done, waterPending: 3 })).toBe(false);
+    // F87: nor is ground drawn in the palette while its colour is arriving.
+    expect(quietFrame({ ...done, colourPending: 2 })).toBe(false);
+    expect(quietFrame({ ...done, colourPending: 0 })).toBe(true);
     expect(quietFrame({ ...done, generatedThisFrame: 1 })).toBe(false);
   });
 

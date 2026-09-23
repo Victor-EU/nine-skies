@@ -44,7 +44,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film rails stations scenes release-packs test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero colour siting probes hydro rivers sources vectors reference film rails stations scenes release-packs test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -224,6 +224,15 @@ rails:
 ## (plan v2, stage 3). Needs the world for the ground under each.
 stations:
 	npm run content:stations
+
+## The ground's colour (F87): EOX's Sentinel-2 cloudless 2016 mosaic, CC BY
+## 4.0, cut onto every tile the scene packs hold and every hero area, cloud
+## flecks filled. Fetches ~11,000 mosaic tiles once, slowly (~160 MB, cached
+## under data/source/). Needs a world, its hero areas and the pack index;
+## run `make scenes` after it to pack the colour.
+colour: $(PY)
+	$(PIPELINE) -m nineskies.imagery fetch
+	$(PIPELINE) -m nineskies.imagery cut
 
 ## A pack per scene (plan v2, stage 4): every tile the scene's camera can ask
 ## for and its hero area, into dist-film/ with the files read before them.

@@ -168,10 +168,12 @@ build and this design requires:
   sky without a seam; that rule stands.
 - **Clouds.** Low cloud filling the Sichuan basin, mist on the Li, a clear
   plateau. Slabs and billboards, not a simulation.
-- **A palette per scene.** Elevation and slope drive it, tinted by the scene:
-  ochre for the loess, orange for the dunes, tan and turquoise for the
-  plateau. Land cover from ESA WorldCover is the version-2 upgrade if time
-  allows; it is not required for launch.
+- **The ground's own colour.** Every tile the film can see is coloured from
+  a cloud-free satellite mosaic (EOX's Sentinel-2 cloudless 2016, CC BY 4.0),
+  so the forest is where the forest is and the loess the colour of loess.
+  A palette per scene, driven by elevation and slope, stays beneath it: it
+  paints steep rock the mosaic, photographed from above, can only smear, and
+  any tile without colour.
 - **Water with light in it.** Specular sun on the river, a colour that reads
   as depth in the lakes.
 - **A snow line** by elevation and latitude.

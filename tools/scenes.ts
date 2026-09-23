@@ -27,10 +27,16 @@ import { VIEW_RADIUS_TILES } from "../engine/src/terrain/terrain.js";
 import { deltaPlanes } from "../engine/src/terrain/tileCodec.js";
 import type { TileIndex } from "../engine/src/terrain/tileStream.js";
 import type { WorldManifest } from "../engine/src/terrain/tileSource.js";
+import { colourProblem, type ColourIndex } from "../engine/src/terrain/colour.js";
+import { colourFile } from "../engine/src/film/pack.js";
 import { formatProblems, loadFilm } from "./film.ts";
 
-/** The whole film, packs and the files read before them, on the wire (plan v2, stage 4). */
-export const FILM_BUDGET_BYTES = 30_000_000;
+/**
+ * The whole film, packs and the files read before them, on the wire (plan
+ * v2, stage 4). 30 MB until the ground took its colour from the satellite
+ * mosaic; raised to 300 MB for it (D87).
+ */
+export const FILM_BUDGET_BYTES = 300_000_000;
 const WORLD = "china";
 const WORLD_DIR = `dist-world/${WORLD}`;
 const OUT = "dist-film";
@@ -65,6 +71,19 @@ for (const dir of HERO_DIRS) {
   }
 }
 
+// The ground's colour (F87), when it has been cut: a file a tile, packed with the tile.
+const colourPath = `${WORLD_DIR}/colour/index.json`;
+const colour = existsSync(colourPath) ? json<ColourIndex>(colourPath) : null;
+if (colour && colourProblem(colour)) {
+  console.error(`${colourPath}: ${colourProblem(colour)}`);
+  process.exit(1);
+}
+if (!colour) console.warn(`no ground colour under ${WORLD_DIR}/colour: the packs carry the palette alone (\`make colour\`)`);
+const colourBytes = (name: string) => ({
+  name: colourFile(name),
+  bytes: new Uint8Array(readFileSync(`${WORLD_DIR}/colour/files/${name}.webp`)),
+});
+
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(`${OUT}/packs`, { recursive: true });
 
@@ -76,6 +95,7 @@ for (const dir of HERO_DIRS) {
   if (!existsSync(path)) continue;
   shared.push(`${dir}/index.json`, ...json<HeroIndex>(path).areas.map((a) => `${dir}/${a.file}`));
 }
+if (colour) shared.push("colour/index.json");
 let sharedBytes = 0;
 for (const file of shared) {
   const to = join(OUT, "world", WORLD, file);
@@ -93,6 +113,8 @@ interface PackRow {
   readonly tiles: number[];
   readonly files: number;
   readonly hero: { dir: string; area: string; bytes: number } | null;
+  /** Of `bytes`, the ground's colour (F87). */
+  readonly colourBytes: number;
 }
 
 const rows: PackRow[] = [];
@@ -100,6 +122,8 @@ for (const scene of film.scenes) {
   const rail = buildRail(scene.rail);
   const keys = [...sceneTiles(rail, TILE_KM * 1000, VIEW_RADIUS_TILES)].sort((a, b) => a - b);
   const names = new Set<string>();
+  const colours = new Set<string>();
+  let uncoloured = 0;
   const tiles: number[] = [];
   for (const key of keys) {
     const [tx, ty] = tileOfKey(key);
@@ -111,8 +135,27 @@ for (const scene of film.scenes) {
     if (name) names.add(name);
     const water = index.water?.names[i];
     if (water) names.add(water);
+    // Sea tiles have no heights file and are drawn all the same, so their colour is packed too.
+    if (colour) {
+      const c = colour.country[`${tx}_${ty}`];
+      if (c) colours.add(c);
+      else uncoloured++;
+    }
   }
-  const files = [...names].sort().map((name) => ({ name, bytes: new Uint8Array(readFileSync(`${WORLD_DIR}/tiles/${name}.bin`)) }));
+  if (scene.hero && colour) {
+    const area = colour.hero[scene.hero];
+    if (area) {
+      for (const c of area.tiles) if (c) colours.add(c);
+    } else {
+      uncoloured++;
+    }
+  }
+  if (uncoloured > 0) console.warn(`${scene.id}: ${uncoloured} tiles or hero areas without colour; they fly in the palette`);
+  const files = [
+    ...[...names].sort().map((name) => ({ name, bytes: new Uint8Array(readFileSync(`${WORLD_DIR}/tiles/${name}.bin`)) })),
+    ...[...colours].sort().map(colourBytes),
+  ];
+  const colourTotal = files.filter((f) => f.name.endsWith(".webp")).reduce((n, f) => n + f.bytes.length, 0);
 
   let hero: Parameters<typeof writePack>[3] = null;
   let heroBytes = 0;
@@ -149,6 +192,7 @@ for (const scene of film.scenes) {
     tiles,
     files: files.length,
     hero: hero && { dir: hero.dir, area: hero.area, bytes: heroBytes },
+    colourBytes: colourTotal,
   });
 }
 
@@ -176,7 +220,8 @@ console.log(`${OUT}/: ${rows.length} packs, ${mb(packBytes)}; read before them $
 for (const r of rows) {
   console.log(
     `  ${r.id.padEnd(26)} ${mb(r.bytes).padStart(9)}  ${String(r.tiles.length / 2).padStart(4)} tiles  ${String(r.files).padStart(4)} files  ` +
-      `reach ${r.reachKm} km${r.hero ? `  hero ${r.hero.area} ${mb(r.hero.bytes)}` : ""}`,
+      `reach ${r.reachKm} km${r.hero ? `  hero ${r.hero.area} ${mb(r.hero.bytes)}` : ""}` +
+      (r.colourBytes > 0 ? `  colour ${mb(r.colourBytes)}` : ""),
   );
 }
 if (totalBytes > FILM_BUDGET_BYTES) {

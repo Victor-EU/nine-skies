@@ -13,10 +13,10 @@ inherits; their numbering continues here rather than starting again.
 | 1 — The cut | **Done.** Version 1 deleted, `engine/src/film` and the shell written, `npm run check` green. | F75 |
 | 2 — Rough cut | **Done.** Nine rails, 18:00 to the frame, every rail in its band. Huangshan opens; the steppe ends at Heaven Lake. | F77, F79 |
 | 3 — The look | **Built, not done.** Nine stills; every station under 4 ms of GPU at 1080p on an M3 with FXAA. Open: an M1 and an iPhone measured (`?frametime` is the phone's tool). | F78–F83 |
-| 4 — Delivery | **Done.** Nine packs, 16.4 MB with what is read before them; no tile fetched outside them; the build ships them. First frame on a phone over 4G is arithmetic, not measured. | F84 |
+| 4 — Delivery | **Done.** Nine packs, 16.4 MB with what is read before them (55.8 MB since the colour, F87); no tile fetched outside them; the build ships them. First frame on a phone over 4G is arithmetic, not measured. | F84 |
 | 5 — Text, sound, credits | **Text and credits done**, every figure in metric and imperial. **No sound**: a stand-in and a synthesised wind were both rejected, and all of it is to be found on the web (D85). | — |
 | 6 — Launch | Not started. | |
-| 7 — Detail | **Started.** The data researched; the terrain lit smooth (D86), which takes the facets out of every scene. Next: colour, sub-grid detail, the 1 km ground's silhouettes. | F86 |
+| 7 — Detail | **Started.** The terrain lit smooth (D86); the ground coloured from the 2016 Sentinel-2 mosaic, 55.8 MB of the 300 D87 allows. Next: a cloud-free composite for the southern gorges, finer colour where the camera is low, sub-grid detail. | F86, F87 |
 
 Stages 0 to 4 and most of 3 and 5 took one day against five and a half
 weeks planned.
@@ -82,6 +82,11 @@ Everything else in the repository served the version-1 game and goes.
   reversing version 1's D3. Flat facets were that game's art direction;
   over a 1 km grid they drew the country as bricks a kilometre wide, and
   the film is to look like the place (F86).
+- **D87** The film may be up to 300 MB on the wire, not 30, so that the
+  ground can be coloured from a satellite mosaic (decided 24 September
+  2026). What D79 buys is unchanged: each scene's pack, the next one
+  fetched during the current one. What the size costs is written where it
+  falls: a longer wait for the first pack, and the host (stage 6).
 
 
 ## What each part of the repository becomes
@@ -243,7 +248,10 @@ author's.
 ### Stage 6 — Launch (2 days)
 
 Create the public GitHub repository (there is no remote today), CI on `main`,
-the static host (GitHub Pages or Cloudflare Pages; both are fine for 30 MB),
+the static host (GitHub Pages or Cloudflare Pages; at up to 300 MB (D87),
+GitHub Pages' 1 GB site limit holds but its soft 100 GB a month is a few
+hundred to a thousand full viewings, and Cloudflare Pages has no bandwidth
+limit but refuses a file over 25 MiB, so a pack past that is split),
 the README rewritten for the film, `docs/findings.md` opened with what the
 build measured, and the link published.
 
@@ -268,7 +276,7 @@ because it is tuning, not structure.
   at again where it turns hills into spikes.
 
 Done when the nine stills are re-taken beside the current ones and signed
-off, and the frame cost and the 30 MB still hold, or are revised with the
+off, and the frame cost and the budget (300 MB, D87) still hold, or are revised with the
 reason written down.
 
 **Calendar:** seven to nine weeks of one person's time with Claude, so a
@@ -290,7 +298,7 @@ New, four of them, none needing a world or a GPU:
 
 - Every scene is 120 s and the film is 18:00 to the frame.
 - Every pack holds every tile its rail and its heading corridor can stream,
-  and the film is under 30 MB.
+  and the film is under its budget (30 MB, 300 MB since D87).
 - Text: fewer than forty lines, none over twelve words, a title on every
   scene, characters on every title.
 - Every scene names a hero grid that is built or none, an hour with a sun,

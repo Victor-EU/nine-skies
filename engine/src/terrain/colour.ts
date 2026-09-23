@@ -1,0 +1,198 @@
+/**
+ * The ground's colour, from a satellite mosaic (stage 7, F87).
+ *
+ * `pipeline/nineskies/imagery.py` cuts EOX's Sentinel-2 cloudless 2016
+ * mosaic onto every tile the film can see: a WebP image per tile,
+ * `COLOUR_CELLS` cells a side and one more sample, rows north to south, the
+ * same shared-edge rule as the heights. Its `index.json` names each
+ * country tile's file and each hero area's, tile by tile.
+ *
+ * This file is the index and the source that answers a lattice's "what
+ * colour is tile (i, j)?": the image, decoded and ready to upload; `NO_COLOUR`
+ * for a tile the index has none for; or null while its file is on its way.
+ * Files are kept as they came (a few tens of kB each), and decoded again if a
+ * tile evicted from the GPU comes back, because decoded images are a quarter
+ * of a megabyte each and the GPU already holds the ones on screen.
+ */
+import { FileCache, fetchBytes, type FetchBytes, type FileStats } from "./tileStream.js";
+
+export const COLOUR_INDEX_VERSION = 1;
+export const COLOUR_CODEC = "webp";
+/** Cells a side of a colour tile, whatever its lattice; samples are one more. */
+export const COLOUR_CELLS = 256;
+export const COLOUR_SAMPLES = COLOUR_CELLS + 1;
+
+export interface ColourHeroArea {
+  /** The hero lattice's directory: `hero` or `hero-30m`. */
+  readonly lattice: string;
+  readonly window: { readonly hx0: number; readonly hy0: number; readonly hx1: number; readonly hy1: number };
+  /** One file a tile, rows south to north and west to east within a row. */
+  readonly tiles: readonly string[];
+}
+
+export interface ColourIndex {
+  readonly version: number;
+  readonly codec: string;
+  readonly cells: number;
+  readonly samples: number;
+  readonly rows: string;
+  readonly source: {
+    readonly layer: string;
+    readonly year: number;
+    readonly attribution: string;
+    readonly licence: string;
+    readonly licenceUrl: string;
+  };
+  /** Country tiles by `tx_ty`. */
+  readonly country: Readonly<Record<string, string>>;
+  /** Hero areas by id. */
+  readonly hero: Readonly<Record<string, ColourHeroArea>>;
+}
+
+/** Why an index cannot colour this engine's ground, or null when it can. */
+export function colourProblem(index: ColourIndex): string | null {
+  if (index.version !== COLOUR_INDEX_VERSION) return `colour index version ${index.version}, the engine reads ${COLOUR_INDEX_VERSION}`;
+  if (index.codec !== COLOUR_CODEC) return `colour is coded ${index.codec}, the engine reads ${COLOUR_CODEC}`;
+  if (index.cells !== COLOUR_CELLS || index.samples !== COLOUR_SAMPLES) {
+    return `colour tiles are ${index.samples} samples, the engine draws ${COLOUR_SAMPLES}`;
+  }
+  if (index.rows !== "north to south") return `colour rows run ${index.rows}`;
+  return null;
+}
+
+/** A decoded colour tile: whatever `texSubImage3D` takes, and how to let it go. */
+export interface ColourImage {
+  readonly width: number;
+  readonly height: number;
+  readonly source: TexImageSource | Uint8Array;
+  close(): void;
+}
+
+/** A tile the index has no colour for: it keeps the palette. */
+export const NO_COLOUR: unique symbol = Symbol("no colour");
+
+export type ColourAnswer = ColourImage | typeof NO_COLOUR | null;
+
+/** What a lattice asks its colour: tile (i, j) of its own grid. */
+export type ColourProvider = (i: number, j: number) => ColourAnswer;
+
+export type DecodeColour = (bytes: Uint8Array) => Promise<ColourImage>;
+
+/** The browser's decoder: no colour management, no premultiplying, rows as stored. */
+export async function decodeColourImage(bytes: Uint8Array): Promise<ColourImage> {
+  const blob = new Blob([bytes as BlobPart], { type: "image/webp" });
+  const bitmap = await createImageBitmap(blob, {
+    colorSpaceConversion: "none",
+    premultiplyAlpha: "none",
+    imageOrientation: "none",
+  });
+  return { width: bitmap.width, height: bitmap.height, source: bitmap, close: () => bitmap.close() };
+}
+
+export async function loadColourIndex(url: string, fetch: FetchBytes = fetchBytes): Promise<ColourIndex | null> {
+  try {
+    const index = JSON.parse(new TextDecoder().decode(await fetch(url))) as ColourIndex;
+    const problem = colourProblem(index);
+    if (problem) {
+      console.warn(`ground colour passed over: ${problem}`);
+      return null;
+    }
+    return index;
+  } catch {
+    return null;
+  }
+}
+
+/** Every file a hero area's colour is, by tile. */
+function heroNames(area: ColourHeroArea): Map<string, string> {
+  const out = new Map<string, string>();
+  const w = area.window;
+  let k = 0;
+  for (let hy = w.hy0; hy < w.hy1; hy++) {
+    for (let hx = w.hx0; hx < w.hx1; hx++) {
+      const name = area.tiles[k++];
+      if (name) out.set(`${hx},${hy}`, name);
+    }
+  }
+  return out;
+}
+
+export class ColourSource {
+  private readonly files: FileCache<Uint8Array>;
+  /** Decoded and not yet taken. */
+  private readonly decoded = new Map<string, ColourImage>();
+  private readonly decoding = new Set<string>();
+  /** Files that would not decode: their tiles keep the palette. */
+  private readonly broken = new Set<string>();
+  /** Names by lattice, then by `i,j`. */
+  private readonly names = new Map<string, Map<string, string>>();
+  readonly stats: FileStats = { files: 0, bytes: 0, failures: 0, lastError: "" };
+  decodes = 0;
+
+  constructor(
+    readonly index: ColourIndex,
+    /** Where the files are: `<base>/<name>.webp`. */
+    private readonly baseUrl: string,
+    fetch: FetchBytes = fetchBytes,
+    private readonly decode: DecodeColour = decodeColourImage,
+    nowMs: () => number = () => performance.now(),
+  ) {
+    this.files = new FileCache((name) => `${this.baseUrl}/${name}.webp`, fetch, async (b) => b, nowMs, this.stats);
+    const country = new Map<string, string>();
+    for (const [key, name] of Object.entries(index.country)) country.set(key.replace("_", ","), name);
+    this.names.set("country", country);
+    for (const area of Object.values(index.hero)) {
+      const lattice = this.names.get(area.lattice) ?? new Map<string, string>();
+      for (const [key, name] of heroNames(area)) lattice.set(key, name);
+      this.names.set(area.lattice, lattice);
+    }
+  }
+
+  /** Every file a lattice's tile is, for the scene packs to know their own. */
+  nameOf(lattice: string, i: number, j: number): string | null {
+    return this.names.get(lattice)?.get(`${i},${j}`) ?? null;
+  }
+
+  /** Files on their way, or being decoded. */
+  get pending(): number {
+    return this.files.pending + this.decoding.size;
+  }
+
+  /** The source a lattice asks: `country`, `hero` or `hero-30m`. */
+  provider(lattice: string): ColourProvider | null {
+    const names = this.names.get(lattice);
+    if (!names) return null;
+    return (i, j) => {
+      const name = names.get(`${i},${j}`);
+      return name && !this.broken.has(name) ? this.take(name) : NO_COLOUR;
+    };
+  }
+
+  /**
+   * The decoded image, handed over once: the caller uploads it and closes
+   * it. Null while it is being fetched or decoded.
+   */
+  private take(name: string): ColourImage | null {
+    const ready = this.decoded.get(name);
+    if (ready) {
+      this.decoded.delete(name);
+      return ready;
+    }
+    if (this.decoding.has(name)) return null;
+    const bytes = this.files.get(name);
+    if (!bytes) return null;
+    this.decoding.add(name);
+    this.decode(bytes)
+      .then((image) => {
+        this.decodes++;
+        this.decoded.set(name, image);
+      })
+      .catch((error: unknown) => {
+        this.broken.add(name);
+        this.stats.failures++;
+        this.stats.lastError = error instanceof Error ? error.message : String(error);
+      })
+      .finally(() => this.decoding.delete(name));
+    return null;
+  }
+}

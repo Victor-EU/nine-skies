@@ -15,12 +15,14 @@ npm run dev                       # the film, with the world under dist-world/ch
 then in the browser console, scene by scene (`i` is the scene's index from 0):
 
 ```
-__ns.hold(i, 60); await __ns.still("0N-<id>", 1280, 720)   // 20 for scene 1, 108 for scene 6
+__ns.hold(i, 60); await __ns.settled(); await __ns.still("0N-<id>", 1280, 720)   // 20 for scene 1, 108 for scene 6
 ```
 
-Give a hold ten seconds after a jump before taking the still: the hero
-tiles have to land, and a still taken over unloaded ground has the camera
-at the band's floor over nothing (F81).
+`__ns.settled()` waits until the ground in view has landed whole - heights,
+water and colour - and stayed so for two seconds. A still taken before that
+is of whatever had arrived: the camera at the band's floor over nothing
+(F81), or, with the browser pane hidden and frames throttled, sky alone
+(F87).
 
 A still is re-taken whenever the look or the scene changes, and committed
 beside the change, so the look cannot drift without a diff. The frame-cost

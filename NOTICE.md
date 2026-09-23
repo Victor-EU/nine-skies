@@ -36,6 +36,24 @@ vectors`. Stage 3 carves the rivers into every world `make world` builds and
 keeps the lakes at their level (`make carve`), on the 90 m hero areas as well
 as the country grid, so the elevation above is also made with Natural Earth. It is in the public domain and asks for no credit.
 
+## The ground's colour — EOxCloudless 2016
+
+The colour of the ground in the film — every colour tile `make colour` cuts
+into `dist-world/<world>/colour/`, the scene packs that carry them, and the
+stills rendered from them — is cut from EOX's Sentinel-2 cloudless mosaic of
+2016, reprojected, cleared of cloud and re-encoded:
+
+> EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains
+> modified Copernicus Sentinel data 2016), released under the Creative
+> Commons Attribution 4.0 International License
+
+The licence is CC BY 4.0, <https://creativecommons.org/licenses/by/4.0/>:
+anyone may share and adapt the tiles, with that credit, a link to the
+licence, and a note that they were changed. They were: reprojected to the
+film's Albers grid, cloud flecks filled from the ground around them, and
+re-encoded as WebP. Later years of the mosaic are CC BY-NC-SA 4.0 and are
+not used (F87).
+
 ## Music and sound
 
 Nine cues, one a scene, and a bed of wind, each licensed or commissioned

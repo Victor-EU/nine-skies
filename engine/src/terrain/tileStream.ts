@@ -207,7 +207,7 @@ export interface FileStats {
  * missing file, and a hole that stays for the rest of a session is the one
  * thing this must not turn a network blip into.
  */
-class FileCache<T> {
+export class FileCache<T> {
   private readonly ready = new Map<string, T>();
   private readonly inFlight = new Map<string, Promise<T | null>>();
   private readonly failed = new Map<string, { atMs: number; waitMs: number }>();

@@ -19,6 +19,7 @@ import { DEFAULT_HAZE_DENSITY_PER_M, HAZE_SCALE_HEIGHT_M } from "../../engine/sr
 import { LookRig } from "../../engine/src/look/look.js";
 import { SyntheticTileSource, loadWorld, type LoadedWorld } from "../../engine/src/terrain/tileSource.js";
 import { StreamingTileSource } from "../../engine/src/terrain/tileStream.js";
+import { ColourSource, loadColourIndex } from "../../engine/src/terrain/colour.js";
 import { loadHeroCovers, type HeroCover } from "../../engine/src/terrain/heroSource.js";
 import { WorldCoverage } from "../../engine/src/terrain/coverage.js";
 import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
@@ -40,7 +41,7 @@ import { LEAD_IN_S, Timeline, type TimelinePosition } from "../../engine/src/fil
 import { FILM_VERSION, buildRail, railAtKm, type BuiltRail, type Film, type Scene } from "../../engine/src/film/scene.js";
 import { RailFlight, type RailState } from "../../engine/src/film/rail.js";
 import { AltitudeController } from "../../engine/src/film/altitude.js";
-import { captureFrameCost, frameCostTable, BUDGET_FOV_DEG } from "./frameCost.js";
+import { captureFrameCost, frameCostTable, quietFrame, BUDGET_FOV_DEG } from "./frameCost.js";
 import { FrameClock, formatSummary } from "./frameTime.js";
 import { ScenePacks, loadPackIndex } from "./packs.js";
 import { SoundTrack } from "./sound.js";
@@ -121,6 +122,12 @@ if (world) {
     console.error("hero cover failed to load; flying the country grid alone", error);
   }
 }
+// The ground's colour (F87): the satellite mosaic cut onto every tile the
+// film can see. Its files come with the scene packs; without packs, one at a time.
+const colourIndex = world ? await loadColourIndex(`/world/${worldName}/colour/index.json`) : null;
+const colour = colourIndex
+  ? new ColourSource(colourIndex, `/world/${worldName}/colour/files`, packs?.fetchTile)
+  : null;
 if (!world && film)
   notice(
     `No built world at <code>dist-world/${worldName}</code>: flying the stand-in. ` +
@@ -133,9 +140,10 @@ const terrain = new Terrain({
   layers: 256,
   source: world?.source ?? new SyntheticTileSource(),
   heroes,
+  colour,
 });
 for (const mesh of terrain.meshes) scene.add(mesh);
-if (packed) packs.attach(streamed.index, heroes);
+if (packed) packs.attach(streamed.index, heroes, colourIndex);
 
 const horizonField = world
   ? HorizonField.fromData(
@@ -369,6 +377,7 @@ function placeAt(
   pitchDeg = film?.scenes[Math.max(0, current)]?.pitchDeg ?? 6,
 ): void {
   const eye = terrain.update(eastM, northM, altitudeM);
+  terrain.uploadColour(renderer);
   if (horizon.update(eastM, northM, altitudeM)) ring.rebuild(scale);
   ring.update(terrain.toWorld(horizon.front.eastM, horizon.front.northM, horizon.front.altitudeM), eye);
 
@@ -659,6 +668,22 @@ if (import.meta.env.DEV) {
       };
     },
     /**
+     * Resolves once the ground in view has landed whole - heights, water and
+     * colour - and stayed so for two seconds, or after `limitMs` with false.
+     * A still taken before this is of whatever had arrived (F81, F87).
+     */
+    async settled(limitMs = 45_000): Promise<boolean> {
+      const start = performance.now();
+      let quietSince: number | null = null;
+      while (performance.now() - start < limitMs) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        if (quietFrame(terrain.stats)) quietSince ??= performance.now();
+        else quietSince = null;
+        if (quietSince !== null && performance.now() - quietSince >= 2000) return true;
+      }
+      return false;
+    },
+    /**
      * Hold scene `i` at `flightS` seconds into its flight, on the rail in
      * auto, for a still that any build can take again (D77). An `hour`
      * overrides the scene's, to try a light before it is written down.
@@ -773,6 +798,15 @@ if (import.meta.env.DEV) {
     frameCostTable,
     /** The scene packs: `__ns.packs.stats.misses` is tiles fetched outside them. */
     packs,
+    /** The ground's colour (F87): `__ns.colour.stats`, `__ns.colour.decodes`. */
+    colour,
+    /** Grade the mosaic live: `__ns.imagery([gain, saturation, rock share, snow share], [r, g, b])`. */
+    imagery: (v: [number, number, number, number], tint?: [number, number, number]) => {
+      for (const m of terrain.lookMaterials) {
+        m.uniforms.uImagery?.value.set(...v);
+        if (tint) m.uniforms.uImageryTint?.value.set(...tint);
+      }
+    },
     sound: soundTrack,
   };
 }

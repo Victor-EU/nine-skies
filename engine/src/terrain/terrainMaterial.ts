@@ -11,6 +11,7 @@ import {
 import { MIST_GLSL, NOISE_GLSL, SHADOW_GLSL, SKY_GLSL, TIME_GLSL } from "../look/glsl.js";
 import { lookUniformDefaults } from "../look/uniforms.js";
 import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
+import { COLOUR_CELLS, COLOUR_SAMPLES } from "./colour.js";
 
 /**
  * Terrain shader (build plan D3 and D12; design v2, "The look").
@@ -43,22 +44,61 @@ import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
  * The output is linear: the post pass (`look/post.ts`) grades it.
  */
 
+/** Where in its tile a fragment is, for the water and the colour, which read layers of their own. */
+const TEXEL_VERTEX_INPUTS = /* glsl */ `
+out vec2 vTexel;
+flat out float vLayer;`;
+
+const TEXEL_VERTEX_BODY = /* glsl */ `
+  vTexel = aTexel;
+  vLayer = iLayer;`;
+
+const TEXEL_FRAGMENT_INPUTS = /* glsl */ `
+in vec2 vTexel;
+flat in float vLayer;`;
+
 /** What the water layer adds to each stage, when there is one (F72). */
 const WATER_VERTEX_INPUTS = /* glsl */ `
 in float iWater;
-out vec2 vTexel;
-flat out float vLayer;
 flat out float vWater;`;
 
 const WATER_VERTEX_BODY = /* glsl */ `
-  vTexel = aTexel;
-  vLayer = iLayer;
   vWater = iWater;`;
 
 const WATER_FRAGMENT_INPUTS = /* glsl */ `
-in vec2 vTexel;
-flat in float vLayer;
 flat in float vWater;`;
+
+/** What the ground's colour adds (F87). */
+const COLOUR_VERTEX_INPUTS = /* glsl */ `
+in float iColour;
+flat out float vColour;`;
+
+const COLOUR_VERTEX_BODY = /* glsl */ `
+  vColour = iColour;`;
+
+/**
+ * The mosaic at a fragment. Colour tiles are `COLOUR_SAMPLES` a side with
+ * sample 0 on the tile's west and north edges, so a tile-local position
+ * maps to the middle of the edge texels, and rows run north to south, so
+ * the tile's v is flipped. Graded: the mosaic's colours are a map's, and the
+ * film's light is its own (`uImagery`: gain, saturation; `uImageryTint`,
+ * a white balance, since the mosaic's greens lean to blue).
+ */
+const COLOUR_FRAGMENT_INPUTS = /* glsl */ `
+precision highp sampler2DArray;
+uniform sampler2DArray uColour;
+uniform float uTileTexels;
+uniform vec4 uImagery;
+uniform vec3 uImageryTint;
+flat in float vColour;
+
+vec3 imageryAt(vec2 texel, float layer) {
+  vec2 uv = texel / uTileTexels;
+  vec2 st = vec2(uv.x, 1.0 - uv.y) * (${COLOUR_CELLS.toFixed(1)} / ${COLOUR_SAMPLES.toFixed(1)}) + 0.5 / ${COLOUR_SAMPLES.toFixed(1)};
+  vec3 c = texture(uColour, vec3(st, layer)).rgb;
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  return max(mix(vec3(l), c, uImagery.y), 0.0) * uImagery.x * uImageryTint;
+}`;
 
 // A tile whose water has landed. Flat per instance, so every fragment of a
 // triangle takes the same branch and the derivatives inside it hold.
@@ -107,7 +147,7 @@ vec3 groundNormal(ivec2 t, float here) {
   return normalize(vec3(-dx, 1.0, -dz));
 }`;
 
-const vertexShader = (water: boolean, normals: boolean): string => /* glsl */ `
+const vertexShader = (water: boolean, normals: boolean, colour: boolean): string => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp isampler2DArray;
@@ -116,7 +156,9 @@ in vec2 aTexel;
 in float aSkirt;
 in vec2 iOrigin;
 in float iLayer;
+${water || colour ? TEXEL_VERTEX_INPUTS : ""}
 ${water ? WATER_VERTEX_INPUTS : ""}
+${colour ? COLOUR_VERTEX_INPUTS : ""}
 
 uniform isampler2DArray uHeights;
 uniform float uTileWorldSize;
@@ -144,7 +186,9 @@ void main() {
   vWorld = world;
   vElevation = elevationM;
 ${normals ? "  vNormal = groundNormal(ivec2(aTexel), elevationM);" : ""}
+${water || colour ? TEXEL_VERTEX_BODY : ""}
 ${water ? WATER_VERTEX_BODY : ""}
+${colour ? COLOUR_VERTEX_BODY : ""}
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
 `;
@@ -158,6 +202,16 @@ ${water ? WATER_VERTEX_BODY : ""}
  * rather than quietly dropping the ninth.
  */
 export const MAX_CUT_RECTS = 8;
+
+/**
+ * How the mosaic is graded into the film's light (F87): gain, saturation,
+ * then the share of the palette's rock laid on steep ground and of its snow
+ * above the line. Set against the nine stills.
+ */
+export const DEFAULT_IMAGERY: readonly [number, number, number, number] = [1.4, 1.05, 0.5, 0.0];
+
+/** The mosaic's white balance in the film's light: its greens lean to blue (F87). */
+export const DEFAULT_IMAGERY_TINT: readonly [number, number, number] = [1.1, 1.0, 0.78];
 
 const cutUniforms = (maxCuts: number): string =>
   maxCuts === 0
@@ -205,6 +259,19 @@ const cutBody = (maxCuts: number): string =>
   }
 `;
 
+// The mosaic in place of the palette where the tile has its colour. It
+// photographed the rock and the snow, so the palette's are only laid over it
+// where the relief is steeper than a photograph from above can show - a
+// cliff is a smear of a few texels - and not at all for snow (`uImagery`:
+// the rock's share, the snow's). Flat per instance, so the texture read's
+// derivatives hold.
+const COLOUR_FRAGMENT_BODY = /* glsl */ `
+  if (vColour > 0.5) {
+    base = imageryAt(vTexel, vLayer);
+    rock *= uImagery.z;
+    snow *= uImagery.w;
+  }`;
+
 // The ground's normal, interpolated from its vertices (header).
 const SMOOTH_NORMAL = /* glsl */ `
   vec3 n = normalize(vNormal);`;
@@ -219,6 +286,7 @@ const fragmentShader = (
   waterSamples: number,
   palette: ScenePalette,
   smooth: boolean,
+  colour: boolean,
 ): string => /* glsl */ `
 precision highp float;
 precision highp int;
@@ -227,7 +295,9 @@ precision highp usampler2DArray;
 in vec3 vWorld;
 in float vElevation;
 ${smooth ? "in vec3 vNormal;" : ""}
+${waterSamples > 0 || colour ? TEXEL_FRAGMENT_INPUTS : ""}
 ${waterSamples > 0 ? WATER_FRAGMENT_INPUTS : ""}
+${colour ? COLOUR_FRAGMENT_INPUTS : ""}
 
 uniform vec3 uSunColor;
 uniform float uHazeDensity;
@@ -259,8 +329,10 @@ ${smooth ? SMOOTH_NORMAL : FLAT_NORMAL}
   // Steep ground reads as rock wherever it is; snow lies where the ground
   // can hold it, above the scene's line.
   float slope = 1.0 - clamp(n.y, 0.0, 1.0);
-  base = mix(base, srgbToLinear(ROCK_SRGB), smoothstep(ROCK_FROM, ROCK_TO, slope));
+  float rock = smoothstep(ROCK_FROM, ROCK_TO, slope);
   float snow = smoothstep(SNOW_LINE_M - 400.0, SNOW_LINE_M + 300.0, vElevation) * (1.0 - smoothstep(0.55, 0.85, slope));
+${colour ? COLOUR_FRAGMENT_BODY : ""}
+  base = mix(base, srgbToLinear(ROCK_SRGB), rock);
   base = mix(base, srgbToLinear(SNOW_SRGB), snow);
 
   float shadow = sunShadow(vWorld, n, sun);
@@ -285,6 +357,7 @@ interface Recipe {
   readonly kind: "terrain" | "rim";
   readonly maxCuts: number;
   readonly waterSamples: number;
+  readonly colour: boolean;
 }
 
 export interface TerrainUniformValues {
@@ -301,6 +374,11 @@ export interface TerrainUniformValues {
   hazeHeightFalloff: number;
   /** The scene's colours; the default until a scene names its own. */
   palette?: ScenePalette;
+  /**
+   * The ground's colour layers (F87), one beside each height layer. Absent
+   * compiles a shader with the palette alone.
+   */
+  colour?: import("three").DataArrayTexture;
   /**
    * The water layer (F72): the array beside the heights, and what its bytes
    * mean. Absent compiles a shader with no water in it.
@@ -349,15 +427,24 @@ export function createTerrainMaterial(
         uWaterRibbonMaxM: { value: water.ribbonMaxM ?? NO_RIBBON_CAP_M },
       }
     : {};
-  const recipe: Recipe = { kind: "terrain", maxCuts, waterSamples: water?.samples ?? 0 };
+  const recipe: Recipe = { kind: "terrain", maxCuts, waterSamples: water?.samples ?? 0, colour: values.colour !== undefined };
+  const colourUniforms = values.colour
+    ? {
+        uColour: { value: values.colour },
+        uTileTexels: { value: heights.image.width - 1 },
+        uImagery: { value: new Vector4(...DEFAULT_IMAGERY) },
+        uImageryTint: { value: new Vector3(...DEFAULT_IMAGERY_TINT) },
+      }
+    : {};
   const material = new ShaderMaterial({
     glslVersion: GLSL3,
-    vertexShader: vertexShader(water !== undefined, true),
-    fragmentShader: fragmentShader(maxCuts, recipe.waterSamples, values.palette ?? DEFAULT_PALETTE, true),
+    vertexShader: vertexShader(water !== undefined, true, recipe.colour),
+    fragmentShader: fragmentShader(maxCuts, recipe.waterSamples, values.palette ?? DEFAULT_PALETTE, true, recipe.colour),
     uniforms: {
       ...lookUniformDefaults(),
       ...cuts,
       ...waterUniforms,
+      ...colourUniforms,
       uHeights: { value: heights },
       uTileWorldSize: { value: values.tileWorldSize },
       uVerticalExaggeration: { value: values.verticalExaggeration },
@@ -380,7 +467,7 @@ export function setTerrainPalette(material: ShaderMaterial, palette: ScenePalett
   const recipe = material.userData.recipe as Recipe | undefined;
   if (!recipe) throw new Error("not a terrain material");
   const terrain = recipe.kind === "terrain";
-  material.fragmentShader = fragmentShader(terrain ? recipe.maxCuts : 0, recipe.waterSamples, palette, terrain);
+  material.fragmentShader = fragmentShader(terrain ? recipe.maxCuts : 0, recipe.waterSamples, palette, terrain, recipe.colour);
   material.needsUpdate = true;
 }
 
@@ -433,13 +520,13 @@ export function createRimMaterial(country: ShaderMaterial, palette: ScenePalette
   const material = new ShaderMaterial({
     glslVersion: GLSL3,
     vertexShader: rimVertexShader,
-    fragmentShader: fragmentShader(0, 0, palette, false),
+    fragmentShader: fragmentShader(0, 0, palette, false, false),
     uniforms: {
       ...lookUniformDefaults(),
       ...Object.fromEntries(SHARED_WITH_RIM.map((name) => [name, u[name]!])),
     },
   });
-  material.userData.recipe = { kind: "rim", maxCuts: 0, waterSamples: 0 } satisfies Recipe;
+  material.userData.recipe = { kind: "rim", maxCuts: 0, waterSamples: 0, colour: false } satisfies Recipe;
   return material;
 }
 
@@ -480,7 +567,7 @@ export function createDepthMaterial(source: ShaderMaterial): ShaderMaterial {
   if (recipe.maxCuts > 0) names.push("uCutRects", "uCutCount");
   return new ShaderMaterial({
     glslVersion: GLSL3,
-    vertexShader: vertexShader(false, false),
+    vertexShader: vertexShader(false, false, false),
     fragmentShader: depthFragmentShader(recipe.maxCuts),
     uniforms: Object.fromEntries(names.map((name) => [name, u[name]!])),
   });

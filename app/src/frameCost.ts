@@ -255,11 +255,13 @@ export interface SettleStats {
   readonly generatedThisFrame: number;
   readonly pending: number;
   readonly waterPending: number;
+  /** Colour images fetched, decoded or waiting for the GPU (F87); absent for a terrain without. */
+  readonly colourPending?: number;
   readonly missing: number;
 }
 
 export interface Settled {
-  /** Every tile the view wants is drawn, with its water, and nothing is arriving. */
+  /** Every tile the view wants is drawn, with its water and colour, and nothing is arriving. */
   readonly whole: boolean;
   readonly ms: number;
   readonly frames: number;
@@ -268,7 +270,13 @@ export interface Settled {
 
 /** A frame in which the world is finished: nothing missing, landing or in flight. */
 export function quietFrame(s: SettleStats): boolean {
-  return s.missing === 0 && s.pending === 0 && s.waterPending === 0 && s.generatedThisFrame === 0;
+  return (
+    s.missing === 0 &&
+    s.pending === 0 &&
+    s.waterPending === 0 &&
+    (s.colourPending ?? 0) === 0 &&
+    s.generatedThisFrame === 0
+  );
 }
 
 /**

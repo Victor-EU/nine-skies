@@ -6,6 +6,7 @@ import {
   ShortType,
   UnsignedByteType,
 } from "three";
+import { ColourLayers } from "./colourLayers.js";
 
 /**
  * Heightmap residency (build plan D4).
@@ -179,15 +180,23 @@ export class HeightTileArray {
   private readonly waterData: Uint8Array | null;
   private readonly waterState: Uint8Array;
   private readonly waterUploads: LayerUploads | null;
+  /**
+   * The ground's colour, one sRGB layer beside each height layer (F87), or
+   * null for an array made without one. Reset whenever a layer takes a new
+   * tile, the way the water's state is.
+   */
+  readonly colour: ColourLayers | null;
 
   /**
    * @param samples texels per side. The country grid's 65, or a hero grid's
    * 129 -- whatever a layer of this array holds, the whole array holds.
+   * @param colourSamples the colour layers' texels per side, or 0 for none.
    */
   constructor(
     readonly layers: number = MAX_LAYERS,
     readonly samples: number = TILE_SAMPLES,
     withWater = false,
+    colourSamples = 0,
   ) {
     const stride = samples * samples;
     this.data = new Int16Array(stride * layers);
@@ -221,6 +230,7 @@ export class HeightTileArray {
       this.water = null;
       this.waterUploads = null;
     }
+    this.colour = colourSamples > 0 ? new ColourLayers(layers, colourSamples) : null;
   }
 
   /** What the last flush sent of the heights. */
@@ -270,7 +280,10 @@ export class HeightTileArray {
     this.data.set(heights, layer * this.samples * this.samples);
     this.lastUsed[layer] = ++this.clock;
     this.uploads.mark(layer);
-    if (existing === undefined) this.waterState[layer] = WATER_ASKED;
+    if (existing === undefined) {
+      this.waterState[layer] = WATER_ASKED;
+      this.colour?.reset(layer);
+    }
     return layer;
   }
 

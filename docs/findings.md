@@ -719,3 +719,82 @@ occlusion baked from the DEM, 8 bits at 90 m, about 0.3 MB a scene;
 colour from the imagery with its own shadows divided out, or from land
 cover; noise below the grid's spacing bent into the normals, by slope
 and cover, faded with distance; and haze that turns distance blue.
+
+## F87 — The ground in its own colour, from the 2016 Sentinel-2 mosaic, 24 September 2026
+
+**The source, and the only year it can be.** EOX publishes a cloud-free
+mosaic of Sentinel-2 a year. Its tile service states each layer's licence
+(`WMTSCapabilities.xml`, read 24 September 2026): 2016 and 2017 are CC BY
+4.0; 2018 to 2025 are CC BY-NC-SA 4.0, which would bind the repository and
+the film to non-commercial share-alike terms. The 2017 layer turned out to
+be empty over China (it answers a one-band black tile at every zoom; Vienna
+has one), so the 2016 mosaic is the only one that can colour this film. The
+service charges nothing, asks for attribution and rate-limits heavy use, so
+`make colour` fetches at six tiles a second and never asks twice: 11,597
+tiles, 220 MB, cached under `data/source/`, in 33 minutes. The credit is in
+`NOTICE.md`, and so on the credits page, where a test holds it word for word.
+
+**What is cut.** Every country tile a scene pack holds (2,181 with land or
+coast) at 257 samples a side, 250 m, from zoom 10; the 90 m hero areas at
+45 m from zoom 13; the 30 m ones, Guilin and Huangshan, at 15 m from zoom
+14, near the mosaic's own 10 m. Each is reprojected onto the tile's Albers
+grid by averaging, with the heights' shared-edge rule, and written as WebP:
+38 MB for all of it, in two and a half minutes. The packs carry each
+scene's colour beside its tiles: the film is 55.8 MB, against 16.4 before
+and the 300 MB D87 allows. The Roof's pack is the largest at 12.2 MB.
+
+**Clouds.** The 2016 mosaic is one satellite's first year, and over the
+humid south it is flecked with cloud, each fleck ringed where the mosaic
+stitched round it and often shadowed beside it. The cutter finds cloud by
+what it is among: bright grey inside forest or farmland is cloud, where the
+same among rock, sand, salt or snow is ground, and above 3,500 m a pale
+patch among meadows is taken for snow. Silt and bare soil are warm and
+cloud is cool, which keeps the Yangtze from being filled. Thin haze round a
+cloud is unmixed from white; thick cloud and its shadow are filled from the
+ground round them, bilinearly down a pyramid. It fills 28 % of the Three
+Gorges, 34 % of Tiger Leaping Gorge and 35 % of Guilin, and in those three
+the fill shows as soft smudges and, at Tiger Leaping Gorge, cloud above
+3,500 m kept as snow. Everest and the Taklamakan needed none.
+
+**Taking out the mosaic's own sun** was tried and dropped: dividing by a
+hillshade of the same ground in a 10:30 sun (south-east, 55°) did not
+flatten the relief the photograph holds but printed its inverse, the slopes
+turned from that sun bleached cyan. The mosaic's baked shading is much
+weaker than a sun model predicts, and the film lights over it.
+
+**In the shader** the colour is one sRGB layer beside each height layer,
+mipmapped with anisotropic filtering, uploaded from the decoded image
+straight to the GPU with no copy on the heap (twelve a frame, so a pack's
+140 tiles paint in over a dozen frames), and drawn once uploaded; until
+then a tile flies in its palette. The grade, set against the stills: gain
+1.4, saturation 1.05, a white balance of (1.1, 1.0, 0.78), because the
+mosaic's greens read teal under the film's sky, and the palette's rock on
+half the steepest ground, where a photograph from above is a smear of a few
+texels. No palette snow over it: the photograph has the snow where it lies.
+On the GPU the colour is about 200 MB with mips: the country's 256 layers,
+90 MB; the 90 m cover's 97, 34 MB; the 30 m cover's 210, 74 MB.
+
+**The stills** (all nine re-taken). Where the camera is high and the ground
+is wide the change is the one asked for: the plateau of The Roof is tan,
+green and snow-streaked instead of a relief model, Turpan is desert with
+green oases, Heaven Lake stands in dark forest with
+its pale pumice rim, and the Himalaya carries its snow where the photograph
+has it. Where the camera is low it is less: 250 m colour under a camera a
+kilometre up is soft; steep walls smear; and the southern gorges keep the
+fill's smudges. A still taken with the browser pane hidden came out as sky
+alone, frames throttled and nothing landed, so the recipe now waits on
+`__ns.settled()`.
+
+**What it costs**, cheapest of two captures at 1920 × 1080 on the M3
+(resolution ±1.1 and ±1.3 ms), against F86: Huangshan 4.5 (3.9), the
+Three Gorges 3.6 (3.3), Karst 4.5 (4.6), the First Bend 3.7 (4.1), Loess
+2.4 (2.1), Heaven Lake 2.6 (2.4), Turpan 2.2 (1.9), The Roof 2.3 (2.1),
+The Wall 2.6 (2.3). A texture read a fragment, a few tenths of a
+millisecond, inside what the instrument resolves.
+
+**Next.** A composite of our own from Sentinel-2's archive for the southern
+hero areas, whose 2016 mosaic is a third cloud: the L2A scenes on AWS carry
+a cloud classification, and the Copernicus terms allow reproduction and
+adaptation with "Contains modified Copernicus Sentinel data [year]". Finer
+colour where the camera flies low, which the budget now allows and the GPU's
+memory decides. And detail below the colour's texel, bent into the normals.

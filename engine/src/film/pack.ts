@@ -10,6 +10,12 @@
 
 export const PACK_TAG = "NSP1";
 
+/**
+ * A colour file's name in a pack (F87): the name it is fetched by, so the
+ * packs answer its URL the way they answer a tile's.
+ */
+export const colourFile = (name: string): string => `${name}.webp`;
+
 export interface PackEntry {
   readonly name: string;
   readonly offset: number;
@@ -31,7 +37,7 @@ export interface PackHeader {
   readonly scene: string;
   /** The `heights.bin` the tiles were cut from: a pack for another world is refused. */
   readonly heightsSha256: string;
-  /** Country tiles and water files, by their name in `tiles/`. */
+  /** Country tiles and water files, by their name in `tiles/`; colour files by `colourFile`. */
   readonly files: readonly PackEntry[];
   readonly hero: PackHero | null;
 }
