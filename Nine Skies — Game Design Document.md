@@ -183,8 +183,9 @@ re-rendered on every build, so the look cannot drift without a diff.
 ## Sound
 
 Nine music cues, one per scene, and one ambient bed of wind that thins with
-altitude. Licensed or commissioned; it is not made in this repository. Launch
-without sound is worse than launch late.
+altitude. All of it is recorded sound, found and licensed from libraries on
+the web; none of it is made in this repository (D85). Launch without sound is
+worse than launch late.
 
 ## What version 1 had and this does not
 

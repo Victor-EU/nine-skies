@@ -72,6 +72,11 @@ Everything else in the repository served the version-1 game and goes.
 - **D84** No telemetry. The public's answer arrives through the repository's
   discussions and issues, linked from the credits page, and is written up in
   the findings log.
+- **D85** All the film's sound is sourced, none of it made here: the nine
+  cues and the bed of wind are recordings found and licensed from libraries
+  on the web, credited on the credits page. A wind synthesised in the
+  browser from shaped noise was built and heard on 23 September 2026 and
+  rejected as sounding like a machine; so was the stand-in before it.
 
 
 ## What each part of the repository becomes
