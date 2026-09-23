@@ -1,4 +1,5 @@
-"""Stage 11, its first part — the heights as one file per tile, so a world streams (F67).
+"""Stage 11 — the heights as one file per tile, so a world streams (F67), and the
+horizon field in the same codec (F69).
 
 `heights.bin` is every tile of a world in one file, which is how the corridor
 has always shipped: 9.8 MB, fetched once before the first frame. The country is
@@ -48,6 +49,14 @@ saving: they were all 1,044 m, the lower Tarim poured flat at Bosten Lake's
 floor (F67, F68), and since that was put right no two land tiles are the same.
 The index lists a file by its digest alone, and the engine adds the `.bin`.
 
+**The horizon field is coded the same way, as one 841 × 553 field** (F69).
+It is fetched before the first frame, and raw it was 930 kB of the 1.55 MB
+first flight cost. Coded, it is 353 kB on the country and 75 kB on the
+corridor, whose field is country-sized and mostly zeros. A 2-D predictor did
+3 % better, which is not worth a second decoder. The index names the file and
+the digest of the `horizon.bin` it was coded from, and the engine fetches the
+raw file whenever the two disagree.
+
 The index names the `heights.bin` it was cut from by digest. That file stays
 the world's authoritative form: every committed section and patch is signed
 against its digest (D23), so the package is a way of delivering it, and a
@@ -80,9 +89,13 @@ INDEX = "index.json"
 SAMPLES = grid.TILE_SAMPLES
 
 
-def delta(tile: np.ndarray) -> np.ndarray:
-    """Each sample less its west neighbour; the first column less its south one."""
-    t = tile.astype(np.int16).reshape(SAMPLES, SAMPLES)
+def delta(field: np.ndarray, width: int = SAMPLES) -> np.ndarray:
+    """Each sample less its west neighbour; the first column less its south one.
+
+    A field is rows of `width` samples, south first: a tile is 65 of 65, and
+    the horizon field 553 of 841.
+    """
+    t = field.astype(np.int16).reshape(-1, width)
     out = np.empty_like(t)
     with np.errstate(over="ignore"):
         out[:, 1:] = t[:, 1:] - t[:, :-1]
@@ -91,9 +104,9 @@ def delta(tile: np.ndarray) -> np.ndarray:
     return out
 
 
-def undelta(d: np.ndarray) -> np.ndarray:
+def undelta(d: np.ndarray, width: int = SAMPLES) -> np.ndarray:
     """The inverse, in the same wrapping arithmetic."""
-    d = d.astype(np.int16).reshape(SAMPLES, SAMPLES)
+    d = d.astype(np.int16).reshape(-1, width)
     first = np.cumsum(d[:, 0], dtype=np.int16)
     rows = d.copy()
     rows[:, 0] = first
@@ -115,12 +128,12 @@ def unplanes(data: bytes) -> np.ndarray:
     return pairs.reshape(-1).view("<i2").astype(np.int16)
 
 
-def encode(tile: np.ndarray) -> bytes:
-    return gzip.compress(planes(delta(tile)), compresslevel=9, mtime=0)
+def encode(field: np.ndarray, width: int = SAMPLES) -> bytes:
+    return gzip.compress(planes(delta(field, width)), compresslevel=9, mtime=0)
 
 
-def decode(data: bytes) -> np.ndarray:
-    return undelta(unplanes(gzip.decompress(data)))
+def decode(data: bytes, width: int = SAMPLES) -> np.ndarray:
+    return undelta(unplanes(gzip.decompress(data)), width)
 
 
 def name_for(data: bytes) -> str:
@@ -143,6 +156,36 @@ def pack(tiles: np.ndarray) -> tuple[list[str], dict[str, bytes]]:
     return names, files
 
 
+def horizon(world_dir: Path, manifest: dict) -> tuple[dict, bytes]:
+    """The horizon field in the tiles' codec, and the index's entry for it.
+
+    The entry names the digest of the raw `horizon.bin` it was coded from,
+    which the manifest also names, so a field reduced again since is seen by
+    the engine as not this package's and fetched raw.
+    """
+    entry = manifest["horizon"]
+    path = world_dir / entry["file"]
+    raw = path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != entry.get("sha256"):
+        raise SystemExit(
+            f"{path} is not the file its manifest names "
+            f"({digest[:12]} against {str(entry.get('sha256'))[:12]}); re-run `make tiles`"
+        )
+    width, height = entry["width"], entry["height"]
+    field = np.frombuffer(raw, dtype="<i2")
+    if field.size != width * height:
+        raise SystemExit(f"{path} holds {field.size} samples, manifest says {width} x {height}")
+    data = encode(field, width)
+    return {
+        "name": name_for(data),
+        "width": width,
+        "height": height,
+        "sha256": digest,
+        "bytes": len(data),
+    }, data
+
+
 def build(corridor: str, world_dir: Path | None = None) -> dict:
     world_dir = world_dir or Path(__file__).resolve().parents[2] / "dist-world" / corridor
     manifest = json.loads((world_dir / "manifest.json").read_text())
@@ -159,16 +202,18 @@ def build(corridor: str, world_dir: Path | None = None) -> dict:
         raise SystemExit(f"{heights_path} holds {len(tiles)} tiles, manifest says {manifest['heights']['tiles']}")
 
     names, files = pack(tiles)
+    horizon_entry, horizon_data = horizon(world_dir, manifest)
+    written = {**files, horizon_entry["name"]: horizon_data}
 
     out = world_dir / SUBDIR
     out.mkdir(exist_ok=True)
-    for name, data in files.items():
+    for name, data in written.items():
         path = out / f"{name}.bin"
         if not path.exists() or path.read_bytes() != data:
             path.write_bytes(data)
     # Files a previous build wrote and this one does not name. Left behind they
     # would be served forever and nothing would ever fetch them.
-    stale = [p for p in out.glob("*.bin") if p.stem not in files]
+    stale = [p for p in out.glob("*.bin") if p.stem not in written]
     for p in stale:
         p.unlink()
 
@@ -184,6 +229,7 @@ def build(corridor: str, world_dir: Path | None = None) -> dict:
         "files": len(files),
         "bytes": sum(len(d) for d in files.values()),
         "names": names,
+        "horizon": horizon_entry,
     }
     (out / INDEX).write_text(json.dumps(index, separators=(",", ":")) + "\n")
     index_bytes = (out / INDEX).stat().st_size
@@ -192,7 +238,9 @@ def build(corridor: str, world_dir: Path | None = None) -> dict:
         f"{index['bytes'] / 1e6:.2f} MB against {len(raw) / 1e6:.2f} MB of heights.bin "
         f"(mean {index['bytes'] / max(1, len(files)) / 1e3:.2f} kB); "
         f"{zeros} tiles of zeros have no file and {len(names) - zeros - len(files)} "
-        f"share one with an identical tile; index {index_bytes / 1e3:.1f} kB"
+        f"share one with an identical tile; horizon field {horizon_entry['bytes'] / 1e3:.1f} kB "
+        f"against {horizon_entry['width'] * horizon_entry['height'] * 2 / 1e3:.1f} kB raw; "
+        f"index {index_bytes / 1e3:.1f} kB"
         + (f"; {len(stale)} stale file(s) removed" if stale else "")
     )
     return index

@@ -8,7 +8,7 @@
 #   make probes                     # golden probes against what is built
 #   make hydro                      # where the water cannot go, and the river it has
 #   make carve                      # stage 3: the mapped rivers carved, the mapped lakes kept
-#   make package                    # stage 11: one file per tile, so a world streams
+#   make package                    # stage 11: one file per tile, so a world streams, and the horizon coded
 #   make sources                    # record the source raster digests
 #   make vectors                    # stage 3's river network, priced; nothing fetched
 #   make rivers                     # what the fetched rivers decide of the grid's closed basins
@@ -126,9 +126,10 @@ carve: $(PY)
 tiles: $(PY)
 	$(PIPELINE) -m nineskies.tiles --corridor $(CORRIDOR)
 
-## Stage 11, its first part: the same tiles one file each, named for what they
-## hold, so the engine fetches the ring it flies over rather than the world
-## (F67). `heights.bin` stays the authoritative form -- every section is signed
+## Stage 11: the same tiles one file each, named for what they hold, so the
+## engine fetches the ring it flies over rather than the world (F67), and the
+## horizon field in the same codec, 353 kB where it was 930 (F69).
+## `heights.bin` stays the authoritative form -- every section is signed
 ## against its digest -- and a package cut from an older one is refused by the
 ## engine, which then fetches the file. Seven seconds on the country.
 package: $(PY)

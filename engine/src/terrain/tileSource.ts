@@ -1,8 +1,11 @@
 import { TILE_SAMPLES } from "./tileArray.js";
 import { generateTile } from "./syntheticTiles.js";
+import { decodeField } from "./tileCodec.js";
 import {
   StreamingTileSource,
+  fetchBytes as fetchUrl,
   indexProblem,
+  packedHorizon,
   type FetchBytes,
   type TileIndex,
 } from "./tileStream.js";
@@ -79,6 +82,9 @@ export interface WorldManifest {
     height: number;
     sampleKm: number;
     silhouetteBias: number;
+    /** Of the raw file. Absent from worlds cut before a package named it. */
+    bytes?: number;
+    sha256?: string;
   };
   /**
    * What the source had under each published tile, one character each (F54).
@@ -160,9 +166,16 @@ export interface LoadedWorld {
   /**
    * How the heights came: one file fetched before the first frame, or a file
    * per tile as the aeroplane reaches it (F67). `refused` is why a published
-   * package was passed over for the packed file, when one was.
+   * package was passed over for the packed file, when one was. `horizonBytes`
+   * is what the horizon field cost over the wire: coded when the package
+   * names it, and raw otherwise (F69).
    */
-  delivery: { kind: "packed" | "streamed"; bytes: number; refused: string | null };
+  delivery: {
+    kind: "packed" | "streamed";
+    bytes: number;
+    refused: string | null;
+    horizonBytes: number;
+  };
 }
 
 /**
@@ -171,12 +184,16 @@ export interface LoadedWorld {
  * and says so in the HUD rather than failing to boot.
  *
  * A world with a tile package (`make package`, F67) streams: the manifest, the
- * horizon field and the package's index come before the first frame, and each
+ * package's index and the horizon field come before the first frame, and each
  * tile when the engine first asks for it. A world without one - every world
  * built before stage 11, and any whose package is stale - comes as one
  * `heights.bin`, as it always has. The package is only ever a way of
  * delivering that file, so a package that does not match it is refused and
  * the file is fetched instead.
+ *
+ * The horizon field waits for the index, because the index is what names its
+ * coded file (F69). That is one round trip more than fetching the two side by
+ * side, against 577 kB fewer on the country.
  */
 export async function loadWorld(
   baseUrl: string,
@@ -202,33 +219,30 @@ export async function loadWorld(
     return response.arrayBuffer();
   };
 
-  const [horizonBytes, index] = await Promise.all([
-    fetchBytes(manifest.horizon.file),
-    fetchIndex(`${baseUrl}/tiles/index.json`),
-  ]);
-
-  const horizonSamples = manifest.horizon.width * manifest.horizon.height;
-  if (horizonBytes.byteLength !== horizonSamples * 2) {
-    throw new Error(
-      `horizon.bin is ${horizonBytes.byteLength} bytes, manifest wants ${horizonSamples * 2}`,
-    );
-  }
-  const horizon = new Int16Array(horizonBytes);
-
+  const index = await fetchIndex(`${baseUrl}/tiles/index.json`);
   const refused = index ? indexProblem(manifest, index) : null;
-  if (index && !refused) {
+  const streamed = index && !refused ? index : null;
+  const { horizon, horizonBytes } = await loadHorizon(
+    manifest,
+    streamed,
+    baseUrl,
+    fetchBytes,
+    fetchTile,
+  );
+
+  if (streamed) {
     return {
       manifest,
       source: new StreamingTileSource(
         manifest,
-        index,
+        streamed,
         `${baseUrl}/tiles`,
         fetchTile,
         undefined,
         fallback,
       ),
       horizon,
-      delivery: { kind: "streamed", bytes: index.bytes, refused: null },
+      delivery: { kind: "streamed", bytes: streamed.bytes, refused: null, horizonBytes },
     };
   }
   if (refused) console.warn(`tile package refused, fetching heights.bin: ${refused}`);
@@ -244,8 +258,39 @@ export async function loadWorld(
     manifest,
     source: new PackedTileSource(manifest, new Int16Array(heightsBytes), fallback),
     horizon,
-    delivery: { kind: "packed", bytes: heightsBytes.byteLength, refused },
+    delivery: { kind: "packed", bytes: heightsBytes.byteLength, refused, horizonBytes },
   };
+}
+
+/**
+ * The horizon field: the package's coded file when the index names this
+ * manifest's field, and the raw `horizon.bin` otherwise, as it always was.
+ * A coded file that will not come or will not decode is not a world that
+ * failed to load - the raw one is published beside it - so it is warned
+ * about and passed over.
+ */
+async function loadHorizon(
+  manifest: WorldManifest,
+  index: TileIndex | null,
+  baseUrl: string,
+  fetchFile: (file: string) => Promise<ArrayBuffer>,
+  fetchTile: FetchBytes = fetchUrl,
+): Promise<{ horizon: Int16Array; horizonBytes: number }> {
+  const { file, width, height } = manifest.horizon;
+  const packed = index ? packedHorizon(manifest, index) : null;
+  if (packed) {
+    try {
+      const bytes = await fetchTile(`${baseUrl}/tiles/${packed.name}.bin`);
+      return { horizon: await decodeField(bytes, width, height), horizonBytes: bytes.length };
+    } catch (error) {
+      console.warn(`packed horizon field passed over, fetching ${file}: ${String(error)}`);
+    }
+  }
+  const raw = await fetchFile(file);
+  if (raw.byteLength !== width * height * 2) {
+    throw new Error(`${file} is ${raw.byteLength} bytes, manifest wants ${width * height * 2}`);
+  }
+  return { horizon: new Int16Array(raw), horizonBytes: raw.byteLength };
 }
 
 /** The package's index, or null when the world has none. */

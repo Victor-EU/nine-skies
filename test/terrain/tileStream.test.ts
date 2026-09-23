@@ -284,8 +284,66 @@ describe("loading a world", () => {
     const heights = new Uint8Array(6 * STRIDE * 2);
     serve({ "/w/manifest.json": manifest(), "/w/horizon.bin": horizon, "/w/heights.bin": heights });
     const loaded = (await loadWorld("/w"))!;
-    expect(loaded.delivery).toEqual({ kind: "packed", bytes: heights.length, refused: null });
+    expect(loaded.delivery).toEqual({
+      kind: "packed",
+      bytes: heights.length,
+      refused: null,
+      horizonBytes: horizon.length,
+    });
     expect(loaded.source).toBeInstanceOf(PackedTileSource);
+  });
+
+  /** A package whose index names a coded horizon field, and the manifest that agrees. */
+  function withHorizon() {
+    const field = Int16Array.from([100, 200, 300, 4_000, 5_000, 6_000]);
+    const coded = deltaPlanes(field, 3, 2);
+    const HSHA = "c".repeat(64);
+    const m = manifest();
+    m.horizon.sha256 = HSHA;
+    const { index } = world();
+    const packed = { ...index, horizon: { name: "hz", width: 3, height: 2, sha256: HSHA, bytes: coded.length } };
+    return { field, coded, m, packed };
+  }
+
+  it("fetches the horizon field the package names, coded, and not horizon.bin", async () => {
+    const { field, coded, m, packed } = withHorizon();
+    const asked = serve({
+      "/w/manifest.json": m,
+      "/w/tiles/index.json": packed,
+      "/w/tiles/hz.bin": coded,
+    });
+    const loaded = (await loadWorld("/w"))!;
+    expect(loaded.horizon).toEqual(field);
+    expect(loaded.delivery.horizonBytes).toBe(coded.length);
+    expect(asked).not.toContain("/w/horizon.bin");
+  });
+
+  it("fetches horizon.bin when the package's field is not the manifest's", async () => {
+    const { m, packed } = withHorizon();
+    const asked = serve({
+      "/w/manifest.json": m,
+      "/w/tiles/index.json": { ...packed, horizon: { ...packed.horizon, sha256: "d".repeat(64) } },
+      "/w/horizon.bin": horizon,
+    });
+    const loaded = (await loadWorld("/w"))!;
+    expect(loaded.delivery.kind).toBe("streamed");
+    expect(loaded.delivery.horizonBytes).toBe(horizon.length);
+    expect(asked).not.toContain("/w/tiles/hz.bin");
+  });
+
+  it("falls back to horizon.bin when the coded field will not come", async () => {
+    const { m, packed } = withHorizon();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const asked = serve({
+      "/w/manifest.json": m,
+      "/w/tiles/index.json": packed,
+      "/w/horizon.bin": horizon,
+    });
+    const loaded = (await loadWorld("/w"))!;
+    expect(asked).toContain("/w/tiles/hz.bin");
+    expect(loaded.horizon).toEqual(new Int16Array(6));
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
   });
 
   it("refuses a stale package and flies the file it was cut from", async () => {

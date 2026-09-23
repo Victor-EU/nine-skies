@@ -1,15 +1,17 @@
 /**
- * The engine's half of stage 11's codec (F67).
+ * The engine's half of stage 11's codec (F67, F69).
  *
- * `tileCodec.fixture.bin` was written by `pipeline/nineskies/package.py`, and
- * `pipeline/tests/test_package.py` decodes it to the same tile this file
- * builds. Between them the pipeline's encoder is held to the engine's decoder
- * without either suite running the other's language.
+ * `tileCodec.fixture.bin` and `fieldCodec.fixture.bin` were written by
+ * `pipeline/nineskies/package.py`, and `pipeline/tests/test_package.py`
+ * decodes them to the same tile and field this file builds. Between them the
+ * pipeline's encoder is held to the engine's decoder without either suite
+ * running the other's language.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { TILE_SAMPLES } from "../../engine/src/terrain/tileArray.js";
 import {
+  decodeField,
   decodeTile,
   deltaPlanes,
   undelta,
@@ -28,6 +30,20 @@ function knownTile(): Int16Array {
   t[N * N - 1] = 32767;
   t[32 * N] = 32767;
   t[33 * N] = -32768;
+  return t;
+}
+
+/** The field in the second fixture; `known_field()` in the Python test builds it too. */
+const FIELD_W = 9;
+const FIELD_H = 4;
+function knownField(): Int16Array {
+  const t = new Int16Array(FIELD_W * FIELD_H);
+  for (let r = 0; r < FIELD_H; r++) {
+    for (let c = 0; c < FIELD_W; c++) t[r * FIELD_W + c] = ((r * 131 + c * 71 + r * c * 3) % 9000) - 200;
+  }
+  t[0] = -32768;
+  t[FIELD_W * FIELD_H - 1] = 32767;
+  t[FIELD_W] = 32767;
   return t;
 }
 
@@ -83,8 +99,26 @@ describe("the tile codec", () => {
     expect(await decodeTile(planes, N)).toEqual(tile);
   });
 
+  it("decodes the field the pipeline wrote, wider than it is tall, the right way up", async () => {
+    const fixture = new Uint8Array(
+      readFileSync(new URL("./fieldCodec.fixture.bin", import.meta.url)),
+    );
+    expect(await decodeField(fixture, FIELD_W, FIELD_H)).toEqual(knownField());
+    // Read as if it were four wide and nine tall, it is not the same field.
+    await expect(decodeField(fixture, FIELD_H, FIELD_W)).resolves.not.toEqual(knownField());
+  });
+
+  it("round-trips a field the size of the horizon field", async () => {
+    const [w, h] = [841, 553];
+    const field = new Int16Array(w * h);
+    for (let i = 0; i < field.length; i++) field[i] = ((i * 2654435761) >>> 16) & 0xffff;
+    expect(undelta(unplanes(deltaPlanes(field, w, h)), w, h)).toEqual(field);
+    expect(await decodeField(await gzip(deltaPlanes(field, w, h)), w, h)).toEqual(field);
+  });
+
   it("refuses a file that is not a tile rather than drawing it", async () => {
     await expect(decodeTile(new Uint8Array(100), N)).rejects.toThrow(/not a 65-sample tile/);
     await expect(decodeTile(await gzip(new Uint8Array(100)), N)).rejects.toThrow(/not a 65-sample tile/);
+    await expect(decodeField(new Uint8Array(100), 841, 553)).rejects.toThrow(/not a 841 x 553 field/);
   });
 });

@@ -9295,3 +9295,99 @@ adds is the 1.6 s search and one more lake mask.
 - the search inside a basin finds what flooding the whole grid finds.
 
 808 TypeScript tests, unchanged.
+
+## F69 — The horizon field is coded as one more tile: 353 kB where it was 930, and what first flight fetches before its first tile falls from 1,038 kB to 461 on the country and from 953 to 98 on the corridor
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+F67 left the horizon field as stage 11's next part. At 930 kB of raw Int16 it
+was the largest thing first flight fetched: 60 % of the 1.55 MB F67 measured
+over the country. The corridor paid the same 930 kB, because its field is
+country-sized; only 11.6 % of its samples are anything but zero.
+
+### The codec is the tiles' own
+
+The field is one 841 × 553 raster, and the candidates are the ones F67
+measured on tiles, applied to it whole:
+
+| Horizon field | the country | the corridor |
+| --- | ---: | ---: |
+| raw Int16 | 930,146 | 930,146 |
+| gzip | 444,985 | 92,316 |
+| **left delta, byte planes, gzip** | **353,034** | **75,042** |
+| planar predictor, byte planes, gzip | 351,185 | 75,228 |
+| MED predictor, byte planes, gzip | 343,441 | 73,302 |
+
+The best 2-D predictor tried saves 9.6 kB on the country, and it would be a
+second decoder for one file. So the field is coded exactly as a tile is (D68),
+and one decoder reads both: `decodeField` in `tileCodec.ts` is `decodeTile`
+with a width and a height. A second fixture, 9 wide and 4 tall, is written by
+the pipeline and decoded by both suites. It is not square so that a decoder
+that read the field the wrong way up would read it wrong, rather than luckily
+right.
+
+### How it is delivered
+
+`make package` writes the coded field into `tiles/` under the digest of what
+it holds, like any tile. The index names that file beside the digest of the
+raw `horizon.bin` it was coded from, and the manifest names the same raw
+digest. The engine fetches the coded file only when the two agree. When they
+disagree, or the coded file will not come or will not decode, it fetches
+`horizon.bin` as it always did and warns. A package cut before this has no
+entry, and its world loads as before. The raw file stays published, so this
+is a choice between two ways of delivering it and never a refusal.
+
+That costs one round trip. The index names the coded file, so the horizon now
+waits for the index where the two used to be fetched side by side. On this
+machine's own server the chain is manifest, then index, then field, and the
+field landed 13 ms after the index did. At the plan's 20 Mbit, 577 kB is
+about 230 ms. Decoding takes 4.9 ms (median of seven, 3.9–15.3, the slowest
+being the first), and the result is identical to `horizon.bin` in every one of
+its 465,073 samples. That was checked in node, in the browser against the raw
+file, and by the pipeline's published-package test for both worlds.
+
+### What first flight costs now
+
+| Before the first tile | the country, F67 | now | the corridor, F67 | now |
+| --- | ---: | ---: | ---: | ---: |
+| the manifest | 10.9 kB | 10.9 kB | 4.8 kB | 4.8 kB |
+| the package's index | 96.7 kB | 96.8 kB | 18.5 kB | 18.7 kB |
+| the horizon field | 930.1 kB | **353.0 kB** | 930.1 kB | **75.0 kB** |
+| **total** | **1,037.7 kB** | **460.7 kB** | **953.4 kB** | **98.5 kB** |
+
+F67's first-flight table left the manifest out. It is here on both sides.
+The index grew by 154 bytes on the country and 153 on the corridor, which is
+its horizon entry.
+
+The ring is added on top, and it depends on where a flight starts. With F67's
+ring of 137 files and 0.52 MB, first flight over the country is **0.97 MB
+where it was 1.55**. At the position this session's app started from, near
+Shanghai, the ring was 89 files and 289 kB on both worlds. That makes first
+flight 750 kB over the country and **388 kB over the corridor**, against the
+plan's ~15 MB for everything.
+
+What is left of the fixed part is mostly the index, 96.8 kB of JSON. Under
+gzip -9 it is 49 kB. It is left as JSON: it is the one file here that the
+browser parses as text, and a host that compresses text in transit will serve
+it at about half that. Whether a given host does is a property of the host
+and was not measured. The dev server does not.
+
+### What this leaves
+
+813 TypeScript tests, up from 808:
+
+- the field fixture;
+- a round trip at the horizon field's own size;
+- three for the loader: it fetches the coded field and not `horizon.bin`; it
+  fetches `horizon.bin` when the package's field is not the manifest's; and it
+  falls back to `horizon.bin` when the coded file will not come.
+
+362 Python tests, up from 358:
+
+- a round trip of a field that is not square;
+- the field fixture, which the encoder writes byte for byte;
+- the horizon file the index names;
+- refusing a `horizon.bin` its manifest does not name.
+
+The published-package test now checks each built world's horizon file
+against its `horizon.bin` as well as every tile against `heights.bin`.

@@ -1,8 +1,8 @@
-"""Stage 11's tile package (F67).
+"""Stage 11's package: the tiles (F67) and the horizon field (F69).
 
-The codec is checked against itself at the ends of Int16, against the file the
+The codec is checked against itself at the ends of Int16, against the files the
 engine's own test decodes, and -- on a machine with a world -- against the
-`heights.bin` a package claims to deliver.
+`heights.bin` and `horizon.bin` a package claims to deliver.
 """
 
 import hashlib
@@ -20,7 +20,11 @@ from nineskies import package  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "test" / "terrain" / "tileCodec.fixture.bin"
+FIELD_FIXTURE = ROOT / "test" / "terrain" / "fieldCodec.fixture.bin"
 N = package.SAMPLES
+#: The field fixture's shape: wider than it is tall, as the horizon field is,
+#: so a decoder that swapped the two would read it wrong rather than luckily.
+FIELD_W, FIELD_H = 9, 4
 
 
 def known_tile() -> np.ndarray:
@@ -32,6 +36,16 @@ def known_tile() -> np.ndarray:
     t[N - 1, N - 1] = 32767
     t[32, 0] = 32767
     t[33, 0] = -32768
+    return t
+
+
+def known_field() -> np.ndarray:
+    """The field the second fixture holds. `tileCodec.test.ts` builds it too."""
+    r, c = np.mgrid[0:FIELD_H, 0:FIELD_W]
+    t = ((r * 131 + c * 71 + r * c * 3) % 9000 - 200).astype(np.int16)
+    t[0, 0] = -32768
+    t[FIELD_H - 1, FIELD_W - 1] = 32767
+    t[1, 0] = 32767
     return t
 
 
@@ -60,6 +74,13 @@ class TestTheCodec(unittest.TestCase):
         self.assertEqual(len(b), 2 * N * N)
         self.assertEqual((b[0], b[N * N]), (0x34, 0x12))
 
+    def test_a_field_that_is_not_square_round_trips(self):
+        rng = np.random.default_rng(11)
+        field = rng.integers(-32768, 32768, (553, 841)).astype(np.int16)
+        np.testing.assert_array_equal(package.decode(package.encode(field, 841), 841), field)
+        d = package.delta(field, 841)
+        self.assertEqual(int(d[3, 0]), int(np.int16(int(field[3, 0]) - int(field[2, 0]))))
+
     def test_the_same_tile_is_the_same_file(self):
         # mtime is zero, so a rebuild does not rename every file in the world.
         self.assertEqual(package.encode(known_tile()), package.encode(known_tile()))
@@ -76,12 +97,20 @@ class TestTheFixtureTheEngineDecodes(unittest.TestCase):
         self.assertEqual(data[:2], b"\x1f\x8b")
         np.testing.assert_array_equal(package.decode(data), known_tile())
 
+    def test_the_field_fixture_holds_the_known_field(self):
+        data = FIELD_FIXTURE.read_bytes()
+        np.testing.assert_array_equal(package.decode(data, FIELD_W), known_field())
+        self.assertEqual(data, package.encode(known_field(), FIELD_W))
+
 
 class TestPacking(unittest.TestCase):
-    def world(self, tiles: np.ndarray) -> Path:
+    def world(self, tiles: np.ndarray, field: np.ndarray | None = None) -> Path:
         d = Path(tempfile.mkdtemp())
         raw = tiles.astype("<i2").tobytes()
         (d / "heights.bin").write_bytes(raw)
+        field = known_field() if field is None else field
+        horizon = field.astype("<i2").tobytes()
+        (d / "horizon.bin").write_bytes(horizon)
         (d / "manifest.json").write_text(
             json.dumps(
                 {
@@ -91,6 +120,12 @@ class TestPacking(unittest.TestCase):
                         "order": "tile-row-major, ty ascending, then tx ascending",
                         "tiles": len(tiles),
                         "sha256": hashlib.sha256(raw).hexdigest(),
+                    },
+                    "horizon": {
+                        "file": "horizon.bin",
+                        "width": field.shape[1],
+                        "height": field.shape[0],
+                        "sha256": hashlib.sha256(horizon).hexdigest(),
                     },
                 }
             )
@@ -111,7 +146,10 @@ class TestPacking(unittest.TestCase):
         self.assertEqual(names[1], "")
         self.assertEqual(names[2], names[3])
         self.assertEqual(index["files"], 2)
-        self.assertEqual(sorted(p.stem for p in (d / "tiles").glob("*.bin")), sorted({names[0], names[2]}))
+        self.assertEqual(
+            sorted(p.stem for p in (d / "tiles").glob("*.bin")),
+            sorted({names[0], names[2], index["horizon"]["name"]}),
+        )
 
     def test_every_file_is_named_for_what_it_holds_and_decodes_to_its_tile(self):
         tiles = self.four()
@@ -148,7 +186,27 @@ class TestPacking(unittest.TestCase):
         second = package.build("sea-to-sky", d)
         self.assertNotEqual(first["names"][0], second["names"][0])
         self.assertFalse((d / "tiles" / f"{first['names'][0]}.bin").exists())
-        self.assertEqual(len(list((d / "tiles").glob("*.bin"))), 2)
+        self.assertEqual(len(list((d / "tiles").glob("*.bin"))), 3)  # and the horizon field
+
+    def test_the_horizon_field_is_one_file_the_index_names(self):
+        d = self.world(self.four())
+        index = package.build("sea-to-sky", d)
+        entry = index["horizon"]
+        manifest = json.loads((d / "manifest.json").read_text())
+        self.assertEqual(entry["sha256"], manifest["horizon"]["sha256"])
+        self.assertEqual((entry["width"], entry["height"]), (FIELD_W, FIELD_H))
+        data = (d / "tiles" / f"{entry['name']}.bin").read_bytes()
+        self.assertEqual(entry["bytes"], len(data))
+        self.assertEqual(hashlib.sha256(data).hexdigest()[: package.NAME_HEX], entry["name"])
+        np.testing.assert_array_equal(package.decode(data, FIELD_W), known_field())
+        # Counted apart from the tiles, which is what `files` and `bytes` are.
+        self.assertEqual(index["files"], 2)
+
+    def test_it_refuses_a_horizon_field_its_manifest_does_not_name(self):
+        d = self.world(self.four())
+        (d / "horizon.bin").write_bytes(np.ones((FIELD_H, FIELD_W), dtype="<i2").tobytes())
+        with self.assertRaises(SystemExit):
+            package.build("sea-to-sky", d)
 
     def test_it_refuses_heights_its_manifest_does_not_name(self):
         d = self.world(self.four())
@@ -178,7 +236,17 @@ class TestAPublishedPackage(unittest.TestCase):
                     else:
                         data = (world.parent / f"{name}.bin").read_bytes()
                         np.testing.assert_array_equal(package.decode(data).reshape(-1), tiles[k])
-                checked += 1
+            entry = index.get("horizon")
+            if entry is not None:
+                with self.subTest(world=world.parents[1].name, horizon=entry["name"]):
+                    raw = (world.parents[1] / "horizon.bin").read_bytes()
+                    self.assertEqual(hashlib.sha256(raw).hexdigest(), entry["sha256"])
+                    data = (world.parent / f"{entry['name']}.bin").read_bytes()
+                    np.testing.assert_array_equal(
+                        package.decode(data, entry["width"]).reshape(-1),
+                        np.frombuffer(raw, dtype="<i2"),
+                    )
+            checked += 1
         if checked == 0:
             self.skipTest("no world with a current package is built here")
 

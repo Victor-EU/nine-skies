@@ -217,8 +217,11 @@ vector driver. What the data itself asks of anyone who redistributes it is in
    refuses a package cut from any other `heights.bin`, which stays what every
    section is signed against. A tile of zeros has no file and two identical
    tiles share one — which on the country was thirty tiles of the lower Tarim
-   at one level, 1,044.5 m, and a finding (F67, F68). The horizon field is
-   next.
+   at one level, 1,044.5 m, and a finding (F67, F68). **The horizon field is
+   coded the same way** (F69): one file the index names beside the digest of
+   the `horizon.bin` it came from, 353 kB on the country where the raw field
+   is 930, and 75 kB on the corridor. The engine fetches the raw file whenever
+   the two disagree.
 
 **Not a stage: D14's region raster.** The nine regions the air, the music,
 the weather and the journal all read have no position -> region map yet, and

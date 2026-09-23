@@ -24,6 +24,16 @@ import type {
   WorldWindow,
 } from "./tileSource.js";
 
+/** The horizon field's file in a package, as `package.py` names it (F69). */
+export interface PackedHorizon {
+  readonly name: string;
+  readonly width: number;
+  readonly height: number;
+  /** The raw `horizon.bin` it was coded from, which the manifest names too. */
+  readonly sha256: string;
+  readonly bytes: number;
+}
+
 /** `tiles/index.json`, as `package.py` writes it. */
 export interface TileIndex {
   readonly version: number;
@@ -38,6 +48,8 @@ export interface TileIndex {
   readonly bytes: number;
   /** One per tile in `heights.bin` order: a file's digest, or "" for zeros. */
   readonly names: readonly string[];
+  /** Absent from a package cut before the horizon field was coded (F69). */
+  readonly horizon?: PackedHorizon;
 }
 
 export type FetchBytes = (url: string) => Promise<Uint8Array>;
@@ -79,6 +91,20 @@ export function indexProblem(manifest: WorldManifest, index: TileIndex): string 
 }
 
 /** How long a failed file waits before it is asked for again, doubling to a cap. */
+/**
+ * The package's horizon field, when it is the one this manifest names: null
+ * for a package cut before it had one, or one whose field was reduced again
+ * since. Either way the raw `horizon.bin` is still published beside it, so
+ * this is a choice between two deliveries and never a refusal.
+ */
+export function packedHorizon(manifest: WorldManifest, index: TileIndex): PackedHorizon | null {
+  const packed = index.horizon;
+  const raw = manifest.horizon;
+  if (!packed || packed.sha256 !== raw.sha256) return null;
+  if (packed.width !== raw.width || packed.height !== raw.height) return null;
+  return packed;
+}
+
 const RETRY_FIRST_MS = 2_000;
 const RETRY_CAP_MS = 32_000;
 
