@@ -85,6 +85,13 @@ export interface TerrainStats {
   /** Tiles the view wanted and the source could not supply. */
   missing: number;
   /**
+   * Of those, how many the source is fetching. Zero for a world that arrived
+   * whole; while a streamed one is arriving it is what says the view is not
+   * finished, where `generatedThisFrame` only says nothing landed this frame
+   * (F67).
+   */
+  pending: number;
+  /**
    * Instances in each bucket, nearest first; sums to `instances`.
    *
    * Kept because the totals hide the number the frame budget is about: 8,192
@@ -330,6 +337,7 @@ export class Terrain {
     resident: 0,
     generatedThisFrame: 0,
     missing: 0,
+    pending: 0,
     perLod: [],
     bucketLabels: [],
     hero: { areasDrawn: 0, instances: 0, triangles: 0, resident: 0 },
@@ -508,6 +516,7 @@ export class Terrain {
       this.country.heights.residentCount + (this.hero?.heights.residentCount ?? 0);
     this.stats.generatedThisFrame = this.country.generated + heroStats.generated;
     this.stats.missing = missing;
+    this.stats.pending = this.source.pending;
     this.stats.hero = {
       areasDrawn: heroStats.areasDrawn,
       instances: heroStats.instances,

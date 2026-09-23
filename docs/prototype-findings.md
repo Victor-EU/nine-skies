@@ -8913,3 +8913,201 @@ or shave it, and that the route the report walks is the committed section's,
 place for place and kilometre for kilometre. `make vectors --check` confirms
 all eight pins against what their publishers serve today. The report takes
 45 seconds and is byte-identical on a second run.
+
+## F67 — The app flies the country, a tile at a time: first flight costs 1.55 MB where the country whole is 62, Expedition 1 flies it without a re-cut, and packing it found the lower Tarim filled flat — 220,331 km² raised up to 261 m under the entry that was meant to keep it
+
+*23 September 2026, on `real-elevation-pipeline`.*
+
+Every open item in *Immediate next actions* is now either the user's or waits
+on a download. Phase 2's list starts with *full country at low LOD*, and the
+country has been built since F64 without anything flying it: the app loaded
+`/world/sea-to-sky` by name, and picked its expedition with
+`p.id === manifest.corridor`, which is only true of a world cut to one route.
+
+### What flying the country asks of Expedition 1: nothing
+
+The first thing to know is whether the route's own checks survive the change
+of ground, because the committed section was cut from the corridor and is
+signed against the corridor's `heights.bin` (D23). Profiled along the country
+instead:
+
+| Expedition 1 | the corridor (the section) | the country |
+| --- | ---: | ---: |
+| stations that differ at all | — | 563 of 2,932 |
+| …by a metre or more | — | 26 |
+| the largest difference | — | 3.0 m, at km 2,598 |
+| clears its worst terrain by | 332.9 m at km 2,366 | 332.9 m at km 2,366 |
+| lowest arrival | 264.4 m | 264.4 m |
+| minutes | 36.7 | 36.7 |
+
+So the route flies the country with no re-cut and no re-signing, and the
+section stays what it is: ground cut from the corridor, which the country
+agrees with to 3 m under the route. Over the whole corridor window the two
+grids agree less well, and the reason is the country's larger view. On the 783
+tiles the corridor fetched whole, 93.11 % of samples are identical and 0.11 %
+differ by 10 m or more, the extremes −325 and +322 m, where the country's
+stage 3 drains basins the corridor's could not see beyond its own edge. On
+the 296 tiles the corridor never fetched, the corridor has sea where the
+country has ground.
+
+The app now takes both choices from the query — `?world=china&expedition=sea-to-sky`
+(`app/src/worldChoice.ts`). With no query it flies what it always flew, the
+corridor and its own expedition, because that is G1. A corridor serves its own
+expedition and no other, because outside its strip the ground reads as sea;
+the country serves whichever is named and **names none by itself**, since
+choosing the first in the bundle would be a menu decision made by file order.
+
+### What the country costs to fly whole, and what a ring costs
+
+Pointed at the country, the loader fetched `heights.bin` whole: 61.2 MB before
+the first frame, 104 ms on this machine's own server and about 25 seconds at
+the plan's 20 Mbit — against a first flight budgeted at ~15 MB for everything.
+What the engine draws is a disc of **137 tiles**. So stage 11's first part is
+built (`make package`, `pipeline/nineskies/package.py`): the same tiles, one
+file each, named for what they hold, fetched when `Terrain` first asks.
+
+The codec was measured rather than taken from D2, over the country's 4,665
+land tiles each coded alone:
+
+| per tile | total | mean |
+| --- | ---: | ---: |
+| raw Int16 | 39.42 MB | 8.45 kB |
+| gzip | 21.99 MB | 4.71 kB |
+| Brotli | 18.78 MB | 4.03 kB |
+| **left delta, byte planes, gzip** | **18.41 MB** | **3.95 kB** |
+| planar predictor, Brotli | 15.90 MB | 3.41 kB |
+
+The last row is the smallest and is only readable when a host labels it
+`Content-Encoding: br`. The row above it is 16 % larger, smaller than plain
+Brotli, and needs nothing from any host: `DecompressionStream("gzip")` is in
+every browser the game targets. On a ring the two differ by about 70 kB. That
+is D68.
+
+| The country, packed | |
+| --- | ---: |
+| files | 4,636, 18.52 MB, mean 3.99 kB |
+| tiles of zeros, which have no file | 2,580 |
+| tiles sharing a file with an identical tile | 29 (30 tiles, one file) |
+| the index | 96.7 kB |
+| packing it | 6.8 s |
+
+The corridor packs to 923 files, 4.13 MB, with an 18.5 kB index. Every one of
+the 8,400 tiles in the two worlds decodes to exactly what `heights.bin` holds,
+and checking all of them takes about half a second, so the test does.
+`heights.bin` stays the world's authoritative form: the index names its
+digest, and the engine refuses a package cut from any other and fetches the
+file instead.
+
+| First flight, over the country | before | streamed |
+| --- | ---: | ---: |
+| heights | 61.22 MB | 137 files, 0.52 MB |
+| the package's index | — | 96.7 kB |
+| the horizon field | 0.93 MB | 0.93 MB |
+| **total** | **62.15 MB** | **1.55 MB** |
+
+The ring was complete 128 ms after its first request, on the same local
+server. Over the whole of Expedition 1, walked a kilometre at a time with the
+engine's own disc, the country streams **694 files, 3.34 MB in 36.7 minutes**:
+77 at Shanghai, where most of the first disc is sea, then never more than 13
+new files in a kilometre or 39 in 130 km, which is a minute at cruise. The
+corridor needs 674 — and 19 tiles of the route's own view lie outside its
+window, where the corridor draws nothing and the country draws ground. A jump
+to ground nobody has visited costs a disc: 137 files and 565 kB at Harbin, 126
+and 576 kB at Kashgar, the ground under the aeroplane in 73–85 ms and the disc
+in 91–99, landing over four or five frames.
+
+### What a world that is not there yet changes, found by flying it
+
+A source that does not answer at once breaks two things that had only ever
+met sources that did. Both were read out of the frame loop and then flown.
+
+- **A missing tile read as sea level.** The frame loop feeds the flight model
+  `groundElevationM(...) ?? 0`, which was right for a place with no world and
+  never mattered for a tile in flight, because there were none. `goToAnchor
+  ("lhasa")` on a streamed world sets the aeroplane down at 900 m, because the
+  ground under Lhasa has not arrived; when it does it reads 3,652 m, and the
+  aeroplane is **2,752 m inside the hill**, for the clamp to lift out. Now
+  the simulation holds still while the ground under it is inside the world
+  and not yet resident, and a drop
+  onto an anchor finishes when its ground lands: at Tiger Leaping Gorge the
+  aeroplane waited eight frames without moving and was set down 900 m over the
+  1,910 m that arrived. Outside the world nothing is coming, and it flies on
+  as it always has.
+- **The frame-cost capture would have timed an empty scene.** `settle` waited
+  for three frames in which no tile was generated, and the frames after a jump
+  to a streamed world are exactly those: nothing has arrived. `Terrain` now
+  reports what its source has in flight, and settled means none.
+
+One cost is carried rather than fixed. `HeightTileArray.flush` re-uploads the
+whole 2.16 MB array whenever any tile lands — its own comment already calls
+per-layer `texSubImage3D` a phase 2 task — and streaming spreads a disc over
+four or five frames where a packed world landed it in one. A forced upload
+adds a median 0.2 ms and a 90th percentile of 0.5 ms to a render in this
+machine's browser pane, timed by wall clock around `render` and `finish`,
+which is a weak instrument; the milestone capture on the floor device is the
+one that decides whether it matters.
+
+The corridor is packed too, so the default world streams: 110 files and
+548 kB at the profile's saved position, the disc complete in 81 ms, and the
+same 3 draws and 252k triangles F51 measured on the country grid alone. What
+is drawn is the same bytes. What changes is that the first frames hold until their ground
+lands. The frame-cost capture was not re-run on the streamed corridor, because
+the browser pane was hidden and the capture refuses to time throttled frames.
+
+Two things the country world does not have yet, and neither is a gap in the
+streaming. It has **no hero cover**, so `?world=china` draws both gorges at
+1 km: `make hero CORRIDOR=china` would publish one, and would also cut
+Everest, whose source cells F64's fetch brought onto disk — and whether to
+publish Everest is the user's (F52, F64). And the horizon field still ships
+as 930 kB of raw Int16, which is the next part of stage 11 and the largest
+thing first flight fetches now.
+
+### What packing found: the lower Tarim is one flat sheet at 1,044.5 m
+
+Thirty of the country's tiles are the same file. Every sample in all thirty is
+1,044 m, which is the Int16 of **1,044.50 m**, and the level is not the ground's.
+Against stage 2's grid at the same cells:
+
+| | stage 2 | stage 3 |
+| --- | ---: | ---: |
+| `tarim-terminus`, 40.63 N 89.39 E | 803.4 m | **1,044.5 m** |
+| Lop Nur, 40.3 N 90.3 E | 787.6 m | 1,044.5 m |
+| Taitema Lake, 39.5 N 88.3 E | 804.1 m | 1,044.5 m |
+| Kashgar | 1,303.4 m | 1,303.4 m |
+| Ayding Lake | −153.0 m | −153.0 m |
+
+**220,331 km² of the Tarim Basin, 38.6–42.1 N and 80.1–94.6 E, is raised to
+one level by up to 261 m** — 124 m on average, 27,485 km³ — and it is the
+largest single thing stage 3 does to the country. F65's table of the largest
+unkept basins began at 68,989 km²; this is three times that and was not in it,
+because it is not unkept. It is a hollow *inside* the basin D65 keeps.
+
+The cause is written down, and it is the rule rather than a slip. Filled to
+its spill level the Tarim and the Turpan depression are one basin with one
+floor, Ayding Lake (F64). `kept_sinks` marks each named sink at the floor of
+the closed basin it lies in, so both entries mark Ayding Lake, and its docstring says
+what happens to everything else: *a hollow the 1 km grid invented in the
+Taklamakan is the same artefact inside an endorheic basin as outside one*, and
+is filled to its own rim. The Tarim's end is not an artefact. It is a hollow
+220,331 km² across and 261 m deep that holds the Tarim's two terminal lakes —
+and it is the place the `tarim-terminus` entry names, whose sentence says the
+Tarim ends in the sand. F64 recorded the two entries marking one floor and
+named both anyway, because they are two sinks in life and a finer grid may part
+them. Measured at the entry's own coordinate, the ground went up 241 m.
+
+The fix is engineering, because D65 already decided the list: an entry keeps
+the depression its own coordinate lies in, not only the basin that depression
+drains to on a 1 km grid, and hollows nobody named are filled as before. It is
+not built here. It rebuilds the country world, stage 3 at about fifteen
+minutes and then the tiles, the package, the probes and the carve report, and
+it moves F65's tail of kept and unkept basins. The corridor does not reach the
+Tarim, so no section or patch moves. It is the next item.
+
+### What this leaves
+
+808 TypeScript tests, up from 782: eight for which world and expedition the
+app flies, six for the codec — one of them decoding a file the pipeline wrote,
+which `test_package.py` decodes to the same tile — and twelve for the streamed
+source, the terrain over it and the loader's choice between package and file.
+353 Python tests, up from 342: eleven for the package, one of which checks
+every tile of every built world against its `heights.bin`.

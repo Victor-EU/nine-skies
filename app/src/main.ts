@@ -64,6 +64,8 @@ import {
 } from "../../engine/src/terrain/worldGrid.js";
 import { MapBase, drawMap, drawProfile, type MapStyle } from "./mapOverlay.js";
 import { OPERATOR_BLOCKS } from "./hudBlocks.js";
+import { COUNTRY_WORLD, chooseWorld, expeditionFor } from "./worldChoice.js";
+import { StreamingTileSource } from "../../engine/src/terrain/tileStream.js";
 import {
   DEFAULT_TIME_RATE,
   WorldClock,
@@ -279,10 +281,12 @@ function mapStyle(): MapStyle {
  * plausible invention is the one thing a playtest must never be shown.
  */
 const standIn = new SyntheticTileSource();
+/** `?world=china` flies the country; nothing flies the corridor (F67). */
+const choice = chooseWorld(location.search);
 let world: LoadedWorld | null = null;
 const worldT0 = performance.now();
 try {
-  world = await loadWorld("/world/sea-to-sky");
+  world = await loadWorld(`/world/${choice.world}`);
 } catch (error) {
   console.error("published world failed to load; flying the stand-in", error);
 }
@@ -298,7 +302,7 @@ try {
 let hero: HeroCover | null = null;
 if (world) {
   try {
-    hero = await loadHeroCover("/world/sea-to-sky");
+    hero = await loadHeroCover(`/world/${choice.world}`);
   } catch (error) {
     console.error("hero cover failed to load; flying the country grid alone", error);
   }
@@ -390,7 +394,9 @@ async function loadBundle(): Promise<ExpeditionBundle> {
 }
 
 const bundle = await loadBundle();
-const plan = bundle.expeditions.find((p) => p.id === world?.manifest.corridor) ?? null;
+const plan = world
+  ? expeditionFor(bundle.expeditions, world.manifest.corridor, choice.expedition)
+  : null;
 const run = plan ? new ExpeditionRun(plan) : null;
 const planPrint = plan ? planFingerprint(plan) : "";
 /**
@@ -603,6 +609,22 @@ function collect(ids: readonly string[]): void {
   if (ids.length > 0) beatQueue.offer(ids);
   for (const id of ids) atlas.see(id);
 }
+
+/**
+ * Whether the ground at a point is on its way rather than absent (F67).
+ *
+ * Inside the world and not resident means a streamed tile has been asked for
+ * and has not landed. A world that arrived whole is only ever in that state
+ * before its first frame, and the stand-in world never is.
+ */
+function groundPending(eastM: number, northM: number): boolean {
+  if (!world) return false;
+  if (terrain.groundElevationM(eastM, northM) !== null) return false;
+  const tileM = TILE_KM * 1000;
+  return world.source.has(Math.floor(eastM / tileM), Math.floor(northM / tileM));
+}
+/** A drop onto an anchor whose ground had not landed: its height above that ground. */
+let dropClearanceM: number | null = null;
 
 /**
  * The teleport verb, in all three coordinates at once (D30, D32).
@@ -923,11 +945,29 @@ addEventListener("pagehide", () => void persist());
  * console message: every screenshot and every playtest note should say whether
  * the terrain in it was measured or invented.
  */
-const worldLabel = world
-  ? `${world.manifest.corridor} · ${world.manifest.heights.tiles} real tiles ` +
-    `(${(world.manifest.heights.bytes / 1e6).toFixed(1)} MB in ${worldMs.toFixed(0)} ms)` +
-    (hero ? ` · ${hero.label}` : "")
-  : `stand-in world · no published corridor (${worldMs.toFixed(0)} ms)`;
+function worldLabel(): string {
+  if (!world) return `stand-in world · no published corridor (${worldMs.toFixed(0)} ms)`;
+  const heroText = hero ? ` · ${hero.label}` : "";
+  const source = world.source;
+  if (source instanceof StreamingTileSource) {
+    // Streamed, so the number worth printing is what has actually come over
+    // the wire rather than what the world would cost whole (F67).
+    const s = source.stats;
+    return (
+      `${world.manifest.corridor} · streamed ${source.held} of ${source.index.files} files, ` +
+      `${(s.bytes / 1e6).toFixed(2)} MB` +
+      (source.pending > 0 ? ` · ${source.pending} in flight` : "") +
+      (s.failures > 0 ? ` · ${s.failures} failed: ${s.lastError}` : "") +
+      ` (index in ${worldMs.toFixed(0)} ms)${heroText}`
+    );
+  }
+  return (
+    `${world.manifest.corridor} · ${world.manifest.heights.tiles} real tiles ` +
+    `(${(world.delivery.bytes / 1e6).toFixed(1)} MB in ${worldMs.toFixed(0)} ms)` +
+    (world.delivery.refused ? ` · package refused: ${world.delivery.refused}` : "") +
+    heroText
+  );
+}
 /**
  * The corridor's own flown length, for the pacing readout. Anchors arrive in
  * route order - Shanghai first, Lhasa last, as `ANCHORS` in `tiles.py` lists
@@ -1150,8 +1190,13 @@ if (import.meta.env.DEV) {
       if (!anchor) return false;
       flight.eastM = anchor.eastM;
       flight.northM = anchor.northM;
-      const ground = terrain.groundElevationM(anchor.eastM, anchor.northM) ?? 0;
-      flight.altitudeM = ground + clearanceM;
+      // A streamed world may not have this ground yet, and "no ground" read
+      // as sea level would drop the aircraft 900 m over Lhasa's 3,650 - into
+      // the hill, and then lifted out of it by the clamp. So the drop waits
+      // for the ground and the frame loop finishes it (F67).
+      const ground = terrain.groundElevationM(anchor.eastM, anchor.northM);
+      dropClearanceM = ground === null && groundPending(anchor.eastM, anchor.northM) ? clearanceM : null;
+      flight.altitudeM = (ground ?? 0) + clearanceM;
       flight.verticalRateMs = 0;
       landed();
       return true;
@@ -1252,7 +1297,17 @@ function frame(now: number): void {
 
   // Environment under the aircraft. Ground elevation is read back from the
   // same Int16 buffer the GPU is drawing, so HUD and picture always agree.
+  // Held still while the ground under it is on its way. A streamed world asks
+  // for a tile the first frame it wants one, and until it lands the ground
+  // there reads null - which the line below would make sea level, and the
+  // simulation would fly on that for as long as the fetch took (F67). Outside
+  // the world nothing is coming, and the aircraft flies on as it always has.
+  const held = groundPending(flight.eastM, flight.northM);
   const groundM = terrain.groundElevationM(flight.eastM, flight.northM) ?? 0;
+  if (!held && dropClearanceM !== null) {
+    flight.altitudeM = groundM + dropClearanceM;
+    dropClearanceM = null;
+  }
   // Degrees, once a frame, for everything that is a function of where on the
   // Earth the aircraft is rather than where in the grid: the climate
   // stand-ins, the sun, and local solar time. The precipitation one used to
@@ -1272,7 +1327,7 @@ function frame(now: number): void {
   // route is 210 m inside the Nyainqentanglha, and at 160 it can no longer
   // get down onto Lhasa (F38). Free flight keeps all three candidates.
   const flown = plan && flyingExpedition ? cappedPacing(plan, pacing) : pacing;
-  step(flight, input, env, dt, LIGHT_PISTON, flown);
+  if (!held) step(flight, input, env, dt, LIGHT_PISTON, flown);
   const tm = telemetry(flight, env, input, LIGHT_PISTON, flown);
 
   const progress = run?.advance(flight.eastM, flight.northM) ?? null;
@@ -1460,7 +1515,10 @@ function frame(now: number): void {
       offPlan.update(!progress.onRoute || room?.ok === false, now / 1000),
     );
   } else {
-    expedition.textContent = "free flight · no expedition bundle for this world";
+    expedition.textContent =
+      world && !choice.expedition && world.manifest.corridor === COUNTRY_WORLD
+        ? "free flight · the country flies the expedition ?expedition= names"
+        : "free flight · no expedition bundle for this world";
   }
 
   // Which profile is being written, and whether it is being kept at all - a
@@ -1574,7 +1632,7 @@ function frame(now: number): void {
   el("horizon").textContent =
     `horizon ${ring.mesh.visible ? "on" : "OFF"} · ${ring.triangleCount / 1000}k tris · ` +
     `${horizon.lastSliceMs.toFixed(2)} ms${horizon.marching ? " ◂ marching" : ""}`;
-  el("world").textContent = worldLabel;
+  el("world").textContent = worldLabel();
   // What the participant is holding. A G1 note that says "found the climb
   // hard" means something different on a stick than on a key.
   el("device").textContent =

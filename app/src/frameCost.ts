@@ -229,13 +229,17 @@ function rendererName(gl: WebGL2RenderingContext): { vendor: string; renderer: s
  *
  * Tile generation is spread across frames on purpose, so the first frame after
  * a jump draws a world that is still arriving. Timing that frame measures the
- * upload, not the draw.
+ * upload, not the draw. A streamed world adds the frames before anything
+ * lands, when nothing is generated because nothing has arrived - quiet in the
+ * sense this used to count, and three of them would have timed an empty
+ * scene. So quiet also means nothing in flight (F67).
  */
 async function settle(terrain: Terrain, draw: () => void): Promise<void> {
   let quiet = 0;
   for (let frame = 0; frame < MAX_SETTLE_FRAMES && quiet < 3; frame++) {
     draw();
-    quiet = terrain.stats.generatedThisFrame === 0 ? quiet + 1 : 0;
+    const stats = terrain.stats;
+    quiet = stats.generatedThisFrame === 0 && stats.pending === 0 ? quiet + 1 : 0;
     await nextFrame();
   }
 }

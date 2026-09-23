@@ -1,5 +1,11 @@
 import { TILE_SAMPLES } from "./tileArray.js";
 import { generateTile } from "./syntheticTiles.js";
+import {
+  StreamingTileSource,
+  indexProblem,
+  type FetchBytes,
+  type TileIndex,
+} from "./tileStream.js";
 
 /**
  * Where a tile's heightmap comes from (build plan, workstream A stage 4).
@@ -88,6 +94,17 @@ export interface WorldManifest {
 }
 
 /**
+ * What the app flies over, whichever way it was delivered.
+ *
+ * `has` is the question streaming makes matter: a tile inside the world that
+ * is not resident is on its way, where one outside it is not coming at all.
+ */
+export interface WorldTileSource extends TileSource {
+  readonly manifest: WorldManifest;
+  has(tx: number, ty: number): boolean;
+}
+
+/**
  * Real elevation, cut by the pipeline and already resident.
  *
  * One `heights.bin` holds every tile in the corridor, tile-row-major, 65 x 65
@@ -97,7 +114,7 @@ export interface WorldManifest {
  * Outside the built window the fallback answers, so flying off the edge of a
  * corridor build lands on the stand-in world rather than on a hole.
  */
-export class PackedTileSource implements TileSource {
+export class PackedTileSource implements WorldTileSource {
   readonly pending = 0;
   readonly label: string;
   private readonly stride = TILE_SAMPLES * TILE_SAMPLES;
@@ -138,18 +155,33 @@ export class PackedTileSource implements TileSource {
 
 export interface LoadedWorld {
   manifest: WorldManifest;
-  source: PackedTileSource;
+  source: WorldTileSource;
   horizon: Int16Array;
+  /**
+   * How the heights came: one file fetched before the first frame, or a file
+   * per tile as the aeroplane reaches it (F67). `refused` is why a published
+   * package was passed over for the packed file, when one was.
+   */
+  delivery: { kind: "packed" | "streamed"; bytes: number; refused: string | null };
 }
 
 /**
- * Fetch a built corridor. Resolves to null when nothing is published, which is
+ * Fetch a built world. Resolves to null when nothing is published, which is
  * the normal state of a fresh checkout - the app then flies the stand-in world
  * and says so in the HUD rather than failing to boot.
+ *
+ * A world with a tile package (`make package`, F67) streams: the manifest, the
+ * horizon field and the package's index come before the first frame, and each
+ * tile when the engine first asks for it. A world without one - every world
+ * built before stage 11, and any whose package is stale - comes as one
+ * `heights.bin`, as it always has. The package is only ever a way of
+ * delivering that file, so a package that does not match it is refused and
+ * the file is fetched instead.
  */
 export async function loadWorld(
   baseUrl: string,
   fallback: TileSource | null = null,
+  fetchTile?: FetchBytes,
 ): Promise<LoadedWorld | null> {
   let manifest: WorldManifest;
   try {
@@ -170,17 +202,10 @@ export async function loadWorld(
     return response.arrayBuffer();
   };
 
-  const [heightsBytes, horizonBytes] = await Promise.all([
-    fetchBytes(manifest.heights.file),
+  const [horizonBytes, index] = await Promise.all([
     fetchBytes(manifest.horizon.file),
+    fetchIndex(`${baseUrl}/tiles/index.json`),
   ]);
-
-  if (heightsBytes.byteLength !== manifest.heights.bytes) {
-    throw new Error(
-      `${manifest.heights.file} is ${heightsBytes.byteLength} bytes, ` +
-        `manifest says ${manifest.heights.bytes}`,
-    );
-  }
 
   const horizonSamples = manifest.horizon.width * manifest.horizon.height;
   if (horizonBytes.byteLength !== horizonSamples * 2) {
@@ -188,10 +213,50 @@ export async function loadWorld(
       `horizon.bin is ${horizonBytes.byteLength} bytes, manifest wants ${horizonSamples * 2}`,
     );
   }
+  const horizon = new Int16Array(horizonBytes);
 
+  const refused = index ? indexProblem(manifest, index) : null;
+  if (index && !refused) {
+    return {
+      manifest,
+      source: new StreamingTileSource(
+        manifest,
+        index,
+        `${baseUrl}/tiles`,
+        fetchTile,
+        undefined,
+        fallback,
+      ),
+      horizon,
+      delivery: { kind: "streamed", bytes: index.bytes, refused: null },
+    };
+  }
+  if (refused) console.warn(`tile package refused, fetching heights.bin: ${refused}`);
+
+  const heightsBytes = await fetchBytes(manifest.heights.file);
+  if (heightsBytes.byteLength !== manifest.heights.bytes) {
+    throw new Error(
+      `${manifest.heights.file} is ${heightsBytes.byteLength} bytes, ` +
+        `manifest says ${manifest.heights.bytes}`,
+    );
+  }
   return {
     manifest,
     source: new PackedTileSource(manifest, new Int16Array(heightsBytes), fallback),
-    horizon: new Int16Array(horizonBytes),
+    horizon,
+    delivery: { kind: "packed", bytes: heightsBytes.byteLength, refused },
   };
+}
+
+/** The package's index, or null when the world has none. */
+async function fetchIndex(url: string): Promise<TileIndex | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    return (await response.json()) as TileIndex;
+  } catch {
+    // The dev server answers an unknown path with the app's own index.html,
+    // which is not JSON. That is "no package", not a failure to load one.
+    return null;
+  }
 }

@@ -27,7 +27,9 @@ pipeline/.venv/bin/python -m pip install -r pipeline/requirements.txt
 ```
 
 Stage 3 reads its shapefiles with `shapefile.py` rather than `fiona` (F60), and
-needs nothing but numpy for the carve; later stages will add `brotli`.
+needs nothing but numpy for the carve. Stage 11 needs no `brotli` either: it
+packs tiles with the standard library's gzip, which is measured and chosen
+rather than settled for (D68, F67).
 
 ## Acquiring the source data
 
@@ -204,7 +206,15 @@ vector driver. What the data itself asks of anyone who redistributes it is in
 9. **City baker** — GHSL to per-tile block instances.
 10. **Map textures** — hypsometric, elevation steps with colour-blind hatching,
    climate zones, density, the Heihe-Tengchong line.
-11. **Package** — Brotli, content hash, manifest.
+11. **Package** — content hash, compression, index. **The heights are built**
+   (`make package`, D68, F67): one file per tile under `tiles/`, named by the
+   digest of what it holds, coded as left deltas in byte planes under gzip,
+   and a `tiles/index.json` that lists each tile's file in `heights.bin` order
+   and names that file's digest. The engine streams a world that has one and
+   refuses a package cut from any other `heights.bin`, which stays what every
+   section is signed against. A tile of zeros has no file and two identical
+   tiles share one — which on the country is thirty tiles of the lower Tarim
+   at one level, 1,044.5 m, and a finding (F67). The horizon field is next.
 
 **Not a stage: D14's region raster.** The nine regions the air, the music,
 the weather and the journal all read have no position -> region map yet, and

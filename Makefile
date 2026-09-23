@@ -8,6 +8,7 @@
 #   make probes                     # golden probes against what is built
 #   make hydro                      # where the water cannot go, and the river it has
 #   make carve                      # stage 3: the mapped rivers carved, the mapped lakes kept
+#   make package                    # stage 11: one file per tile, so a world streams
 #   make sources                    # record the source raster digests
 #   make vectors                    # stage 3's river network, priced; nothing fetched
 #   make rivers                     # what the fetched rivers decide of the grid's closed basins
@@ -51,7 +52,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles hero siting probes hydro rivers regions sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles package hero siting probes hydro rivers regions sources vectors sections patches cut-key reference routes sessions teaches atlas challenges ground gorges stations test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -124,6 +125,14 @@ carve: $(PY)
 ## Stages 4 and 5 — cut 64 km tiles and reduce the horizon field.
 tiles: $(PY)
 	$(PIPELINE) -m nineskies.tiles --corridor $(CORRIDOR)
+
+## Stage 11, its first part: the same tiles one file each, named for what they
+## hold, so the engine fetches the ring it flies over rather than the world
+## (F67). `heights.bin` stays the authoritative form -- every section is signed
+## against its digest -- and a package cut from an older one is refused by the
+## engine, which then fetches the file. Seven seconds on the country.
+package: $(PY)
+	$(PIPELINE) -m nineskies.package --corridor $(CORRIDOR)
 
 ## The gate: golden probes against every built grid, with a report each.
 ## Both, because a probe deferred from the 1 km grid to the 90 m one is only
@@ -208,7 +217,7 @@ patches:
 cut-key:
 	npm run content:cut-key
 
-world: acquire sources grid carve tiles hero siting probes hydro sections patches ground gorges
+world: acquire sources grid carve tiles package hero siting probes hydro sections patches ground gorges
 	@echo "world built: $(WORLD_OUT)"
 
 ## The other gate: every authored route flown over real ground. Needs no flag
