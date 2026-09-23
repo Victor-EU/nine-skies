@@ -44,7 +44,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film rails stations test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero siting probes hydro rivers sources vectors reference film rails stations scenes test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -224,6 +224,12 @@ rails:
 ## (plan v2, stage 3). Needs the world for the ground under each.
 stations:
 	npm run content:stations
+
+## A pack per scene (plan v2, stage 4): every tile the scene's camera can ask
+## for and its hero area, into dist-film/ with the files read before them.
+## Needs a world; the index of what each pack holds is committed.
+scenes:
+	npm run content:scenes
 
 typecheck:
 	npm run typecheck

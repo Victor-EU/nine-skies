@@ -19,7 +19,8 @@
     "content:validate": "vite-node tools/validateFilm.ts",
     "check": "npm run typecheck && npm test && npm run content:validate",
     "content:rails": "vite-node tools/rails.ts",
-    "content:stations": "vite-node tools/stations.ts"
+    "content:stations": "vite-node tools/stations.ts",
+    "content:scenes": "vite-node tools/scenes.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { formatProblems, loadFilm, writeRail, type RecordedKey } from "../tools/film.ts";
@@ -111,9 +111,50 @@ function publishedWorld(): Plugin {
   };
 }
 
+/**
+ * Serve the scene packs at /packs, and put `dist-film/` - the packs and the
+ * few world files read before them - into the build (plan v2, stage 4).
+ *
+ * The index of what each pack holds is committed under `public/packs/`; the
+ * packs themselves are cut by `make scenes` from a world that is not in the
+ * repository, so a build without them is refused rather than shipped hollow.
+ */
+function publishedPacks(): Plugin {
+  const root = resolve(__dirname, "..", "dist-film");
+  let outDir = "";
+  return {
+    name: "nine-skies-scene-packs",
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    configureServer(server) {
+      server.middlewares.use("/packs", (request, response, next) => {
+        const url = (request.url ?? "/").split("?")[0]!;
+        if (!url.endsWith(".bin")) return next();
+        const path = join(root, "packs", normalize(url));
+        if (!path.startsWith(join(root, "packs"))) return next();
+        try {
+          const bytes = readFileSync(path);
+          response.setHeader("Content-Type", "application/octet-stream");
+          response.setHeader("Content-Length", String(bytes.length));
+          response.end(bytes);
+        } catch {
+          next();
+        }
+      });
+    },
+    closeBundle() {
+      if (!existsSync(join(root, "packs"))) {
+        throw new Error("no scene packs in dist-film/: `make scenes` cuts them from the built world");
+      }
+      cpSync(root, outDir, { recursive: true });
+    },
+  };
+}
+
 export default defineConfig({
   root: ".",
-  plugins: [publishedWorld(), publishedFilm()],
+  plugins: [publishedWorld(), publishedPacks(), publishedFilm()],
   // The engine lives outside the app root and would otherwise get its own
   // copy of three next to the pre-bundled one the shell imports.
   resolve: { dedupe: ["three"] },

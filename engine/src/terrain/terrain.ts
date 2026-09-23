@@ -17,6 +17,7 @@ import type { AreaBounds, HeroCover } from "./heroSource.js";
 import { createRimMaterial, createTerrainMaterial, MAX_CUT_RECTS, setTerrainPalette } from "./terrainMaterial.js";
 import type { ScenePalette } from "./palette.js";
 import { RimCurtain, type DrawnTiles } from "./rimCurtain.js";
+import { viewOffsets } from "./view.js";
 import {
   hazeDensityPerWorldUnit,
   hazeFalloffPerWorldUnit,
@@ -575,20 +576,13 @@ export class Terrain {
     for (const lattice of this.lattices) lattice.beginFrame();
     let missing = 0;
 
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        const tx = centreX + dx;
-        const ty = centreY + dy;
-        if (tx < 0 || ty < 0) continue;
-
-        // Circular rather than square view, so the corners cost nothing.
-        const distTiles = Math.hypot(dx, dy);
-        if (distTiles > radius + 0.5) continue;
-
-        const lod = lodForDistance(distTiles * size, size);
-        if (!this.country.place(tx, ty, lod, this.originEastM, this.originNorthM, scale))
-          missing++;
-      }
+    // The view disc is `view.ts`'s, which the scene packs are cut to (stage 4).
+    for (const { dx, dy, distTiles } of viewOffsets(radius)) {
+      const tx = centreX + dx;
+      const ty = centreY + dy;
+      if (tx < 0 || ty < 0) continue;
+      const lod = lodForDistance(distTiles * size, size);
+      if (!this.country.place(tx, ty, lod, this.originEastM, this.originNorthM, scale)) missing++;
     }
 
     const heroStats = this.drawHeroAreas(eastM, northM, radius * tileM);

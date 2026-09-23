@@ -18,6 +18,7 @@ import { HorizonField, buildSyntheticHorizonField } from "../../engine/src/terra
 import { DEFAULT_HAZE_DENSITY_PER_M, HAZE_SCALE_HEIGHT_M } from "../../engine/src/terrain/palette.js";
 import { LookRig } from "../../engine/src/look/look.js";
 import { SyntheticTileSource, loadWorld, type LoadedWorld } from "../../engine/src/terrain/tileSource.js";
+import { StreamingTileSource } from "../../engine/src/terrain/tileStream.js";
 import { loadHeroCovers, type HeroCover } from "../../engine/src/terrain/heroSource.js";
 import { WorldCoverage } from "../../engine/src/terrain/coverage.js";
 import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
@@ -41,6 +42,7 @@ import { RailFlight, type RailState } from "../../engine/src/film/rail.js";
 import { AltitudeController } from "../../engine/src/film/altitude.js";
 import { captureFrameCost, frameCostTable, BUDGET_FOV_DEG } from "./frameCost.js";
 import { FrameClock, formatSummary } from "./frameTime.js";
+import { ScenePacks, loadPackIndex } from "./packs.js";
 import { createProbe } from "./probe.js";
 import { chooseWorld } from "./worldChoice.js";
 import { LeadInMap } from "./leadIn.js";
@@ -85,16 +87,23 @@ const rails: BuiltRail[] = (film?.scenes ?? []).map((s) => buildRail(s.rail));
 // ---- The world ------------------------------------------------------------
 
 const worldName = chooseWorld(location.search);
+// The scene packs (stage 4): where the terrain's tiles and the hero areas
+// come from, a scene at a time. Without them every tile is its own fetch.
+const packIndex = await loadPackIndex("/packs/index.json");
+const packs = packIndex && packIndex.world === worldName ? new ScenePacks(packIndex, "", `/world/${worldName}`) : null;
 let world: LoadedWorld | null = null;
 try {
-  world = await loadWorld(`/world/${worldName}`);
+  world = await loadWorld(`/world/${worldName}`, null, packs?.fetchTile);
 } catch (error) {
   console.error("published world failed to load; flying the stand-in", error);
 }
+const streamed = world?.source instanceof StreamingTileSource ? world.source : null;
+const packed = packs !== null && streamed !== null;
 let heroes: HeroCover[] = [];
 if (world) {
   try {
-    heroes = await loadHeroCovers(`/world/${worldName}`);
+    // With packs, the areas are announced now and their heights come with their scenes.
+    heroes = await loadHeroCovers(`/world/${worldName}`, { heights: !packed });
   } catch (error) {
     console.error("hero cover failed to load; flying the country grid alone", error);
   }
@@ -113,6 +122,7 @@ const terrain = new Terrain({
   heroes,
 });
 for (const mesh of terrain.meshes) scene.add(mesh);
+if (packed) packs.attach(streamed.index, heroes);
 
 const horizonField = world
   ? HorizonField.fromData(
@@ -285,6 +295,7 @@ function startScene(i: number): void {
   lastState = null;
   lastFlightS = null;
   rig.setScene(s);
+  if (packed) packs.play(i);
   el("titleZh").textContent = s.title.zh;
   el("titlePinyin").textContent = s.title.pinyin;
   el("titleEn").textContent = s.title.en;
@@ -730,5 +741,7 @@ if (import.meta.env.DEV) {
       });
     },
     frameCostTable,
+    /** The scene packs: `__ns.packs.stats.misses` is tiles fetched outside them. */
+    packs,
   };
 }

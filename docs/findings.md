@@ -535,3 +535,71 @@ lake a navy patch in the rim's shadow. Two changes:
   now a pale crater in green country with the lake blue at its heart
   and the west rim's shadow across the floor.
 
+## F84 — Stage 4: nine packs, 16.4 MB, and no tile outside them, 23 September 2026
+
+**What a pack holds.** `make scenes` cuts one file per scene
+(`dist-film/packs/<id>.bin`): every country tile and water file the
+scene's camera can ask for, and the scene's own hero area. What the camera
+can ask for is computed from the rail flight's own limits
+(`engine/src/film/reach.ts`): the rail as far as the fastest viewer gets,
+double the authored speed for the whole 114 s, a drift of up to 20 km to
+either side, and the terrain's view disc of six tiles around every tile
+the camera can stand in. The disc is now one function (`terrain/view.ts`)
+that the terrain draws from and the packs are cut to. Rail beyond the
+fastest viewer's reach is slack and is not packed: 234 of the gorges'
+576 km.
+
+**Hero heights are coded.** The hero areas were published as raw 16-bit
+arrays; a pack codes each area as one tile-codec field (delta, byte
+planes, gzip) a tile wide and every tile tall, and the tool decodes it the
+way the browser will and compares every sample before writing. Guilin's
+6.0 MB is 2.0 MB; all seven areas together are 4.1 MB.
+
+| Pack | Size | Tiles | Files | Reach | Hero |
+| --- | ---: | ---: | ---: | ---: | --- |
+| huangshan | 1.05 MB | 150 | 255 | 84 km | huangshan 0.40 MB |
+| three-gorges | 1.89 MB | 220 | 349 | 342 km | three-gorges 0.73 MB |
+| karst | 2.92 MB | 187 | 308 | 134 km | guilin 2.00 MB |
+| first-bend | 1.67 MB | 200 | 345 | 190 km | tiger-leaping-gorge 0.47 MB |
+| loess | 1.38 MB | 300 | 435 | 684 km | — |
+| grassland-to-heaven-lake | 1.52 MB | 335 | 443 | 849 km | changbai 0.19 MB |
+| below-the-sea | 1.85 MB | 404 | 485 | 1,140 km | taklamakan 0.14 MB |
+| the-roof | 2.40 MB | 462 | 691 | 1,368 km | — |
+| the-wall | 1.17 MB | 209 | 333 | 228 km | everest 0.15 MB |
+
+Nine packs are 15.85 MB. The files read before any pack - the world's
+manifest, its tile index, the horizon field and the hero manifests - are
+0.56 MB, so the film is **16.41 MB** against the plan's 30.
+
+**At run time** (`app/src/packs.ts`) the packs come one at a time, the
+playing scene's first and the next one's behind it, and the terrain's
+tile requests are answered from them, waiting for a pack on its way. A
+hero area is announced at startup by its manifest; the terrain sizes its
+lattice and rim for it and draws it from the frame its heights arrive in
+a pack, which it could already do because an area is drawn whole or not
+at all. A tile no pack holds is fetched on its own and counted. Holding
+every scene at 5, 60 and 110 s in the dev server: nine packs fetched,
+15.85 MB, every view whole, every hero drawn, **no tile fetched outside
+the packs**. Without packs (a checkout that has not run `make scenes`)
+every tile is fetched alone and each hero whole, as before.
+
+**The test** (`test/film/packs.test.ts`) flies each rail with the real
+rail flight for the whole 114 s, eight ways - left alone, straight at the
+fastest, straight then veering hard at the far end, weaving, slowest -
+and checks every frame's view disc against the committed pack index
+(`app/public/packs/index.json`), with no world to hand. It was checked
+the other way too: packs cut without the drift fail it in four scenes of
+nine, and packs cut for normal speed in six. A first version flew only
+steering pilots and missed the second, because hard steering halves
+progress along the rail.
+
+**The build** copies `dist-film/` into `app/dist` and refuses to build
+without it. Served by `vite preview` alone, the film plays: before the
+first pack it fetches 620 kB (the script, 167 kB compressed, the tile
+index, 75 kB, the horizon field, 351 kB, and seven small JSON files),
+then the two packs. That is the title card and the lead-in map; the first
+scene's ground is its 1.05 MB pack behind them. Over a 10 Mbit/s phone
+connection that reads as about a second to the first frame and two to
+the ground, which is inside the plan's three seconds but is arithmetic,
+not a measurement: nothing here throttles a network or is a phone.
+

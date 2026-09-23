@@ -1,5 +1,5 @@
 import { bilinearSample, HERO_TILE_SAMPLES } from "./tileArray.js";
-import { decodeWaterArea, WATER_CHANNELS, WATER_CODEC } from "./tileCodec.js";
+import { decodeField, decodeWaterArea, WATER_CHANNELS, WATER_CODEC } from "./tileCodec.js";
 import type { TileSource } from "./tileSource.js";
 import { NO_WATER, waterLayoutProblem, type WaterClasses } from "./tileStream.js";
 import { NO_RIVER, WATER_LAND } from "./water.js";
@@ -166,12 +166,13 @@ function wet(bytes: Uint8Array): boolean {
  */
 export class HeroCover implements TileSource {
   readonly pending = 0;
-  readonly label: string;
   readonly tileM: number;
   readonly tileSamples: number;
   readonly resolutionM: number;
   readonly origin: HeroOrigin;
   private readonly areas: HeroAreaData[] = [];
+  /** Announced by manifest, heights still to come, by area id. */
+  private readonly awaiting = new Map<string, HeroManifest>();
   private readonly stride: number;
   /** Per area, per tile: its water, or `NO_WATER` for a dry one. Absent flies it dry. */
   private readonly waters = new Map<HeroAreaData, Uint8Array[]>();
@@ -183,7 +184,7 @@ export class HeroCover implements TileSource {
    */
   readonly water?: (hx: number, hy: number) => Uint8Array | null;
 
-  constructor(index: HeroIndex, areas: HeroAreaData[]) {
+  constructor(index: HeroIndex, areas: HeroAreaData[], awaiting: readonly HeroManifest[] = []) {
     this.tileM = index.tileM;
     this.tileSamples = index.tileSamples;
     this.resolutionM = index.resolutionM;
@@ -202,55 +203,90 @@ export class HeroCover implements TileSource {
       );
     }
 
-    for (const area of areas) {
-      const m = area.manifest;
-      // One lattice or none. Two areas cut at different resolutions cannot
-      // share a texture array, and silently keeping the first would put the
-      // second somewhere it is not.
-      if (m.tileM !== this.tileM || m.tileSamples !== this.tileSamples) {
-        throw new Error(
-          `${m.area} is ${m.tileSamples} samples of ${m.tileM} m, ` +
-            `the index says ${this.tileSamples} of ${this.tileM} m`,
-        );
-      }
-      if (
-        m.origin.originXM !== this.origin.originXM ||
-        m.origin.originYM !== this.origin.originYM
-      ) {
-        throw new Error(`${m.area} is indexed from a different origin than the index`);
-      }
-      const w = m.window;
-      const expected = (w.hx1 - w.hx0) * (w.hy1 - w.hy0) * this.stride;
-      if (area.heights.length !== expected) {
-        throw new Error(
-          `${m.area} holds ${area.heights.length} samples, its manifest wants ${expected}`,
-        );
-      }
-      this.areas.push(area);
-
-      const problem = heroWaterProblem(area);
-      if (problem) {
-        this.waterRefused.push(problem);
-        console.warn(`hero water passed over: ${problem}`);
-      } else if (area.water) {
-        const bytes = this.stride * WATER_CHANNELS;
-        const tiles: Uint8Array[] = [];
-        for (let t = 0; t < m.heights.tiles; t++) {
-          const tile = area.water.subarray(t * bytes, (t + 1) * bytes);
-          tiles.push(wet(tile) ? tile : NO_WATER);
-        }
-        this.waters.set(area, tiles);
-      }
+    for (const m of awaiting) {
+      this.fits(m);
+      this.awaiting.set(m.area, m);
     }
-    if (this.waters.size > 0) this.water = (hx, hy) => this.waterOf(hx, hy);
+    for (const area of areas) this.admit(area);
+    // Decided now, because a lattice decides at construction whether it has
+    // a water texture at all: an area whose water arrives later needs one.
+    const anyWater = this.waters.size > 0 || awaiting.some((m) => m.water !== undefined);
+    if (anyWater) this.water = (hx, hy) => this.waterOf(hx, hy);
+  }
 
+  /** What the cover holds, for the HUD and the console. */
+  get label(): string {
     const tiles = this.areas.reduce((n, a) => n + a.manifest.heights.tiles, 0);
     const wetText = this.waters.size > 0 ? `, ${this.wetTiles} with water` : "";
-    this.label =
-      this.areas.length === 0
-        ? "no hero cover"
-        : `${this.areas.map((a) => a.manifest.area).join(", ")} ` +
-          `(${tiles} tiles at ${this.resolutionM} m${wetText})`;
+    const waiting = this.awaiting.size > 0 ? `; ${[...this.awaiting.keys()].join(", ")} to come` : "";
+    return this.areas.length === 0 && this.awaiting.size === 0
+      ? "no hero cover"
+      : `${this.areas.map((a) => a.manifest.area).join(", ") || "none yet"} ` +
+          `(${tiles} tiles at ${this.resolutionM} m${wetText})${waiting}`;
+  }
+
+  /** Areas announced by their manifests whose heights have not arrived. */
+  get awaitingAreas(): readonly string[] {
+    return [...this.awaiting.keys()];
+  }
+
+  /** An announced area's manifest, while its heights are still to come. */
+  awaitingManifest(id: string): HeroManifest | undefined {
+    return this.awaiting.get(id);
+  }
+
+  /**
+   * Give an announced area its heights (a scene pack has arrived, stage 4).
+   * From the next frame the terrain draws it and cuts the country grid for
+   * it; until then it was neither, because an area is drawn whole or not at
+   * all.
+   */
+  addArea(area: HeroAreaData): void {
+    const id = area.manifest.area;
+    if (this.areas.some((a) => a.manifest.area === id)) return;
+    this.admit(area);
+    this.awaiting.delete(id);
+    this.lowest = null;
+  }
+
+  /** One lattice or none: an area cut at another resolution or origin is refused. */
+  private fits(m: HeroManifest): void {
+    // Two areas cut at different resolutions cannot share a texture array,
+    // and silently keeping the first would put the second somewhere it is not.
+    if (m.tileM !== this.tileM || m.tileSamples !== this.tileSamples) {
+      throw new Error(
+        `${m.area} is ${m.tileSamples} samples of ${m.tileM} m, ` +
+          `the index says ${this.tileSamples} of ${this.tileM} m`,
+      );
+    }
+    if (m.origin.originXM !== this.origin.originXM || m.origin.originYM !== this.origin.originYM) {
+      throw new Error(`${m.area} is indexed from a different origin than the index`);
+    }
+  }
+
+  private admit(area: HeroAreaData): void {
+    const m = area.manifest;
+    this.fits(m);
+    const w = m.window;
+    const expected = (w.hx1 - w.hx0) * (w.hy1 - w.hy0) * this.stride;
+    if (area.heights.length !== expected) {
+      throw new Error(`${m.area} holds ${area.heights.length} samples, its manifest wants ${expected}`);
+    }
+    this.areas.push(area);
+
+    const problem = heroWaterProblem(area);
+    if (problem) {
+      this.waterRefused.push(problem);
+      console.warn(`hero water passed over: ${problem}`);
+    } else if (area.water) {
+      const bytes = this.stride * WATER_CHANNELS;
+      const tiles: Uint8Array[] = [];
+      for (let t = 0; t < m.heights.tiles; t++) {
+        const tile = area.water.subarray(t * bytes, (t + 1) * bytes);
+        tiles.push(wet(tile) ? tile : NO_WATER);
+      }
+      this.waters.set(area, tiles);
+    }
   }
 
   get areaCount(): number {
@@ -270,6 +306,9 @@ export class HeroCover implements TileSource {
       for (const { heights } of this.areas) {
         for (let k = 0; k < heights.length; k++) lowest = Math.min(lowest, heights[k]!);
       }
+      // An area still to come hangs the curtain by its manifest, which
+      // hero.py writes from the same heights (checked for all seven, F84).
+      for (const m of this.awaiting.values()) lowest = Math.min(lowest, m.elevationM.min);
       this.lowest = Number.isFinite(lowest) ? lowest : 0;
     }
     return this.lowest;
@@ -328,7 +367,10 @@ export class HeroCover implements TileSource {
    * than a coarser version of the right one.
    */
   bounds(): AreaBounds[] {
-    return this.areas.map(({ manifest: { window: w } }) => ({
+    // Announced areas too: the terrain sizes its lattice and its rim for
+    // every area it may draw, and draws only those whose heights are here.
+    const manifests = [...this.areas.map((a) => a.manifest), ...this.awaiting.values()];
+    return manifests.map(({ window: w }) => ({
       eastM0: w.hx0 * this.tileM,
       northM0: w.hy0 * this.tileM,
       eastM1: w.hx1 * this.tileM,
@@ -383,12 +425,43 @@ export class HeroCover implements TileSource {
 export const HERO_DIRS = ["hero", "hero-30m"] as const;
 
 /** Every hero cover a world publishes, one per lattice directory that exists. */
-export async function loadHeroCovers(baseUrl: string): Promise<HeroCover[]> {
-  const covers = await Promise.all(HERO_DIRS.map((dir) => loadHeroCover(baseUrl, dir)));
+export async function loadHeroCovers(baseUrl: string, options: HeroLoadOptions = {}): Promise<HeroCover[]> {
+  const covers = await Promise.all(HERO_DIRS.map((dir) => loadHeroCover(baseUrl, dir, options)));
   return covers.filter((c): c is HeroCover => c !== null);
 }
 
-export async function loadHeroCover(baseUrl: string, dir: string = "hero"): Promise<HeroCover | null> {
+export interface HeroLoadOptions {
+  /**
+   * False to fetch the manifests only, announcing every area and leaving its
+   * heights to arrive in a scene pack (stage 4). True, the default, fetches
+   * every area whole before the cover exists.
+   */
+  readonly heights?: boolean;
+}
+
+/**
+ * An area's heights and water as a scene pack carries them: the heights
+ * coded like a country tile (delta, byte planes, gzip) as one field a tile
+ * wide and every tile tall, and the water exactly as `hero.py` wrote it.
+ */
+export async function decodeHeroArea(
+  manifest: HeroManifest,
+  codedHeights: Uint8Array,
+  codedWater: Uint8Array | null,
+): Promise<HeroAreaData> {
+  const samples = manifest.tileSamples;
+  const tiles = manifest.heights.tiles;
+  const heights = await decodeField(codedHeights, samples, samples * tiles);
+  const area: HeroAreaData = { manifest, heights };
+  if (codedWater && manifest.water) area.water = await decodeWaterArea(codedWater, manifest.water.tileSamples, manifest.water.tiles);
+  return area;
+}
+
+export async function loadHeroCover(
+  baseUrl: string,
+  dir: string = "hero",
+  options: HeroLoadOptions = {},
+): Promise<HeroCover | null> {
   let index: HeroIndex;
   try {
     const response = await fetch(`${baseUrl}/${dir}/index.json`);
@@ -399,6 +472,17 @@ export async function loadHeroCover(baseUrl: string, dir: string = "hero"): Prom
   }
   if (index.areas.length === 0) return null;
 
+  if (options.heights === false) {
+    const manifests = await Promise.all(
+      index.areas.map(async (entry): Promise<HeroManifest> => {
+        const response = await fetch(`${baseUrl}/${dir}/${entry.file}`);
+        if (!response.ok) throw new Error(`${entry.file}: ${response.status} ${response.statusText}`);
+        return (await response.json()) as HeroManifest;
+      }),
+    );
+    return new HeroCover(index, [], manifests);
+  }
+
   const areas = await Promise.all(
     index.areas.map(async (entry): Promise<HeroAreaData> => {
       const manifestResponse = await fetch(`${baseUrl}/${dir}/${entry.file}`);
@@ -407,29 +491,27 @@ export async function loadHeroCover(baseUrl: string, dir: string = "hero"): Prom
           `${entry.file}: ${manifestResponse.status} ${manifestResponse.statusText}`,
         );
       }
-      const manifest = (await manifestResponse.json()) as HeroManifest;
-      const heightsResponse = await fetch(`${baseUrl}/${dir}/${manifest.heights.file}`);
-      if (!heightsResponse.ok) {
-        throw new Error(
-          `${manifest.heights.file}: ${heightsResponse.status} ` +
-            `${heightsResponse.statusText}`,
-        );
-      }
-      const bytes = await heightsResponse.arrayBuffer();
-      if (bytes.byteLength !== manifest.heights.bytes) {
-        throw new Error(
-          `${manifest.heights.file} is ${bytes.byteLength} bytes, ` +
-            `its manifest says ${manifest.heights.bytes}`,
-        );
-      }
-      const area: HeroAreaData = { manifest, heights: new Int16Array(bytes) };
-      const water = await loadHeroWater(baseUrl, dir, manifest);
-      if (water) area.water = water;
-      return area;
+      return loadHeroArea(baseUrl, dir, (await manifestResponse.json()) as HeroManifest);
     }),
   );
 
   return new HeroCover(index, areas);
+}
+
+/** One area's heights and water, fetched as `hero.py` published them. */
+export async function loadHeroArea(baseUrl: string, dir: string, manifest: HeroManifest): Promise<HeroAreaData> {
+  const heightsResponse = await fetch(`${baseUrl}/${dir}/${manifest.heights.file}`);
+  if (!heightsResponse.ok) {
+    throw new Error(`${manifest.heights.file}: ${heightsResponse.status} ${heightsResponse.statusText}`);
+  }
+  const bytes = await heightsResponse.arrayBuffer();
+  if (bytes.byteLength !== manifest.heights.bytes) {
+    throw new Error(`${manifest.heights.file} is ${bytes.byteLength} bytes, its manifest says ${manifest.heights.bytes}`);
+  }
+  const area: HeroAreaData = { manifest, heights: new Int16Array(bytes) };
+  const water = await loadHeroWater(baseUrl, dir, manifest);
+  if (water) area.water = water;
+  return area;
 }
 
 /**

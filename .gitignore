@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-world/
+dist-film/
 .cache/
 *.tsbuildinfo
 .DS_Store

@@ -12,6 +12,21 @@
       ],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "nine-skies-dist",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "-w",
+        "app",
+        "run",
+        "preview",
+        "--",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
     }
   ]
 }

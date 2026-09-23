@@ -617,3 +617,32 @@ describe.skipIf(!built)("the second area, on the Yangtze", () => {
     }
   });
 });
+
+describe("an area announced before its heights arrive (stage 4)", () => {
+  const waiting = () => {
+    const m = manifest("gorge", 10, 20, 2, 3, { elevationM: { min: 140, max: 2000 } });
+    const entry = { id: "gorge", name: "gorge", file: "gorge.json", window: m.window, bytes: m.heights.bytes };
+    return { m, cover: new HeroCover(index({ areas: [entry] }), [], [m]) };
+  };
+
+  it("is sized for and bounded, but draws nothing and answers nothing until then", () => {
+    const { cover } = waiting();
+    expect(cover.bounds()).toHaveLength(1);
+    expect(cover.request(10, 20)).toBeNull();
+    expect(cover.covers(10.5 * TILE_M, 20.5 * TILE_M)).toBe(false);
+    expect(cover.awaitingAreas).toEqual(["gorge"]);
+    // The curtain along its rim hangs from the manifest until the heights come.
+    expect(cover.lowestM).toBe(140);
+  });
+
+  it("is drawn once its heights are given, and is given them once", () => {
+    const { m, cover } = waiting();
+    cover.addArea({ manifest: m, heights: stamped(10, 20, 2, 3) });
+    expect(cover.request(11, 22)![0]).toBe(22 * 100 + 11);
+    expect(cover.awaitingAreas).toEqual([]);
+    expect(cover.bounds()).toHaveLength(1);
+    expect(cover.lowestM).toBe(2010);
+    cover.addArea({ manifest: m, heights: stamped(10, 20, 2, 3) });
+    expect(cover.bounds()).toHaveLength(1);
+  });
+});

@@ -1,0 +1,185 @@
+/**
+ * `make scenes`: a pack per scene (plan v2, stage 4; D79).
+ *
+ * Each pack holds every country tile and water file the scene's camera can
+ * ask for (`engine/src/film/reach.ts`: the rail to where the fastest viewer
+ * gets, the widest drift off it, the terrain's view disc around every place
+ * the camera can stand) and the scene's own hero area, its heights coded
+ * like a tile. Beside the packs it copies the few small files the film reads
+ * before any pack - the world's manifest, its tile index, the horizon field
+ * and the hero manifests - so `dist-film/` is everything a static host needs.
+ *
+ * The index of what each pack holds is committed (`app/public/packs/index.json`):
+ * the app reads it to know which pack a tile is in, and `test/film/packs.test.ts`
+ * flies every rail against it with no world to hand.
+ *
+ *   npm run content:scenes            # dist-film/, app/public/packs/index.json
+ */
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { gzipSync } from "node:zlib";
+import { writePack } from "../engine/src/film/pack.js";
+import { DEFAULT_REACH, reachKm, sceneTiles, tileOfKey } from "../engine/src/film/reach.js";
+import { buildRail } from "../engine/src/film/scene.js";
+import { HERO_DIRS, decodeHeroArea, type HeroIndex, type HeroManifest } from "../engine/src/terrain/heroSource.js";
+import { TILE_KM } from "../engine/src/terrain/syntheticTiles.js";
+import { VIEW_RADIUS_TILES } from "../engine/src/terrain/terrain.js";
+import { deltaPlanes } from "../engine/src/terrain/tileCodec.js";
+import type { TileIndex } from "../engine/src/terrain/tileStream.js";
+import type { WorldManifest } from "../engine/src/terrain/tileSource.js";
+import { formatProblems, loadFilm } from "./film.ts";
+
+/** The whole film, packs and the files read before them, on the wire (plan v2, stage 4). */
+export const FILM_BUDGET_BYTES = 30_000_000;
+const WORLD = "china";
+const WORLD_DIR = `dist-world/${WORLD}`;
+const OUT = "dist-film";
+const INDEX_OUT = "app/public/packs/index.json";
+
+if (!existsSync(`${WORLD_DIR}/manifest.json`) || !existsSync(`${WORLD_DIR}/tiles/index.json`)) {
+  console.error(`no packaged world under ${WORLD_DIR}/; \`make world CORRIDOR=china\` builds one`);
+  process.exit(1);
+}
+const { film, problems } = loadFilm();
+if (problems.length > 0) {
+  console.error(`film problems:\n${formatProblems(problems)}`);
+  process.exit(1);
+}
+
+const json = <T>(path: string): T => JSON.parse(readFileSync(path, "utf8")) as T;
+const manifest = json<WorldManifest>(`${WORLD_DIR}/manifest.json`);
+const index = json<TileIndex>(`${WORLD_DIR}/tiles/index.json`);
+const w = index.window;
+if (index.heightsSha256 !== manifest.heights.sha256) {
+  console.error(`${WORLD_DIR}/tiles was cut from other heights than the manifest names: re-run \`make package\``);
+  process.exit(1);
+}
+
+// Every hero area the world publishes, by id: its lattice directory and manifest.
+const heroes = new Map<string, { dir: string; manifest: HeroManifest }>();
+for (const dir of HERO_DIRS) {
+  const path = `${WORLD_DIR}/${dir}/index.json`;
+  if (!existsSync(path)) continue;
+  for (const entry of json<HeroIndex>(path).areas) {
+    heroes.set(entry.id, { dir, manifest: json<HeroManifest>(`${WORLD_DIR}/${dir}/${entry.file}`) });
+  }
+}
+
+rmSync(OUT, { recursive: true, force: true });
+mkdirSync(`${OUT}/packs`, { recursive: true });
+
+// The files read before any pack. Small, and the same for every scene.
+const shared: string[] = ["manifest.json", "tiles/index.json"];
+if (index.horizon) shared.push(`tiles/${index.horizon.name}.bin`);
+for (const dir of HERO_DIRS) {
+  const path = `${WORLD_DIR}/${dir}/index.json`;
+  if (!existsSync(path)) continue;
+  shared.push(`${dir}/index.json`, ...json<HeroIndex>(path).areas.map((a) => `${dir}/${a.file}`));
+}
+let sharedBytes = 0;
+for (const file of shared) {
+  const to = join(OUT, "world", WORLD, file);
+  mkdirSync(dirname(to), { recursive: true });
+  copyFileSync(join(WORLD_DIR, file), to);
+  sharedBytes += statSync(to).size;
+}
+
+interface PackRow {
+  readonly id: string;
+  readonly file: string;
+  readonly bytes: number;
+  readonly reachKm: number;
+  /** Every tile the pack answers for, as flat pairs: tx, ty, tx, ty, ... */
+  readonly tiles: number[];
+  readonly files: number;
+  readonly hero: { dir: string; area: string; bytes: number } | null;
+}
+
+const rows: PackRow[] = [];
+for (const scene of film.scenes) {
+  const rail = buildRail(scene.rail);
+  const keys = [...sceneTiles(rail, TILE_KM * 1000, VIEW_RADIUS_TILES)].sort((a, b) => a - b);
+  const names = new Set<string>();
+  const tiles: number[] = [];
+  for (const key of keys) {
+    const [tx, ty] = tileOfKey(key);
+    tiles.push(tx, ty);
+    // Outside the built window the terrain gets nothing and asks for nothing.
+    if (tx < w.tx0 || tx >= w.tx1 || ty < w.ty0 || ty >= w.ty1) continue;
+    const i = (ty - w.ty0) * (w.tx1 - w.tx0) + (tx - w.tx0);
+    const name = index.names[i];
+    if (name) names.add(name);
+    const water = index.water?.names[i];
+    if (water) names.add(water);
+  }
+  const files = [...names].sort().map((name) => ({ name, bytes: new Uint8Array(readFileSync(`${WORLD_DIR}/tiles/${name}.bin`)) }));
+
+  let hero: Parameters<typeof writePack>[3] = null;
+  let heroBytes = 0;
+  if (scene.hero) {
+    const h = heroes.get(scene.hero);
+    if (!h) {
+      console.error(`${scene.id}: hero ${scene.hero} is not published under ${WORLD_DIR}`);
+      process.exit(1);
+    }
+    const m = h.manifest;
+    const raw = readFileSync(`${WORLD_DIR}/${h.dir}/${m.heights.file}`);
+    const field = new Int16Array(raw.buffer, raw.byteOffset, raw.byteLength / 2);
+    const heights = new Uint8Array(gzipSync(deltaPlanes(field, m.tileSamples, m.tileSamples * m.heights.tiles), { level: 9 }));
+    const water = m.water ? new Uint8Array(readFileSync(`${WORLD_DIR}/${h.dir}/${m.water.file}`)) : null;
+    // Decoded here the way the browser will, and compared: a pack whose hero
+    // comes back different is refused rather than shipped.
+    const back = await decodeHeroArea(m, heights, water);
+    if (back.heights.length !== field.length || back.heights.some((v, k) => v !== field[k])) {
+      console.error(`${scene.id}: ${m.area}'s heights do not survive the codec`);
+      process.exit(1);
+    }
+    hero = { dir: h.dir, area: m.area, heights, water };
+    heroBytes = heights.length + (water?.length ?? 0);
+  }
+
+  const pack = writePack(scene.id, index.heightsSha256, files, hero);
+  const file = `packs/${scene.id}.bin`;
+  writeFileSync(join(OUT, file), pack);
+  rows.push({
+    id: scene.id,
+    file,
+    bytes: pack.length,
+    reachKm: Math.round(reachKm(rail) * 10) / 10,
+    tiles,
+    files: files.length,
+    hero: hero && { dir: hero.dir, area: hero.area, bytes: heroBytes },
+  });
+}
+
+const packBytes = rows.reduce((n, r) => n + r.bytes, 0);
+const totalBytes = packBytes + sharedBytes;
+const out = {
+  version: 1,
+  world: WORLD,
+  heightsSha256: index.heightsSha256,
+  viewRadiusTiles: VIEW_RADIUS_TILES,
+  tileM: TILE_KM * 1000,
+  speedMax: DEFAULT_REACH.speedMax,
+  maxOffsetM: DEFAULT_REACH.maxOffsetM,
+  flightS: DEFAULT_REACH.flightS,
+  budgetBytes: FILM_BUDGET_BYTES,
+  sharedBytes,
+  totalBytes,
+  scenes: rows,
+};
+mkdirSync(dirname(INDEX_OUT), { recursive: true });
+writeFileSync(INDEX_OUT, JSON.stringify(out) + "\n");
+
+const mb = (n: number) => `${(n / 1e6).toFixed(2)} MB`;
+console.log(`${OUT}/: ${rows.length} packs, ${mb(packBytes)}; read before them ${mb(sharedBytes)}; ${mb(totalBytes)} of ${mb(FILM_BUDGET_BYTES)}`);
+for (const r of rows) {
+  console.log(
+    `  ${r.id.padEnd(26)} ${mb(r.bytes).padStart(9)}  ${String(r.tiles.length / 2).padStart(4)} tiles  ${String(r.files).padStart(4)} files  ` +
+      `reach ${r.reachKm} km${r.hero ? `  hero ${r.hero.area} ${mb(r.hero.bytes)}` : ""}`,
+  );
+}
+if (totalBytes > FILM_BUDGET_BYTES) {
+  console.error(`over the film's budget by ${mb(totalBytes - FILM_BUDGET_BYTES)}`);
+  process.exit(1);
+}
