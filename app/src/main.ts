@@ -440,7 +440,7 @@ function recordFrame(dt: number): void {
   r.northM += Math.cos(r.headingRad) * ms * dt;
   const s = film?.scenes[current] ?? null;
   const band = s?.band ?? { minM: 50, maxM: 6000 };
-  const alt = altitude.update(dt, r.eastM, r.northM, r.headingRad, r.aboveGroundM, band, groundAt);
+  const alt = altitude.update(dt, r.eastM, r.northM, r.headingRad, r.aboveGroundM, band, groundAt, s?.lookAheadKm);
   placeAt(r.eastM, r.northM, alt, r.headingRad, 0);
   const { latDeg, lonDeg } = unprojectAlbers(r.eastM, r.northM);
   el("recorder").textContent =
@@ -479,10 +479,11 @@ function frame(now: number): void {
     el("title").hidden = true;
     el("caption").textContent = "";
     if (pinned.aboveGroundM !== null) {
-      const band = film?.scenes[Math.max(0, current)]?.band ?? { minM: 50, maxM: 6000 };
+      const scene = film?.scenes[Math.max(0, current)];
+      const band = scene?.band ?? { minM: 50, maxM: 6000 };
       // Placed afresh, not eased: a zero step would hold the first frame's guess.
       altitude.reset();
-      pinned.altitudeM = altitude.update(0, pinned.eastM, pinned.northM, pinned.headingRad, pinned.aboveGroundM, band, groundAt);
+      pinned.altitudeM = altitude.update(0, pinned.eastM, pinned.northM, pinned.headingRad, pinned.aboveGroundM, band, groundAt, scene?.lookAheadKm);
     }
     placeAt(pinned.eastM, pinned.northM, pinned.altitudeM, pinned.headingRad, 0, pinned.clockMinutes, pinned.pitchDeg);
     rig.render();
@@ -508,7 +509,7 @@ function frame(now: number): void {
     // The map and the title over the first frame of the rail, which also
     // streams the ground the flight is about to need.
     const start = railAtKm(rails[current]!, 0);
-    const alt = altitude.update(0, start.eastM, start.northM, start.headingRad, start.aboveGroundM, s.band, groundAt);
+    const alt = altitude.update(0, start.eastM, start.northM, start.headingRad, start.aboveGroundM, s.band, groundAt, s.lookAheadKm);
     placeAt(start.eastM, start.northM, alt, start.headingRad, 0, clockNow(), start.pitchDeg);
     el("title").hidden = false;
     el("caption").textContent = "";
@@ -523,7 +524,7 @@ function frame(now: number): void {
     );
     lastState = state;
     lastFlightS = pos.flightS;
-    const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt);
+    const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt, s.lookAheadKm);
     placeAt(state.eastM, state.northM, alt, state.headingRad, state.bankRad, clockNow(), state.pitchDeg);
     el("caption").textContent = captionAt(s, pos.flightS);
     el("auto").classList.toggle("on", state.auto);
@@ -613,7 +614,7 @@ if (import.meta.env.DEV) {
       const fix = railAtKm(rail, km);
       const s = film!.scenes[i]!;
       altitude.reset();
-      const alt = altitude.update(0, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, s.band, groundAt);
+      const alt = altitude.update(0, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, s.band, groundAt, s.lookAheadKm);
       pinned = {
         eastM: fix.eastM,
         northM: fix.northM,

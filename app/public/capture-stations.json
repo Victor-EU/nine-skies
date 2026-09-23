@@ -6,11 +6,11 @@
     {
       "id": "huangshan",
       "km": 22,
-      "eastM": 4709833,
-      "northM": 1485002,
-      "altitudeM": 1216,
-      "headingRad": 2.194058,
-      "groundM": 566,
+      "eastM": 4712412,
+      "northM": 1482896,
+      "altitudeM": 1258,
+      "headingRad": 2.887621,
+      "groundM": 431,
       "why": "scene huangshan at 60 s on its rail"
     },
     {
@@ -28,7 +28,7 @@
       "km": 30,
       "eastM": 4005104,
       "northM": 843343,
-      "altitudeM": 549,
+      "altitudeM": 563,
       "headingRad": 2.936139,
       "groundM": 140,
       "why": "scene karst at 60 s on its rail"
@@ -38,7 +38,7 @@
       "km": 50,
       "eastM": 2956753,
       "northM": 1061334,
-      "altitudeM": 3931,
+      "altitudeM": 3542,
       "headingRad": 2.568153,
       "groundM": 1942,
       "why": "scene first-bend at 60 s on its rail"
@@ -88,7 +88,7 @@
       "km": 60,
       "eastM": 1740789,
       "northM": 1389114,
-      "altitudeM": 6172,
+      "altitudeM": 6196,
       "headingRad": -2.193766,
       "groundM": 4672,
       "why": "scene the-wall at 60 s on its rail"

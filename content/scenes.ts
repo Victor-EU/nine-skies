@@ -24,6 +24,7 @@ import {
   type RailKey,
   type Scene,
 } from "../engine/src/film/scene.js";
+import { DEFAULT_LOOK_AHEAD_KM } from "../engine/src/film/altitude.js";
 import { DEFAULT_RAIL } from "../engine/src/film/rail.js";
 import { FLIGHT_S } from "../engine/src/film/timeline.js";
 import { dayOfYear, sunPosition } from "../engine/src/gfx/solar.js";
@@ -39,6 +40,8 @@ export const CAPTION_SHOW_S = 6;
 export const SCENES_IN_A_FILM = 9;
 /** How far below level the camera looks unless the scene says otherwise. */
 export const DEFAULT_PITCH_DEG = 6;
+/** The look-ahead a scene may ask for, real km: shorter reads as a wall, longer as a map. */
+export const LOOK_AHEAD_RANGE_KM = [0.5, 30] as const;
 /** The sun may be this far below the horizon at the scene's first key: civil twilight. */
 export const MIN_SUN_ELEVATION_DEG = -6;
 
@@ -107,6 +110,13 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
   if (raw.pitch_deg !== undefined) {
     if (isNum(raw.pitch_deg) && raw.pitch_deg >= 0 && raw.pitch_deg <= 45) pitchDeg = raw.pitch_deg;
     else add("pitch_deg", "degrees below level, 0 to 45");
+  }
+
+  let lookAheadKm = DEFAULT_LOOK_AHEAD_KM;
+  if (raw.look_ahead_km !== undefined) {
+    if (isNum(raw.look_ahead_km) && raw.look_ahead_km >= LOOK_AHEAD_RANGE_KM[0] && raw.look_ahead_km <= LOOK_AHEAD_RANGE_KM[1])
+      lookAheadKm = raw.look_ahead_km;
+    else add("look_ahead_km", `real kilometres the altitude reads ahead, ${LOOK_AHEAD_RANGE_KM[0]} to ${LOOK_AHEAD_RANGE_KM[1]}`);
   }
 
   const rail: RailKey[] = [];
@@ -178,6 +188,7 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     band,
     corridorDeg,
     pitchDeg,
+    lookAheadKm,
     look,
     captions,
     music,

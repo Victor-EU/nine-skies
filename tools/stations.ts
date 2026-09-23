@@ -50,7 +50,7 @@ const stations = film.scenes.map((s) => {
   const ground = (e: number, n: number): number | null => (corridor.covers(e, n) ? corridor.drawnAt(e, n) : null);
   const groundM = ground(fix.eastM, fix.northM) ?? 0;
   const controller = new AltitudeController();
-  const altitudeM = controller.update(0, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, s.band, ground);
+  const altitudeM = controller.update(0, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, s.band, ground, s.lookAheadKm);
   return {
     id: s.id,
     km: Math.round(km * 10) / 10,

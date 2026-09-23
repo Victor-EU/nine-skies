@@ -110,6 +110,13 @@ describe("what the gate refuses", () => {
     expect(problemsOf(good(), "other").map((p) => p.field)).toEqual(["id"]);
   });
 
+  it("a look-ahead that would read as a wall or as a map; eight kilometres unless the scene says", () => {
+    expect(sceneFromRaw(good(), "gorges").scene!.lookAheadKm).toBe(8);
+    expect(sceneFromRaw(good({ look_ahead_km: 1.5 }), "gorges").scene!.lookAheadKm).toBe(1.5);
+    expect(problemsOf(good({ look_ahead_km: 0.1 })).map((p) => p.field)).toEqual(["look_ahead_km"]);
+    expect(problemsOf(good({ look_ahead_km: "far" })).map((p) => p.field)).toEqual(["look_ahead_km"]);
+  });
+
   it("a hero grid the world has not built, when there is a world to ask", () => {
     const { scene } = sceneFromRaw(good({ hero: "everest" }), "gorges");
     expect(validateScene(scene!, { heroBuilt: () => false }).map((p) => p.field)).toEqual(["hero"]);

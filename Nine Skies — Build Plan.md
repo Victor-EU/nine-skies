@@ -97,6 +97,7 @@ rail:                         # recorded in the app, projected at load
 band: { above_ground_m: [120, 600] }   # what the controller holds between keys
 corridor_deg: 60              # how far off the rail's heading a viewer may turn
 pitch_deg: 6                  # how far below level the camera looks; a rail key may say `pitch:` (F79)
+look_ahead_km: 8              # how far ahead the altitude reads the ground; 1.5 over a massif of spires (F81)
 look:
   sky: gorge-afternoon
   palette: limestone-green

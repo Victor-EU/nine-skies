@@ -42,7 +42,13 @@ interface RailReport {
   readonly ceilingHits: number;
 }
 
-function fly(corridor: Corridor, id: string, scene: Parameters<typeof buildRail>[0], band: { minM: number; maxM: number }): RailReport {
+function fly(
+  corridor: Corridor,
+  id: string,
+  scene: Parameters<typeof buildRail>[0],
+  band: { minM: number; maxM: number },
+  lookAheadKm: number,
+): RailReport {
   const rail = buildRail(scene);
   const controller = new AltitudeController();
   const ground = (e: number, n: number): number | null => (corridor.covers(e, n) ? corridor.drawnAt(e, n) : null);
@@ -62,7 +68,7 @@ function fly(corridor: Corridor, id: string, scene: Parameters<typeof buildRail>
   for (let m = 0; m <= totalM; m += STEP_M) {
     const fix = railAtKm(rail, m / 1000);
     const dt = lastAlt === null ? 0 : STEP_M / ((fix.kmPerMin * 1000) / 60);
-    const alt = controller.update(dt, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, band, ground);
+    const alt = controller.update(dt, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, band, ground, lookAheadKm);
     lastAlt = alt;
     samples++;
     if (!corridor.covers(fix.eastM, fix.northM)) {
@@ -147,7 +153,7 @@ if (problems.length > 0) {
   console.error(`film problems:\n${formatProblems(problems)}`);
   process.exit(1);
 }
-const reports = film.scenes.map((s) => fly(corridor, s.id, s.rail, s.band));
+const reports = film.scenes.map((s) => fly(corridor, s.id, s.rail, s.band, s.lookAheadKm));
 const text = render(worldDir, reports);
 mkdirSync("docs", { recursive: true });
 writeFileSync("docs/rails-report.md", text);

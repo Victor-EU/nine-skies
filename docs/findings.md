@@ -342,3 +342,63 @@ instrument's ±2.3 ms can see; their differences came out on both sides of
 zero. An M1 is roughly half this GPU, so 8 to 10 ms there, which is the
 budget or a little over it; the post pass's resolution is the lever, and
 a phone will be measured by wall clock as the plan says.
+
+## F81 — Huangshan flies among its peaks, 23 September 2026
+
+**The change.** How far ahead the altitude controller reads the ground is
+now the scene's to say: `look_ahead_km` in the scene file, eight unless
+the scene says, 0.5 to 30. The controller reads the ground under the
+camera and at eight even steps out to that distance, instead of at 1.5,
+4 and 8 km; the even steps see every ridge on the way, and moved the
+other eight scenes by tens of metres, all towards fewer floor hits.
+Huangshan reads 1.5 km, its keys over the massif fly 150 m over the
+highest ground in that reach, and its band floor is 150 m. The still is
+taken at twenty seconds now, not thirty: at 22 km a minute, thirty
+seconds is 11 km in and already past Bright Summit, with the ground
+ahead dropping under the deck and nothing in the frame but cloud.
+
+**What the frames said.** Held at 16, 20 and 24 s:
+
+- At 16 s the frame is a wall. It is not a spire beside the line that the
+  controller missed; it is the massif's southern front 1 to 2 km ahead,
+  which at six times relief fills the frame from the deck to its top. The
+  controller starts climbing it when it enters the reach, 4 s out at
+  22 km a minute, and the frame-rate walk of the rail has the camera
+  under ground within 1 km on 4 % of frames by at most 71 m, at the
+  band's floor 1 % of the time, never faster than 253 m/s. The massif
+  looms and the camera rises over its rim into the spires; that is the
+  opening.
+- At 20 s the camera is at 1,779 m with Lotus Peak ahead across the
+  horizon and the spires falling away to the cloud on both sides. That is
+  the still.
+- At 24 s the camera is at 1,850 m and the frame is cloud, with the
+  spires just passed at its bottom edge: at 1:8 anything within a
+  kilometre and below the camera is under the frame's bottom, which is
+  41° down at pitch 10.
+
+**One kilometre was tried too.** It puts the 20 s camera at 1,607 m, in a
+slot between two walls with the cloud sea through the gap: among the
+peaks to the letter, and no massif in the frame. The walk is rougher as
+well, under ground within 1 km on 6 % of frames by up to 254 m at
+317 m/s. A kilometre and a half shows the massif and flies it smoothly.
+
+**A swath was tried and refused.** Reading the ground on five lanes out to
+24° either side of the heading, on the argument that a spire 200 m
+beside the line stands in the middle of a frame 94° wide, put the
+three-gorges station from 814 to 1,193 m and the first bend at its
+ceiling 29 % of the time: in a gorge the walls beside the line are the
+picture, and a controller that climbs for them takes the camera out of
+the gorge. At Huangshan it bought nothing the eye could see, since the
+wall at 16 s is on the line. The controller reads the line.
+
+**Two lessons for the stills.** A hold placed before the hero tiles have
+landed reads the ground as null, and the camera sits at the band's floor
+over nothing: three stills came back byte-identical at 150 m before the
+tiles were given twenty seconds. And a vite restart, which any engine
+edit causes, refetches the whole country; a still after one needs the
+same patience.
+
+**Rails report.** Huangshan: 89 km, 242 s at authored speed, 150 to
+1,383 m above ground, ground ahead above the camera on 2 % of samples by
+up to 160 m, at the floor 2 %. The first bend sits at its 1,600 m ceiling
+11 % of the way, which is the band chosen in F79, not this change.

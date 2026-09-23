@@ -109,7 +109,10 @@ once and lets go still sees the end of the scene. The Auto badge on screen
 lights when the rail is flying.
 
 **Direction is heading only.** Altitude is automatic: the camera holds an
-authored band above the ground, following the terrain smoothly. Nobody can hit
+authored band above the ground, following the terrain smoothly, climbing for
+the ground it reads ahead along its heading. How far ahead is the scene's to
+say: eight kilometres over the plateau, one and a half over Huangshan, so the camera
+flies among the spires rather than over the highest of them. Nobody can hit
 a mountain, dive into the sea, or drift into the sky. Each rail also carries a
 heading corridor, the widest the camera may turn away from the rail's own
 direction, so the viewer can look at the other wall of the gorge but cannot

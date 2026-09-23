@@ -4,7 +4,7 @@
  * leave the scene's band.
  */
 import { describe, expect, it } from "vitest";
-import { AltitudeController, DEFAULT_ALTITUDE } from "../../engine/src/film/altitude.js";
+import { AltitudeController, DEFAULT_ALTITUDE, lookAheadSamplesKm } from "../../engine/src/film/altitude.js";
 
 const band = { minM: 100, maxM: 2000 };
 const north = 0;
@@ -26,6 +26,16 @@ describe("the altitude controller", () => {
     let a = after;
     for (let i = 0; i < 20; i++) a = c.update(1, 0, 0, north, 300, band, ground);
     expect(a).toBeCloseTo(1300, 0);
+  });
+
+  it("reads only as far ahead as the scene says, so a short look-ahead flies among peaks a long one flies over", () => {
+    const ridge = (_e: number, n: number) => (n >= 3_500 && n <= 4_500 ? 1000 : 100);
+    const far = new AltitudeController();
+    expect(far.update(0, 0, 0, north, 300, band, ridge, 8)).toBe(1300);
+    const near = new AltitudeController();
+    expect(near.update(0, 0, 0, north, 300, band, ridge, 1.5)).toBe(400);
+    // Reads under the camera and at even steps out to the distance.
+    expect(lookAheadSamplesKm(8)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
   it("never moves faster than the rate cap", () => {

@@ -66,6 +66,13 @@ export interface Scene {
    * times relief the river is under the frame's bottom edge otherwise.
    */
   readonly pitchDeg: number;
+  /**
+   * How far ahead along the heading the altitude controller reads the
+   * ground, real km. Eight is the film's default; a massif of spires wants
+   * one or two, so the camera flies among its peaks rather than over the
+   * highest of them (F81).
+   */
+  readonly lookAheadKm: number;
   readonly look: SceneLook;
   readonly captions: readonly Caption[];
   readonly music: string | null;
