@@ -56,6 +56,8 @@ export class ColourLayers {
   constructor(
     readonly layers: number,
     readonly samples: number = COLOUR_SAMPLES,
+    /** Data rather than colour, read as stored: the relief's normals (F93). */
+    readonly linear = false,
   ) {
     this.state = new Uint8Array(layers);
     this.texture = new DataArrayTexture(null, samples, samples, layers);
@@ -63,7 +65,7 @@ export class ColourLayers {
     this.texture.type = UnsignedByteType;
     // Stored as the mosaic's sRGB and read as linear light, filtered after
     // the conversion, as it should be.
-    this.texture.internalFormat = "SRGB8_ALPHA8";
+    this.texture.internalFormat = linear ? "RGBA8" : "SRGB8_ALPHA8";
     this.texture.minFilter = LinearMipmapLinearFilter;
     this.texture.magFilter = LinearFilter;
     this.texture.generateMipmaps = true;

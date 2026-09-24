@@ -5,7 +5,10 @@
  * ask for (`engine/src/film/reach.ts`: the rail to where the fastest viewer
  * gets, the widest drift off it, the terrain's view disc around every place
  * the camera can stand) and the scene's own hero area, its heights coded
- * like a tile, with its colour and its fine colour (F87, F91). Beside the packs it copies the few small files the film reads
+ * like a tile, with its colour and its fine colour (F87, F91), and the
+ * ground's relief (F93) for the country tiles the camera comes near and the
+ * hero area whole; the pack index lists those country tiles, which is what
+ * `make relief` cuts. Beside the packs it copies the few small files the film reads
  * before any pack - the world's manifest, its tile index, the horizon field,
  * the hero manifests and the walls' rock faces (F92) - so `dist-film/` is
  * everything a static host needs.
@@ -20,7 +23,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, wr
 import { dirname, join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { writePack } from "../engine/src/film/pack.js";
-import { DEFAULT_REACH, reachKm, sceneTiles, tileOfKey } from "../engine/src/film/reach.js";
+import { DEFAULT_REACH, nearTiles, reachKm, sceneTiles, tileOfKey } from "../engine/src/film/reach.js";
 import { buildRail } from "../engine/src/film/scene.js";
 import { HERO_DIRS, decodeHeroArea, type HeroIndex, type HeroManifest } from "../engine/src/terrain/heroSource.js";
 import { TILE_KM } from "../engine/src/terrain/syntheticTiles.js";
@@ -31,6 +34,7 @@ import type { WorldManifest } from "../engine/src/terrain/tileSource.js";
 import { colourProblem, type ColourIndex } from "../engine/src/terrain/colour.js";
 import { colourFile } from "../engine/src/film/pack.js";
 import { rockProblem, type RockIndex } from "../engine/src/terrain/rock.js";
+import { RELIEF_REACH, reliefProblem, type ReliefIndex } from "../engine/src/terrain/relief.js";
 import { formatProblems, loadFilm } from "./film.ts";
 
 /**
@@ -86,6 +90,19 @@ const colourBytes = (name: string) => ({
   bytes: new Uint8Array(readFileSync(`${WORLD_DIR}/colour/files/${name}.webp`)),
 });
 
+// The ground's relief (F93), when it has been cut: a file a tile near the camera, packed with the scene.
+const reliefPath = `${WORLD_DIR}/relief/index.json`;
+const relief = existsSync(reliefPath) ? json<ReliefIndex>(reliefPath) : null;
+if (relief && reliefProblem(relief)) {
+  console.error(`${reliefPath}: ${reliefProblem(relief)}`);
+  process.exit(1);
+}
+if (!relief) console.warn(`no ground relief under ${WORLD_DIR}/relief: the packs light the grid alone (\`make relief\`)`);
+const reliefBytes = (name: string) => ({
+  name: colourFile(name),
+  bytes: new Uint8Array(readFileSync(`${WORLD_DIR}/relief/files/${name}.webp`)),
+});
+
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(`${OUT}/packs`, { recursive: true });
 
@@ -98,6 +115,7 @@ for (const dir of HERO_DIRS) {
   shared.push(`${dir}/index.json`, ...json<HeroIndex>(path).areas.map((a) => `${dir}/${a.file}`));
 }
 if (colour) shared.push("colour/index.json");
+if (relief) shared.push("relief/index.json");
 // The walls' rock (F92): every face, since each scene's palette names one and they are 1 MB each.
 const rockIndexPath = `${WORLD_DIR}/rock/index.json`;
 const rock = existsSync(rockIndexPath) ? json<RockIndex>(rockIndexPath) : null;
@@ -128,6 +146,10 @@ interface PackRow {
   readonly hero: { dir: string; area: string; bytes: number } | null;
   /** Of `bytes`, the ground's colour (F87). */
   readonly colourBytes: number;
+  /** The country tiles the camera comes near enough to light by their relief (F93), as flat pairs. */
+  readonly relief: number[];
+  /** Of `bytes`, the ground's relief. */
+  readonly reliefBytes: number;
 }
 
 const rows: PackRow[] = [];
@@ -166,11 +188,30 @@ for (const scene of film.scenes) {
     }
   }
   if (uncoloured > 0) console.warn(`${scene.id}: ${uncoloured} tiles or hero areas without colour; they fly in the palette`);
+  // The relief (F93): every country tile within its reach of where the camera can stand, and the hero area whole.
+  const near = [...nearTiles(rail, TILE_KM * 1000, RELIEF_REACH.country!.reachM)].sort((a, b) => a - b);
+  const reliefTiles: number[] = [];
+  const reliefs = new Set<string>();
+  let unlit = 0;
+  for (const key of near) {
+    const [tx, ty] = tileOfKey(key);
+    if (tx < w.tx0 || tx >= w.tx1 || ty < w.ty0 || ty >= w.ty1) continue;
+    reliefTiles.push(tx, ty);
+    if (!relief) continue;
+    const r = relief.country[`${tx}_${ty}`];
+    if (r) reliefs.add(r);
+    else unlit++;
+  }
+  const reliefHero = scene.hero && relief?.hero[scene.hero];
+  if (reliefHero) for (const r of reliefHero.tiles) if (r) reliefs.add(r);
+  if (relief && unlit > 0) console.warn(`${scene.id}: ${unlit} country tiles near the camera without relief; \`make relief\` cuts them`);
   const files = [
     ...[...names].sort().map((name) => ({ name, bytes: new Uint8Array(readFileSync(`${WORLD_DIR}/tiles/${name}.bin`)) })),
     ...[...colours].sort().map(colourBytes),
+    ...[...reliefs].sort().map(reliefBytes),
   ];
-  const colourTotal = files.filter((f) => f.name.endsWith(".webp")).reduce((n, f) => n + f.bytes.length, 0);
+  const reliefTotal = files.filter((f) => f.name.startsWith("relief-")).reduce((n, f) => n + f.bytes.length, 0);
+  const colourTotal = files.filter((f) => f.name.endsWith(".webp")).reduce((n, f) => n + f.bytes.length, 0) - reliefTotal;
 
   let hero: Parameters<typeof writePack>[3] = null;
   let heroBytes = 0;
@@ -208,6 +249,8 @@ for (const scene of film.scenes) {
     files: files.length,
     hero: hero && { dir: hero.dir, area: hero.area, bytes: heroBytes },
     colourBytes: colourTotal,
+    relief: reliefTiles,
+    reliefBytes: reliefTotal,
   });
 }
 
@@ -236,7 +279,8 @@ for (const r of rows) {
   console.log(
     `  ${r.id.padEnd(26)} ${mb(r.bytes).padStart(9)}  ${String(r.tiles.length / 2).padStart(4)} tiles  ${String(r.files).padStart(4)} files  ` +
       `reach ${r.reachKm} km${r.hero ? `  hero ${r.hero.area} ${mb(r.hero.bytes)}` : ""}` +
-      (r.colourBytes > 0 ? `  colour ${mb(r.colourBytes)}` : ""),
+      (r.colourBytes > 0 ? `  colour ${mb(r.colourBytes)}` : "") +
+      (r.reliefBytes > 0 ? `  relief ${mb(r.reliefBytes)}` : ""),
   );
 }
 if (totalBytes > FILM_BUDGET_BYTES) {

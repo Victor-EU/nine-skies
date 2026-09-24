@@ -9,9 +9,14 @@
  * comes out grey (F87, F89). A headless Chrome's page is visible and draws
  * at full rate on the machine's own GPU; its stills match a front window's
  * to about a level in 255. Needs `npm run dev` and Google Chrome.
+ *
+ * The Chrome is always its own: it takes whatever debugging port is free
+ * and names it in its profile. On a fixed port, a Chrome another program
+ * had left there answered instead, and had its tab driven to the film and
+ * left drawing it.
  */
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatProblems, loadFilm } from "./film.ts";
@@ -20,7 +25,6 @@ import { formatProblems, loadFilm } from "./film.ts";
 const HELD_AT_S: Record<string, number> = { huangshan: 20, "grassland-to-heaven-lake": 108 };
 const URL_ = process.env.NS_URL ?? "http://localhost:5173/";
 const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const PORT = 9333;
 
 const { film, problems } = loadFilm();
 if (problems.length) {
@@ -41,7 +45,7 @@ const chrome = spawn(
   CHROME,
   [
     "--headless=new",
-    `--remote-debugging-port=${PORT}`,
+    "--remote-debugging-port=0",
     `--user-data-dir=${profile}`,
     "--window-size=1280,720",
     "--no-first-run",
@@ -57,7 +61,8 @@ try {
   for (let k = 0; k < 50 && !socketUrl; k++) {
     await sleep(200);
     try {
-      const targets = (await (await fetch(`http://127.0.0.1:${PORT}/json`)).json()) as { type: string; webSocketDebuggerUrl: string }[];
+      const port = readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0];
+      const targets = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as { type: string; webSocketDebuggerUrl: string }[];
       socketUrl = targets.find((t) => t.type === "page")?.webSocketDebuggerUrl;
     } catch {
       // not listening yet

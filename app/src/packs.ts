@@ -17,6 +17,7 @@
 import { readPack, type PackHeader } from "../../engine/src/film/pack.js";
 import { decodeHeroArea, loadHeroArea, type HeroCover } from "../../engine/src/terrain/heroSource.js";
 import type { ColourIndex } from "../../engine/src/terrain/colour.js";
+import type { ReliefIndex } from "../../engine/src/terrain/relief.js";
 import { colourFile } from "../../engine/src/film/pack.js";
 import { fetchBytes, type FetchBytes, type TileIndex } from "../../engine/src/terrain/tileStream.js";
 
@@ -26,6 +27,8 @@ export interface PackIndexScene {
   readonly bytes: number;
   /** Flat pairs: tx, ty, tx, ty, ... */
   readonly tiles: readonly number[];
+  /** The country tiles whose relief the pack holds (F93), the same way. */
+  readonly relief?: readonly number[];
   readonly hero: { readonly dir: string; readonly area: string; readonly bytes: number } | null;
 }
 
@@ -87,7 +90,7 @@ export class ScenePacks {
    * which covers its hero areas go to. Until this, requests pass straight
    * through: the only one made before it is the horizon field.
    */
-  attach(tiles: TileIndex, covers: readonly HeroCover[], colour: ColourIndex | null = null): void {
+  attach(tiles: TileIndex, covers: readonly HeroCover[], colour: ColourIndex | null = null, relief: ReliefIndex | null = null): void {
     const w = tiles.window;
     const width = w.tx1 - w.tx0;
     this.horizonName = tiles.horizon?.name ?? null;
@@ -115,6 +118,14 @@ export class ScenePacks {
       }
       const hero = scene.hero && colour?.hero[scene.hero.area];
       for (const c of hero ? [...hero.tiles, ...(hero.fine ?? [])] : []) if (c) own(colourFile(c), i);
+      // The relief (F93): the country tiles near the camera, and the hero area whole.
+      const near = scene.relief ?? [];
+      for (let k = 0; k < near.length; k += 2) {
+        const r = relief?.country[`${near[k]}_${near[k + 1]}`];
+        if (r) own(colourFile(r), i);
+      }
+      const reliefHero = scene.hero && relief?.hero[scene.hero.area];
+      for (const r of reliefHero ? reliefHero.tiles : []) if (r) own(colourFile(r), i);
     });
     this.attached = true;
   }

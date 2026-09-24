@@ -106,15 +106,17 @@ float luma(vec3 c) {
   return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }`;
 
-/** What the ground's colour adds (F87), and its fine layer where there is one (F91). */
-const colourVertexInputs = (fine: boolean): string => /* glsl */ `
+/** What the ground's colour adds (F87), its fine layer where there is one (F91), and its relief (F93). */
+const colourVertexInputs = (fine: boolean, relief: boolean): string => /* glsl */ `
 in float iColour;
 flat out float vColour;
-${fine ? "in float iFine;\nflat out float vFine;" : ""}`;
+${fine ? "in float iFine;\nflat out float vFine;" : ""}
+${relief ? "in float iRelief;\nflat out float vRelief;" : ""}`;
 
-const colourVertexBody = (fine: boolean): string => /* glsl */ `
+const colourVertexBody = (fine: boolean, relief: boolean): string => /* glsl */ `
   vColour = iColour;
-${fine ? "  vFine = iFine;" : ""}`;
+${fine ? "  vFine = iFine;" : ""}
+${relief ? "  vRelief = iRelief;" : ""}`;
 
 /** Where in a colour image a tile-local position is: `samples` a side, rows north to south. */
 const colourSt = (uv: string, samples: number): string =>
@@ -135,7 +137,7 @@ const colourSt = (uv: string, samples: number): string =>
  * `vFine` is flat per instance, so the branch is the same across a triangle
  * and the texture read's derivatives hold.
  */
-const colourFragmentInputs = (fineSamples: number): string => /* glsl */ `
+const colourFragmentInputs = (fineSamples: number, reliefSamples: number): string => /* glsl */ `
 precision highp sampler2DArray;
 uniform sampler2DArray uColour;
 uniform float uTileTexels;
@@ -164,7 +166,35 @@ ${
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   return max(mix(vec3(l), c, uImagery.y), 0.0) * uImagery.x * uImageryTint;
 }
+${reliefSamples > 0 ? reliefGlsl(reliefSamples) : ""}
 ${WALL_GLSL}`;
+
+/**
+ * The ground's relief below its grid (F93), where the tile holds a layer of
+ * it: the source's normal at the fragment, as steep as the world draws the
+ * ground (`uReliefGain`, the world's vertical over its horizontal scale),
+ * whole within `uReliefFade.x` world units of the camera across the ground
+ * and the grid's own normal by `uReliefFade.y`. Each part is stored as the
+ * signed square root of its size, 127 either side of the byte 127
+ * (`relief.py`). The light only: the shadow
+ * and what reads the slope (rock, snow, the walls) keep the grid's normal,
+ * so the relief never moves the rock or the snow, and a surface lit by it
+ * is still shadowed where the ground drawn is.
+ */
+const reliefGlsl = (samples: number): string => /* glsl */ `
+uniform sampler2DArray uRelief;
+uniform vec2 uReliefFade;
+uniform float uReliefGain;
+flat in float vRelief;
+
+vec3 reliefNormal(vec2 texel, vec3 n, float across) {
+  vec2 uv = texel / uTileTexels;
+  vec2 c = texture(uRelief, vec3(${colourSt("uv", samples)}, vRelief - 1.0)).rg * (255.0 / 127.0) - 1.0;
+  vec2 p = sign(c) * c * c;
+  float up = sqrt(max(1.0 - dot(p, p), 1e-4));
+  vec3 fine = normalize(vec3(p.x * uReliefGain, up, p.y * uReliefGain));
+  return normalize(mix(fine, n, smoothstep(uReliefFade.x, uReliefFade.y, across)));
+}`;
 
 // A tile whose water has landed. Flat per instance, so every fragment of a
 // triangle takes the same branch and the derivatives inside it hold.
@@ -213,7 +243,7 @@ vec3 groundNormal(ivec2 t, float here) {
   return normalize(vec3(-dx, 1.0, -dz));
 }`;
 
-const vertexShader = (water: boolean, normals: boolean, colour: boolean, fine = false): string => /* glsl */ `
+const vertexShader = (water: boolean, normals: boolean, colour: boolean, fine = false, relief = false): string => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp isampler2DArray;
@@ -224,7 +254,7 @@ in vec2 iOrigin;
 in float iLayer;
 ${water || colour ? TEXEL_VERTEX_INPUTS : ""}
 ${water ? WATER_VERTEX_INPUTS : ""}
-${colour ? colourVertexInputs(fine) : ""}
+${colour ? colourVertexInputs(fine, relief) : ""}
 
 uniform isampler2DArray uHeights;
 uniform float uTileWorldSize;
@@ -254,7 +284,7 @@ void main() {
 ${normals ? "  vNormal = groundNormal(ivec2(aTexel), elevationM);" : ""}
 ${water || colour ? TEXEL_VERTEX_BODY : ""}
 ${water ? WATER_VERTEX_BODY : ""}
-${colour ? colourVertexBody(fine) : ""}
+${colour ? colourVertexBody(fine, relief) : ""}
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
 `;
@@ -389,13 +419,17 @@ const COLOUR_FRAGMENT_BODY = /* glsl */ `
       // Its relief, from its normals: across the wall and up it.
       vec3 bend = wx * (tX.x * vec3(0.0, 0.0, -sx) + tX.y * vec3(0.0, 1.0, 0.0))
         + wz * (tZ.x * vec3(sz, 0.0, 0.0) + tZ.y * vec3(0.0, 1.0, 0.0));
-      nLit = normalize(n + bend * mix(uWall.z, uWall.y, face) * smoothstep(0.0, 0.6, rock));
+      nLit = normalize(nLit + bend * mix(uWall.z, uWall.y, face) * smoothstep(0.0, 0.6, rock));
       rock = 0.0;
     } else {
       rock *= uImagery.z;
     }
     snow *= uImagery.w;
   }`;
+
+// The relief lights the tiles that hold it (F93). Flat per instance, so the derivatives hold.
+const RELIEF_FRAGMENT_BODY = /* glsl */ `
+  if (vRelief > 0.5) nLit = reliefNormal(vTexel, n, length(vWorld.xz - uCameraWorld.xz));`;
 
 // The ground's normal, interpolated from its vertices (header).
 const SMOOTH_NORMAL = /* glsl */ `
@@ -413,6 +447,7 @@ const fragmentShader = (
   smooth: boolean,
   colour: boolean,
   fineSamples = 0,
+  reliefSamples = 0,
 ): string => /* glsl */ `
 precision highp float;
 precision highp int;
@@ -424,7 +459,7 @@ ${smooth ? "in vec3 vNormal;" : ""}
 ${waterSamples > 0 || colour ? TEXEL_FRAGMENT_INPUTS : ""}
 ${waterSamples > 0 ? WATER_FRAGMENT_INPUTS : ""}
 uniform vec3 uCameraWorld;
-${colour ? colourFragmentInputs(fineSamples) : ""}
+${colour ? colourFragmentInputs(fineSamples, reliefSamples) : ""}
 
 uniform vec3 uSunColor;
 uniform float uHazeDensity;
@@ -452,6 +487,7 @@ ${smooth ? SMOOTH_NORMAL : FLAT_NORMAL}
 
   vec3 base = elevationColor(vElevation);
   vec3 nLit = n;
+${reliefSamples > 0 ? RELIEF_FRAGMENT_BODY : ""}
 
   // Steep ground reads as rock wherever it is; snow lies where the ground
   // can hold it, above the scene's line.
@@ -487,6 +523,8 @@ interface Recipe {
   readonly colour: boolean;
   /** Samples a side of the fine colour (F91); 0 for none. */
   readonly fineSamples: number;
+  /** Samples a side of the relief (F93); 0 for none. */
+  readonly reliefSamples: number;
 }
 
 export interface TerrainUniformValues {
@@ -518,6 +556,18 @@ export interface TerrainUniformValues {
     samples: number;
     fadeM: readonly [number, number];
     horizontalCompression: number;
+  };
+  /**
+   * The relief near the camera (F93): its pool's array, its images' size,
+   * the real metres over which it fades to the grid's own normal, and the
+   * world's slope over the ground's (`reliefGain`).
+   */
+  relief?: {
+    texture: import("three").DataArrayTexture;
+    samples: number;
+    fadeM: readonly [number, number];
+    horizontalCompression: number;
+    gain: number;
   };
   /**
    * The water layer (F72): the array beside the heights, and what its bytes
@@ -568,12 +618,14 @@ export function createTerrainMaterial(
       }
     : {};
   const fine = values.colour ? values.fine : undefined;
+  const relief = values.colour ? values.relief : undefined;
   const recipe: Recipe = {
     kind: "terrain",
     maxCuts,
     waterSamples: water?.samples ?? 0,
     colour: values.colour !== undefined,
     fineSamples: fine?.samples ?? 0,
+    reliefSamples: relief?.samples ?? 0,
   };
   const colourUniforms = values.colour
     ? {
@@ -592,11 +644,18 @@ export function createTerrainMaterial(
             value: new Vector2(fine.fadeM[0] / fine.horizontalCompression, fine.fadeM[1] / fine.horizontalCompression),
           },
         }),
+        ...(relief && {
+          uRelief: { value: relief.texture },
+          uReliefFade: {
+            value: new Vector2(relief.fadeM[0] / relief.horizontalCompression, relief.fadeM[1] / relief.horizontalCompression),
+          },
+          uReliefGain: { value: relief.gain },
+        }),
       }
     : {};
   const material = new ShaderMaterial({
     glslVersion: GLSL3,
-    vertexShader: vertexShader(water !== undefined, true, recipe.colour, recipe.fineSamples > 0),
+    vertexShader: vertexShader(water !== undefined, true, recipe.colour, recipe.fineSamples > 0, recipe.reliefSamples > 0),
     fragmentShader: fragmentShader(
       maxCuts,
       recipe.waterSamples,
@@ -604,6 +663,7 @@ export function createTerrainMaterial(
       true,
       recipe.colour,
       recipe.fineSamples,
+      recipe.reliefSamples,
     ),
     uniforms: {
       ...lookUniformDefaults(),
@@ -639,6 +699,7 @@ export function setTerrainPalette(material: ShaderMaterial, palette: ScenePalett
     terrain,
     recipe.colour,
     recipe.fineSamples,
+    recipe.reliefSamples,
   );
   material.needsUpdate = true;
 }
@@ -711,7 +772,7 @@ export function createRimMaterial(country: ShaderMaterial, palette: ScenePalette
       ...Object.fromEntries(SHARED_WITH_RIM.map((name) => [name, u[name]!])),
     },
   });
-  material.userData.recipe = { kind: "rim", maxCuts: 0, waterSamples: 0, colour: false, fineSamples: 0 } satisfies Recipe;
+  material.userData.recipe = { kind: "rim", maxCuts: 0, waterSamples: 0, colour: false, fineSamples: 0, reliefSamples: 0 } satisfies Recipe;
   return material;
 }
 

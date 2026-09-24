@@ -44,7 +44,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles water package hero colour rock siting probes hydro rivers sources vectors reference film rails stations scenes release-packs test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero colour rock relief siting probes hydro rivers sources vectors reference film rails stations scenes release-packs test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -252,6 +252,14 @@ colour: $(PY)
 rock: $(PY)
 	$(PIPELINE) -m nineskies.rock fetch
 	$(PIPELINE) -m nineskies.rock cut
+
+## The ground's relief below its grid (F93): GLO-30 cut again as the ground's
+## normal, 125 m on the country tiles each scene's camera comes near (the
+## pack index lists them, so run `make scenes` first) and 30 m on the 90 m
+## hero areas, into dist-world/china/relief/ (~0.4 MB a country tile). Reads
+## the source already under data/source/cop30/; run `make scenes` after it.
+relief: $(PY)
+	$(PIPELINE) -m nineskies.relief cut
 
 ## A pack per scene (plan v2, stage 4): every tile the scene's camera can ask
 ## for and its hero area, into dist-film/ with the files read before them.

@@ -24,6 +24,9 @@ import { tileId } from "./tileArray.js";
  * The array is allocated when a tile first wants it and freed when none has
  * for `IDLE_FRAMES`: the pools are 30 to 115 MB, and a scene flies over one
  * lattice's areas at most, so only one is held at a time.
+ *
+ * The ground's relief (F93) is held in pools of the same kind, its images
+ * data rather than colour (`linear`).
  */
 
 export interface FineReach {
@@ -90,6 +93,8 @@ export class FineColour {
     readonly source: FineColourSource,
     /** Told when the array the material should sample changes. */
     private readonly onTexture: (texture: DataArrayTexture) => void = () => {},
+    /** Images of data, read as stored rather than as sRGB: the relief's (F93). */
+    private readonly linear = false,
   ) {
     this.tileOf = new Array<string | null>(reach.layers).fill(null);
     this.at = Array.from({ length: reach.layers }, () => ({ i: 0, j: 0 }));
@@ -143,7 +148,7 @@ export class FineColour {
     }
     this.idle = 0;
     if (!this.layers) {
-      this.layers = new ColourLayers(this.reach.layers, this.source.samples);
+      this.layers = new ColourLayers(this.reach.layers, this.source.samples, this.linear);
       this.onTexture(this.layers.texture);
     }
     const layers = this.layers;

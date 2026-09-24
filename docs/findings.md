@@ -1278,3 +1278,109 @@ its 2.1 ms anchor, and the capture resolved ±4 to ±5 ms. The work added:
 **Next.** Timing at the nine stations with the machine idle. Then detail
 below the grid on the ground that is not wall, where the photograph's texel
 is drawn as it was.
+
+## F93 — The ground's relief below its grid, from GLO-30, 24 September 2026
+
+**Why.** Four of the nine scenes fly over the 1 km country grid for most of
+their two minutes: the Loess, Below the Sea, the Roof and the Wall. The hero
+areas are small squares, and all of them together may be 256 tiles at most,
+cut out of the country by at most eight rectangles. Nothing smaller than
+the grid is drawn, so the country reads smooth as clay. The Loess's line
+promises ground "gullied everywhere", and at 1 km there is no gully on
+screen. The source, GLO-30, is 30 m, and it holds them.
+
+**The finer ground comes from the source, not the shader.** F92 found
+detail made in the shader reads as made. Hero areas along the rails would
+have given real ground too. But a 700 km rail needs hundreds of tiles
+streamed and let go, where hero cover is drawn whole, so the rails would
+have had to be flown again. So the grid keeps its shape, and the lighting
+takes the source's own slope below it. `make relief`
+(`pipeline/nineskies/relief.py`) cuts GLO-30 again onto each tile's grid,
+finer than the tile's own heights:
+- *Country tiles:* 125 m, 513 samples a side.
+- *90 m hero tiles:* 30 m, 385 a side.
+
+It reads the source already on disk and fetches nothing.
+
+**What a tile holds.** The ground's normal at each sample, from central
+differences across a grid one sample wider than the tile, so neighbours
+agree on the samples they share.
+- *As the ground stands.* The engine multiplies the slope by the world's
+  own exaggeration, 6 at `scaleFor(8, 6)`, so the relief is as steep as the
+  ground drawn round it.
+- *Encoded.* Each part is stored as the signed square root of its size
+  about the byte 127, so flat is stored flat and the bytes are spent near
+  flat.
+- *Lossless WebP.* Lossy WebP halves the resolution of its colour and
+  smears one part into the other.
+
+The encodings, measured on a Loess tile. Error is in hillshade at the
+film's exaggeration, in levels of 255:
+
+| Encoding | Size | Mean error | 99th percentile |
+| --- | ---: | ---: | ---: |
+| Lossy, quality 90 | 151 KB | 38.6 | 128 |
+| Lossless, 6 bits | 316 KB | 2.6 | 11 |
+| Lossless, 7 bits | 372 KB | 1.5 | 7 |
+| Lossless, 8 bits | 429 KB | 0.6 | 2.5 |
+
+**Where.** Every country tile whose nearest point is within 90 km of
+anywhere the camera can stand (`nearTiles`, `engine/src/film/reach.ts`):
+505 tiles. `make scenes` lists them in the pack index, and `make relief`
+cuts what the index lists. Also the five 90 m hero areas whole, 97 tiles.
+The 30 m areas are at the source's spacing already. 602 files, 212 MB, cut
+in 2 min 22 s.
+
+**In the engine** (`relief.ts`, `terrain.ts`, `terrainMaterial.ts`):
+- *A pool of images near the camera,* as F91's fine colour. The country's
+  is 20 layers of 513² (28 MB with mips). It is drawn whole to 40 km,
+  faded to the grid's own normal by 70 km, and a tile claims its image
+  within 90 km. The 90 m hero lattice's is 24 layers of 385² (19 MB): whole
+  to 8 km, gone by 16, claimed within 20. Each holds every tile within its
+  reach of any point.
+- *The light only.* The shadow keeps the grid's normal, and so does all
+  that reads the slope: the rock band, the snow, the walls' faces. The
+  relief never moves the rock or the snow, and a slope it lights is still
+  shadowed where the drawn ground is. On a wall, the rock face bends the
+  relief's normal rather than the grid's.
+- *A still waits for it,* as for the colour.
+
+**The stills.** Seven re-taken. Share of each still changed by more than 8
+levels:
+
+| Still | Changed | What changed |
+| --- | ---: | --- |
+| The Roof | 16.3 % | The plateau's rolling ground has its ridges and drainage lines, crisp to the horizon. |
+| The Wall | 15.4 % | The foothills are creased where they were rounded. |
+| Below the Sea | 12.6 % | The range beyond the basin is ridged, and the desert floor has its ripples. |
+| Heaven Lake | 11.4 % | The volcano's outer flanks are creased, and so are the hills beyond it. |
+| Loess | 11.0 % | The gully network shows through the haze. The foreground stays soft: a 125 m texel is dozens of pixels wide there. |
+| First Bend | 8.5 % | The country beyond the gorge has its relief. The walls barely change: F92's rock face was their detail. |
+| Three Gorges | 7.1 % | The country beyond the gorge has its relief. The walls barely change: F92's rock face was their detail. |
+
+Huangshan (0.4 %) and Karst (0.1 %) fly the 30 m grid, which gets no
+relief. Their stills stand. The seven need signing off (D77).
+
+**Frame cost: not measured.** The GPU was 58–59 % busy with none of this
+work running. Two things held it:
+- *Photos,* at 40 % CPU.
+- *A headless Chrome from another project's session.* It has kept a tab
+  drawing the film since 01:42 on 24 September. `npm run stills` took the
+  fixed port 9333, which that Chrome already held, so it drove that
+  Chrome's tab instead of starting its own, and left it on the film. The
+  earlier stills are sound: that Chrome drew on the same GPU, and the
+  fixed tool's Huangshan matches the committed still to 3 levels.
+
+`tools/stills.ts` now starts its own Chrome on a port the system picks and
+reads the port from the profile. The work added is one texture read and a
+few operations on the pixels of the tiles within reach, which F87 put at a
+few tenths of a millisecond for the colour's.
+
+**The film is 306.4 MB**, up 212.3 MB, of the 2 GB D89 allows. Each pack
+carries 8 to 41 MB of relief. The largest pack is the Roof's, at 52.9 MB,
+and the first, Huangshan's, is 12.3 MB.
+
+**Next.** The frame cost timed with the GPU idle: close the other session's
+Chrome, which is left alone here, and Photos. The foreground at 125 m is
+still soft. A finer layer nearer the rail would cost about four times the
+bytes for each step in spacing.

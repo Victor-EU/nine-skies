@@ -13,7 +13,7 @@
  * to `docs/stills/` (D77).
  */
 import { PerspectiveCamera, Scene as ThreeScene, Vector2, Vector3, WebGLRenderer } from "three";
-import { Terrain, VIEW_RADIUS_TILES } from "../../engine/src/terrain/terrain.js";
+import { Terrain, VIEW_RADIUS_TILES, reliefGain } from "../../engine/src/terrain/terrain.js";
 import { HorizonField, buildSyntheticHorizonField } from "../../engine/src/terrain/horizonField.js";
 import { DEFAULT_HAZE_DENSITY_PER_M, HAZE_SCALE_HEIGHT_M } from "../../engine/src/terrain/palette.js";
 import { LookRig } from "../../engine/src/look/look.js";
@@ -21,6 +21,7 @@ import { SyntheticTileSource, loadWorld, type LoadedWorld } from "../../engine/s
 import { StreamingTileSource } from "../../engine/src/terrain/tileStream.js";
 import { ColourSource, loadColourIndex } from "../../engine/src/terrain/colour.js";
 import { RockFaces, loadRockIndex } from "../../engine/src/terrain/rock.js";
+import { ReliefSource, loadReliefIndex } from "../../engine/src/terrain/relief.js";
 import { loadHeroCovers, type HeroCover } from "../../engine/src/terrain/heroSource.js";
 import { WorldCoverage } from "../../engine/src/terrain/coverage.js";
 import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
@@ -132,6 +133,9 @@ const colour = colourIndex
 // The walls' rock (F92): photographed faces, one loaded for each scene's palette.
 const rockIndex = world ? await loadRockIndex(`/world/${worldName}/rock/index.json`) : null;
 const rock = rockIndex ? new RockFaces(rockIndex, `/world/${worldName}/rock`) : null;
+// The ground's relief below its grid (F93), from the source's 30 m, lighting the tiles nearest the camera.
+const reliefIndex = world ? await loadReliefIndex(`/world/${worldName}/relief/index.json`) : null;
+const relief = reliefIndex ? new ReliefSource(reliefIndex, `/world/${worldName}/relief/files`, packs?.fetchTile) : null;
 if (!world && film)
   notice(
     `No built world at <code>dist-world/${worldName}</code>: flying the stand-in. ` +
@@ -146,9 +150,10 @@ const terrain = new Terrain({
   heroes,
   colour,
   rock,
+  relief,
 });
 for (const mesh of terrain.meshes) scene.add(mesh);
-if (packed) packs.attach(streamed.index, heroes, colourIndex);
+if (packed) packs.attach(streamed.index, heroes, colourIndex, reliefIndex);
 
 const horizonField = world
   ? HorizonField.fromData(
@@ -805,6 +810,11 @@ if (import.meta.env.DEV) {
     packs,
     /** The ground's colour (F87): `__ns.colour.stats`, `__ns.colour.decodes`. */
     colour,
+    /** The ground's relief (F93): `__ns.relief.stats`; `__ns.reliefGain(k)` scales its slope live. */
+    relief,
+    reliefGain: (k: number) => {
+      for (const m of terrain.lookMaterials) if (m.uniforms.uReliefGain) m.uniforms.uReliefGain.value = reliefGain(scale) * k;
+    },
     /** Grade the mosaic live: `__ns.imagery([gain, saturation, rock share, snow share], [r, g, b])`. */
     imagery: (v: [number, number, number, number], tint?: [number, number, number]) => {
       for (const m of terrain.lookMaterials) {

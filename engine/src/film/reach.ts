@@ -72,3 +72,31 @@ export function sceneTiles(rail: BuiltRail, tileM: number, radius: number, optio
   }
   return out;
 }
+
+/**
+ * Every tile whose nearest point lies within `radiusM` of anywhere the
+ * camera can stand: the tiles a pool reaching that far can ask for, such
+ * as the relief's (F93). Sampled every kilometre, with the step added.
+ */
+export function nearTiles(rail: BuiltRail, tileM: number, radiusM: number, options: ReachOptions = DEFAULT_REACH): Set<number> {
+  const out = new Set<number>();
+  const far = reachKm(rail, options);
+  const r = options.maxOffsetM + radiusM + 1000;
+  for (let km = 0; ; km = Math.min(far, km + 1)) {
+    const p = railAtKm(rail, km);
+    const x0 = Math.floor((p.eastM - r) / tileM);
+    const x1 = Math.floor((p.eastM + r) / tileM);
+    const y0 = Math.floor((p.northM - r) / tileM);
+    const y1 = Math.floor((p.northM + r) / tileM);
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        if (tx < 0 || ty < 0) continue;
+        const dx = Math.max(tx * tileM - p.eastM, 0, p.eastM - (tx + 1) * tileM);
+        const dy = Math.max(ty * tileM - p.northM, 0, p.northM - (ty + 1) * tileM);
+        if (Math.hypot(dx, dy) <= r) out.add(tileKey(tx, ty));
+      }
+    }
+    if (km >= far) break;
+  }
+  return out;
+}
