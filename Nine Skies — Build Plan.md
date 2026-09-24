@@ -16,7 +16,7 @@ inherits; their numbering continues here rather than starting again.
 | 4 — Delivery | **Done.** Nine packs, 16.4 MB with what is read before them (55.8 MB since the colour, F87); no tile fetched outside them; the build ships them. First frame on a phone over 4G is arithmetic, not measured. | F84 |
 | 5 — Text, sound, credits | **Text and credits done**, every figure in metric and imperial. **No sound**: a stand-in and a synthesised wind were both rejected, and all of it is to be found on the web (D85). | — |
 | 6 — Launch | Not started. | |
-| 7 — Detail | **Started.** The terrain lit smooth (D86); the ground coloured from the 2016 Sentinel-2 mosaic, 55.8 MB of the 300 D87 allows. Next: a cloud-free composite for the southern gorges, finer colour where the camera is low, sub-grid detail. | F86, F87 |
+| 7 — Detail | **Started.** The terrain lit smooth (D86); the ground coloured from the 2016 Sentinel-2 mosaic, and the four southern hero areas from a median of the Sentinel-2 archive, 2018-2025; 57.9 MB of the 2 GB D89 allows. Next: the southern scenes' country tiles from the archive too, finer colour where the camera is low, sub-grid detail. | F86, F87, F89 |
 
 Stages 0 to 4 and most of 3 and 5 took one day against five and a half
 weeks planned.
@@ -95,6 +95,12 @@ Everything else in the repository served the version-1 game and goes.
   corridors flat. The film routes no water through a hollow; the mapped
   rivers are still carved to run downhill. Breach was priced and refused
   for the slots it cuts through ridges (F88).
+- **D89** The film may be up to 2 GB on the wire, not 300 MB (decided 24
+  September 2026), so that the ground's colour and detail can be as fine
+  as the camera needs where it flies low. D79 still holds: each scene is
+  one pack, and the next is fetched during the current one. The cost falls
+  on the host. Past 1 GB the film no longer fits GitHub Pages' site limit,
+  and the packs are served from somewhere else (stage 6).
 
 
 ## What each part of the repository becomes
@@ -256,10 +262,12 @@ author's.
 ### Stage 6 — Launch (2 days)
 
 Create the public GitHub repository (there is no remote today), CI on `main`,
-the static host (GitHub Pages or Cloudflare Pages; at up to 300 MB (D87),
-GitHub Pages' 1 GB site limit holds but its soft 100 GB a month is a few
-hundred to a thousand full viewings, and Cloudflare Pages has no bandwidth
-limit but refuses a file over 25 MiB, so a pack past that is split),
+the static host (GitHub Pages or Cloudflare Pages; the film may now be up
+to 2 GB (D89). Under 1 GB, GitHub Pages' site limit holds, but its soft
+limit of 100 GB a month is only a few hundred full viewings. Past 1 GB the
+packs go elsewhere. Cloudflare Pages has no bandwidth limit but refuses any
+file over 25 MiB, so a larger pack is split. An object store that charges
+nothing for downloads, such as Cloudflare R2, takes the packs whole),
 the README rewritten for the film, `docs/findings.md` opened with what the
 build measured, and the link published.
 
@@ -284,7 +292,7 @@ because it is tuning, not structure.
   at again where it turns hills into spikes.
 
 Done when the nine stills are re-taken beside the current ones and signed
-off, and the frame cost and the budget (300 MB, D87) still hold, or are revised with the
+off, and the frame cost and the budget (2 GB, D89) still hold, or are revised with the
 reason written down.
 
 **Calendar:** seven to nine weeks of one person's time with Claude, so a
@@ -306,7 +314,7 @@ New, four of them, none needing a world or a GPU:
 
 - Every scene is 120 s and the film is 18:00 to the frame.
 - Every pack holds every tile its rail and its heading corridor can stream,
-  and the film is under its budget (30 MB, 300 MB since D87).
+  and the film is under its budget (30 MB, 300 MB since D87, 2 GB since D89).
 - Text: fewer than forty lines, none over twelve words, a title on every
   scene, characters on every title.
 - Every scene names a hero grid that is built or none, an hour with a sun,

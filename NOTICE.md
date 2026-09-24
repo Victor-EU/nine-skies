@@ -54,6 +54,27 @@ film's Albers grid, cloud flecks filled from the ground around them, and
 re-encoded as WebP. Later years of the mosaic are CC BY-NC-SA 4.0 and are
 not used (F87).
 
+## The south's colour — Copernicus Sentinel-2
+
+Where that mosaic is most cloud, four hero areas are coloured from the
+Sentinel-2 archive instead: Tiger Leaping Gorge, the Three Gorges, Guilin
+and Huangshan. Their colour tiles in `dist-world/<world>/colour/`, the scene
+packs that carry them and the stills rendered from them are the median of
+the clear views of Sentinel-2 Level-2A passes from 2018 to 2025, reprojected,
+toned to match the mosaic and re-encoded (`make colour`, F89):
+
+> Contains modified Copernicus Sentinel data 2018-2025
+
+The passes are ESA's Level-2A Collection 1, as Element 84 publishes them on
+the AWS Open Data registry. The European Commission's legal notice on the
+use of Copernicus Sentinel data,
+<https://sentinels.copernicus.eu/documents/247904/690755/Sentinel_Data_Legal_Notice>,
+grants free, full and open use for reproduction, distribution,
+communication to the public, and adaptation, modification and combination
+with other data. Whoever distributes an adaptation carries the notice
+above. The data come without warranty, and a user renounces any claim for
+damages against the European Union and the data's providers.
+
 ## Music and sound
 
 Nine cues, one a scene, and a bed of wind, each licensed or commissioned

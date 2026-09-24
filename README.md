@@ -43,7 +43,7 @@ CORRIDOR=china` runs them (about six minutes once the source is fetched).
 Then:
 
 ```bash
-make colour    # the ground's colour from the 2016 Sentinel-2 mosaic (fetches ~220 MB once)
+make colour    # the ground's colour: the 2016 Sentinel-2 mosaic, and the archive's median in the south (fetches ~7 GB once)
 make scenes    # a pack per scene into dist-film/, 55.8 MB
 make rails     # every rail flown over the world: docs/rails-report.md
 make stations  # the frame-cost stations: app/public/capture-stations.json
@@ -84,6 +84,7 @@ which today it does: there is no sound yet.
 
 The code is MIT (`LICENSE`). The elevation is Copernicus WorldDEM-30 under
 its own licence, the ground's colour is EOX's Sentinel-2 cloudless 2016
-mosaic under CC BY 4.0, and the rivers and lakes are Natural Earth; what each asks
+mosaic under CC BY 4.0 and, in four southern hero areas, Copernicus
+Sentinel-2 data from 2018 to 2025, and the rivers and lakes are Natural Earth; what each asks
 of anyone who redistributes the film is in [`NOTICE.md`](NOTICE.md) and on
 the credits page.

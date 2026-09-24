@@ -28,6 +28,13 @@ the mosaic stitched round it and often a shadow beside it. They are found
 by what they are among, not what they are: a bright grey patch in forest or
 farmland is cloud, where one among rock, snow, sand or salt is ground. The
 mask is filled from the ground around it (`fill`).
+
+**The south.** Where the mosaic is most cloud - Tiger Leaping Gorge, Guilin,
+the Three Gorges and Huangshan - a hero area is coloured instead from a
+median of the Sentinel-2 archive (`composite.py`, F89), mapped onto the
+mosaic's tones by one line fitted over all four, and its broad tone
+leaning onto the local mosaic's over its last `FEATHER_M`, where the
+country tiles take over.
 """
 
 from __future__ import annotations
@@ -526,6 +533,102 @@ def fill(rgb: np.ndarray, hole: np.ndarray) -> np.ndarray:
     return np.where(hole[None], colour, rgb)
 
 
+# --- the south's composite (F89) -------------------------------------------
+
+#: How far in from a composited area's edge its tone still leans toward the
+#: mosaic's, which colours the country tiles it meets there; and how broad
+#: the tone is that leans.
+FEATHER_M = 1_500
+EDGE_BLUR_M = 1_000
+
+
+def composite_on(area: Area, root: Path | None = None) -> tuple[np.ndarray, np.ndarray] | None:
+    """The area's Sentinel-2 composite on its colour grid, if it has one:
+    (float32 rgb 0-255, where enough views stand behind it)."""
+    from .composite import MIN_VIEWS, composite_path
+
+    path = composite_path(area.key, root)
+    if area.lattice == "country" or not path.exists():
+        return None
+    import rasterio
+    from rasterio.crs import CRS
+    from rasterio.warp import Resampling, reproject
+
+    with rasterio.open(path) as ds:
+        data = ds.read().astype(np.float32)
+        src_transform, src_crs = ds.transform, ds.crs
+    ok = (data[3] >= MIN_VIEWS).astype(np.float32)
+    out = np.zeros((4, area.height, area.width), np.float32)
+    # Averaged premultiplied, so a sample is the mean of its seen pixels only.
+    reproject(
+        source=np.concatenate([data[:3] * ok, ok[None]]),
+        destination=out,
+        src_transform=src_transform,
+        src_crs=src_crs,
+        dst_transform=area.transform(),
+        dst_crs=CRS.from_proj4(grid.ALBERS_PROJ4),
+        resampling=Resampling.average,
+        src_nodata=None,
+        dst_nodata=None,
+    )
+    seen = out[3] > 0.5
+    return out[:3] / np.maximum(out[3], 1e-6), seen
+
+
+#: The tone line is fitted over the tenth to the ninetieth percentile.
+TONE_PERCENTILES = np.linspace(10, 90, 17)
+
+
+def fit_tone(archive: list[np.ndarray], mosaic: list[np.ndarray]) -> list[dict]:
+    """A line per channel taking the archive's values onto the mosaic's,
+    fitted to the bulk of both - their tenth to ninetieth percentiles - over
+    the samples given, which are clear ground in both: `archive[c]` and
+    `mosaic[c]` hold channel c's. The archive's ninetieth percentile is the
+    knee above which `apply_tone` eases into white."""
+    tone = []
+    for x, y in zip(archive, mosaic):
+        xq = np.percentile(x, TONE_PERCENTILES)
+        gain, offset = np.polyfit(xq, np.percentile(y, TONE_PERCENTILES), 1)
+        tone.append({"gain": round(float(gain), 4), "offset": round(float(offset), 3), "knee": round(float(xq[-1]), 2)})
+    return tone
+
+
+def apply_tone(rgb: np.ndarray, tone: list[dict]) -> np.ndarray:
+    """The fitted line up to the knee, and above it a straight run to white.
+
+    A line, not a curve: the mosaic's highlights are where its haze and
+    uncaught cloud are, and a curve fitted to them blows out the archive's
+    snow and turns its rivers cyan. The shoulder keeps the snow's shading
+    where the line would clip it (F89)."""
+    out = np.empty_like(rgb)
+    for c, t in enumerate(tone):
+        knee = min(t["knee"], 254.0)
+        top = min(t["gain"] * knee + t["offset"], 254.0)
+        shoulder = top + (rgb[c] - knee) * (255 - top) / (255 - knee)
+        out[c] = np.where(rgb[c] <= knee, rgb[c] * t["gain"] + t["offset"], shoulder)
+    return np.clip(out, 0, 255)
+
+
+def edge_weight(area: Area, feather_m: float = FEATHER_M) -> np.ndarray:
+    """0 on the area's edge, rising smoothly to 1 at `feather_m` inside it."""
+    h, w = area.height, area.width
+    rows = np.minimum(np.arange(h), np.arange(h)[::-1])[:, None]
+    cols = np.minimum(np.arange(w), np.arange(w)[::-1])[None, :]
+    t = np.clip(np.minimum(rows, cols) * area.cell_m / feather_m, 0, 1)
+    return (t * t * (3 - 2 * t)).astype(np.float32)
+
+
+def meet_the_mosaic(archive: np.ndarray, mosaic: np.ndarray, trusted: np.ndarray, area: Area) -> np.ndarray:
+    """Toward the area's edge, the archive's broad tone shifted onto the
+    mosaic's - the colour the country tiles meet it with - and its detail
+    kept. Only the tone crosses: blending the mosaic itself in would bring
+    its cloud with it."""
+    radius = max(2, int(round(EDGE_BLUR_M / area.cell_m)))
+    weight = trusted.astype(np.float32)
+    shift = np.stack([box_mean(mosaic[c], weight, radius) - box_mean(archive[c], weight, radius) for c in range(3)])
+    return np.clip(archive + (1 - edge_weight(area))[None] * shift, 0, 255)
+
+
 # --- writing -------------------------------------------------------------
 
 
@@ -551,11 +654,21 @@ def name_of(body: bytes) -> str:
 def cut_area(area: Area, out_dir: Path, root: Path | None = None) -> dict:
     rgb, valid = reproject_area(area, root)
     if not valid.any():
-        return {"key": area.key, "tiles": [""] * (area.tiles_x * area.tiles_y), "cloud": 0.0, "bytes": 0}
+        return {"key": area.key, "tiles": [""] * (area.tiles_x * area.tiles_y), "cloud": 0.0, "bytes": 0, "source": "none"}
     elevation = elevation_for(area, root)
     rgb, cloud = clean_clouds(rgb, elevation, area.cell_m)
     hole = cloud | ~valid
     rgb = fill(rgb, hole)
+    source = "mosaic"
+    composite = composite_on(area, root)
+    if composite is not None:
+        from .composite import load_tone
+
+        archive, seen = composite
+        trusted = seen & ~hole
+        archive = fill(apply_tone(archive, load_tone(root)), ~seen)
+        rgb = meet_the_mosaic(archive, rgb, trusted, area)
+        hole, source = ~seen, "composite"
     names = []
     total = 0
     for tx, ty in area.tiles():
@@ -567,7 +680,14 @@ def cut_area(area: Area, out_dir: Path, root: Path | None = None) -> dict:
             path.write_bytes(body)
         names.append(name)
         total += len(body)
-    return {"key": area.key, "tiles": names, "cloud": float((hole & valid).mean()), "bytes": total}
+    return {"key": area.key, "tiles": names, "cloud": float((hole & valid).mean()), "bytes": total, "source": source}
+
+
+def composite_source() -> dict:
+    """What a composited area's index entry says it is made from."""
+    from .composite import COLLECTION, FIRST_YEAR, LAST_YEAR, NOTICE
+
+    return {"collection": COLLECTION, "years": [FIRST_YEAR, LAST_YEAR], "attribution": NOTICE}
 
 
 def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool = False) -> dict:
@@ -600,7 +720,13 @@ def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool 
                 "window": {"hx0": area.tx0, "hy0": area.ty0, "hx1": area.tx0 + area.tiles_x, "hy1": area.ty0 + area.tiles_y},
                 "tiles": result["tiles"],
             }
-            print(f"  {area.key:22} {len(result['tiles']):4} tiles  {result['bytes'] / 1e6:6.2f} MB  cloud filled {result['cloud']:.1%}", flush=True)
+            if result["source"] == "composite":
+                index["hero"][area.key]["source"] = composite_source()
+            print(
+                f"  {area.key:22} {len(result['tiles']):4} tiles  {result['bytes'] / 1e6:6.2f} MB  "
+                f"from the {result['source']}, filled {result['cloud']:.1%}",
+                flush=True,
+            )
         if n % 200 == 0:
             print(f"  {n}/{len(areas)}  {time.monotonic() - started:.0f} s", flush=True)
     path.write_text(json.dumps(index, indent=1, sort_keys=True) + "\n")

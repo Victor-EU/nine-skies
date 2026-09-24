@@ -62,8 +62,9 @@ describe("the scene packs", () => {
 
   it("are the whole film inside its budget", () => {
     expect(index.totalBytes).toBeLessThanOrEqual(index.budgetBytes);
-    // 30 MB until the ground took its colour from the satellite mosaic (D87).
-    expect(index.budgetBytes).toBe(300_000_000);
+    // 30 MB until the ground took its colour from the satellite mosaic (D87),
+    // 300 MB until finer ground was allowed for (D89).
+    expect(index.budgetBytes).toBe(2_000_000_000);
   });
 
   for (const [i, scene] of film.scenes.entries()) {

@@ -24,6 +24,15 @@ is of whatever had arrived: the camera at the band's floor over nothing
 (F81), or, with the browser pane hidden and frames throttled, sky alone
 (F87).
 
+A tab that is hidden or in the background draws no frames between the
+hold and the still, so even a settled still has the right ground under a
+grey sky. When no window can be kept in front, a headless Chrome takes
+them instead, from the running dev server (F89):
+
+```
+npm run stills                    # all nine; or name scenes: npm run stills karst first-bend
+```
+
 A still is re-taken whenever the look or the scene changes, and committed
 beside the change, so the look cannot drift without a diff. The frame-cost
 stations (`app/public/capture-stations.json`, `make stations`) are the same

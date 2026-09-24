@@ -1,8 +1,8 @@
 /**
  * Stage 5's credits criterion: the page renders the notices verbatim from
- * NOTICE.md. The two Copernicus notices and the EOX mosaic's credit are
- * what redistribution requires, so they are checked word for word in the
- * page's text.
+ * NOTICE.md. The two Copernicus notices, the EOX mosaic's credit and the
+ * Sentinel-2 notice are what redistribution requires, so they are checked
+ * word for word in the page's text.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -21,10 +21,11 @@ const quoted = notice
 describe("the credits page", () => {
   const page = text(renderCredits(notice, { cues: [], wind: null }));
 
-  it("carries both Copernicus notices and the mosaic's credit word for word", () => {
-    expect(quoted).toHaveLength(3);
+  it("carries both Copernicus notices, the mosaic's credit and the archive's word for word", () => {
+    expect(quoted).toHaveLength(4);
     expect(quoted[0]).toMatch(/^produced using Copernicus WorldDEM-30 © DLR/);
     expect(quoted[2]).toMatch(/^EOxCloudless https:\/\/cloudless\.eox\.at by EOX IT Services GmbH \(Contains modified Copernicus Sentinel data 2016\)/);
+    expect(quoted[3]).toBe("Contains modified Copernicus Sentinel data 2018-2025");
     for (const q of quoted) expect(page).toContain(q);
   });
 

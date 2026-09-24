@@ -901,3 +901,120 @@ that is not the scene's. 03 and 07 wait for a pane that is in view.
 here the ground stays above 4000 m" dips to 3,522 m just after Qinghai
 Lake. Everest is 8,734 m on its hero grid against the caption's 8,849 m,
 GLO-30's own highest sample being 8,738 m, known since F12.
+
+## F89 — The south in its own colour, from eight years of Sentinel-2, 24 September 2026
+
+**Why.** The 2016 mosaic (F87) is a third cloud over the southern gorges,
+and the cut fills that third from the ground around it: 34 % of Tiger
+Leaping Gorge, 35 % of Guilin, 28 % of the Three Gorges and 8 % of
+Huangshan came out as soft grey-green smudges, where the camera flies
+lowest. Those four hero areas are now coloured from the archive the mosaic
+was made from, composited here (`pipeline/nineskies/composite.py`).
+
+**The source.** Sentinel-2 Level-2A, Collection 1: ESA's archive
+reprocessed to one baseline, as Element 84 publishes it on AWS and indexes
+it in the earth-search STAC. Each pass is an MGRS tile carrying ESA's
+true-colour image (10 m, from surface reflectance) and its per-pixel scene
+classification (20 m). The Commission's legal notice on Sentinel data
+grants reproduction, distribution and adaptation, and asks whoever
+distributes an adaptation to carry "Contains modified Copernicus Sentinel
+data [year]". NOTICE.md carries it for 2018-2025, and the credits test
+holds it word for word.
+
+**Which passes.** The catalogue lists 3,318 items over the four areas from
+2018 to 2025 that are less than 70 % cloud. Each was probed for how much
+of the area it sees clear, from a read of its classification at a
+sixteenth of its resolution: 3,300 small reads, under a minute an area. Passes
+at least 30 % clear with the sun at least 55° high were read: 304 at Tiger
+Leaping Gorge and 160 at the Three Gorges, from the 20 m overview (colour
+45 m), and 100 each at Guilin and Huangshan, at the full 10 m (colour
+15 m). Each tile's clearest were taken a month at a time, March to
+October, and each pass was read only where it covers its area. That is
+6.9 GB, cached under `data/source/` and never read twice. The archive
+answers at about 5 MB/s here, so the reads took about 45 minutes.
+
+*The sun rule came from the first try.* That try took the clearest passes
+all year round, and the south's clearest are its winter ones. Their sun
+at 35° carves long shadows into every south-east-facing gorge wall, and
+under the Three Gorges' evening sun from the west (17:00 in May) the
+relief would have been lit inside out. The 1.9 GB of winter passes it
+read were deleted.
+
+**The median.** Every MGRS tile of a zone shares one UTM grid, so a pass's
+pixels land on the composite's pixels whole and nothing is resampled
+before the vote. A pixel's colour is the median, channel by channel, of
+its clear views: vegetation, bare ground, water or snow, and not within
+100 m of cloud, cirrus or cloud shadow. What the classifier misses is
+outvoted. Views per pixel, 5th / 50th / 95th percentile: Tiger Leaping
+Gorge 23 / 57 / 109, the Three Gorges 28 / 52 / 84, Guilin 15 / 21 / 46,
+Huangshan 27 / 43 / 89. Fewer than 0.05 % of pixels have under three
+views, and those are filled from their neighbours. Each area builds in
+about two minutes.
+
+**No light is taken off.** A C-correction against the heights (fit each
+channel as a line in the cosine of the sun on the slope, divide by it)
+was written and dropped before it shipped, because the data has no light
+in it to take off. On steep forested slopes, those turned toward the
+satellite's sun are darker than those turned away: mean brightness 35 against 42 at
+Tiger Leaping Gorge, 49 against 59 at the Three Gorges. The bright lines
+along the gorge walls are forest. The walls keep it and the gentler
+ground above is farmed, so a correction would have erased the ground's
+own pattern. F87's de-shading failed for the same reason.
+
+**The tone.** ESA's true colour is linear reflectance and darker than the
+mosaic's rendering, and the shader's grade (F87) was set on the mosaic.
+So the composite is mapped onto the mosaic by one line per channel. The
+line is fitted to the 10th to 90th percentiles of both, over the clear
+ground of all four areas pooled: red ×0.89 + 3.8, green ×1.11 − 5.1,
+blue ×1.09 + 12.5. Above the 90th percentile it eases into white. One
+line for all four, not one an area, because each area's mosaic is its own
+summer of 2016. Fitted to Guilin alone, the line wanted offsets of 20 to
+30 (the mosaic's haze), and it would have hazed the composite again.
+Fitting the whole curve, not a line, blew out the snow on Jade Dragon and
+turned the Jinsha cyan. At each area's edge the tone leans back onto the
+local mosaic over 1.5 km, the broad tone only, blurred over a kilometre,
+so the country tiles meet it without a seam and without the mosaic's
+cloud crossing over.
+
+**What it gives.** The four areas are filled 0.0 to 0.1 %, against 8 to
+35 %. Seen from above:
+- **Guilin:** the karst tower field and the Li River are legible, where
+  the mosaic was a hazy teal smudge.
+- **Tiger Leaping Gorge:** the gorge, its villages and Lijiang are clear
+  of cloud, the Jinsha is silty tan as it runs in summer, and Jade Dragon
+  keeps its snow.
+- **The Three Gorges:** gains its forested walls.
+
+The stills gain less, because the camera flies between the walls and the
+palette's rock covers half the steepest ground (F87):
+- **The First Bend:** darker walls, a river bed with its sandbars, and
+  bare tan slopes on the far ridge.
+- **The Three Gorges:** forest texture on the walls, where the mosaic's
+  cloud fill had left pale smears.
+- **Karst:** the Li River's valley floor.
+- **Huangshan:** little change.
+
+The colour files for the four areas are 3.1 MB. The film is 57.9 MB, up
+1.6 MB from F88's 56.4, because sharper ground codes larger. The GPU's
+work is unchanged: the same layers at the same size. Frame cost was not
+re-measured.
+
+**The budget** is now 2 GB (D89), so that the colour and detail can be as
+fine as the camera needs. This change used 1.6 MB of it. The composites are
+kept at 20 m and 10 m under `data/work/composite/`, finer than the colour
+cut from them, so finer colour for these areas needs no new reads.
+
+**Stills without a window.** Neither session could keep a browser window
+in front. A hidden tab draws no frames between the hold and the still,
+so its stills have the right ground under a grey sky. `npm run stills`
+drives a headless Chrome, whose page is visible and draws on the M3
+through Metal. Against the committed Loess still it differs by 1.2
+levels in 255 (4 in the sky), and two takes of Huangshan differ by 0.005.
+Stills 01 to 04 and 07 are re-taken with it. 07 shows only F88's change.
+
+Still weak:
+- **The country around these areas** is still the 2016 mosaic. Its tiles
+  in the four southern scenes are 14 to 23 % cloud filled, and the worst
+  tile in each is 67 to 84 %. That is the distant ground in those scenes.
+- **The tone line** is a compromise. Guilin's ground reads a little teal,
+  like the mosaic's.

@@ -34,9 +34,9 @@ import { formatProblems, loadFilm } from "./film.ts";
 /**
  * The whole film, packs and the files read before them, on the wire (plan
  * v2, stage 4). 30 MB until the ground took its colour from the satellite
- * mosaic; raised to 300 MB for it (D87).
+ * mosaic; raised to 300 MB for it (D87), and to 2 GB for finer ground (D89).
  */
-export const FILM_BUDGET_BYTES = 300_000_000;
+export const FILM_BUDGET_BYTES = 2_000_000_000;
 const WORLD = "china";
 const WORLD_DIR = `dist-world/${WORLD}`;
 const OUT = "dist-film";

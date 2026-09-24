@@ -229,11 +229,16 @@ stations:
 
 ## The ground's colour (F87): EOX's Sentinel-2 cloudless 2016 mosaic, CC BY
 ## 4.0, cut onto every tile the scene packs hold and every hero area, cloud
-## flecks filled. Fetches ~11,000 mosaic tiles once, slowly (~160 MB, cached
-## under data/source/). Needs a world, its hero areas and the pack index;
-## run `make scenes` after it to pack the colour.
+## flecks filled. Fetches ~11,000 mosaic tiles once, slowly (~220 MB, cached
+## under data/source/). The four southern hero areas are coloured instead
+## from a median of the Sentinel-2 archive, 2018-2025 (F89): ~660 passes,
+## read once where they cover the areas (~7 GB, cached under data/source/).
+## Needs a world, its hero areas and the pack index; run `make scenes` after
+## it to pack the colour.
 colour: $(PY)
 	$(PIPELINE) -m nineskies.imagery fetch
+	$(PIPELINE) -m nineskies.composite fetch
+	$(PIPELINE) -m nineskies.composite build
 	$(PIPELINE) -m nineskies.imagery cut
 
 ## A pack per scene (plan v2, stage 4): every tile the scene's camera can ask
