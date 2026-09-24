@@ -33,8 +33,9 @@ mask is filled from the ground around it (`fill`).
 the Three Gorges and Huangshan - a hero area is coloured instead from a
 median of the Sentinel-2 archive (`composite.py`, F89), mapped onto the
 mosaic's tones by one line fitted over all four, and its broad tone
-leaning onto the local mosaic's over its last `FEATHER_M`, where the
-country tiles take over.
+leaning onto the country's over its last `FEATHER_M`, where the country
+tiles take over. The country tiles of those four scenes are the archive's
+too, at 250 m (F90); the rest of the country keeps the mosaic.
 """
 
 from __future__ import annotations
@@ -535,6 +536,10 @@ def fill(rgb: np.ndarray, hole: np.ndarray) -> np.ndarray:
 
 # --- the south's composite (F89) -------------------------------------------
 
+#: How far in from the edge of what a Sentinel-2 tile-orbit sees its weight
+#: in the country's colour takes to rise (F90).
+COUNTRY_FEATHER_M = 5_000
+
 #: How far in from a composited area's edge its tone still leans toward the
 #: mosaic's, which colours the country tiles it meets there; and how broad
 #: the tone is that leans.
@@ -573,6 +578,56 @@ def composite_on(area: Area, root: Path | None = None) -> tuple[np.ndarray, np.n
     )
     seen = out[3] > 0.5
     return out[:3] / np.maximum(out[3], 1e-6), seen
+
+
+def country_archive_on(area: Area, root: Path | None = None) -> tuple[np.ndarray, np.ndarray] | None:
+    """The southern country's Sentinel-2 composite (F90) on an area's colour
+    grid: (float32 rgb 0-255, where enough views stand behind it). None for
+    a country tile outside the composited region - the rest of the country
+    keeps the mosaic whole, rather than taking the archive wherever a
+    Sentinel-2 tile happens to reach - or where no composite lies."""
+    from .composite import MIN_VIEWS, mgrs_index_path
+
+    path = mgrs_index_path(root)
+    if not path.exists():
+        return None
+    index = json.loads(path.read_text())
+    if area.lattice == "country" and [area.tx0, area.ty0] not in index["region"]:
+        return None
+    import rasterio
+    from rasterio.crs import CRS
+    from rasterio.warp import Resampling, reproject
+
+    west, south, east, north = area.bounds_m()
+    total = np.zeros((5, area.height, area.width), np.float32)
+    for entry in index["tiles"].values():
+        w, s, e, n = entry["albers"]
+        if e < west or w > east or n < south or s > north:
+            continue
+        with rasterio.open(path.parent / entry["file"]) as ds:
+            data = ds.read().astype(np.float32)
+            src_transform, src_crs = ds.transform, ds.crs
+        ok = (data[3] >= MIN_VIEWS).astype(np.float32)
+        # Each tile-orbit's weight fades to nothing at the edge of what it
+        # sees, so where swaths and tiles overlap they blend, not step.
+        reach = box_mean(ok, np.ones_like(ok), max(1, int(round(COUNTRY_FEATHER_M / src_transform.a))))
+        weight = ok * np.clip(reach * 2 - 1, 0, 1) ** 2
+        out = np.zeros_like(total)
+        reproject(
+            source=np.concatenate([data[:3] * weight, weight[None], ok[None]]),
+            destination=out,
+            src_transform=src_transform,
+            src_crs=src_crs,
+            dst_transform=area.transform(),
+            dst_crs=CRS.from_proj4(grid.ALBERS_PROJ4),
+            resampling=Resampling.average,
+            src_nodata=None,
+            dst_nodata=None,
+        )
+        total += out
+    if not total[4].any():
+        return None
+    return total[:3] / np.maximum(total[3], 1e-6), (total[4] > 0.5) & (total[3] > 1e-4)
 
 
 #: The tone line is fitted over the tenth to the ninetieth percentile.
@@ -660,15 +715,34 @@ def cut_area(area: Area, out_dir: Path, root: Path | None = None) -> dict:
     hole = cloud | ~valid
     rgb = fill(rgb, hole)
     source = "mosaic"
-    composite = composite_on(area, root)
-    if composite is not None:
+    country = country_archive_on(area, root)
+    if country is not None:
         from .composite import load_tone
 
-        archive, seen = composite
-        trusted = seen & ~hole
-        archive = fill(apply_tone(archive, load_tone(root)), ~seen)
-        rgb = meet_the_mosaic(archive, rgb, trusted, area)
-        hole, source = ~seen, "composite"
+        country = (apply_tone(country[0], load_tone(root)), country[1])
+    if area.lattice == "country":
+        if country is not None:
+            archive, seen = country
+            # Where the archive has nothing - past the swaths, over open sea -
+            # the mosaic stays, eased into over a sample or two.
+            weight = box_mean(seen.astype(np.float32), np.ones(seen.shape, np.float32), 2)[None]
+            rgb = rgb * (1 - weight) + fill(archive, ~seen) * weight
+            hole, source = hole & ~seen, "composite"
+    else:
+        composite = composite_on(area, root)
+        if composite is not None:
+            from .composite import load_tone
+
+            archive, seen = composite
+            archive = fill(apply_tone(archive, load_tone(root)), ~seen)
+            # The edge meets the country's colour: the archive's own where the
+            # country round the area is composited too, else the mosaic's.
+            target, target_ok = rgb, ~hole
+            if country is not None:
+                target = np.where(country[1][None], country[0], rgb)
+                target_ok = country[1] | ~hole
+            rgb = meet_the_mosaic(archive, target, seen & target_ok, area)
+            hole, source = ~seen, "composite"
     names = []
     total = 0
     for tx, ty in area.tiles():
@@ -705,15 +779,19 @@ def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool 
         "country": {},
         "hero": {},
     }
+    archive_tiles: set[str] = set()
     if merge and path.exists():
         before = json.loads(path.read_text())
         index["country"], index["hero"] = before["country"], before["hero"]
+        archive_tiles.update(before.get("archive", {}).get("country", []))
     started = time.monotonic()
     for n, area in enumerate(areas, 1):
         result = cut_area(area, out_dir, root)
         if area.lattice == "country":
             if result["tiles"][0]:
                 index["country"][area.key] = result["tiles"][0]
+            if result["source"] == "composite":
+                archive_tiles.add(area.key)
         else:
             index["hero"][area.key] = {
                 "lattice": area.lattice,
@@ -729,7 +807,12 @@ def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool 
             )
         if n % 200 == 0:
             print(f"  {n}/{len(areas)}  {time.monotonic() - started:.0f} s", flush=True)
+    if archive_tiles:
+        # Which country tiles are the archive's rather than the mosaic's (F90).
+        index["archive"] = {**composite_source(), "country": sorted(archive_tiles)}
     path.write_text(json.dumps(index, indent=1, sort_keys=True) + "\n")
+    if archive_tiles:
+        print(f"  {len(archive_tiles)} country tiles from the composite", flush=True)
     if not merge:
         named = set(index["country"].values()) | {n for a in index["hero"].values() for n in a["tiles"]}
         for file in (out_dir / "files").glob("*.webp"):

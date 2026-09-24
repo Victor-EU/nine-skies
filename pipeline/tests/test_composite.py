@@ -214,5 +214,85 @@ class TestTheSeam(unittest.TestCase):
         self.assertTrue(0 < t[20, 256] < 1)
 
 
+@unittest.skipUnless(HAVE_NUMPY and HAVE_RASTERIO, "numpy and rasterio")
+class TestTheCountry(unittest.TestCase):
+    """The southern scenes' country tiles, from whole passes at 160 m (F90)."""
+
+    tile = (46, 16)  # the country tile round Tiger Leaping Gorge, in UTM zone 47
+
+    def bbox(self):
+        lons, lats = imagery.boundary_lonlat(imagery.country_area(*self.tile))
+        return [float(lons.min()), float(lats.min()), float(lons.max()), float(lats.max())]
+
+    def packs(self, root):
+        path = Path(root) / "packs.json"
+        path.write_text(json.dumps({"scenes": [
+            {"id": "karst", "tiles": [*self.tile]},
+            {"id": "loess", "tiles": [60, 40]},
+        ]}))
+        return path
+
+    def test_the_region_is_the_southern_scenes_tiles(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(composite.country_region(self.packs(tmp)), {self.tile})
+
+    def test_a_passs_orbit_from_its_product_name(self):
+        self.assertEqual(composite.relative_orbit({"s2:product_uri": "S2A_MSIL2A_20241229T035151_N0511_R104_T47RPK_20241229T073649.SAFE"}), 104)
+        self.assertIsNone(composite.relative_orbit({}))
+
+    def test_each_sentinel_tile_takes_its_clearest_round_the_year(self):
+        region = {self.tile}
+        near = self.bbox()
+        far = [near[0] + 20, near[1], near[2] + 20, near[3]]
+        items = [
+            dict(item(f"a{m}", m, 0, tile="47RPL"), bbox=near, cloud=5, nodata=0) for m in (4, 5, 6)
+        ] + [
+            dict(item("a-edge", 4, 0, tile="47RPL"), bbox=near, cloud=0, nodata=90),  # mostly outside the swath
+            dict(item("elsewhere", 4, 0, tile="49RDH"), bbox=far, cloud=0, nodata=0),
+        ]
+        chosen = [i["id"] for i in composite.select_country(items, region, per_orbit=3)]
+        self.assertEqual(chosen, ["a4", "a5", "a6"])
+        # A second orbit over the same tile has its own quota.
+        items += [dict(item(f"b{m}", m, 0, tile="47RPL"), bbox=near, cloud=5, nodata=60, orbit=147) for m in (7, 8)]
+        chosen = [i["id"] for i in composite.select_country(items, region, per_orbit=3)]
+        self.assertEqual(chosen, ["a4", "a5", "a6", "b7", "b8"])
+
+    def test_a_country_tile_takes_the_median_of_its_sentinel_tiles(self):
+        from affine import Affine
+        from rasterio.crs import CRS
+        from rasterio.warp import transform_bounds
+        from nineskies import grid
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            packs = self.packs(tmp)
+            here = composite.source_dir(composite.COUNTRY, root)
+            (here / "windows").mkdir(parents=True)
+            area = imagery.country_area(*self.tile)
+            w, s, e, n = transform_bounds(CRS.from_proj4(grid.ALBERS_PROJ4), CRS.from_epsg(EPSG), *area.bounds_m())
+            res = 160.0
+            west, north = w - 2000, n + 2000
+            width, height = int((e - w + 4000) / res), int((n - s + 4000) / res)
+            items = []
+            for k, (value, scl) in enumerate([(40, 4), (60, 4), (200, 5), (250, 9)]):
+                id_ = f"p{k}"
+                items.append(dict(item(id_, 4 + k, 0, tile="47RPL"), bbox=self.bbox(), cloud=5, nodata=0, visual="", scl="", orbit=104))
+                profile = dict(driver="GTiff", width=width, height=height, count=4, dtype="uint8",
+                               crs=f"EPSG:{EPSG}", transform=Affine(res, 0, west, 0, -res, north))
+                with rasterio.open(here / "windows" / f"{id_}.tif", "w", **profile) as ds:
+                    ds.write(np.full((3, height, width), value, np.uint8), [1, 2, 3])
+                    ds.write(np.full((height, width), scl, np.uint8), 4)
+            (here / "items.json").write_text(json.dumps(items))
+            composite.build_country(packs, root)
+            rgb, seen = imagery.country_archive_on(area, root)
+            self.assertTrue(seen.all())
+            np.testing.assert_allclose(rgb[:, 128, 128], 60, atol=0.5)  # 40, 60, 200; the cloud left out
+            # A country tile outside the region keeps the mosaic.
+            self.assertIsNone(imagery.country_archive_on(imagery.country_area(60, 40), root))
+            # A hero area inside takes it, for its edge to meet.
+            hero = imagery.Area("h", "hero", 11_520, 256, 89, 1, 1)
+            self.assertTrue(imagery.country_archive_on(hero, root)[1].all())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -232,7 +232,9 @@ stations:
 ## flecks filled. Fetches ~11,000 mosaic tiles once, slowly (~220 MB, cached
 ## under data/source/). The four southern hero areas are coloured instead
 ## from a median of the Sentinel-2 archive, 2018-2025 (F89): ~660 passes,
-## read once where they cover the areas (~7 GB, cached under data/source/).
+## read once where they cover the areas (~7 GB), and the country tiles of
+## their scenes from 7,340 whole passes at 160 m (~9 GB, F90), all cached
+## under data/source/.
 ## Needs a world, its hero areas and the pack index; run `make scenes` after
 ## it to pack the colour.
 colour: $(PY)

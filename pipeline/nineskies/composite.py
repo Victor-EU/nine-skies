@@ -37,6 +37,15 @@ shadow. What the classifier misses is outvoted. The result, with the count
 of views behind each pixel, is written under `data/work/composite/`, and
 `imagery.cut_area` reads it for these areas in place of the mosaic.
 
+**The country round them** (F90). The country tiles the four southern
+scenes' packs hold, 689 of them, are the archive's too, at their own 250 m:
+the distant ground in those scenes, which the mosaic leaves a fifth cloud.
+There each pass is read whole, from the 160 m overviews of its true colour
+and its classification, since a Sentinel-2 tile is a few country tiles
+wide; each tile's passes are the catalogue's least cloudy under a high
+sun, a month at a time, and the median is taken on the tile's own grid.
+The rest of the country keeps the mosaic.
+
 **No light is taken off.** Under a high sun what is left on the slopes is
 what grows on them: steep forested slopes turned toward the satellite's sun
 are darker, not lighter, than those turned away (the gorge walls keep their
@@ -48,6 +57,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 import urllib.request
@@ -197,22 +207,32 @@ def epsg_of(properties: dict) -> int:
     return int(str(code).split(":")[-1])
 
 
-def search(area: imagery.Area) -> list[dict]:
-    """Every item over the area in the years composited, as the catalogue
-    lists them, trimmed to what this stage reads."""
-    lons, lats = imagery.boundary_lonlat(area)
+def relative_orbit(properties: dict) -> int | None:
+    """The pass's relative orbit, which fixes where its swath falls: the
+    catalogue gives it only inside the product's name (`..._R104_...`)."""
+    if properties.get("sat:relative_orbit"):
+        return int(properties["sat:relative_orbit"])
+    found = re.search(r"_R(\d{3})_", properties.get("s2:product_uri", ""))
+    return int(found.group(1)) if found else None
+
+
+def search_items(bbox: list[float], query: dict) -> list[dict]:
+    """Every item over a lon/lat box in the years composited that the query
+    admits, as the catalogue lists them, trimmed to what this stage reads."""
     body: dict = {
         "collections": [COLLECTION],
-        "bbox": [float(lons.min()), float(lats.min()), float(lons.max()), float(lats.max())],
+        "bbox": bbox,
         "datetime": f"{FIRST_YEAR}-01-01T00:00:00Z/{LAST_YEAR}-12-31T23:59:59Z",
         "limit": 250,
-        "query": {"eo:cloud_cover": {"lt": MAX_ITEM_CLOUD}},
+        "query": query,
     }
     items = []
     while True:
         page = post_json(STAC_SEARCH, body)
         for f in page["features"]:
             p = f["properties"]
+            if "visual" not in f["assets"] or "scl" not in f["assets"]:
+                continue  # a few passes were published without their true colour
             items.append(
                 {
                     "id": f["id"],
@@ -222,6 +242,9 @@ def search(area: imagery.Area) -> list[dict]:
                     "sun": p.get("view:sun_elevation"),
                     "azimuth": p.get("view:sun_azimuth"),
                     "cloud": p.get("eo:cloud_cover"),
+                    "nodata": p.get("s2:nodata_pixel_percentage"),
+                    "orbit": relative_orbit(p),
+                    "bbox": [round(v, 5) for v in f["bbox"]],
                     "visual": f["assets"]["visual"]["href"],
                     "scl": f["assets"]["scl"]["href"],
                 }
@@ -231,6 +254,13 @@ def search(area: imagery.Area) -> list[dict]:
             break
         body = after[0].get("body", body)
     return sorted(items, key=lambda i: i["id"])
+
+
+def search(area: imagery.Area) -> list[dict]:
+    """Every item over a hero area that the catalogue says is not mostly cloud."""
+    lons, lats = imagery.boundary_lonlat(area)
+    bbox = [float(lons.min()), float(lats.min()), float(lons.max()), float(lats.max())]
+    return search_items(bbox, {"eo:cloud_cover": {"lt": MAX_ITEM_CLOUD}})
 
 
 def probe_item(area: imagery.Area, item: dict) -> dict:
@@ -410,9 +440,9 @@ def fetch(area: imagery.Area, workers: int = 8, root: Path | None = None) -> dic
 # --- the median --------------------------------------------------------------
 
 
-def clear_mask(scl: np.ndarray, rgb: np.ndarray, res: int) -> np.ndarray:
+def clear_mask(scl: np.ndarray, rgb: np.ndarray, res: float, margin_m: float = CLOUD_MARGIN_M) -> np.ndarray:
     """Where a pass sees the ground clear, and not near a cloud."""
-    cloudy = imagery.dilate(np.isin(scl, CLOUDY), int(round(CLOUD_MARGIN_M / res)))
+    cloudy = imagery.dilate(np.isin(scl, CLOUDY), int(round(margin_m / res)))
     return np.isin(scl, CLEAR) & ~cloudy & (rgb.max(0) > 0)
 
 
@@ -510,6 +540,243 @@ def build(area: imagery.Area, root: Path | None = None, strip: int = 256) -> Pat
     return out
 
 
+# --- the country round the southern scenes (F90) ---------------------------
+
+#: The scenes whose country tiles are composited too: the south, where the
+#: 2016 mosaic's country tiles are a fifth cloud.
+SOUTH_SCENES = ("huangshan", "three-gorges", "karst", "first-bend")
+#: A country tile's colour is 250 m, so each pass is read whole at 160 m:
+#: the true colour's sixteenth overview and the classification's eighth,
+#: which are the same grid.
+COUNTRY_OVERVIEW = {"visual": 3, "scl": 2}
+#: Passes read for each Sentinel-2 tile from each orbit that sees it, and
+#: how cloudy the catalogue may call one. A whole tile's cloud is the
+#: catalogue's own figure, so nothing is probed. By orbit, because most
+#: tiles lie across the edge of two swaths: taken by tile alone, the passes
+#: came from the orbit that sees more of it, and the strip only the other
+#: sees was left with a view or two, a wedge of nothing (F90).
+COUNTRY_PER_ORBIT = 16
+COUNTRY_MAX_CLOUD = 30
+#: Cloud grows by two 160 m pixels: the overview's average carries a
+#: cloud's edge into its neighbours.
+COUNTRY_CLOUD_MARGIN_M = 320
+#: Country tiles searched at a time: a block this many tiles a side.
+SEARCH_BLOCK = 4
+COUNTRY = "country"
+
+
+def mgrs_path(tile: str, root: Path | None = None) -> Path:
+    return (root or data_root()) / "work" / "composite" / "mgrs" / f"{tile}.tif"
+
+
+def mgrs_index_path(root: Path | None = None) -> Path:
+    return (root or data_root()) / "work" / "composite" / "mgrs" / "index.json"
+
+
+def country_region(packs_index: Path) -> set[tuple[int, int]]:
+    """Every country tile a southern scene's pack holds."""
+    index = json.loads(packs_index.read_text())
+    out: set[tuple[int, int]] = set()
+    for scene in index["scenes"]:
+        if scene["id"] in SOUTH_SCENES:
+            t = scene["tiles"]
+            out.update((t[k], t[k + 1]) for k in range(0, len(t), 2))
+    return out
+
+
+def albers_tiles_of(bbox: list[float]) -> tuple[int, int, int, int]:
+    """The country tiles a lon/lat box touches: (tx0, ty0, tx1, ty1), inclusive."""
+    from rasterio.crs import CRS
+    from rasterio.warp import transform_bounds
+
+    w, s, e, n = transform_bounds(CRS.from_epsg(4326), CRS.from_proj4(grid.ALBERS_PROJ4), *bbox, densify_pts=21)
+    size = grid.TILE_KM * 1000
+    return (
+        int((w - grid.ORIGIN_X_M) // size),
+        int((s - grid.ORIGIN_Y_M) // size),
+        int((e - grid.ORIGIN_X_M) // size),
+        int((n - grid.ORIGIN_Y_M) // size),
+    )
+
+
+def country_catalogue(region: set[tuple[int, int]], workers: int = 8, root: Path | None = None) -> list[dict]:
+    """Every clear, high-sun item over the region, from the cache or the
+    network, searched a block of country tiles at a time."""
+    here = source_dir(COUNTRY, root)
+    path = here / "items.json"
+    if path.exists():
+        return json.loads(path.read_text())
+    blocks: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    for tx, ty in region:
+        blocks.setdefault((tx // SEARCH_BLOCK, ty // SEARCH_BLOCK), []).append((tx, ty))
+    query = {"eo:cloud_cover": {"lt": COUNTRY_MAX_CLOUD}, "view:sun_elevation": {"gte": MIN_SUN_DEG}}
+
+    def one(tiles: list[tuple[int, int]]) -> list[dict]:
+        xs, ys = [t[0] for t in tiles], [t[1] for t in tiles]
+        area = imagery.Area("block", "country", grid.TILE_KM * 1000, min(xs), min(ys), max(xs) - min(xs) + 1, max(ys) - min(ys) + 1)
+        lons, lats = imagery.boundary_lonlat(area)
+        return search_items([float(lons.min()), float(lats.min()), float(lons.max()), float(lats.max())], query)
+
+    print(f"  country: searching {len(blocks)} blocks of {len(region)} tiles", flush=True)
+    found: dict[str, dict] = {}
+    with ThreadPoolExecutor(workers) as pool:
+        for items in pool.map(one, [blocks[k] for k in sorted(blocks)]):
+            for item in items:
+                found[item["id"]] = item
+    items = sorted(found.values(), key=lambda i: i["id"])
+    here.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(items, indent=0) + "\n")
+    return items
+
+
+def select_country(items: list[dict], region: set[tuple[int, int]], per_orbit: int = COUNTRY_PER_ORBIT) -> list[dict]:
+    """Each Sentinel-2 tile over the region, from each orbit that sees it,
+    the passes that see most of it clear - least cloud and least outside
+    the swath - a month at a time."""
+    by_tile: dict[tuple[str, int], list[dict]] = {}
+    for item in items:
+        tx0, ty0, tx1, ty1 = albers_tiles_of(item["bbox"])
+        if any((tx, ty) in region for tx in range(tx0, tx1 + 1) for ty in range(ty0, ty1 + 1)):
+            by_tile.setdefault((item["tile"], item.get("orbit") or 0), []).append(item)
+    chosen = []
+    per_tile = per_orbit
+    for tile in sorted(by_tile):
+        months: list[list[dict]] = [[] for _ in range(12)]
+        for item in by_tile[tile]:
+            months[int(item["datetime"][5:7]) - 1].append(item)
+        seen = lambda i: (1 - (i.get("nodata") or 0) / 100) * (1 - (i.get("cloud") or 0) / 100)  # noqa: E731
+        for month in months:
+            month.sort(key=lambda i: (-seen(i), i["id"]))
+        taken: list[dict] = []
+        depth = 0
+        while len(taken) < per_tile and any(len(m) > depth for m in months):
+            for month in months:
+                if depth < len(month) and len(taken) < per_tile:
+                    taken.append(month[depth])
+            depth += 1
+        chosen.extend(taken)
+    return sorted(chosen, key=lambda i: i["id"])
+
+
+def fetch_country_item(item: dict, root: Path | None = None) -> int:
+    """One pass read whole at 160 m, colour and classification on the one
+    grid, cached as a four-band GeoTIFF."""
+    import rasterio
+
+    dest = source_dir(COUNTRY, root) / "windows" / f"{item['id']}.tif"
+    if dest.exists():
+        return 0
+    with rasterio.open("/vsicurl/" + item["visual"], overview_level=COUNTRY_OVERVIEW["visual"]) as ds:
+        rgb = ds.read()
+        transform, crs = ds.transform, ds.crs
+    with rasterio.open("/vsicurl/" + item["scl"], overview_level=COUNTRY_OVERVIEW["scl"]) as ds:
+        scl = ds.read(1)
+        if scl.shape != rgb.shape[1:] or not np.allclose(tuple(ds.transform)[:6], tuple(transform)[:6], atol=1e-3):
+            raise ValueError(f"{item['id']}: the overviews are not one grid")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(".part")
+    profile = {
+        "driver": "GTiff", "width": rgb.shape[2], "height": rgb.shape[1], "count": 4, "dtype": "uint8",
+        "crs": crs, "transform": transform, "compress": "deflate", "predictor": 2,
+    }
+    with rasterio.open(tmp, "w", **profile) as out:
+        out.write(rgb, [1, 2, 3])
+        out.write(scl, 4)
+    tmp.replace(dest)
+    return dest.stat().st_size
+
+
+def fetch_country(packs_index: Path, workers: int = 16, root: Path | None = None) -> dict:
+    from rasterio.env import Env
+
+    region = country_region(packs_index)
+    items = country_catalogue(region, root=root)
+    chosen = select_country(items, region)
+    todo = [i for i in chosen if not (source_dir(COUNTRY, root) / "windows" / f"{i['id']}.tif").exists()]
+    tiles = len({i["tile"] for i in chosen})
+    print(f"  country: {len(region)} tiles, {tiles} Sentinel-2 tiles, {len(chosen)} passes chosen of {len(items)}, {len(todo)} to read", flush=True)
+    started, done, written = time.monotonic(), 0, 0
+
+    def one(item: dict) -> int:
+        for attempt in range(4):
+            try:
+                return fetch_country_item(item, root)
+            except Exception as error:  # noqa: BLE001 - the network, retried
+                if attempt == 3:
+                    print(f"    gave up on {item['id']}: {error}", flush=True)
+                    return 0
+                time.sleep(10 * (attempt + 1))
+        return 0
+
+    with Env(**GDAL_ENV), ThreadPoolExecutor(workers) as pool:
+        for n in pool.map(one, todo):
+            done += 1
+            written += n
+            if done % 200 == 0 or done == len(todo):
+                print(f"    {done}/{len(todo)}  {written / 1e6:.0f} MB kept  {time.monotonic() - started:.0f} s", flush=True)
+    return {"area": COUNTRY, "tiles": tiles, "chosen": len(chosen), "read": len(todo), "bytes": written}
+
+
+def build_country(packs_index: Path, root: Path | None = None) -> Path | None:
+    """The median of the clear views of each Sentinel-2 tile from each
+    orbit, on the tile's own 160 m grid, and an index of where each lies.
+
+    By orbit as well as tile, because the two sides of a swath's edge are
+    different days: one median over both steps where the edge crosses the
+    tile. Kept apart, each orbit's median covers its own swath, and
+    `imagery.country_archive_on` feathers them together across the tens of
+    kilometres where swaths overlap."""
+    import rasterio
+    from rasterio.crs import CRS
+    from rasterio.warp import transform_bounds
+
+    region = country_region(packs_index)
+    chosen = select_country(country_catalogue(region, root=root), region)
+    by_unit: dict[str, list[Path]] = {}
+    for item in chosen:
+        path = source_dir(COUNTRY, root) / "windows" / f"{item['id']}.tif"
+        if path.exists():
+            by_unit.setdefault(f"{item['tile']}-R{item.get('orbit') or 0:03d}", []).append(path)
+    if not by_unit:
+        return None
+    albers = CRS.from_proj4(grid.ALBERS_PROJ4)
+    index: dict = {"region": sorted([tx, ty] for tx, ty in region), "tiles": {}}
+    started = time.monotonic()
+    for n, (unit, paths) in enumerate(sorted(by_unit.items()), 1):
+        stack, keep = [], []
+        for path in paths:
+            with rasterio.open(path) as ds:
+                data = ds.read()
+                profile = ds.profile
+                res = ds.transform.a
+            stack.append(data[:3])
+            keep.append(clear_mask(data[3], data[:3], res, COUNTRY_CLOUD_MARGIN_M))
+        count = np.sum(keep, axis=0)
+        if not (count >= MIN_VIEWS).any():
+            continue  # an orbit that grazes the tile's corner
+        rgb = np.zeros((3,) + count.shape, np.uint8)
+        for band in range(3):
+            layers = np.stack([np.where(k, layer[band], 255) for layer, k in zip(stack, keep)]).astype(np.uint8)
+            rgb[band] = np.clip(np.round(median_of(layers, count)), 0, 255).astype(np.uint8)
+        rgb[:, count == 0] = 0
+        out = mgrs_path(unit, root)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        profile.update(count=4, compress="deflate", predictor=2)
+        with rasterio.open(out, "w", **profile) as ds:
+            ds.write(rgb, [1, 2, 3])
+            ds.write(np.minimum(count, 255).astype(np.uint8), 4)
+            bounds = transform_bounds(ds.crs, albers, *ds.bounds, densify_pts=21)
+        index["tiles"][unit] = {"file": out.name, "albers": [round(v) for v in bounds], "passes": len(paths)}
+        if n % 100 == 0 or n == len(by_unit):
+            print(f"    country: {n}/{len(by_unit)} tile-orbits, {time.monotonic() - started:.0f} s", flush=True)
+    for stale in mgrs_path("x", root).parent.glob("*.tif"):
+        if stale.stem not in index["tiles"]:
+            stale.unlink()
+    path = mgrs_index_path(root)
+    path.write_text(json.dumps(index, indent=0, sort_keys=True) + "\n")
+    return path
+
+
 # --- the tone ---------------------------------------------------------------
 
 #: Samples a composited area gives the tone fit, whatever its size, so each
@@ -565,12 +832,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Composite the south's hero areas from the Sentinel-2 archive.")
     parser.add_argument("step", choices=["plan", "fetch", "build"])
     parser.add_argument("--world", type=Path, default=Path("dist-world/china"))
-    parser.add_argument("--only", default=None, help="comma-separated hero area ids")
+    parser.add_argument("--packs", type=Path, default=Path("app/public/packs/index.json"))
+    parser.add_argument("--only", default=None, help="comma-separated hero area ids, or `country`")
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args(argv)
 
-    keys = args.only.split(",") if args.only else list(SOUTH)
+    keys = args.only.split(",") if args.only else [*SOUTH, COUNTRY]
     areas = {a.key: a for a in imagery.hero_areas(args.world)}
+    with_country = COUNTRY in keys
+    keys = [k for k in keys if k != COUNTRY]
     missing = [k for k in keys if k not in areas]
     if missing:
         print(f"no hero area {', '.join(missing)} in {args.world}", file=sys.stderr)
@@ -587,7 +857,17 @@ def main(argv: list[str] | None = None) -> int:
             print(fetch(area, args.workers))
         else:
             print(build(area))
-    if args.step == "build":
+    if with_country:
+        if args.step == "plan":
+            region = country_region(args.packs)
+            items = country_catalogue(region)
+            chosen = select_country(items, region)
+            print(f"country: {len(region)} tiles, {len(items)} items, {len(chosen)} chosen over {len({i['tile'] for i in chosen})} Sentinel-2 tiles")
+        elif args.step == "fetch":
+            print(fetch_country(args.packs, max(args.workers, 16)))
+        else:
+            print(build_country(args.packs))
+    if args.step == "build" and keys:
         # Over every composited area, not only those just built.
         tone = fit_tones([a for a in areas.values() if a.key in SOUTH])
         print(f"tone: {tone}")

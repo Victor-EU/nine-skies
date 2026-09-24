@@ -16,7 +16,7 @@ inherits; their numbering continues here rather than starting again.
 | 4 — Delivery | **Done.** Nine packs, 16.4 MB with what is read before them (55.8 MB since the colour, F87); no tile fetched outside them; the build ships them. First frame on a phone over 4G is arithmetic, not measured. | F84 |
 | 5 — Text, sound, credits | **Text and credits done**, every figure in metric and imperial. **No sound**: a stand-in and a synthesised wind were both rejected, and all of it is to be found on the web (D85). | — |
 | 6 — Launch | Not started. | |
-| 7 — Detail | **Started.** The terrain lit smooth (D86); the ground coloured from the 2016 Sentinel-2 mosaic, and the four southern hero areas from a median of the Sentinel-2 archive, 2018-2025; 57.9 MB of the 2 GB D89 allows. Next: the southern scenes' country tiles from the archive too, finer colour where the camera is low, sub-grid detail. | F86, F87, F89 |
+| 7 — Detail | **Started.** The terrain lit smooth (D86); the ground coloured from the 2016 Sentinel-2 mosaic, and the four southern scenes, hero areas and country, from a median of the Sentinel-2 archive, 2018-2025; 60.1 MB of the 2 GB D89 allows. Next: finer colour where the camera is low, sub-grid detail. | F86, F87, F89, F90 |
 
 Stages 0 to 4 and most of 3 and 5 took one day against five and a half
 weeks planned.

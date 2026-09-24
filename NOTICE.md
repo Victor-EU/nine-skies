@@ -56,12 +56,13 @@ not used (F87).
 
 ## The south's colour — Copernicus Sentinel-2
 
-Where that mosaic is most cloud, four hero areas are coloured from the
-Sentinel-2 archive instead: Tiger Leaping Gorge, the Three Gorges, Guilin
-and Huangshan. Their colour tiles in `dist-world/<world>/colour/`, the scene
-packs that carry them and the stills rendered from them are the median of
-the clear views of Sentinel-2 Level-2A passes from 2018 to 2025, reprojected,
-toned to match the mosaic and re-encoded (`make colour`, F89):
+Where that mosaic is most cloud, the south is coloured from the Sentinel-2
+archive instead: four hero areas (Tiger Leaping Gorge, the Three Gorges,
+Guilin and Huangshan) and the country tiles of their four scenes. Their
+colour tiles in `dist-world/<world>/colour/`, the scene packs that carry
+them and the stills rendered from them are the median of the clear views of
+Sentinel-2 Level-2A passes from 2018 to 2025, reprojected, toned to match
+the mosaic and re-encoded (`make colour`, F89, F90):
 
 > Contains modified Copernicus Sentinel data 2018-2025
 

@@ -1018,3 +1018,65 @@ Still weak:
   tile in each is 67 to 84 %. That is the distant ground in those scenes.
 - **The tone line** is a compromise. Guilin's ground reads a little teal,
   like the mosaic's.
+
+## F90 — The southern scenes' distant ground, from the archive too, 24 September 2026
+
+**Why.** F89 coloured the four southern hero areas from the archive, but
+the country tiles around them were still the 2016 mosaic. Those tiles are
+the distant ground in those four scenes, and the mosaic left them 14 to
+23 % cloud-filled on average, 67 to 84 % in the worst tile of each scene.
+The country tiles in the four southern scenes' packs, 689 of them and
+2.8 million km², are now the archive's too, at their own 250 m.
+
+**Reading at 160 m.** A Sentinel-2 tile is about two country tiles wide,
+so each pass is read whole, from the 16th overview of its true colour and
+the 8th of its classification. The two are the same 687-pixel grid. One
+pass is about 1.2 MB, and 16 threads read four a second. Nothing is
+probed: over a whole tile the catalogue's cloud figure is the right one.
+The catalogue lists 36,036 passes over the region from 2018 to 2025 with
+the sun at least 55° high and under 30 % cloud, found in 58 block searches.
+
+**What the first try showed.** The first try took 20 passes per tile,
+those seeing most of it clear. Neighbouring tiles usually agreed within
+2 or 3 levels where they overlap, but one pair in ten stepped by 12 to 14
+(17 to 26 %), and some tiles had black wedges. The cause was the swaths.
+Most Sentinel-2 tiles lie across the edge of two orbits' swaths. Chosen by
+tile, the passes came from the orbit that sees more of it, so the strip
+only the other sees kept a view or two (the wedges). Every swath edge
+crossing a tile was also a step between two sets of days. Lower
+percentiles than the median did not help (35th and 25th: the same steps),
+so haze was not the cause.
+
+**By orbit.** Passes are now chosen per tile and per relative orbit: 16
+each, the least cloudy under a high sun, a month at a time. The catalogue
+gives the orbit only in the product's name. That is 10,100 passes over
+367 tiles and 632 tile-orbits, 9.0 GB kept, about 35 minutes of reads,
+and the 1.3 GB the first try read but no longer uses was deleted. Each
+tile-orbit's median is taken on its own grid (9 / 14 / 16 views per pixel
+at the 5th / 50th / 95th percentile, five minutes for all of them). A
+country tile then takes every tile-orbit over it, each weighted by how
+far a point is inside what that tile-orbit sees, rising over 5 km. Where
+swaths and tiles overlap, which is 10 to 40 km at these latitudes, the
+medians blend rather than step. The previews over Karst and the First
+Bend show no step, no wedge and no cloud. The toning is F89's line, so
+the hero areas and the country around them are the same colour, and the
+hero areas' edges now meet the archive's country rather than the mosaic.
+The rest of the country keeps the mosaic.
+
+**What it gives.** 688 of the 689 tiles are the archive's. The one left
+is open sea the mosaic has no colour for either. Seen from above, the
+First Bend's country changes most. The mosaic's patchwork of scenes and
+cloud is now one landscape: the Three Parallel Rivers, the Hengduan
+snows, Erhai and Dianchi. Around Guilin and the Pearl River the cloud is
+gone. In the stills, the First Bend's far ridges take Yunnan's red dry
+soils (1.2 levels a pixel on average, 2 in the upper half). Huangshan,
+the Three Gorges and Karst barely change (0.1 to 0.4): their cameras fly
+low, among walls, haze or a sea of cloud, and see little distant ground.
+Loess and The Roof share 85 tiles with the region at their far edge, and
+their stills show no seam. Their re-takes differ from the committed ones
+by what F89 measured between a headless Chrome and a window (1.2 and 2.5
+levels, most of it in the sun's disc).
+
+The film is 60.1 MB, up 2.1 MB: sharper, cloud-free ground codes larger.
+The composites under `data/work/composite/mgrs/` are 160 m, not much
+finer than the 250 m colour cut from them.
