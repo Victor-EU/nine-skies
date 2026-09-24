@@ -34,6 +34,14 @@ lossless WebP (`encode`).
 neighbourhood (`relief` in `app/public/packs/index.json`, written by
 `make scenes` from `engine/src/film/reach.ts`), and the 90 m hero areas
 whole. The 30 m hero areas are cut at the source's own spacing already.
+
+**Near the rails (F94).** Under the camera a 125 m sample is still dozens
+of pixels wide. The country's ground along each rail is cut once more at
+the source's spacing: each country tile split `NEAR_SPLIT` ways a side,
+16 km sub-tiles of 31.25 m, 513 samples like the country's relief. Only
+the sub-tiles the packs list (`reliefNear`) are written; each country tile
+that holds any is read from the source once, over just the sub-tiles it
+needs.
 """
 
 from __future__ import annotations
@@ -51,8 +59,12 @@ from .acquire import data_root, tile_name
 from .imagery import Area, country_area
 
 #: Cells a side of a relief tile, by lattice: 125 m on the country's 64 km
-#: tiles, 30 m (the source's own) on the 90 m hero lattice's 11.52 km ones.
-CELLS = {"country": 512, "hero": 384}
+#: tiles, 30 m (the source's own) on the 90 m hero lattice's 11.52 km ones,
+#: and 31.25 m on the country's near sub-tiles (F94).
+CELLS = {"country": 512, "hero": 384, "near": 512}
+#: Near sub-tiles a country tile holds each way (F94), as the engine reads them (`NEAR_SPLIT`).
+NEAR_SPLIT = 4
+NEAR_TILE_M = grid.TILE_KM * 1000 // NEAR_SPLIT
 CODEC = "webp"
 ENCODING = "normal-east-north-sqrt"
 INDEX_VERSION = 1
@@ -83,6 +95,40 @@ def country_tiles(packs_index: Path) -> list[tuple[int, int]]:
         t = scene.get("relief", [])
         keys.update((t[k], t[k + 1]) for k in range(0, len(t), 2))
     return sorted(keys, key=lambda k: (k[1], k[0]))
+
+
+def near_tiles(packs_index: Path) -> list[tuple[int, int]]:
+    """Every near sub-tile a scene pack lists along its rail (F94)."""
+    index = json.loads(packs_index.read_text())
+    keys: set[tuple[int, int]] = set()
+    for scene in index["scenes"]:
+        t = scene.get("reliefNear", [])
+        keys.update((t[k], t[k + 1]) for k in range(0, len(t), 2))
+    return sorted(keys, key=lambda k: (k[1], k[0]))
+
+
+def near_areas(tiles: list[tuple[int, int]]) -> list[tuple[Area, set[tuple[int, int]]]]:
+    """The sub-tiles grouped by the country tile holding them: for each, the
+    rectangle of its sub-tiles that spans those wanted, and which they are."""
+    by_parent: dict[tuple[int, int], set[tuple[int, int]]] = {}
+    for i, j in tiles:
+        by_parent.setdefault((i // NEAR_SPLIT, j // NEAR_SPLIT), set()).add((i, j))
+    out = []
+    for (tx, ty), wanted in sorted(by_parent.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+        i0, i1 = min(i for i, _ in wanted), max(i for i, _ in wanted)
+        j0, j1 = min(j for _, j in wanted), max(j for _, j in wanted)
+        area = Area(
+            key=f"near-{tx}_{ty}",
+            lattice="near",
+            tile_m=NEAR_TILE_M,
+            tx0=i0,
+            ty0=j0,
+            tiles_x=i1 - i0 + 1,
+            tiles_y=j1 - j0 + 1,
+            cells=CELLS["near"],
+        )
+        out.append((area, wanted))
+    return out
 
 
 def hero_areas(world: Path) -> list[Area]:
@@ -256,41 +302,45 @@ def write(body: bytes, out_dir: Path) -> str:
     return name
 
 
-def cut_area(area: Area, out_dir: Path) -> dict:
-    """An area's tiles, as {"names": [...], "bytes": n}, in the hero heights' order."""
+def cut_area(area: Area, out_dir: Path, only: set[tuple[int, int]] | None = None) -> dict:
+    """An area's tiles, or those of them in `only`, as {"tiles": [...], "names": [...], "bytes": n}, in the hero heights' order."""
     padded = heights(area)
     parts = normals(padded, area.cell_m)
+    tiles = [t for t in area.tiles() if only is None or t in only]
     names: list[str] = []
     total = 0
-    for tx, ty in area.tiles():
+    for tx, ty in tiles:
         body = webp(encode(area.split(parts, tx, ty)))
         names.append(write(body, out_dir))
         total += len(body)
-    return {"names": names, "bytes": total}
+    return {"tiles": tiles, "names": names, "bytes": total}
 
 
-def cut(areas: list[Area], out_dir: Path) -> dict:
+def cut(areas: list[Area], out_dir: Path, near: list[tuple[Area, set[tuple[int, int]]]] = ()) -> dict:
     import time
 
     out_dir.mkdir(parents=True, exist_ok=True)
     country: dict[str, str] = {}
     hero: dict[str, dict] = {}
+    near_names: dict[str, str] = {}
     total = 0
     started = time.monotonic()
-    for k, area in enumerate(areas):
-        got = cut_area(area, out_dir)
+    jobs = [(a, None) for a in areas] + list(near)
+    for k, (area, only) in enumerate(jobs):
+        got = cut_area(area, out_dir, only)
         total += got["bytes"]
-        if area.lattice == "country":
-            for (tx, ty), name in zip(area.tiles(), got["names"]):
-                country[f"{tx}_{ty}"] = name
+        if area.lattice in ("country", "near"):
+            into = country if area.lattice == "country" else near_names
+            for (tx, ty), name in zip(got["tiles"], got["names"]):
+                into[f"{tx}_{ty}"] = name
         else:
             hero[area.key] = {
                 "lattice": area.lattice,
                 "window": {"hx0": area.tx0, "hy0": area.ty0, "hx1": area.tx0 + area.tiles_x, "hy1": area.ty0 + area.tiles_y},
                 "tiles": got["names"],
             }
-        if (k + 1) % 20 == 0 or k + 1 == len(areas):
-            print(f"  {k + 1}/{len(areas)} areas, {total / 1e6:.1f} MB, {time.monotonic() - started:.0f} s", flush=True)
+        if (k + 1) % 20 == 0 or k + 1 == len(jobs):
+            print(f"  {k + 1}/{len(jobs)} areas, {total / 1e6:.1f} MB, {time.monotonic() - started:.0f} s", flush=True)
     index = {
         "version": INDEX_VERSION,
         "codec": CODEC,
@@ -300,14 +350,15 @@ def cut(areas: list[Area], out_dir: Path) -> dict:
         "grids": {lattice: {"cells": cells, "samples": cells + 1} for lattice, cells in CELLS.items()},
         "country": country,
         "hero": hero,
+        "near": {"tileM": NEAR_TILE_M, "tiles": near_names},
     }
     (out_dir / "index.json").write_text(json.dumps(index, indent=1) + "\n")
     # Files no tile names any more: a re-cut leaves no orphans to be packed or shipped.
-    kept = set(country.values()) | {n for h in hero.values() for n in h["tiles"]}
+    kept = set(country.values()) | {n for h in hero.values() for n in h["tiles"]} | set(near_names.values())
     for path in (out_dir / "files").glob("relief-*.webp"):
         if path.stem not in kept:
             path.unlink()
-    return {"areas": len(areas), "tiles": len(kept), "bytes": total}
+    return {"areas": len(jobs), "tiles": len(kept), "near": len(near_names), "bytes": total}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -319,18 +370,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     world = REPO / "dist-world" / args.world
     areas = plan(world, Path(args.packs))
+    near = near_areas(near_tiles(Path(args.packs)))
     if args.only:
         wanted = set(args.only.split(","))
-        areas = [a for a in areas if a.key in wanted] or [relief_area(country_area(*map(int, k.split("_")))) for k in wanted if "_" in k]
+        near = [(a, only) for a, only in near if a.key in wanted]
+        areas = [a for a in areas if a.key in wanted] or [relief_area(country_area(*map(int, k.split("_")))) for k in wanted if "_" in k and not k.startswith("near-")]
     if args.command == "plan":
         hero_tiles = sum(a.tiles_x * a.tiles_y for a in areas if a.lattice != "country")
-        print(f"{sum(a.lattice == 'country' for a in areas)} country tiles, {hero_tiles} hero tiles")
+        near_count = sum(len(only) for _, only in near)
+        print(f"{sum(a.lattice == 'country' for a in areas)} country tiles, {hero_tiles} hero tiles, {near_count} near sub-tiles in {len(near)} country tiles")
         return 0
-    if not areas:
+    if not areas and not near:
         print("nothing to cut: `make scenes` lists the country tiles near each camera first", file=sys.stderr)
         return 1
-    done = cut(areas, world / "relief")
-    print(f"relief: {done['tiles']} tiles, {done['bytes'] / 1e6:.1f} MB, in {world / 'relief'}")
+    done = cut(areas, world / "relief", near)
+    print(f"relief: {done['tiles']} files ({done['near']} near sub-tiles), {done['bytes'] / 1e6:.1f} MB, in {world / 'relief'}")
     return 0
 
 

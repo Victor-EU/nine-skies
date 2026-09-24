@@ -11,7 +11,7 @@ import {
 import { COLOUR_SAMPLES, NO_COLOUR, type ColourProvider, type ColourSource, type FineColourSource } from "./colour.js";
 import { rendererUploader, type ColourLayers, type ColourUploader } from "./colourLayers.js";
 import { FINE_REACH, FineColour, type FineReach } from "./fineColour.js";
-import { RELIEF_REACH, type ReliefSource } from "./relief.js";
+import { NEAR_LAYER_BITS, NEAR_SPLIT, RELIEF_REACH, type ReliefSource } from "./relief.js";
 import { LOD_SEGMENTS, buildGrid, lodForDistance, type LodLevel } from "./grid.js";
 import { HeightTileArray, MAX_LAYERS, TILE_SAMPLES, tileId } from "./tileArray.js";
 import { TILE_KM } from "./syntheticTiles.js";
@@ -142,6 +142,8 @@ export interface TerrainStats {
   colourFine: number;
   /** Tiles lit by their relief this frame (F93). */
   relief: number;
+  /** Country sub-tiles lit by their near relief this frame (F94). */
+  reliefNear: number;
   /**
    * Instances in each bucket, nearest first; sums to `instances`.
    *
@@ -179,6 +181,12 @@ interface LodBucket {
   fine: InstancedBufferAttribute;
   /** The instance's relief layer + 1, 0 where it has none on the GPU (F93). */
   relief: InstancedBufferAttribute;
+  /**
+   * The near relief's layer + 1 for each of the instance's sub-tiles, 0
+   * where one has none on the GPU (F94): a row of them, south to north, to a
+   * component, `NEAR_LAYER_BITS` apiece from the west.
+   */
+  near: InstancedBufferAttribute;
   /**
    * The layers of the tiles west, east, south and north of the instance's,
    * -1 where one is not resident: the smooth normal along a tile's edge reads
@@ -250,6 +258,10 @@ class TileLattice implements DrawnTiles {
   readonly relief: FineColour | null;
   /** Tiles lit by their relief this frame. */
   reliefDrawn = 0;
+  /** The country's relief at the source's spacing, over the sub-tiles nearest the camera (F94). */
+  readonly near: FineColour | null;
+  /** Sub-tiles lit by it this frame. */
+  nearDrawn = 0;
   /** The camera, real metres, for the fine colour's reach. */
   private cameraEastM = 0;
   private cameraNorthM = 0;
@@ -272,6 +284,8 @@ class TileLattice implements DrawnTiles {
     fine: { source: FineColourSource; reach: (typeof FINE_REACH)[string] } | null = null,
     /** Its relief and how far it reaches (F93), or null. */
     relief: { source: FineColourSource; reach: FineReach } | null = null,
+    /** Its near relief, `NEAR_SPLIT` sub-tiles a side of each tile (F94), or null. */
+    near: { source: FineColourSource; reach: FineReach } | null = null,
   ) {
     this.maxInstances = maxInstances;
     // A water layer only for a source that can have one: a package (F72), or
@@ -295,6 +309,18 @@ class TileLattice implements DrawnTiles {
             true,
           )
         : null;
+    if (near && near.reach.layers >= 1 << NEAR_LAYER_BITS) throw new Error(`${near.reach.layers} near relief layers; ${NEAR_LAYER_BITS} bits hold ${(1 << NEAR_LAYER_BITS) - 1}`);
+    this.near =
+      near && this.relief
+        ? new FineColour(
+            near.reach,
+            near.source,
+            (texture) => {
+              this.material.uniforms.uReliefNear!.value = texture;
+            },
+            true,
+          )
+        : null;
     this.material = createTerrainMaterial(this.heights.texture, {
       ...(this.heights.colour && { colour: this.heights.colour.texture }),
       ...(this.fine && {
@@ -312,6 +338,13 @@ class TileLattice implements DrawnTiles {
           fadeM: [this.relief.reach.fullM, this.relief.reach.goneM],
           horizontalCompression: scale.horizontalCompression,
           gain: reliefGain(scale),
+          ...(this.near && {
+            near: {
+              texture: this.near.texture,
+              samples: this.near.source.samples,
+              fadeM: [this.near.reach.fullM, this.near.reach.goneM] as const,
+            },
+          }),
         },
       }),
       ...(this.heights.water && {
@@ -364,6 +397,7 @@ class TileLattice implements DrawnTiles {
     this.generated = 0;
     this.fineDrawn = 0;
     this.reliefDrawn = 0;
+    this.nearDrawn = 0;
     this.drawnLod.clear();
     this.cameraEastM = cameraEastM;
     this.cameraNorthM = cameraNorthM;
@@ -423,11 +457,10 @@ class TileLattice implements DrawnTiles {
     (b.colour.array as Float32Array)[b.count] = colours?.held(layer) ? 1 : 0;
     let fine = 0;
     let relief = 0;
+    const near = b.near.array as Float32Array;
+    near.fill(0, b.count * 4, b.count * 4 + 4);
     if (this.fine || this.relief) {
-      // From the camera to the tile's nearest point, zero when over it.
-      const dx = Math.max(i * this.tileM - this.cameraEastM, 0, this.cameraEastM - (i + 1) * this.tileM);
-      const dy = Math.max(j * this.tileM - this.cameraNorthM, 0, this.cameraNorthM - (j + 1) * this.tileM);
-      const distM = Math.hypot(dx, dy);
+      const distM = this.distanceM(i, j, this.tileM);
       if (this.fine) {
         fine = this.fine.place(i, j, distM);
         if (fine > 0) this.fineDrawn++;
@@ -436,6 +469,7 @@ class TileLattice implements DrawnTiles {
         relief = this.relief.place(i, j, distM);
         if (relief > 0) this.reliefDrawn++;
       }
+      if (this.near && distM <= this.near.reach.reachM) this.placeNear(i, j, near, b.count * 4);
     }
     (b.fine.array as Float32Array)[b.count] = fine;
     (b.relief.array as Float32Array)[b.count] = relief;
@@ -446,11 +480,40 @@ class TileLattice implements DrawnTiles {
     return true;
   }
 
+  /** From the camera to the nearest point of a square `sideM` a side, zero when over it. */
+  private distanceM(i: number, j: number, sideM: number): number {
+    const dx = Math.max(i * sideM - this.cameraEastM, 0, this.cameraEastM - (i + 1) * sideM);
+    const dy = Math.max(j * sideM - this.cameraNorthM, 0, this.cameraNorthM - (j + 1) * sideM);
+    return Math.hypot(dx, dy);
+  }
+
+  /**
+   * A tile's near relief (F94): each of its sub-tiles placed in the pool by
+   * its own distance, and the layers written into the instance's four rows.
+   */
+  private placeNear(i: number, j: number, out: Float32Array, at: number): void {
+    const pool = this.near!;
+    const side = this.tileM / NEAR_SPLIT;
+    const shift = 1 << NEAR_LAYER_BITS;
+    for (let b = 0; b < NEAR_SPLIT; b++) {
+      let row = 0;
+      for (let a = NEAR_SPLIT - 1; a >= 0; a--) {
+        const si = i * NEAR_SPLIT + a;
+        const sj = j * NEAR_SPLIT + b;
+        const layer = pool.place(si, sj, this.distanceM(si, sj, side));
+        if (layer > 0) this.nearDrawn++;
+        row = row * shift + layer;
+      }
+      out[at + b] = row;
+    }
+  }
+
   /** Upload, flip visibility, and report what this lattice costs the frame. */
   endFrame(): { drawCalls: number; instances: number; triangles: number } {
     this.heights.flush();
     this.fine?.endFrame();
     this.relief?.endFrame();
+    this.near?.endFrame();
     let drawCalls = 0;
     let instances = 0;
     let triangles = 0;
@@ -465,6 +528,7 @@ class TileLattice implements DrawnTiles {
       b.colour.needsUpdate = true;
       b.fine.needsUpdate = true;
       b.relief.needsUpdate = true;
+      b.near.needsUpdate = true;
       b.neighbours.needsUpdate = true;
       drawCalls++;
       instances += b.count;
@@ -507,6 +571,12 @@ class TileLattice implements DrawnTiles {
       );
       u.uReliefGain!.value = reliefGain(scale);
     }
+    if (this.near) {
+      (u.uReliefNearFade!.value as { set(x: number, y: number): void }).set(
+        this.near.reach.fullM / scale.horizontalCompression,
+        this.near.reach.goneM / scale.horizontalCompression,
+      );
+    }
   }
 
   private makeBucket(segments: number): LodBucket {
@@ -538,6 +608,7 @@ class TileLattice implements DrawnTiles {
     const colour = new InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
     const fine = new InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
     const relief = new InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
+    const near = new InstancedBufferAttribute(new Float32Array(this.maxInstances * 4), 4);
     const neighbours = new InstancedBufferAttribute(new Float32Array(this.maxInstances * 4), 4);
     origins.setUsage(35048 /* DynamicDrawUsage */);
     layers.setUsage(35048);
@@ -545,6 +616,7 @@ class TileLattice implements DrawnTiles {
     colour.setUsage(35048);
     fine.setUsage(35048);
     relief.setUsage(35048);
+    near.setUsage(35048);
     neighbours.setUsage(35048);
     geometry.setAttribute("iOrigin", origins);
     geometry.setAttribute("iLayer", layers);
@@ -552,6 +624,7 @@ class TileLattice implements DrawnTiles {
     geometry.setAttribute("iColour", colour);
     if (this.fine) geometry.setAttribute("iFine", fine);
     if (this.relief) geometry.setAttribute("iRelief", relief);
+    if (this.near) geometry.setAttribute("iNear", near);
     geometry.setAttribute("iNeighbours", neighbours);
     geometry.instanceCount = 0;
 
@@ -570,6 +643,7 @@ class TileLattice implements DrawnTiles {
       colour,
       fine,
       relief,
+      near,
       neighbours,
       tiles: new Int32Array(this.maxInstances * 2),
       trianglesPerInstance: grid.triangleCount,
@@ -629,6 +703,7 @@ export class Terrain {
     colourPending: 0,
     colourFine: 0,
     relief: 0,
+    reliefNear: 0,
     perLod: [],
     bucketLabels: [],
     hero: { areasDrawn: 0, instances: 0, triangles: 0, resident: 0, rimPoints: 0 },
@@ -655,6 +730,7 @@ export class Terrain {
       options.colour?.provider("country") ?? null,
       null,
       reliefFor(options.relief, "country"),
+      reliefFor(options.relief, "near"),
     );
     this.heights = this.country.heights;
     this.material = this.country.material;
@@ -851,9 +927,10 @@ export class Terrain {
       (this.options.colour?.pending ?? 0) +
       (this.options.rock?.pending ? 1 : 0) +
       (this.options.relief?.pending ?? 0) +
-      this.lattices.reduce((n, l) => n + (l.heights.colour?.pending ?? 0) + (l.fine?.pending ?? 0) + (l.relief?.pending ?? 0), 0);
+      this.lattices.reduce((n, l) => n + (l.heights.colour?.pending ?? 0) + (l.fine?.pending ?? 0) + (l.relief?.pending ?? 0) + (l.near?.pending ?? 0), 0);
     this.stats.colourFine = this.lattices.reduce((n, l) => n + l.fineDrawn, 0);
     this.stats.relief = this.lattices.reduce((n, l) => n + l.reliefDrawn, 0);
+    this.stats.reliefNear = this.country.nearDrawn;
     this.stats.hero = {
       areasDrawn: heroStats.areasDrawn,
       instances: heroStats.instances,
@@ -885,9 +962,9 @@ export class Terrain {
       }
       colours.flush(uploader);
     }
-    // The fine colour's own array (F91), a couple of its large images a frame, and the relief's (F93).
+    // The fine colour's own array (F91), a couple of its large images a frame, and the relief's (F93, F94).
     for (const lattice of this.lattices) {
-      for (const pool of [lattice.fine, lattice.relief]) {
+      for (const pool of [lattice.fine, lattice.relief, lattice.near]) {
         const layers = pool?.layers;
         if (!pool || !layers || layers.pending === 0) continue;
         let uploader = this.fineUploaders.get(layers);

@@ -1,4 +1,4 @@
-"""Stage 12d — the ground's relief below its grid (F93). Runs without the source."""
+"""Stage 12d — the ground's relief below its grid (F93), and near the rails (F94). Runs without the source."""
 
 import json
 import sys
@@ -96,11 +96,31 @@ class TestTheCut(unittest.TestCase):
             self.assertEqual(pixels.shape, (3, 385, 385))
             np.testing.assert_allclose(relief.decode(pixels)[1], -0.3 / np.sqrt(1.09), atol=0.005)
 
+    def test_near_sub_tiles_are_cut_by_their_country_tile_and_only_those_wanted_written(self):
+        near = relief.near_areas([(5, 9), (6, 9), (6, 10), (8, 9)])
+        # Sub-tiles 5 and 6 are country tile 1's, 8 is tile 2's.
+        self.assertEqual([(a.key, a.tx0, a.ty0, a.tiles_x, a.tiles_y, a.cell_m) for a, _ in near], [("near-1_2", 5, 9, 2, 2, 31.25), ("near-2_2", 8, 9, 1, 1, 31.25)])
+        self.assertEqual(near[0][1], {(5, 9), (6, 9), (6, 10)})
+        ground = {a.key: plane(a.height + 2, a.width + 2, 0.05, 0.0, a.cell_m) for a, _ in near}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(relief, "heights", lambda area: ground[area.key]):
+            out = Path(tmp)
+            done = relief.cut([], out, near)
+            index = json.loads((out / "index.json").read_text())
+            self.assertEqual(index["grids"]["near"], {"cells": 512, "samples": 513})
+            self.assertEqual(index["near"]["tileM"], relief.NEAR_TILE_M)
+            self.assertEqual(sorted(index["near"]["tiles"]), ["5_9", "6_10", "6_9", "8_9"])  # not 5_10
+            self.assertEqual(done["near"], 4)
+            with rasterio.open(out / "files" / f"{index['near']['tiles']['6_10']}.webp") as ds:
+                pixels = ds.read()
+            self.assertEqual(pixels.shape, (3, 513, 513))
+            np.testing.assert_allclose(relief.decode(pixels)[0], -0.05 / np.sqrt(1.0025), atol=0.005)
+
     def test_the_plan_reads_the_country_tiles_the_packs_list_near_each_camera(self):
         with tempfile.TemporaryDirectory() as tmp:
             packs = Path(tmp) / "index.json"
-            packs.write_text(json.dumps({"scenes": [{"relief": [3, 4, 5, 4]}, {"relief": [3, 4]}, {}]}))
+            packs.write_text(json.dumps({"scenes": [{"relief": [3, 4, 5, 4], "reliefNear": [13, 17, 12, 17]}, {"relief": [3, 4], "reliefNear": [12, 17]}, {}]}))
             self.assertEqual(relief.country_tiles(packs), [(3, 4), (5, 4)])
+            self.assertEqual(relief.near_tiles(packs), [(12, 17), (13, 17)])
             areas = relief.plan(Path(tmp), packs)
             self.assertEqual([(a.key, a.cells, a.cell_m) for a in areas], [("3_4", 512, 125.0), ("5_4", 512, 125.0)])
 

@@ -9,7 +9,7 @@ source asks, and why the rivers are not HydroSHEDS, is in
 ## Elevation — Copernicus DEM GLO-30
 
 Elevation data here — every world `make world` builds, the ground's relief
-`make relief` cuts again from the same source as its normals (F93), the
+`make relief` cuts again from the same source as its normals (F93, F94), the
 scene packs `make scenes` cuts from them and the film plays, and the stills
 rendered from them in `docs/stills/` — are produced using Copernicus
 WorldDEM-30:

@@ -3,7 +3,9 @@
  * tile, which file a country or hero tile's relief is, pools reaching far
  * enough for every tile near any point, lattices lit by it once its image
  * is on the GPU, and scene packs that list every country tile the camera
- * comes near.
+ * comes near. And the near relief at the source's spacing (F94): sub-tiles
+ * of the country's, each instance carrying the layers of its sixteen, and
+ * packs that list every sub-tile along each rail.
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -12,6 +14,9 @@ import { COLOUR_SAMPLES, ColourSource, type ColourImage, type ColourIndex } from
 import type { ColourUploader } from "../../engine/src/terrain/colourLayers.js";
 import type { FineColour } from "../../engine/src/terrain/fineColour.js";
 import {
+  NEAR_LAYER_BITS,
+  NEAR_SPLIT,
+  NEAR_TILE_M,
   RELIEF_ENCODING,
   RELIEF_INDEX_VERSION,
   RELIEF_REACH,
@@ -24,7 +29,7 @@ import { Terrain, reliefGain } from "../../engine/src/terrain/terrain.js";
 import { SyntheticTileSource } from "../../engine/src/terrain/tileSource.js";
 import { TILE_KM } from "../../engine/src/terrain/syntheticTiles.js";
 import { DEFAULT_SCALE } from "../../engine/src/sim/scale.js";
-import { nearTiles, tileKey } from "../../engine/src/film/reach.js";
+import { DEFAULT_REACH, nearTiles, tileKey, tileOfKey } from "../../engine/src/film/reach.js";
 import { buildRail } from "../../engine/src/film/scene.js";
 import { loadFilm } from "../../tools/film.ts";
 
@@ -40,6 +45,13 @@ const reliefIndex: ReliefIndex = {
   grids: { country: { cells: 512, samples: COUNTRY }, hero: { cells: 384, samples: 385 } },
   country: { "0_0": "relief-a", "1_0": "relief-b", "0_1": "relief-c" },
   hero: { gorge: { lattice: "hero", window: { hx0: 10, hy0: 20, hx1: 12, hy1: 21 }, tiles: ["relief-h1", "relief-h2"] } },
+};
+
+/** With the near relief of three sub-tiles of tile (0, 0), and one beyond its reach. */
+const withNear: ReliefIndex = {
+  ...reliefIndex,
+  grids: { ...reliefIndex.grids, near: { cells: 512, samples: COUNTRY } },
+  near: { tileM: NEAR_TILE_M, tiles: { "1_1": "relief-n11", "2_1": "relief-n21", "1_2": "relief-n12", "0_0": "relief-n00" } },
 };
 
 const colourIndex: ColourIndex = {
@@ -110,6 +122,23 @@ describe("the relief's index", () => {
     ).toBeNull();
   });
 
+  it("takes near relief cut in the engine's sub-tiles, and refuses it in others or without its grid", () => {
+    expect(reliefProblem(withNear)).toBeNull();
+    expect(reliefProblem({ ...withNear, near: { tileM: 32_000, tiles: {} } })).toMatch(/sub-tiles/);
+    expect(reliefProblem({ ...withNear, grids: reliefIndex.grids })).toMatch(/no grid/);
+    expect(NEAR_TILE_M * NEAR_SPLIT).toBe(TILE_M);
+  });
+
+  it("names a near sub-tile's file by the sub-tile", () => {
+    const w = wire();
+    const near = new ReliefSource(withNear, "/r", w.fetch, w.decode, () => 0).layer("near")!;
+    expect(near.samples).toBe(COUNTRY);
+    expect(near.take(2, 1)).toBeNull();
+    expect(near.take(3, 3)).not.toBeNull(); // no file for it
+    expect(w.fetched).toEqual(["/r/relief-n21.webp"]);
+    expect(new ReliefSource(reliefIndex, "/r", w.fetch, w.decode, () => 0).layer("near")).toBeNull();
+  });
+
   it("names a country tile's file by its tile, a hero tile's by the lattice's own coordinates, and none for a lattice without a grid", async () => {
     const w = wire();
     const source = new ReliefSource(reliefIndex, "/r", w.fetch, w.decode, () => 0);
@@ -129,7 +158,7 @@ describe("the relief's index", () => {
 describe("the relief's reach", () => {
   it("fades before it lets go, and holds every tile within its reach of any point", () => {
     for (const [lattice, reach] of Object.entries(RELIEF_REACH)) {
-      const tileM = lattice === "hero" ? 11_520 : TILE_M;
+      const tileM = lattice === "hero" ? 11_520 : lattice === "near" ? NEAR_TILE_M : TILE_M;
       expect(reach.fullM).toBeLessThan(reach.goneM);
       expect(reach.goneM).toBeLessThan(reach.reachM);
       let most = 0;
@@ -147,6 +176,11 @@ describe("the relief's reach", () => {
       }
       expect(reach.layers, lattice).toBeGreaterThanOrEqual(most);
     }
+    // An instance's row holds four near layers + 1 in a float's 24 bits.
+    expect(RELIEF_REACH.near!.layers).toBeLessThan(1 << NEAR_LAYER_BITS);
+    expect(NEAR_SPLIT * NEAR_LAYER_BITS).toBeLessThanOrEqual(24);
+    // Faded out before the 125 m relief is.
+    expect(RELIEF_REACH.near!.goneM).toBeLessThanOrEqual(RELIEF_REACH.country!.fullM);
   });
 });
 
@@ -188,6 +222,84 @@ describe("a lattice lit by its relief", () => {
     expect(u.uReliefFade!.value.y).toBeCloseTo(RELIEF_REACH.country!.goneM / 4);
   });
 
+  it("lights the sub-tiles near the camera by their near relief, each instance carrying its sixteen layers", async () => {
+    const w = wire();
+    const terrain = new Terrain({
+      scale: { ...DEFAULT_SCALE },
+      viewRadiusTiles: 1,
+      layers: 16,
+      source: new SyntheticTileSource(),
+      colour: new ColourSource(colourIndex, "/c", w.fetch, w.decode, () => 0),
+      relief: new ReliefSource(withNear, "/r", w.fetch, w.decode, () => 0),
+    });
+    // Over the corner of four sub-tiles, in the middle of tile (0, 0).
+    const fly = () => terrain.update(0.5 * TILE_M, 0.5 * TILE_M, 2000);
+    for (let k = 0; k < 4; k++) {
+      fly();
+      await w.settle();
+    }
+    fly();
+    const country = (terrain as unknown as { country: { near: FineColour; relief: FineColour; material: ShaderMaterial } }).country;
+    expect(terrain.stats.colourPending).toBeGreaterThan(0); // a still waits for it
+    country.near.layers!.flush(recorder());
+    country.relief.layers!.flush(recorder());
+    fly();
+    // The sub-tile beyond the reach is never fetched; the three within it light their parts of the tile.
+    expect(w.fetched.filter((u) => u.includes("relief-n")).sort()).toEqual(["/r/relief-n11.webp", "/r/relief-n12.webp", "/r/relief-n21.webp"]);
+    expect(terrain.stats.reliefNear).toBe(3);
+    let rows: number[] | null = null;
+    for (const mesh of terrain.meshes) {
+      const geometry = mesh.geometry as InstancedBufferGeometry;
+      const near = geometry.getAttribute("iNear");
+      if (!near) continue;
+      for (let k = 0; k < geometry.instanceCount; k++) {
+        const row = Array.from((near.array as Float32Array).slice(k * 4, k * 4 + 4));
+        if (row.some((v) => v > 0)) {
+          expect(rows, "one instance holds near relief").toBeNull();
+          rows = row;
+        }
+      }
+    }
+    // Read back as the shader does: row by sub-tile north, six bits a sub-tile from the west.
+    const layerAt = (a: number, b: number) => (rows![b]! >>> (NEAR_LAYER_BITS * a)) & ((1 << NEAR_LAYER_BITS) - 1);
+    const lit: string[] = [];
+    const layers = new Set<number>();
+    for (let b = 0; b < NEAR_SPLIT; b++) {
+      for (let a = 0; a < NEAR_SPLIT; a++) {
+        const l = layerAt(a, b);
+        if (l === 0) continue;
+        lit.push(`${a}_${b}`);
+        layers.add(l);
+        expect(l).toBeLessThanOrEqual(RELIEF_REACH.near!.layers);
+      }
+    }
+    expect(lit.sort()).toEqual(["1_1", "1_2", "2_1"]);
+    expect(layers.size).toBe(3);
+    const u = country.material.uniforms;
+    expect(u.uReliefNear!.value).toBe(country.near.layers!.texture);
+    expect(country.near.layers!.texture.internalFormat).toBe("RGBA8");
+    expect(u.uReliefNearFade!.value.y).toBeCloseTo(RELIEF_REACH.near!.goneM / DEFAULT_SCALE.horizontalCompression);
+    expect(country.material.fragmentShader).toContain("uReliefNear");
+    expect(country.material.vertexShader).toContain("iNear");
+    terrain.setScale({ ...DEFAULT_SCALE, horizontalCompression: 4 });
+    expect(u.uReliefNearFade!.value.x).toBeCloseTo(RELIEF_REACH.near!.fullM / 4);
+  });
+
+  it("does not compile the near relief in where the index has none", () => {
+    const w = wire();
+    const terrain = new Terrain({
+      scale: { ...DEFAULT_SCALE },
+      viewRadiusTiles: 1,
+      layers: 16,
+      source: new SyntheticTileSource(),
+      colour: new ColourSource(colourIndex, "/c", w.fetch, w.decode, () => 0),
+      relief: new ReliefSource(reliefIndex, "/r", w.fetch, w.decode, () => 0),
+    });
+    terrain.update(0.5 * TILE_M, 0.5 * TILE_M, 2000);
+    for (const m of terrain.materials) expect(m.fragmentShader).not.toContain("uReliefNear");
+    for (const mesh of terrain.meshes) expect((mesh.geometry as InstancedBufferGeometry).getAttribute("iNear")).toBeUndefined();
+  });
+
   it("is not compiled in without a relief", () => {
     const w = wire();
     const terrain = new Terrain({
@@ -204,7 +316,9 @@ describe("a lattice lit by its relief", () => {
 });
 
 describe("the scene packs' relief", () => {
-  const packs = JSON.parse(readFileSync("app/public/packs/index.json", "utf8")) as { scenes: { id: string; relief: number[] }[] };
+  const packs = JSON.parse(readFileSync("app/public/packs/index.json", "utf8")) as {
+    scenes: { id: string; relief: number[]; reliefNear: number[]; hero: { area: string } | null }[];
+  };
   const { film } = loadFilm();
 
   it("lists, for every scene, each country tile within the relief's reach of where the camera can stand", () => {
@@ -215,6 +329,21 @@ describe("the scene packs' relief", () => {
       const near = nearTiles(buildRail(scene.rail), TILE_M, RELIEF_REACH.country!.reachM);
       expect(listed.size, scene.id).toBeGreaterThan(0);
       for (const key of near) expect(listed.has(key), `${scene.id} ${key}`).toBe(true);
+    }
+  });
+
+  it("lists, for every scene, each sub-tile within the near relief's fade of the rail as the film flies it", () => {
+    for (const [i, scene] of film.scenes.entries()) {
+      const listed = new Set<number>();
+      const flat = packs.scenes[i]!.reliefNear;
+      for (let k = 0; k < flat.length; k += 2) listed.add(tileKey(flat[k]!, flat[k + 1]!));
+      const along = nearTiles(buildRail(scene.rail), NEAR_TILE_M, RELIEF_REACH.near!.goneM, { ...DEFAULT_REACH, maxOffsetM: 0 });
+      expect(listed.size, scene.id).toBeGreaterThan(0);
+      // All of them, but for those a hero area covers whole, where the country is not drawn.
+      const missing = [...along].filter((key) => !listed.has(key));
+      expect(missing.length, scene.id).toBeLessThan(along.size / 4);
+      for (const key of missing) expect(scene.hero, `${scene.id} ${tileOfKey(key)}`).toBeTruthy();
+      for (const key of listed) expect(along.has(key), `${scene.id} ${tileOfKey(key)}`).toBe(true);
     }
   });
 });

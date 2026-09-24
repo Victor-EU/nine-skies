@@ -29,6 +29,8 @@ export interface PackIndexScene {
   readonly tiles: readonly number[];
   /** The country tiles whose relief the pack holds (F93), the same way. */
   readonly relief?: readonly number[];
+  /** The sub-tiles whose near relief it holds (F94), the same way. */
+  readonly reliefNear?: readonly number[];
   readonly hero: { readonly dir: string; readonly area: string; readonly bytes: number } | null;
 }
 
@@ -126,6 +128,12 @@ export class ScenePacks {
       }
       const reliefHero = scene.hero && relief?.hero[scene.hero.area];
       for (const r of reliefHero ? reliefHero.tiles : []) if (r) own(colourFile(r), i);
+      // And the sub-tiles along the rail at the source's spacing (F94).
+      const along = scene.reliefNear ?? [];
+      for (let k = 0; k < along.length; k += 2) {
+        const r = relief?.near?.tiles[`${along[k]}_${along[k + 1]}`];
+        if (r) own(colourFile(r), i);
+      }
     });
     this.attached = true;
   }

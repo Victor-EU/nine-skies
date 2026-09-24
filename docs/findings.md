@@ -1384,3 +1384,105 @@ and the first, Huangshan's, is 12.3 MB.
 Chrome, which is left alone here, and Photos. The foreground at 125 m is
 still soft. A finer layer nearer the rail would cost about four times the
 bytes for each step in spacing.
+
+## F94 — The ground along the rails at the source's own spacing, 24 September 2026
+
+**Why.** F93 lit the country by its relief at 125 m, and the Loess's
+foreground stayed soft. The camera flies 600 m above the ground ahead, and
+the bottom of the frame is about 5 km off. A pixel at 1080p is a
+milliradian, so a 125 m sample is about 25 pixels wide at the bottom of the
+frame and 8 pixels wide at 16 km. It drew the gullies as smears. GLO-30 is 30 m. The ground under the camera
+needs it, and only there.
+
+**What was weighed.** Measured on a Loess tile:
+
+| Spacing | Cut as | Per image | Per 64 km tile |
+| --- | --- | ---: | ---: |
+| 125 m (F93) | the tile whole | 430 KB | 0.43 MB |
+| 62.5 m | four 32 km sub-tiles | 470 KB | 1.9 MB |
+| 31.25 m | sixteen 16 km sub-tiles | 428 KB | 6.9 MB |
+
+At 31.25 m the ground is smoother from one sample to the next, and an image
+compresses a little better than at 62.5 m. At 62.5 m a sample would
+still be 13 pixels wide at the bottom of the frame; at 31.25 m it is 7, the
+finest the source holds. So the source's own spacing was taken. Seven and six bits save 11 % and 26 %, and were left: one encoding,
+one decoder. Covering the widest drift off the rail as well as the rail
+would nearly double the bytes (2,011 sub-tiles against 1,091). The near
+relief follows the film's line, and a viewer who drifts off it still has the
+125 m relief.
+
+**What is cut** (`make relief`, `pipeline/nineskies/relief.py`). Each
+country tile is split four ways a side into 16 km sub-tiles of 512 cells,
+513 samples, in the F93 encoding. That is the sub-tiles within 16 km of each
+rail (the near relief's fade), as the film flies it, out to the fastest
+viewer's reach. The sub-tiles the scene's own hero area covers whole are
+left out: the country is cut out there. `make scenes` lists them in the pack
+index (`reliefNear`), and `make relief` cuts what it lists, reading each
+country tile once over the sub-tiles it needs:
+- 1,056 sub-tiles, 1,051 files, 366.3 MB (349 KB each on average).
+- The whole relief, country, hero and near, cut in about six minutes.
+
+**In the engine** (`relief.ts`, `terrain.ts`, `terrainMaterial.ts`):
+- *A pool of its own on the country lattice.* 16 layers of 513², 22 MB with
+  mips, for the 14 sub-tiles at most within 20 km of a point. Drawn whole to
+  10 km, faded into the 125 m relief by 16 km, and claimed within 20 km.
+  Each sub-tile is placed by its own distance.
+- *Sixteen layers to an instance.* A country tile's instance carries the
+  layer + 1 of each of its sub-tiles. Each row, south to north, is one
+  float, holding four layers at six bits each, 24 bits, exact in a float.
+  The shader finds a fragment's sub-tile and reads its layer from the row.
+- *No seams.* Which sub-tile a fragment is in changes across a triangle, so
+  the read is given the gradient of the fragment's position across the whole
+  tile, which does not jump where the sub-tile does. The sub-tiles share
+  their edge samples, as the tiles do.
+- *The light only, as F93.* The shadow and all that reads the slope keep the
+  grid's normal.
+- *A still waits for it.*
+
+Flying the Loess live, 9 to 12 sub-tiles were lit each second, with nothing
+waiting for upload.
+
+**The stills.** Three changed. Share of each still changed by more than 8
+levels:
+
+| Still | Changed | What changed |
+| --- | ---: | --- |
+| Loess | 7.3 % | The foreground's gullies branch, crisp to the bottom of the frame, where they were smears. |
+| Below the Sea | 5.7 % | The near dune field has its crests one by one, and the range beyond is sharper. |
+| The Roof | 1.4 % | A fine grain on the nearest slopes. |
+
+The other six changed by 0.4 % at most, what two takes of the same frame
+differ by, and stand. Their cameras are over hero ground or look past the
+near ground. Heaven Lake's rail carries 62 MB of near relief, but its still
+frames the crater. The three need signing off (D77).
+
+**Frame cost: not measured.** Photos was still at 28 % CPU, and the other
+session's headless Chrome (F93) still held the GPU. The work added, on the
+country's fragments within 90 km:
+- A derivative and a few integer operations.
+- Where a sub-tile holds near relief, one texture read with its gradient.
+- Two 513² uploads a frame at most.
+
+**The film is 672.8 MB**, up 366.4 MB, of the 2 GB D89 allows. The near
+relief by pack:
+
+| Pack | Near relief | Pack now |
+| --- | ---: | ---: |
+| Below the Sea | 90.4 MB | 139.1 MB |
+| The Roof | 80.3 MB | 133.2 MB |
+| Heaven Lake | 62.0 MB | 98.0 MB |
+| Loess | 59.6 MB | 93.9 MB |
+| Three Gorges | 23.9 MB | 66.7 MB |
+| The Wall | 18.6 MB | 39.1 MB |
+| First Bend | 13.6 MB | 42.8 MB |
+| Karst | 12.3 MB | 37.3 MB |
+| Huangshan | 5.7 MB | 18.0 MB |
+
+A pack is fetched while the scene before it plays. Below the Sea's has two
+minutes to arrive, about 9.3 Mbit/s.
+
+**Next.** The frame cost timed with the GPU idle. The foreground's colour is
+now the coarser of the two: the country's colour is 250 m, and on the Roof
+and Below the Sea the near ground is a blur of colour under a sharp relief.
+The Sentinel-2 10 m colour along the rails, as F91 did for the hero areas,
+would be the next lever.

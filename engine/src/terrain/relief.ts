@@ -20,14 +20,29 @@
  * The images are held in a pool per lattice over the tiles nearest the
  * camera, as the fine colour is (`fineColour.ts`), and faded to the grid's
  * own normal before the pool's reach runs out.
+ *
+ * Under the camera a 125 m sample is still dozens of pixels wide. The
+ * country's ground near each rail is cut once more at the source's own
+ * spacing (F94): a country tile split `NEAR_SPLIT` ways each side, 16 km
+ * sub-tiles of 31.25 m, held in a pool of their own and faded into the
+ * 125 m relief. A country tile's instance carries the pool's layer for each
+ * of its sixteen sub-tiles, six bits apiece, four to a float.
  */
 import { ImageFiles, decodeColourImage, heroTileNames, type DecodeColour, type FineColourSource } from "./colour.js";
 import type { FineReach } from "./fineColour.js";
+import { TILE_KM } from "./syntheticTiles.js";
 import { fetchBytes, type FetchBytes, type FileStats } from "./tileStream.js";
 
 export const RELIEF_INDEX_VERSION = 1;
 export const RELIEF_CODEC = "webp";
 export const RELIEF_ENCODING = "normal-east-north-sqrt";
+
+/** Sub-tiles of near relief a country tile holds each way (F94): the shader reads four to a row. */
+export const NEAR_SPLIT = 4;
+/** A near sub-tile's side, real metres. */
+export const NEAR_TILE_M = (TILE_KM * 1000) / NEAR_SPLIT;
+/** The bits a near layer takes in its instance's row: layers + 1 must fit, and four of them a float's 24. */
+export const NEAR_LAYER_BITS = 6;
 
 export interface ReliefHeroArea {
   readonly lattice: string;
@@ -48,6 +63,8 @@ export interface ReliefIndex {
   readonly country: Readonly<Record<string, string>>;
   /** Hero areas by id. */
   readonly hero: Readonly<Record<string, ReliefHeroArea>>;
+  /** The country's ground near the rails at the source's spacing (F94): sub-tiles by `i_j`, in `tileM` from the grid's corner. */
+  readonly near?: { readonly tileM: number; readonly tiles: Readonly<Record<string, string>> };
 }
 
 /**
@@ -58,10 +75,17 @@ export interface ReliefIndex {
  * most that near a point. A 90 m hero tile's is 30 m, a pixel 30 km off,
  * drawn whole to 8 km and gone by 16: 24 layers of 385² (19 MB) for the 21
  * within 20 km.
+ *
+ * The country's near relief (F94) is 31.25 m, a pixel about 30 km off; a
+ * 125 m sample is eight pixels wide 16 km out and more nearer. So it is
+ * drawn whole to 10 km, faded into the 125 m relief by 16, and claimed
+ * within 20: 16 layers of 513² (22 MB) for the 14 sub-tiles at most that
+ * near a point.
  */
 export const RELIEF_REACH: Readonly<Record<string, FineReach>> = {
   country: { fullM: 40_000, goneM: 70_000, reachM: 90_000, layers: 20, uploadsPerFrame: 2 },
   hero: { fullM: 8_000, goneM: 16_000, reachM: 20_000, layers: 24, uploadsPerFrame: 3 },
+  near: { fullM: 10_000, goneM: 16_000, reachM: 20_000, layers: 16, uploadsPerFrame: 2 },
 };
 
 /** Why an index cannot light this engine's ground, or null when it can. */
@@ -72,6 +96,10 @@ export function reliefProblem(index: ReliefIndex): string | null {
   if (index.rows !== "north to south") return `relief rows run ${index.rows}`;
   for (const [lattice, grid] of Object.entries(index.grids)) {
     if (grid.samples !== grid.cells + 1) return `${lattice}'s relief is ${grid.cells} cells and ${grid.samples} samples`;
+  }
+  if (index.near) {
+    if (index.near.tileM !== NEAR_TILE_M) return `near relief is cut in ${index.near.tileM} m sub-tiles, the engine reads ${NEAR_TILE_M}`;
+    if (!index.grids.near) return "near relief has no grid";
   }
   return null;
 }
@@ -111,6 +139,11 @@ export class ReliefSource {
       const lattice = this.names.get(area.lattice) ?? new Map<string, string>();
       for (const [key, name] of heroTileNames(area.window, area.tiles)) lattice.set(key, name);
       this.names.set(area.lattice, lattice);
+    }
+    if (index.near) {
+      const near = new Map<string, string>();
+      for (const [key, name] of Object.entries(index.near.tiles)) near.set(key.replace("_", ","), name);
+      this.names.set("near", near);
     }
   }
 
