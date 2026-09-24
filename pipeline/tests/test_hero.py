@@ -1,10 +1,13 @@
 """Stage 6 — the hero grid. Runs without GDAL or any elevation data."""
 
+import dataclasses
 import math
+import re
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 try:
     import numpy as np
@@ -240,19 +243,37 @@ class TestCuttingTiles(unittest.TestCase):
 
 
 class TestWhatMakeHeroCuts(unittest.TestCase):
-    def test_an_area_whose_publishing_is_undecided_is_cut_only_when_named(self):
-        # Guilin is cut at 30 m into a lattice the engine's index cannot
-        # carry (design v2, stage 0), so cells on disk must not be enough to
-        # publish it (F73). Everest is published since the film wants it.
-        self.assertFalse(hero.BY_ID["guilin"].published)
-        self.assertTrue(hero.BY_ID["everest"].published)
+    def cells_on_disk(self, raw: str) -> Path:
+        source = Path(raw)
+        for area in hero.AREAS:
+            for name in hero.missing_cells(area, source):
+                (source / f"{name}.tif").write_bytes(b"")
+        return source
+
+    def test_every_area_a_scene_flies_is_cut_by_make_hero(self):
+        # A stage 3 change reaches the hero areas through `make hero`, and an
+        # area it skipped would keep the old rule under its scene with nothing
+        # to say so: Guilin and Huangshan were cut only when named until F88.
+        scenes = Path(__file__).resolve().parents[2] / "content" / "scenes"
+        flown = {
+            m.group(1)
+            for f in scenes.glob("*.yaml")
+            if (m := re.search(r"^hero:\s*(\S+)", f.read_text(), re.M))
+        }
+        self.assertGreaterEqual(len(flown), 7)
         with tempfile.TemporaryDirectory() as raw:
-            source = Path(raw)
-            for area in hero.AREAS:
-                for name in hero.missing_cells(area, source):
-                    (source / f"{name}.tif").write_bytes(b"")
-            ready = [a.id for a in hero.ready(source)]
-        self.assertEqual(ready, ["tiger-leaping-gorge", "three-gorges", "everest", "taklamakan", "changbai"])
+            ready = {a.id for a in hero.ready(self.cells_on_disk(raw))}
+        self.assertLessEqual(flown, ready)
+
+    def test_an_area_whose_publishing_is_undecided_is_cut_only_when_named(self):
+        # Cells on disk must not be enough to publish an area nobody decided
+        # on (F73).
+        undecided = dataclasses.replace(hero.BY_ID["guilin"], published=False)
+        areas = tuple(undecided if a.id == "guilin" else a for a in hero.AREAS)
+        with tempfile.TemporaryDirectory() as raw, mock.patch.object(hero, "AREAS", areas):
+            ready = [a.id for a in hero.ready(self.cells_on_disk(raw))]
+        self.assertNotIn("guilin", ready)
+        self.assertIn("everest", ready)
 
 
 class TestTheBias(unittest.TestCase):

@@ -87,6 +87,14 @@ Everything else in the repository served the version-1 game and goes.
   2026). What D79 buys is unchanged: each scene's pack, the next one
   fetched during the current one. What the size costs is written where it
   falls: a longer wait for the first pack, and the host (stage 6).
+- **D88** Stage 3 leaves a closed basin no mapped river drains and no
+  mapped lake marks as the source has it, reversing D62's fill (decided 24
+  September 2026). An audit of the built world against the 67 GB of source
+  found the fill was the one large departure from it: the karst scene's
+  towers poured into a plain, Guilin's dolines and the Taklamakan's dune
+  corridors flat. The film routes no water through a hollow; the mapped
+  rivers are still carved to run downhill. Breach was priced and refused
+  for the slots it cuts through ridges (F88).
 
 
 ## What each part of the repository becomes

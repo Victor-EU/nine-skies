@@ -169,12 +169,14 @@ reference: $(PY)
 ##
 ## Each area's water is cut with it, by `water`'s rules, from the channels
 ## stage 3 has just made (F73), and its report says what a ribbon would be
-## drawn on at 90 m. Everest's cells are on disk and it is not cut unless
-## named with `--area`: whether it is published is the user's (F64, F73).
+## drawn on. Every area a scene flies is published, the two 30 m ones too, so
+## a change to stage 3 reaches all of them here; one left out would keep the
+## old rule under its scene with nothing to say so (F88). The reports are
+## named after the corridor, as `carve`'s are.
 hero: $(PY)
 	$(PIPELINE) -m nineskies.hero --corridor $(CORRIDOR) \
-		--report docs/carve-report-hero.md \
-		--water-report docs/water-report-hero.md
+		--report docs/carve-report-hero$(SUFFIX).md \
+		--water-report docs/water-report-hero$(SUFFIX).md
 
 ## Where a coordinate goes, measured off the source rather than recalled.
 ## `probes` asks the same question of the built world, which is 1 km ground

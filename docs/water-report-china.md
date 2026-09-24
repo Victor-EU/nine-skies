@@ -13,12 +13,12 @@ country, and every sample of a one-degree cell the mirror has no source for.
 
 | | samples |
 | --- | ---: |
-| sea | 6,484,456 |
-| … of it on fetched ground | 1,371,565 |
+| sea | 6,488,467 |
+| … of it on fetched ground | 1,375,576 |
 | … of it where the mirror has no source (F54) | 5,112,891 |
-| 0 m inside the coastline: land at sea level, not sea | 2,198 |
-| 0 m outside it that stage 3 raised: lagoons the fill closed | 4,067 |
-| above 0 m outside it: the shore itself, and islands the coastline leaves out | 69,872 |
+| 0 m inside the coastline: land at sea level, not sea | 2,739 |
+| 0 m outside it that stage 3 raised: lagoons the fill closed | 22 |
+| above 0 m outside it: the shore itself, and islands the coastline leaves out | 65,606 |
 
 ## Lakes
 
@@ -26,13 +26,13 @@ A sample inside a lake's outline, at the value most of that lake's samples
 carry, and holding the same value as a neighbour. GLO-30 flattens a water
 body to one value, so a sample wholly over water carries it exactly.
 
-**182 lakes** have fetched ground here: 124,366 samples inside
-their outlines, of which **95,376 are drawn** (76.7 %). 18 draw nothing: no value is shared by two neighbours at the level most
+**183 lakes** have fetched ground here: 124,375 samples inside
+their outlines, of which **95,463 are drawn** (76.8 %). 19 draw nothing: no value is shared by two neighbours at the level most
 of their samples carry, so the ground there is not a water surface.
 
 | lake | outline | level, m | at level | drawn | share |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Baikal | 21,483 | 455.00 | 20,565 | 20,562 | 95.7 % |
+| Baikal | 21,483 | 455.00 | 20,598 | 20,594 | 95.9 % |
 | Balkhash | 17,590 | 341.00 | 15,052 | 15,042 | 85.5 % |
 | Issyk-Kul | 6,261 | 1,606.50 | 5,900 | 5,898 | 94.2 % |
 | Qinghai | 4,464 | 3,194.50 | 4,057 | 4,057 | 90.9 % |
@@ -53,7 +53,7 @@ of their samples carry, so the ground there is not a water surface.
 | Bosten | 1,004 | 1,044.50 | 793 | 793 | 79.0 % |
 | Khar | 939 | 1,131.00 | 734 | 731 | 77.8 % |
 
-Drawing nothing: Ulgain Gobi (236), (unnamed) (203), (unnamed) (151), Ozero Bolshoye Topolnoye (110), (unnamed) (106), (unnamed) (69), (unnamed) (66), (unnamed) (27), (unnamed) (27), (unnamed) (17), (unnamed) (15), (unnamed) (13), and 6 more.
+Drawing nothing: Ulgain Gobi (236), (unnamed) (203), (unnamed) (151), Ozero Bolshoye Topolnoye (110), (unnamed) (106), (unnamed) (69), (unnamed) (66), (unnamed) (27), (unnamed) (27), (unnamed) (17), (unnamed) (15), (unnamed) (13), and 7 more.
 
 ## Rivers
 
@@ -86,7 +86,7 @@ on ground stage 3 did not raise, and not sea or inside a lake's outline
 (F73). A channel sample counts only beside one off the channel; a river one
 sample wide is the ribbon's to draw.
 
-**2,717 samples** of 1,000 m, 2,717.0 km², in 214 pieces; 941 of them are channel samples.
+**2,744 samples** of 1,000 m, 2,744.0 km², in 215 pieces; 951 of them are channel samples.
 
 | samples | level, m | river | lat | lon |
 | ---: | ---: | --- | ---: | ---: |
@@ -105,4 +105,4 @@ sample wide is the ribbon's to draw.
 
 ## Tiles
 
-3,838 of 7,245 tiles carry water. Built in 30 s.
+3,841 of 7,245 tiles carry water. Built in 23 s.

@@ -121,9 +121,11 @@ vector driver. What the data itself asks of anyone who redistributes it is in
      reads every file one to one, because a VRT source that is stretched on
      the fly reads 590 times slower through the warp. Every tile's header is
      checked against the product's own spacing before anything is written.
-3. **Hydro-condition** (`make carve`, `carve.py`, D62–D65, D69, F61, F63) — the
-   mapped rivers carved, the mapped lakes kept, every other closed basin
-   filled. Each run of a Natural Earth river over ground the source reached
+3. **Hydro-condition** (`make carve`, `carve.py`, D62–D65, D69, D88, F61, F63,
+   F88) — the mapped rivers carved, the mapped lakes kept, every other closed
+   basin left as the source has it (D88; D62 filled them until F88 measured
+   the karst and the dunes poured flat). Each run of a Natural Earth river
+   over ground the source reached
    is followed down the valley it lies in — the way water would take through
    the cells within 5 km of the line — and cut, lower only, until it runs
    downhill; nothing inside a mapped lake is cut below the lake's own floor,
@@ -138,8 +140,9 @@ vector driver. What the data itself asks of anyone who redistributes it is in
    tiles, the golden probes and the hero areas' seam check now read, and a
    record naming the vector files by digest, which the manifest and every
    signed section and patch carry (D24). `docs/carve-report.md` prices the
-   rule for the other basins three ways, because filling them is the
-   largest thing the stage does: 387,919 cells raised, up to 542 m.
+   rule for the other basins three ways, because the rule is the largest
+   thing the stage can do: filling them raised 387,919 cells of the corridor,
+   up to 542 m, and 1,892,257 of the country, up to 574 m.
    `make hydro` and `make rivers` go on measuring stage 2's grid, the
    before. Needs the two Natural Earth files from `make vectors`, which
    `make world` reads and never fetches (D60). **Stage 6 runs the same stage

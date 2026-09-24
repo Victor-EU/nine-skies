@@ -298,10 +298,8 @@ AREAS: tuple[HeroArea, ...] = (
         holds=("guilin", "yangshuo"),
         why="Design v2, scene 3: the towers are 100-500 m across, which 90 m "
         "draws as blobs; this is the one area cut at the source's own 30 m.",
-        note="Its own lattice (3,840 m tiles), so it cannot share the 90 m "
-        "index the engine reads today. Cut when named, to a directory of its "
-        "own; whether the engine grows a second lattice is stage 0's answer.",
-        published=False,
+        note="Its own lattice (3,840 m tiles), in `hero-30m/` beside the 90 m "
+        "index; the engine draws both (F76), and scene 3 flies it.",
         resolution_m=30,
     ),
     HeroArea(
@@ -317,7 +315,6 @@ AREAS: tuple[HeroArea, ...] = (
         "spires are the picture, and they are 30 m features like the karst.",
         note="On the 30 m lattice beside Guilin (F76): 30 tiles of 3,840 m, "
         "a 19 x 23 km box on Lotus Peak with 9 km to spare.",
-        published=False,
         resolution_m=30,
     ),
     HeroArea(

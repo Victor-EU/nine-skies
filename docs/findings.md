@@ -798,3 +798,106 @@ a cloud classification, and the Copernicus terms allow reproduction and
 adaptation with "Contains modified Copernicus Sentinel data [year]". Finer
 colour where the camera flies low, which the budget now allows and the GPU's
 memory decides. And detail below the colour's texel, bent into the normals.
+
+## F88 — The world against its source, and the hollows left as they are, 24 September 2026
+
+**The audit.** Everything the film draws was checked against the 67 GB of
+GLO-30 under `data/source/`, by code that shares nothing with the pipeline
+but the file formats: an Albers written from Snyder (within 5 cm of
+`albers.json` at all 51 points), a tile decoder written from the format, and
+the 1 km reduction rebuilt by binning every source pixel into the cell its
+centre falls in, the thinned tiles north of 50 N read at their own spacing.
+
+- All 1,969 source files hash to `pipeline/sources/cop30.json`.
+- The conditioned grid, `heights.bin`, the 4,667 tile files and all nine
+  packs, their hero fields with them, are the same numbers byte for byte;
+  the horizon field matches its reduction to 1 m.
+- Stage 2 against the source, over 176,295 samples in 699 blocks (240 at
+  random, 315 on the rails' waypoints, 144 from the packs): median error
+  0.9 m, mean 2.8 m, bias +0.3 m. North of 50 N the same, so F71 holds.
+- Placement: in all 280 blocks with 800 m of relief the recompute fits at
+  zero shift, and fits 14 times worse half a cell away in any direction.
+  The hero lattices fit at zero too.
+- No pack holds a tile the build did not fetch; the nearest is 497 km from
+  any rail, past the horizon.
+
+**GDAL's footprint.** The per-sample residual, up to 138 m in the
+Karakoram, is not noise. GDAL's `average` and `max` take a destination
+pixel's footprint as the box between its transformed top-left and
+bottom-right corners, which on a grid turned against the meridians is not
+the cell: 1.27 × 0.66 km at 76 E, where the grid turns 17°, and 0.87 ×
+1.11 km at 118 E. That box reproduces GDAL's values five to nine times
+better than the cell does. The centres are right; what stage 2 averages is
+a skewed box away from 105 E. Left as it is: at 1 km it costs a few metres.
+
+**The fill.** The one large departure from the source was stage 3's rule
+for the basins no mapped river drains and no mapped lake marks, D62's fill:
+6.4 % of the country raised, up to 574 m. Where the camera looks, it had
+raised half the ground within 5 km of the karst rail by a median 77 m,
+burying the Li's cone karst under a plain with the tops of hills showing
+through; on the 30 m Guilin area it poured the dolines flat, 12.5 % of the
+ground near the rail and up to 83 m; on the Taklamakan's 90 m area, 38 %,
+the corridors between the dunes.
+
+**Three rules, priced where the camera is.** Stage 3 was run in memory with
+each rule on every hero area and on a window round each scene's pack; each
+window's fill reproduced the shipped grid on 98–100 % of its pack and 100 %
+near its rail, so what the other two rules would draw is measured, not
+estimated. The share of the ground near the rail each would move from what
+shipped (1 km: within 5 km of the rail; hero: within 2 km):
+
+| Scene | leave, 1 km: share, median, max | breach's cuts, 1 km: share, deepest | leave, hero |
+| --- | ---: | ---: | ---: |
+| Karst | 50 %, 77 m, 182 m | 13 %, 182 m | Guilin 12.5 %, 83 m |
+| Below the sea | 11 %, 6 m, 121 m | 7 %, 50 m | Taklamakan 38 %, 30 m |
+| Huangshan | 8 %, 23 m, 99 m | 4 %, 99 m | 1 %, 36 m |
+| The Roof | 6 %, 12 m, 103 m | 3 %, 119 m | — |
+| Heaven Lake | 5 %, 6 m, 111 m | 2 %, 71 m | 0.3 %, 12 m |
+| The Wall | 5 %, 41 m, 293 m | 3 %, 293 m | 0.8 %, 15 m |
+| Three Gorges | 3 %, 16 m, 127 m | 3.5 %, 258 m | 0.9 %, 69 m |
+| First Bend | 1 %, 35 m, 273 m | 1.4 %, 455 m | 0.4 %, 28 m |
+| Loess | 0.7 %, 9 m, 37 m | 1.5 %, 41 m | — |
+
+Leave gives back the source's hollows. Breach gives them back too and cuts
+a slot one cell wide through the ridge round each, a kilometre wide on the
+country grid, which in hillshades reads as canals across the karst and
+notches through dune crests. Naming more sinks reaches nothing here: the
+Taklamakan area alone holds 2,586 closed basins. So **D88: leave.** The film
+routes no water through a hollow, and every mapped river is still carved to
+run downhill.
+
+**The rebuild.** `make carve` for the country, 21 minutes; `make hero`, two
+(all seven areas, each equal sample for sample to the in-memory leave, and
+no window moved); tiles, water, package, probes and siting in about a
+minute; `make scenes`, `rails` and `stations`. The country keeps 1,892,257
+cells at the source's height that the fill had raised, and Heaven Lake, the
+hand-traced lake of F79, is kept on the country grid for the first time.
+All runnable probes pass. The Yangtze probe now reports one reach of six
+dammed: its second waypoint, 31.8 N 98.6 E on the upper Jinsha, stands in
+an 18 m hollow 6 km from the carved channel, which the fill had filled; no
+scene flies near it. The packs are 56.38 MB, 0.55 MB more, because hollows
+are detail. Rails: over the karst the camera now stands up to 800 m above
+the ground, its band's ceiling, where it stood 704; at the First Bend, 10 m
+of ground stands above the camera ahead at one moment. The frame-cost
+stations did not move.
+
+Two things the rebuild found in passing. Guilin and Huangshan were cut only
+when named (`published=False`), so a `make hero` after a change to stage 3
+would have left the karst and the opening scene on the old rule with nothing
+to say so; every area a scene flies is published now, and a test holds
+every scene's hero to that. And `make hero` wrote its reports under the
+corridor's bare name whatever the corridor, which is how the committed
+country report came to cover four areas of seven; they are named after the
+corridor now, as `carve`'s are, and cover all seven.
+
+**The stills are not re-taken.** Taken with this session's browser pane
+hidden, two stills came out with the terrain right and the sky wrong, blue
+turned grey, the same in a scene D88 barely touches (Loess) as in one it
+changes (Karst): a hidden pane draws a still, deterministically, from a sky
+that is not the scene's. 03 and 07 wait for a pane that is in view.
+
+**The captions.** "Bogda: 5445 m" flies over 1 km ground that tops out at
+5,139 m, where the source's own highest sample nearby is 5,338 m. "From
+here the ground stays above 4000 m" dips to 3,522 m just after Qinghai
+Lake. Everest is 8,734 m on its hero grid against the caption's 8,849 m,
+GLO-30's own highest sample being 8,738 m, known since F12.

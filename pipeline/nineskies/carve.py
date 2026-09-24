@@ -19,9 +19,10 @@ that rule to the grid rather than to a list of basins:
   valley does not enter a lake the river does not flow through, which is
   what stops a river rising on Yamdrok's rim from draining Yamdrok (F60).
 - **Whatever is still closed afterwards gets `RULE`** -- except a basin a
-  kept lake lies in, which is left as the source has it.
+  kept lake lies in, which is left as the source has it. Since D88 the rule
+  is `leave`, so every such basin is left as the source has it too.
 - **A basin on the short list of named sinks keeps its level too** (D65).
-  Natural Earth draws no lake in the Turpan depression, so the rule above
+  Natural Earth draws no lake in the Turpan depression, so a rule that fills
   would raise the lowest land in China to its rim; `SINKS` is the list of
   basins that are closed in life and that the map cannot say so about, each
   entry a `places.py` id and a sentence of why. It is applied at the basin's
@@ -121,9 +122,16 @@ TOP_BASINS = 12
 #: named sinks, and the tail is where the rest of their kind are (F65).
 BIG_BASIN_KM2 = 1_000.0
 
-#: D62, the user's, 22 September 2026: filled, as HydroSHEDS filled every
-#: sink it did not inspect.
-RULE = FILL
+#: D88, the user's, 24 September 2026: left as the source has it. D62 had
+#: them filled, as HydroSHEDS filled every sink it did not inspect, and F88
+#: measured what that drew: the Li's cone karst poured into a plain, half the
+#: ground within 5 km of the karst rail raised by a median 77 m, Guilin's
+#: dolines and the Taklamakan's dune corridors flat at 30 and 90 m. The film
+#: draws a river where the map draws one, and the carve still runs every
+#: mapped river downhill; nothing it draws routes water through a hollow.
+#: Breach was priced beside it and refused: it keeps the hollows too, and
+#: cuts one-cell slots through the ridges round them, 455 m deep at 1 km.
+RULE = LEAVE
 
 
 @dataclass(frozen=True)
@@ -1724,7 +1732,7 @@ def render_areas(areas: Sequence[dict]) -> str:
     first = areas[0]["inputs"] if areas else inputs(RULE, 0)
     rule = first["rule"]
     lines = [
-        "# Stage 3 — hero areas, 90 m grid",
+        "# Stage 3 — hero areas",
         "",
         f"{date.today().isoformat()} · {len(areas)} areas · Natural Earth rivers "
         f"`{first['vectors'][rivers.RIVERS][:12]}…` and lakes "

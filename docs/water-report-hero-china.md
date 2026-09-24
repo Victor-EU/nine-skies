@@ -1,4 +1,4 @@
-# Water — hero areas, 90 m grid
+# Water — hero areas
 
 Written by `make hero` (F73). Each area's water, by the rules the country's
 is drawn by (`docs/water-report.md`), from the channels stage 3 cut as the
@@ -125,3 +125,67 @@ on ground stage 3 did not raise, and not sea or inside a lake's outline
 sample wide is the ribbon's to draw.
 
 **0 samples** of 90 m, 0.0 km², in 0 pieces; 0 of them are channel samples.
+
+## Guilin karst, the Li from Guilin to Yangshuo
+
+`guilin` · 1281 × 2305 samples at 30 m · 0 of 180 tiles carry water
+
+**0 channel(s)** over 0 samples; the drawn
+line lies a median 0 m from a channel sample and at most 0 m. 0 lake samples of 0 inside an outline; 0 of sea.
+
+### A river's own surface
+
+Where the grid resolves a river wider than its channel: a sample at exactly
+its channel's level, reached from the channel through samples that are too,
+on ground stage 3 did not raise, and not sea or inside a lake's outline
+(F73). A channel sample counts only beside one off the channel; a river one
+sample wide is the ribbon's to draw.
+
+**0 samples** of 30 m, 0.0 km², in 0 pieces; 0 of them are channel samples.
+
+## Huangshan, the granite massif
+
+`huangshan` · 641 × 769 samples at 30 m · 0 of 30 tiles carry water
+
+**0 channel(s)** over 0 samples; the drawn
+line lies a median 0 m from a channel sample and at most 0 m. 0 lake samples of 0 inside an outline; 0 of sea.
+
+### A river's own surface
+
+Where the grid resolves a river wider than its channel: a sample at exactly
+its channel's level, reached from the channel through samples that are too,
+on ground stage 3 did not raise, and not sea or inside a lake's outline
+(F73). A channel sample counts only beside one off the channel; a river one
+sample wide is the ribbon's to draw.
+
+**0 samples** of 30 m, 0.0 km², in 0 pieces; 0 of them are channel samples.
+
+## Changbai Mountain and Heaven Lake
+
+`changbai` · 513 × 385 samples at 90 m · 9 of 12 tiles carry water
+
+**3 channel(s)** over 360 samples; the drawn
+line lies a median 10 m from a channel sample and at most 64 m. 1,066 lake samples of 1,294 inside an outline; 0 of sea.
+
+### A river's own surface
+
+Where the grid resolves a river wider than its channel: a sample at exactly
+its channel's level, reached from the channel through samples that are too,
+on ground stage 3 did not raise, and not sea or inside a lake's outline
+(F73). A channel sample counts only beside one off the channel; a river one
+sample wide is the ribbon's to draw.
+
+**0 samples** of 90 m, 0.0 km², in 0 pieces; 0 of them are channel samples.
+
+### What a ribbon would be drawn on
+
+The ground within each distance of the line, over the water beside it. A
+sample more than 20 m over it is wall rather than shore.
+
+| within | samples | median | 90th | highest | wall |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 45 m | 255 | 0.0 m | 0.0 m | 0.0 m | 0.0 % |
+| 90 m | 613 | 0.0 m | 8.3 m | 51.6 m | 2.8 % |
+| 150 m | 898 | 0.0 m | 12.6 m | 76.2 m | 6.3 % |
+| 300 m | 1,775 | 3.0 m | 28.4 m | 174.7 m | 13.0 % |
+| 600 m | 3,484 | 5.0 m | 64.2 m | 244.7 m | 18.2 % |

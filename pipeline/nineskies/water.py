@@ -766,7 +766,7 @@ def surface_section(result: dict, level: str = "##") -> list[str]:
 def render_areas(areas: Sequence[tuple[str, str, dict]]) -> str:
     """The report `make hero` writes of the water on each area it cut (F73)."""
     lines = [
-        "# Water — hero areas, 90 m grid",
+        "# Water — hero areas",
         "",
         "Written by `make hero` (F73). Each area's water, by the rules the country's",
         "is drawn by (`docs/water-report.md`), from the channels stage 3 cut as the",
