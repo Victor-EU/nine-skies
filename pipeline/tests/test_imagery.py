@@ -149,5 +149,52 @@ class TestTheSource(unittest.TestCase):
         self.assertLess(abs(int(back[1, 128, 128]) - 200), 4)
 
 
+@unittest.skipUnless(HAVE_NUMPY, "numpy")
+class TestTheFineColour(unittest.TestCase):
+    """F91: a hero tile again at 10 m, for the tiles nearest the camera."""
+
+    def test_a_fine_tile_is_10_m_on_the_same_ground(self):
+        for lattice, tile_m, samples in (("hero", 11_520, 1153), ("hero-30m", 3_840, 385)):
+            area = imagery.Area("a", lattice, tile_m, 10, 20, 3, 2)
+            fine = area.fine(11, 21)
+            self.assertEqual((fine.width, fine.height), (samples, samples))
+            self.assertEqual(fine.cell_m, 10.0)
+            self.assertEqual(fine.zoom, imagery.FINE_ZOOM)
+            self.assertEqual(fine.key, "a")  # it reads the area's own composite
+            # The same ground as the colour tile it refines: its corner sample on the same corner.
+            coarse = imagery.Area("a", lattice, tile_m, 11, 21, 1, 1)
+            np.testing.assert_allclose(fine.transform() @ (0.5, 0.5), coarse.transform() @ (0.5, 0.5))
+            self.assertEqual(fine.bounds_m(), coarse.bounds_m())
+
+    def test_samples_resample_edge_to_edge(self):
+        ramp = np.tile(np.linspace(0, 256, 257, dtype=np.float32), (257, 1))[None]
+        up = imagery.resample_samples(ramp, 1153, 1153)
+        self.assertEqual(up.shape, (1, 1153, 1153))
+        np.testing.assert_allclose(up[0, 0, :], np.linspace(0, 256, 1153), atol=1e-3)
+        np.testing.assert_allclose(imagery.resample_samples(up, 257, 257), ramp, atol=1e-3)
+
+    def test_a_fine_tile_carries_its_colour_tiles_corrections_and_fill(self):
+        from unittest import mock
+
+        area = imagery.Area("a", "hero-30m", 3_840, 10, 20, 1, 1)
+        n = imagery.FINE_CELLS["hero-30m"] + 1
+        rng = np.random.default_rng(1)
+        raw = np.full((3, 257, 257), 80, np.float32)
+        final = raw + 20  # the tone leaning at the edge, say
+        hole = np.zeros((257, 257), bool)
+        hole[100:140, 100:140] = True  # cloud, filled in the colour tile
+        final[:, hole] = 150
+        detail = 80 + rng.normal(0, 6, (3, n, n)).astype(np.float32)
+        with mock.patch.object(imagery, "reproject_area", return_value=(detail, np.ones((n, n), bool))):
+            fine = imagery.fine_tile(area, 10, 20, raw, final, hole, "mosaic")
+        self.assertEqual(fine.shape, (3, n, n))
+        # Away from the fill: its own detail, moved as the colour tile was moved.
+        np.testing.assert_allclose(fine[:, 20:60, 20:60], detail[:, 20:60, 20:60] + 20, atol=1e-3)
+        # Inside the fill: the colour tile's, since its own 10 m is the cloud.
+        self.assertTrue(np.allclose(fine[:, 180:190, 180:190], 150, atol=1e-3))
+        # And the two agree in the broad: one level, not the detail's six.
+        self.assertLess(abs(float(fine[:, 20:60, 20:60].mean() - final[:, 15:40, 15:40].mean())), 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()

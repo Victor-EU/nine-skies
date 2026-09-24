@@ -114,7 +114,7 @@ export class ScenePacks {
         if (c) own(colourFile(c), i);
       }
       const hero = scene.hero && colour?.hero[scene.hero.area];
-      for (const c of hero ? hero.tiles : []) if (c) own(colourFile(c), i);
+      for (const c of hero ? [...hero.tiles, ...(hero.fine ?? [])] : []) if (c) own(colourFile(c), i);
     });
     this.attached = true;
   }

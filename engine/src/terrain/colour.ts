@@ -13,6 +13,10 @@
  * Files are kept as they came (a few tens of kB each), and decoded again if a
  * tile evicted from the GPU comes back, because decoded images are a quarter
  * of a megabyte each and the GPU already holds the ones on screen.
+ *
+ * A hero tile has a second image, its fine one (F91): 10 m, Sentinel-2's
+ * own, drawn over the tiles nearest the camera (`fineColour.ts`). Its grid
+ * is the lattice's own (`fine`), and its broad tone the colour tile's.
  */
 import { FileCache, fetchBytes, type FetchBytes, type FileStats } from "./tileStream.js";
 
@@ -28,6 +32,14 @@ export interface ColourHeroArea {
   readonly window: { readonly hx0: number; readonly hy0: number; readonly hx1: number; readonly hy1: number };
   /** One file a tile, rows south to north and west to east within a row. */
   readonly tiles: readonly string[];
+  /** The fine images (F91), in the same order. */
+  readonly fine?: readonly string[];
+}
+
+/** A lattice's fine grid (F91): cells a side, and one more sample. */
+export interface ColourFineGrid {
+  readonly cells: number;
+  readonly samples: number;
 }
 
 export interface ColourIndex {
@@ -47,6 +59,8 @@ export interface ColourIndex {
   readonly country: Readonly<Record<string, string>>;
   /** Hero areas by id. */
   readonly hero: Readonly<Record<string, ColourHeroArea>>;
+  /** The fine grids (F91), by hero lattice. */
+  readonly fine?: Readonly<Record<string, ColourFineGrid>>;
 }
 
 /** Why an index cannot colour this engine's ground, or null when it can. */
@@ -57,6 +71,9 @@ export function colourProblem(index: ColourIndex): string | null {
     return `colour tiles are ${index.samples} samples, the engine draws ${COLOUR_SAMPLES}`;
   }
   if (index.rows !== "north to south") return `colour rows run ${index.rows}`;
+  for (const [lattice, grid] of Object.entries(index.fine ?? {})) {
+    if (grid.samples !== grid.cells + 1) return `${lattice}'s fine colour is ${grid.cells} cells and ${grid.samples} samples`;
+  }
   return null;
 }
 
@@ -75,6 +92,18 @@ export type ColourAnswer = ColourImage | typeof NO_COLOUR | null;
 
 /** What a lattice asks its colour: tile (i, j) of its own grid. */
 export type ColourProvider = (i: number, j: number) => ColourAnswer;
+
+/** What a lattice asks its fine colour (F91). */
+export interface FineColourSource {
+  /** Samples a side of every fine image. */
+  readonly samples: number;
+  readonly take: ColourProvider;
+  /**
+   * The tile no longer wants its image. One decoded and not yet taken is let
+   * go: at five megabytes a fine image is not one to keep on the chance.
+   */
+  drop(i: number, j: number): void;
+}
 
 export type DecodeColour = (bytes: Uint8Array) => Promise<ColourImage>;
 
@@ -103,14 +132,14 @@ export async function loadColourIndex(url: string, fetch: FetchBytes = fetchByte
   }
 }
 
-/** Every file a hero area's colour is, by tile. */
-function heroNames(area: ColourHeroArea): Map<string, string> {
+/** Every file a hero area's colour is, by tile: its `tiles`, or its `fine`. */
+function heroNames(area: ColourHeroArea, names: readonly string[] = area.tiles): Map<string, string> {
   const out = new Map<string, string>();
   const w = area.window;
   let k = 0;
   for (let hy = w.hy0; hy < w.hy1; hy++) {
     for (let hx = w.hx0; hx < w.hx1; hx++) {
-      const name = area.tiles[k++];
+      const name = names[k++];
       if (name) out.set(`${hx},${hy}`, name);
     }
   }
@@ -126,6 +155,8 @@ export class ColourSource {
   private readonly broken = new Set<string>();
   /** Names by lattice, then by `i,j`. */
   private readonly names = new Map<string, Map<string, string>>();
+  /** The fine images' names (F91), the same way. */
+  private readonly fineNames = new Map<string, Map<string, string>>();
   readonly stats: FileStats = { files: 0, bytes: 0, failures: 0, lastError: "" };
   decodes = 0;
 
@@ -145,6 +176,10 @@ export class ColourSource {
       const lattice = this.names.get(area.lattice) ?? new Map<string, string>();
       for (const [key, name] of heroNames(area)) lattice.set(key, name);
       this.names.set(area.lattice, lattice);
+      if (!area.fine || !index.fine?.[area.lattice]) continue;
+      const fine = this.fineNames.get(area.lattice) ?? new Map<string, string>();
+      for (const [key, name] of heroNames(area, area.fine)) fine.set(key, name);
+      this.fineNames.set(area.lattice, fine);
     }
   }
 
@@ -161,7 +196,28 @@ export class ColourSource {
   /** The source a lattice asks: `country`, `hero` or `hero-30m`. */
   provider(lattice: string): ColourProvider | null {
     const names = this.names.get(lattice);
-    if (!names) return null;
+    return names ? this.answer(names) : null;
+  }
+
+  /** A hero lattice's fine colour (F91), or null where it has none. */
+  fine(lattice: string): FineColourSource | null {
+    const names = this.fineNames.get(lattice);
+    const grid = this.index.fine?.[lattice];
+    if (!names || !grid) return null;
+    return {
+      samples: grid.samples,
+      take: this.answer(names),
+      drop: (i, j) => {
+        const name = names.get(`${i},${j}`);
+        const ready = name && this.decoded.get(name);
+        if (!ready) return;
+        ready.close();
+        this.decoded.delete(name);
+      },
+    };
+  }
+
+  private answer(names: Map<string, string>): ColourProvider {
     return (i, j) => {
       const name = names.get(`${i},${j}`);
       return name && !this.broken.has(name) ? this.take(name) : NO_COLOUR;

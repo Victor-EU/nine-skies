@@ -1,4 +1,4 @@
-import { Color, ShaderMaterial, GLSL3, Vector3, Vector4 } from "three";
+import { Color, ShaderMaterial, GLSL3, Vector2, Vector3, Vector4 } from "three";
 import {
   AERIAL_HAZE_GLSL,
   COLOR_SPACE_GLSL,
@@ -11,7 +11,7 @@ import {
 import { MIST_GLSL, NOISE_GLSL, SHADOW_GLSL, SKY_GLSL, TIME_GLSL } from "../look/glsl.js";
 import { lookUniformDefaults } from "../look/uniforms.js";
 import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
-import { COLOUR_CELLS, COLOUR_SAMPLES } from "./colour.js";
+import { COLOUR_SAMPLES } from "./colour.js";
 
 /**
  * Terrain shader (build plan D3 and D12; design v2, "The look").
@@ -68,13 +68,19 @@ const WATER_VERTEX_BODY = /* glsl */ `
 const WATER_FRAGMENT_INPUTS = /* glsl */ `
 flat in float vWater;`;
 
-/** What the ground's colour adds (F87). */
-const COLOUR_VERTEX_INPUTS = /* glsl */ `
+/** What the ground's colour adds (F87), and its fine layer where there is one (F91). */
+const colourVertexInputs = (fine: boolean): string => /* glsl */ `
 in float iColour;
-flat out float vColour;`;
+flat out float vColour;
+${fine ? "in float iFine;\nflat out float vFine;" : ""}`;
 
-const COLOUR_VERTEX_BODY = /* glsl */ `
-  vColour = iColour;`;
+const colourVertexBody = (fine: boolean): string => /* glsl */ `
+  vColour = iColour;
+${fine ? "  vFine = iFine;" : ""}`;
+
+/** Where in a colour image a tile-local position is: `samples` a side, rows north to south. */
+const colourSt = (uv: string, samples: number): string =>
+  `vec2(${uv}.x, 1.0 - ${uv}.y) * (${(samples - 1).toFixed(1)} / ${samples.toFixed(1)}) + 0.5 / ${samples.toFixed(1)}`;
 
 /**
  * The mosaic at a fragment. Colour tiles are `COLOUR_SAMPLES` a side with
@@ -83,19 +89,40 @@ const COLOUR_VERTEX_BODY = /* glsl */ `
  * the tile's v is flipped. Graded: the mosaic's colours are a map's, and the
  * film's light is its own (`uImagery`: gain, saturation; `uImageryTint`,
  * a white balance, since the mosaic's greens lean to blue).
+ *
+ * Near the camera a hero tile may hold a fine layer too (F91), 10 m where
+ * the colour layer is 15 or 45 m: drawn whole within `uFineFade.x` world
+ * units of the camera, across the ground, and faded out by `uFineFade.y`.
+ * The two share their broad tone, so the fade changes only the detail.
+ * `vFine` is flat per instance, so the branch is the same across a triangle
+ * and the texture read's derivatives hold.
  */
-const COLOUR_FRAGMENT_INPUTS = /* glsl */ `
+const colourFragmentInputs = (fineSamples: number): string => /* glsl */ `
 precision highp sampler2DArray;
 uniform sampler2DArray uColour;
 uniform float uTileTexels;
 uniform vec4 uImagery;
 uniform vec3 uImageryTint;
 flat in float vColour;
+${
+  fineSamples > 0
+    ? `uniform sampler2DArray uColourFine;
+uniform vec2 uFineFade;
+flat in float vFine;`
+    : ""
+}
 
-vec3 imageryAt(vec2 texel, float layer) {
+vec3 imageryAt(vec2 texel, float layer, float across) {
   vec2 uv = texel / uTileTexels;
-  vec2 st = vec2(uv.x, 1.0 - uv.y) * (${COLOUR_CELLS.toFixed(1)} / ${COLOUR_SAMPLES.toFixed(1)}) + 0.5 / ${COLOUR_SAMPLES.toFixed(1)};
-  vec3 c = texture(uColour, vec3(st, layer)).rgb;
+  vec3 c = texture(uColour, vec3(${colourSt("uv", COLOUR_SAMPLES)}, layer)).rgb;
+${
+  fineSamples > 0
+    ? `  if (vFine > 0.5) {
+    vec3 f = texture(uColourFine, vec3(${colourSt("uv", fineSamples)}, vFine - 1.0)).rgb;
+    c = mix(f, c, smoothstep(uFineFade.x, uFineFade.y, across));
+  }`
+    : ""
+}
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   return max(mix(vec3(l), c, uImagery.y), 0.0) * uImagery.x * uImageryTint;
 }`;
@@ -147,7 +174,7 @@ vec3 groundNormal(ivec2 t, float here) {
   return normalize(vec3(-dx, 1.0, -dz));
 }`;
 
-const vertexShader = (water: boolean, normals: boolean, colour: boolean): string => /* glsl */ `
+const vertexShader = (water: boolean, normals: boolean, colour: boolean, fine = false): string => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp isampler2DArray;
@@ -158,7 +185,7 @@ in vec2 iOrigin;
 in float iLayer;
 ${water || colour ? TEXEL_VERTEX_INPUTS : ""}
 ${water ? WATER_VERTEX_INPUTS : ""}
-${colour ? COLOUR_VERTEX_INPUTS : ""}
+${colour ? colourVertexInputs(fine) : ""}
 
 uniform isampler2DArray uHeights;
 uniform float uTileWorldSize;
@@ -188,7 +215,7 @@ void main() {
 ${normals ? "  vNormal = groundNormal(ivec2(aTexel), elevationM);" : ""}
 ${water || colour ? TEXEL_VERTEX_BODY : ""}
 ${water ? WATER_VERTEX_BODY : ""}
-${colour ? COLOUR_VERTEX_BODY : ""}
+${colour ? colourVertexBody(fine) : ""}
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
 `;
@@ -267,7 +294,7 @@ const cutBody = (maxCuts: number): string =>
 // derivatives hold.
 const COLOUR_FRAGMENT_BODY = /* glsl */ `
   if (vColour > 0.5) {
-    base = imageryAt(vTexel, vLayer);
+    base = imageryAt(vTexel, vLayer, length(vWorld.xz - uCameraWorld.xz));
     rock *= uImagery.z;
     snow *= uImagery.w;
   }`;
@@ -287,6 +314,7 @@ const fragmentShader = (
   palette: ScenePalette,
   smooth: boolean,
   colour: boolean,
+  fineSamples = 0,
 ): string => /* glsl */ `
 precision highp float;
 precision highp int;
@@ -297,12 +325,12 @@ in float vElevation;
 ${smooth ? "in vec3 vNormal;" : ""}
 ${waterSamples > 0 || colour ? TEXEL_FRAGMENT_INPUTS : ""}
 ${waterSamples > 0 ? WATER_FRAGMENT_INPUTS : ""}
-${colour ? COLOUR_FRAGMENT_INPUTS : ""}
+uniform vec3 uCameraWorld;
+${colour ? colourFragmentInputs(fineSamples) : ""}
 
 uniform vec3 uSunColor;
 uniform float uHazeDensity;
 uniform float uHazeHeightFalloff;
-uniform vec3 uCameraWorld;
 
 out vec4 fragColor;
 
@@ -358,6 +386,8 @@ interface Recipe {
   readonly maxCuts: number;
   readonly waterSamples: number;
   readonly colour: boolean;
+  /** Samples a side of the fine colour (F91); 0 for none. */
+  readonly fineSamples: number;
 }
 
 export interface TerrainUniformValues {
@@ -379,6 +409,17 @@ export interface TerrainUniformValues {
    * compiles a shader with the palette alone.
    */
   colour?: import("three").DataArrayTexture;
+  /**
+   * The fine colour near the camera (F91): its pool's array (or the stand-in
+   * the pool lends while it holds none), its images' size, and the real
+   * metres over which it fades to the colour layer.
+   */
+  fine?: {
+    texture: import("three").DataArrayTexture;
+    samples: number;
+    fadeM: readonly [number, number];
+    horizontalCompression: number;
+  };
   /**
    * The water layer (F72): the array beside the heights, and what its bytes
    * mean. Absent compiles a shader with no water in it.
@@ -427,19 +468,39 @@ export function createTerrainMaterial(
         uWaterRibbonMaxM: { value: water.ribbonMaxM ?? NO_RIBBON_CAP_M },
       }
     : {};
-  const recipe: Recipe = { kind: "terrain", maxCuts, waterSamples: water?.samples ?? 0, colour: values.colour !== undefined };
+  const fine = values.colour ? values.fine : undefined;
+  const recipe: Recipe = {
+    kind: "terrain",
+    maxCuts,
+    waterSamples: water?.samples ?? 0,
+    colour: values.colour !== undefined,
+    fineSamples: fine?.samples ?? 0,
+  };
   const colourUniforms = values.colour
     ? {
         uColour: { value: values.colour },
         uTileTexels: { value: heights.image.width - 1 },
         uImagery: { value: new Vector4(...DEFAULT_IMAGERY) },
         uImageryTint: { value: new Vector3(...DEFAULT_IMAGERY_TINT) },
+        ...(fine && {
+          uColourFine: { value: fine.texture },
+          uFineFade: {
+            value: new Vector2(fine.fadeM[0] / fine.horizontalCompression, fine.fadeM[1] / fine.horizontalCompression),
+          },
+        }),
       }
     : {};
   const material = new ShaderMaterial({
     glslVersion: GLSL3,
-    vertexShader: vertexShader(water !== undefined, true, recipe.colour),
-    fragmentShader: fragmentShader(maxCuts, recipe.waterSamples, values.palette ?? DEFAULT_PALETTE, true, recipe.colour),
+    vertexShader: vertexShader(water !== undefined, true, recipe.colour, recipe.fineSamples > 0),
+    fragmentShader: fragmentShader(
+      maxCuts,
+      recipe.waterSamples,
+      values.palette ?? DEFAULT_PALETTE,
+      true,
+      recipe.colour,
+      recipe.fineSamples,
+    ),
     uniforms: {
       ...lookUniformDefaults(),
       ...cuts,
@@ -467,7 +528,14 @@ export function setTerrainPalette(material: ShaderMaterial, palette: ScenePalett
   const recipe = material.userData.recipe as Recipe | undefined;
   if (!recipe) throw new Error("not a terrain material");
   const terrain = recipe.kind === "terrain";
-  material.fragmentShader = fragmentShader(terrain ? recipe.maxCuts : 0, recipe.waterSamples, palette, terrain, recipe.colour);
+  material.fragmentShader = fragmentShader(
+    terrain ? recipe.maxCuts : 0,
+    recipe.waterSamples,
+    palette,
+    terrain,
+    recipe.colour,
+    recipe.fineSamples,
+  );
   material.needsUpdate = true;
 }
 
@@ -526,7 +594,7 @@ export function createRimMaterial(country: ShaderMaterial, palette: ScenePalette
       ...Object.fromEntries(SHARED_WITH_RIM.map((name) => [name, u[name]!])),
     },
   });
-  material.userData.recipe = { kind: "rim", maxCuts: 0, waterSamples: 0, colour: false } satisfies Recipe;
+  material.userData.recipe = { kind: "rim", maxCuts: 0, waterSamples: 0, colour: false, fineSamples: 0 } satisfies Recipe;
   return material;
 }
 

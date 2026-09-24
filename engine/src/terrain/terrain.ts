@@ -8,8 +8,9 @@ import {
   type ShaderMaterial,
   type WebGLRenderer,
 } from "three";
-import { COLOUR_SAMPLES, NO_COLOUR, type ColourProvider, type ColourSource } from "./colour.js";
-import { rendererUploader, type ColourUploader } from "./colourLayers.js";
+import { COLOUR_SAMPLES, NO_COLOUR, type ColourProvider, type ColourSource, type FineColourSource } from "./colour.js";
+import { rendererUploader, type ColourLayers, type ColourUploader } from "./colourLayers.js";
+import { FINE_REACH, FineColour } from "./fineColour.js";
 import { LOD_SEGMENTS, buildGrid, lodForDistance, type LodLevel } from "./grid.js";
 import { HeightTileArray, MAX_LAYERS, TILE_SAMPLES, tileId } from "./tileArray.js";
 import { TILE_KM } from "./syntheticTiles.js";
@@ -124,9 +125,12 @@ export interface TerrainStats {
   /**
    * Colour images on their way: fetched, decoded or waiting for the GPU.
    * Like the water, a view can be whole and still be drawing some tiles in
-   * the palette, and a still or a measurement waits for this (F87).
+   * the palette, and a still or a measurement waits for this (F87). The fine
+   * images near the camera are counted too (F91).
    */
   colourPending: number;
+  /** Tiles drawn with their fine colour this frame (F91). */
+  colourFine: number;
   /**
    * Instances in each bucket, nearest first; sums to `instances`.
    *
@@ -160,6 +164,8 @@ interface LodBucket {
   water: InstancedBufferAttribute;
   /** 1 where the instance's layer holds its tile's colour, 0 where it is the palette's (F87). */
   colour: InstancedBufferAttribute;
+  /** The instance's fine colour layer + 1, 0 where it has none on the GPU (F91). */
+  fine: InstancedBufferAttribute;
   /**
    * The layers of the tiles west, east, south and north of the instance's,
    * -1 where one is not resident: the smooth normal along a tile's edge reads
@@ -171,6 +177,21 @@ interface LodBucket {
   tiles: Int32Array;
   trianglesPerInstance: number;
   count: number;
+}
+
+/** The colour index's name for a cover's lattice: `hero` for 90 m, `hero-30m` for 30 m. */
+function colourLattice(cover: HeroCover): string {
+  return cover.resolutionM === 90 ? "hero" : `hero-${cover.resolutionM}m`;
+}
+
+/** A hero lattice's fine colour, where the index has it and the engine knows how far it reaches (F91). */
+function fineFor(
+  colour: ColourSource | null | undefined,
+  lattice: string,
+): { source: FineColourSource; reach: (typeof FINE_REACH)[string] } | null {
+  const source = colour?.fine(lattice);
+  const reach = FINE_REACH[lattice];
+  return source && reach ? { source, reach } : null;
 }
 
 /**
@@ -189,6 +210,13 @@ class TileLattice implements DrawnTiles {
   generated = 0;
   /** Each tile drawn this frame and the LOD it is drawn at. */
   private readonly drawnLod = new Map<string, LodLevel>();
+  /** The 10 m colour over the tiles nearest the camera, for a hero lattice that has it (F91). */
+  readonly fine: FineColour | null;
+  /** Tiles drawn with their fine colour this frame. */
+  fineDrawn = 0;
+  /** The camera, real metres, for the fine colour's reach. */
+  private cameraEastM = 0;
+  private cameraNorthM = 0;
 
   constructor(
     readonly name: string,
@@ -204,14 +232,30 @@ class TileLattice implements DrawnTiles {
     ribbonMaxM?: number,
     /** The lattice's colour, or null for the palette alone. */
     private readonly colour: ColourProvider | null = null,
+    /** Its fine colour and how far it reaches (F91), or null. */
+    fine: { source: FineColourSource; reach: (typeof FINE_REACH)[string] } | null = null,
   ) {
     this.maxInstances = maxInstances;
     // A water layer only for a source that can have one: a package (F72), or
     // hero cover cut with water (F73).
     const withWater = typeof source.water === "function";
     this.heights = new HeightTileArray(layers, samples, withWater, colour ? COLOUR_SAMPLES : 0);
+    this.fine =
+      fine && colour
+        ? new FineColour(fine.reach, fine.source, (texture) => {
+            this.material.uniforms.uColourFine!.value = texture;
+          })
+        : null;
     this.material = createTerrainMaterial(this.heights.texture, {
       ...(this.heights.colour && { colour: this.heights.colour.texture }),
+      ...(this.fine && {
+        fine: {
+          texture: this.fine.texture,
+          samples: this.fine.source.samples,
+          fadeM: [this.fine.reach.fullM, this.fine.reach.goneM],
+          horizontalCompression: scale.horizontalCompression,
+        },
+      }),
       ...(this.heights.water && {
         water: {
           texture: this.heights.water,
@@ -257,10 +301,13 @@ class TileLattice implements DrawnTiles {
     );
   }
 
-  beginFrame(): void {
+  beginFrame(cameraEastM: number, cameraNorthM: number): void {
     for (const b of this.buckets) b.count = 0;
     this.generated = 0;
+    this.fineDrawn = 0;
     this.drawnLod.clear();
+    this.cameraEastM = cameraEastM;
+    this.cameraNorthM = cameraNorthM;
   }
 
   /** `DrawnTiles`: what the curtain along a hero rim hangs from (F74). */
@@ -315,6 +362,15 @@ class TileLattice implements DrawnTiles {
     (b.layers.array as Float32Array)[b.count] = layer;
     (b.water.array as Float32Array)[b.count] = this.heights.hasWater(layer) ? 1 : 0;
     (b.colour.array as Float32Array)[b.count] = colours?.held(layer) ? 1 : 0;
+    let fine = 0;
+    if (this.fine) {
+      // From the camera to the tile's nearest point, zero when over it.
+      const dx = Math.max(i * this.tileM - this.cameraEastM, 0, this.cameraEastM - (i + 1) * this.tileM);
+      const dy = Math.max(j * this.tileM - this.cameraNorthM, 0, this.cameraNorthM - (j + 1) * this.tileM);
+      fine = this.fine.place(i, j, Math.hypot(dx, dy));
+      if (fine > 0) this.fineDrawn++;
+    }
+    (b.fine.array as Float32Array)[b.count] = fine;
     b.tiles[b.count * 2] = i;
     b.tiles[b.count * 2 + 1] = j;
     b.count++;
@@ -325,6 +381,7 @@ class TileLattice implements DrawnTiles {
   /** Upload, flip visibility, and report what this lattice costs the frame. */
   endFrame(): { drawCalls: number; instances: number; triangles: number } {
     this.heights.flush();
+    this.fine?.endFrame();
     let drawCalls = 0;
     let instances = 0;
     let triangles = 0;
@@ -337,6 +394,7 @@ class TileLattice implements DrawnTiles {
       b.layers.needsUpdate = true;
       b.water.needsUpdate = true;
       b.colour.needsUpdate = true;
+      b.fine.needsUpdate = true;
       b.neighbours.needsUpdate = true;
       drawCalls++;
       instances += b.count;
@@ -365,6 +423,12 @@ class TileLattice implements DrawnTiles {
     // The air is a real quantity; only its expression in world units moves.
     u.uHazeHeightFalloff!.value = hazeFalloffPerWorldUnit(HAZE_SCALE_HEIGHT_M, scale);
     u.uHazeDensity!.value = hazeDensityPerWorldUnit(hazeDensityPerM, scale);
+    if (this.fine) {
+      (u.uFineFade!.value as { set(x: number, y: number): void }).set(
+        this.fine.reach.fullM / scale.horizontalCompression,
+        this.fine.reach.goneM / scale.horizontalCompression,
+      );
+    }
   }
 
   private makeBucket(segments: number): LodBucket {
@@ -394,16 +458,19 @@ class TileLattice implements DrawnTiles {
     );
     const water = new InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
     const colour = new InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
+    const fine = new InstancedBufferAttribute(new Float32Array(this.maxInstances), 1);
     const neighbours = new InstancedBufferAttribute(new Float32Array(this.maxInstances * 4), 4);
     origins.setUsage(35048 /* DynamicDrawUsage */);
     layers.setUsage(35048);
     water.setUsage(35048);
     colour.setUsage(35048);
+    fine.setUsage(35048);
     neighbours.setUsage(35048);
     geometry.setAttribute("iOrigin", origins);
     geometry.setAttribute("iLayer", layers);
     geometry.setAttribute("iWater", water);
     geometry.setAttribute("iColour", colour);
+    if (this.fine) geometry.setAttribute("iFine", fine);
     geometry.setAttribute("iNeighbours", neighbours);
     geometry.instanceCount = 0;
 
@@ -420,6 +487,7 @@ class TileLattice implements DrawnTiles {
       layers,
       water,
       colour,
+      fine,
       neighbours,
       tiles: new Int32Array(this.maxInstances * 2),
       trianglesPerInstance: grid.triangleCount,
@@ -461,6 +529,7 @@ export class Terrain {
    */
   private readonly hazeDensityPerM = DEFAULT_HAZE_DENSITY_PER_M;
   private readonly uploaders = new Map<TileLattice, ColourUploader>();
+  private readonly fineUploaders = new WeakMap<ColourLayers, ColourUploader>();
   /** Rebase point in real metres; world units are measured from here. */
   private originEastM = 0;
   private originNorthM = 0;
@@ -474,6 +543,7 @@ export class Terrain {
     pending: 0,
     waterPending: 0,
     colourPending: 0,
+    colourFine: 0,
     perLod: [],
     bucketLabels: [],
     hero: { areasDrawn: 0, instances: 0, triangles: 0, resident: 0, rimPoints: 0 },
@@ -548,7 +618,8 @@ export class Terrain {
             // A fine grid resolves a river's valley, so its ribbon is only
             // what is narrower than a sample and the ground draws the rest (F73).
             RESOLVED_RIBBON_SAMPLES * cover.resolutionM,
-            options.colour?.provider(cover.resolutionM === 90 ? "hero" : `hero-${cover.resolutionM}m`) ?? null,
+            options.colour?.provider(colourLattice(cover)) ?? null,
+            fineFor(options.colour, colourLattice(cover)),
           ),
         });
       }
@@ -640,7 +711,7 @@ export class Terrain {
     const centreY = Math.floor(northM / tileM);
     const size = this.country.tileWorldSize(scale);
 
-    for (const lattice of this.lattices) lattice.beginFrame();
+    for (const lattice of this.lattices) lattice.beginFrame(eastM, northM);
     let missing = 0;
 
     // The view disc is `view.ts`'s, which the scene packs are cut to (stage 4).
@@ -689,7 +760,9 @@ export class Terrain {
     this.stats.pending = this.source.pending;
     this.stats.waterPending = this.source.waterPending ?? 0;
     this.stats.colourPending =
-      (this.options.colour?.pending ?? 0) + this.lattices.reduce((n, l) => n + (l.heights.colour?.pending ?? 0), 0);
+      (this.options.colour?.pending ?? 0) +
+      this.lattices.reduce((n, l) => n + (l.heights.colour?.pending ?? 0) + (l.fine?.pending ?? 0), 0);
+    this.stats.colourFine = this.lattices.reduce((n, l) => n + l.fineDrawn, 0);
     this.stats.hero = {
       areasDrawn: heroStats.areasDrawn,
       instances: heroStats.instances,
@@ -720,6 +793,17 @@ export class Terrain {
         this.uploaders.set(lattice, uploader);
       }
       colours.flush(uploader);
+    }
+    // The fine colour's own array (F91), a couple of its large images a frame.
+    for (const lattice of this.lattices) {
+      const fine = lattice.fine?.layers;
+      if (!fine || fine.pending === 0) continue;
+      let uploader = this.fineUploaders.get(fine);
+      if (!uploader) {
+        uploader = rendererUploader(renderer, fine.texture);
+        this.fineUploaders.set(fine, uploader);
+      }
+      fine.flush(uploader, lattice.fine!.reach.uploadsPerFrame);
     }
   }
 

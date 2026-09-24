@@ -20,7 +20,9 @@ same shared-edge rule as the heights: sample 0 lies on the tile's west (or
 north) edge and the last on its east (or south) one, so neighbours agree
 along the seam. Rows run north to south, as images do; the shader flips.
 Country tiles are 64 km, so a sample is 250 m; a 90 m hero tile is 11.52 km
-(45 m) and a 30 m one 3.84 km (15 m, near the mosaic's own 10 m).
+(45 m) and a 30 m one 3.84 km (15 m, near the mosaic's own 10 m). Every
+hero tile is cut a second time at 10 m (`FINE_CELLS`, F91), which the
+engine draws over the tiles nearest the camera (`fine_tile`).
 
 **Clouds.** The 2016 mosaic was built from one satellite's first year, and
 over the humid south it keeps flecks of cloud, each with a pale ring where
@@ -74,6 +76,9 @@ COLOUR_CELLS = 256
 COLOUR_SAMPLES = COLOUR_CELLS + 1
 #: WebP quality. Chosen against the stills, not the byte count (F87).
 WEBP_QUALITY = 82
+#: A fine tile's (F91): at 82 WebP smooths away a fifth of the 10 m detail
+#: in dark forest, which is the detail the tile is for.
+FINE_WEBP_QUALITY = 90
 CODEC = "webp"
 INDEX_VERSION = 1
 
@@ -86,6 +91,24 @@ SOURCE_TILE_PX = 256
 #: colour sample at China's latitudes, so the reprojection averages rather
 #: than invents. Zoom 10 is 132 m at 30 N; 13 is 16.5 m; 14 is 8.3 m.
 ZOOM_FOR_TILE_M = {64_000: 10, 11_520: 13, 3_840: 14}
+
+#: A hero tile's finest colour, cells a side (F91): 10 m, Sentinel-2's own,
+#: drawn over the tiles nearest the camera. Its broad tone is the colour
+#: tile's (`fine_tile`), so the two differ only in what the finer one adds.
+FINE_CELLS = {"hero": 1_152, "hero-30m": 384}
+#: The mosaic's zoom for it: 8.3 m at 30 N, about the mosaic's own 10 m.
+FINE_ZOOM = 14
+
+
+def resampling_for(area: Area):
+    """How an area's source is taken onto its grid. Averaged, where the
+    source is finer than a sample; but a fine tile is read at about its
+    source's own pixel, across a turn from one projection to the other,
+    where averaging blurs a third of the detail away and Lanczos keeps
+    most of it (F91)."""
+    from rasterio.warp import Resampling
+
+    return Resampling.average if area.cells == COLOUR_CELLS else Resampling.lanczos
 
 #: Requests a second across all workers. EOX rate-limits heavy use.
 REQUESTS_PER_S = 6.0
@@ -151,22 +174,24 @@ class Area:
     tiles_y: int
     #: The elevation to guard snow with: the grid it was cut from.
     dem: str | None = None
+    #: Cells a side of each tile: `COLOUR_CELLS`, or `FINE_CELLS` for a fine tile.
+    cells: int = COLOUR_CELLS
 
     @property
     def zoom(self) -> int:
-        return ZOOM_FOR_TILE_M[self.tile_m]
+        return ZOOM_FOR_TILE_M[self.tile_m] if self.cells == COLOUR_CELLS else FINE_ZOOM
 
     @property
     def cell_m(self) -> float:
-        return self.tile_m / COLOUR_CELLS
+        return self.tile_m / self.cells
 
     @property
     def width(self) -> int:
-        return self.tiles_x * COLOUR_CELLS + 1
+        return self.tiles_x * self.cells + 1
 
     @property
     def height(self) -> int:
-        return self.tiles_y * COLOUR_CELLS + 1
+        return self.tiles_y * self.cells + 1
 
     def bounds_m(self) -> tuple[float, float, float, float]:
         """(west, south, east, north) in Albers metres: sample edges, not pixel edges."""
@@ -189,9 +214,23 @@ class Area:
     def split(self, image: np.ndarray, tx: int, ty: int) -> np.ndarray:
         """One tile's samples from the area's image, shared edges included."""
         i, j = tx - self.tx0, ty - self.ty0
-        row0 = (self.tiles_y - 1 - j) * COLOUR_CELLS
-        col0 = i * COLOUR_CELLS
-        return image[:, row0 : row0 + COLOUR_SAMPLES, col0 : col0 + COLOUR_SAMPLES]
+        row0 = (self.tiles_y - 1 - j) * self.cells
+        col0 = i * self.cells
+        return image[..., row0 : row0 + self.cells + 1, col0 : col0 + self.cells + 1]
+
+    def fine(self, tx: int, ty: int) -> Area:
+        """One of its tiles, at `FINE_CELLS`: the same area's, and read from the same sources."""
+        return Area(
+            key=self.key,
+            lattice=self.lattice,
+            tile_m=self.tile_m,
+            tx0=tx,
+            ty0=ty,
+            tiles_x=1,
+            tiles_y=1,
+            dem=self.dem,
+            cells=FINE_CELLS[self.lattice],
+        )
 
 
 def boundary_lonlat(area: Area, per_edge: int = 16) -> tuple[np.ndarray, np.ndarray]:
@@ -259,6 +298,19 @@ def country_area(tx: int, ty: int) -> Area:
 
 def plan(world: Path, packs_index: Path) -> list[Area]:
     return [country_area(tx, ty) for tx, ty in film_country_tiles(packs_index)] + hero_areas(world)
+
+
+def fine_from_mosaic(areas: list[Area], root: Path | None = None) -> list[Area]:
+    """The fine tiles the mosaic colours: those of hero areas with no
+    composite of their own. What `fetch` reads for them, at `FINE_ZOOM`."""
+    from .composite import composite_path
+
+    return [
+        area.fine(tx, ty)
+        for area in areas
+        if area.lattice != "country" and not composite_path(area.key, root).exists()
+        for tx, ty in area.tiles()
+    ]
 
 
 # --- fetching ------------------------------------------------------------
@@ -380,7 +432,7 @@ def mosaic(area: Area, root: Path | None = None) -> tuple[np.ndarray, np.ndarray
 def reproject_area(area: Area, root: Path | None = None) -> tuple[np.ndarray, np.ndarray]:
     """The area's colour on its own grid: (float32 rgb 0-255, valid)."""
     from rasterio.crs import CRS
-    from rasterio.warp import Resampling, reproject
+    from rasterio.warp import reproject
 
     rgb, valid, src_transform = mosaic(area, root)
     out = np.zeros((4, area.height, area.width), np.float32)
@@ -392,7 +444,7 @@ def reproject_area(area: Area, root: Path | None = None) -> tuple[np.ndarray, np
         src_crs=CRS.from_epsg(3857),
         dst_transform=area.transform(),
         dst_crs=CRS.from_proj4(grid.ALBERS_PROJ4),
-        resampling=Resampling.average,
+        resampling=resampling_for(area),
         src_nodata=None,
         dst_nodata=None,
     )
@@ -444,6 +496,24 @@ def dilate(mask: np.ndarray, radius: int) -> np.ndarray:
     if radius <= 0:
         return mask
     return box_mean(mask.astype(np.float32), np.ones(mask.shape, np.float32), radius) > 1e-6
+
+
+def resample_samples(image: np.ndarray, height: int, width: int) -> np.ndarray:
+    """Bilinear, from one sample grid to another over the same ground: the
+    first and last samples of both lie on the same edges (the shared-edge
+    rule), so a colour tile's samples land where a fine tile's would."""
+    h, w = image.shape[-2:]
+    ys = np.linspace(0, h - 1, height)
+    xs = np.linspace(0, w - 1, width)
+    y0 = np.clip(np.floor(ys).astype(int), 0, max(h - 2, 0))
+    x0 = np.clip(np.floor(xs).astype(int), 0, max(w - 2, 0))
+    y1 = np.minimum(y0 + 1, h - 1)
+    x1 = np.minimum(x0 + 1, w - 1)
+    ty = (ys - y0)[:, None]
+    tx = (xs - x0)[None, :]
+    top = image[..., y0, :][..., x0] * (1 - tx) + image[..., y0, :][..., x1] * tx
+    bottom = image[..., y1, :][..., x0] * (1 - tx) + image[..., y1, :][..., x1] * tx
+    return top * (1 - ty) + bottom * ty
 
 
 def upsample(image: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
@@ -557,22 +627,37 @@ def composite_on(area: Area, root: Path | None = None) -> tuple[np.ndarray, np.n
         return None
     import rasterio
     from rasterio.crs import CRS
-    from rasterio.warp import Resampling, reproject
+    from rasterio.warp import reproject, transform_bounds
+    from rasterio.windows import Window, from_bounds
 
+    albers = CRS.from_proj4(grid.ALBERS_PROJ4)
+    west, south, east, north = area.bounds_m()
     with rasterio.open(path) as ds:
-        data = ds.read().astype(np.float32)
-        src_transform, src_crs = ds.transform, ds.crs
-    ok = (data[3] >= MIN_VIEWS).astype(np.float32)
+        # Only the part under the area, and a few pixels round it.
+        pad = 2 * max(area.cell_m, ds.transform.a)
+        box = transform_bounds(albers, ds.crs, west - pad, south - pad, east + pad, north + pad, densify_pts=32)
+        w = from_bounds(*box, transform=ds.transform)
+        c0, r0 = max(0, math.floor(w.col_off)), max(0, math.floor(w.row_off))
+        c1, r1 = min(ds.width, math.ceil(w.col_off + w.width)), min(ds.height, math.ceil(w.row_off + w.height))
+        if c1 <= c0 or r1 <= r0:
+            return None
+        window = Window(c0, r0, c1 - c0, r1 - r0)
+        data = ds.read(window=window).astype(np.float32)
+        src_transform, src_crs = ds.window_transform(window), ds.crs
+    # Averaged premultiplied, so a sample is the mean of its seen pixels
+    # only; in place, as a 10 m area is a gigabyte of floats (F91).
+    ok = data[3] >= MIN_VIEWS
+    data[:3] *= ok
+    data[3] = ok
     out = np.zeros((4, area.height, area.width), np.float32)
-    # Averaged premultiplied, so a sample is the mean of its seen pixels only.
     reproject(
-        source=np.concatenate([data[:3] * ok, ok[None]]),
+        source=data,
         destination=out,
         src_transform=src_transform,
         src_crs=src_crs,
         dst_transform=area.transform(),
-        dst_crs=CRS.from_proj4(grid.ALBERS_PROJ4),
-        resampling=Resampling.average,
+        dst_crs=albers,
+        resampling=resampling_for(area),
         src_nodata=None,
         dst_nodata=None,
     )
@@ -687,7 +772,7 @@ def meet_the_mosaic(archive: np.ndarray, mosaic: np.ndarray, trusted: np.ndarray
 # --- writing -------------------------------------------------------------
 
 
-def encode(tile: np.ndarray) -> bytes:
+def encode(tile: np.ndarray, quality: int = WEBP_QUALITY) -> bytes:
     from rasterio.io import MemoryFile
     import warnings
 
@@ -696,7 +781,7 @@ def encode(tile: np.ndarray) -> bytes:
         warnings.simplefilter("ignore")
         with MemoryFile() as memory:
             with memory.open(
-                driver="WEBP", width=data.shape[2], height=data.shape[1], count=3, dtype="uint8", QUALITY=WEBP_QUALITY
+                driver="WEBP", width=data.shape[2], height=data.shape[1], count=3, dtype="uint8", QUALITY=quality
             ) as ds:
                 ds.write(data)
             return memory.read()
@@ -706,11 +791,51 @@ def name_of(body: bytes) -> str:
     return hashlib.sha256(body).hexdigest()[:16]
 
 
-def cut_area(area: Area, out_dir: Path, root: Path | None = None) -> dict:
+def fine_tile(
+    area: Area, tx: int, ty: int, raw: np.ndarray, final: np.ndarray, hole: np.ndarray, source: str, root: Path | None = None
+) -> np.ndarray:
+    """One of a hero area's tiles at `FINE_CELLS` (F91).
+
+    Its own source read again at 10 m - the composite, toned, or the
+    mosaic at `FINE_ZOOM` - carrying what the colour tile did to its source
+    (`final - raw`: the tone leaning onto the country at the area's edge,
+    the haze lifted), and the colour tile itself wherever that was filled.
+    So a fine tile averaged over a colour sample is that sample, and the
+    shader's fade from one to the other changes only the detail."""
+    fine = area.fine(tx, ty)
+    n = fine.cells + 1
+    base = area.split(final, tx, ty)
+    filled = area.split(hole, tx, ty)
+    keep = resample_samples((~filled).astype(np.float32), n, n)
+    correction = resample_samples(np.where(filled[None], 0, base - area.split(raw, tx, ty)), n, n)
+    if source == "composite":
+        from .composite import load_tone
+
+        got = composite_on(fine, root)
+        detail, seen = got if got is not None else (np.zeros((3, n, n), np.float32), np.zeros((n, n), bool))
+        detail = apply_tone(detail, load_tone(root))
+    else:
+        detail, seen = reproject_area(fine, root)
+    keep = keep * seen
+    return np.clip(keep[None] * (detail + correction) + (1 - keep[None]) * resample_samples(base, n, n), 0, 255)
+
+
+def write_tile(tile: np.ndarray, out_dir: Path, quality: int = WEBP_QUALITY) -> tuple[str, int]:
+    body = encode(tile, quality)
+    name = name_of(body)
+    path = out_dir / "files" / f"{name}.webp"
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(body)
+    return name, len(body)
+
+
+def cut_area(area: Area, out_dir: Path, root: Path | None = None, fine: bool = True) -> dict:
     rgb, valid = reproject_area(area, root)
     if not valid.any():
         return {"key": area.key, "tiles": [""] * (area.tiles_x * area.tiles_y), "cloud": 0.0, "bytes": 0, "source": "none"}
     elevation = elevation_for(area, root)
+    raw = rgb
     rgb, cloud = clean_clouds(rgb, elevation, area.cell_m)
     hole = cloud | ~valid
     rgb = fill(rgb, hole)
@@ -742,19 +867,22 @@ def cut_area(area: Area, out_dir: Path, root: Path | None = None) -> dict:
                 target = np.where(country[1][None], country[0], rgb)
                 target_ok = country[1] | ~hole
             rgb = meet_the_mosaic(archive, target, seen & target_ok, area)
-            hole, source = ~seen, "composite"
+            raw, hole, source = archive, ~seen, "composite"
     names = []
     total = 0
     for tx, ty in area.tiles():
-        body = encode(area.split(rgb, tx, ty))
-        name = name_of(body)
-        path = out_dir / "files" / f"{name}.webp"
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(body)
+        name, size = write_tile(area.split(rgb, tx, ty), out_dir)
         names.append(name)
-        total += len(body)
-    return {"key": area.key, "tiles": names, "cloud": float((hole & valid).mean()), "bytes": total, "source": source}
+        total += size
+    result = {"key": area.key, "tiles": names, "cloud": float((hole & valid).mean()), "bytes": total, "source": source}
+    if fine and area.lattice in FINE_CELLS:
+        result["fine"], result["fine_bytes"] = [], 0
+        for tx, ty in area.tiles():
+            tile = fine_tile(area, tx, ty, raw, rgb, hole | ~valid, source, root)
+            name, size = write_tile(tile, out_dir, FINE_WEBP_QUALITY)
+            result["fine"].append(name)
+            result["fine_bytes"] += size
+    return result
 
 
 def composite_source() -> dict:
@@ -778,6 +906,8 @@ def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool 
         "source": {"layer": LAYER, "year": YEAR, "attribution": ATTRIBUTION, "licence": LICENCE, "licenceUrl": LICENCE_URL},
         "country": {},
         "hero": {},
+        # The tiles nearest the camera, at 10 m (F91), by lattice.
+        "fine": {lattice: {"cells": cells, "samples": cells + 1} for lattice, cells in FINE_CELLS.items()},
     }
     archive_tiles: set[str] = set()
     if merge and path.exists():
@@ -800,9 +930,12 @@ def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool 
             }
             if result["source"] == "composite":
                 index["hero"][area.key]["source"] = composite_source()
+            if "fine" in result:
+                index["hero"][area.key]["fine"] = result["fine"]
             print(
                 f"  {area.key:22} {len(result['tiles']):4} tiles  {result['bytes'] / 1e6:6.2f} MB  "
-                f"from the {result['source']}, filled {result['cloud']:.1%}",
+                f"from the {result['source']}, filled {result['cloud']:.1%}"
+                + (f"; fine {result['fine_bytes'] / 1e6:6.2f} MB" if "fine" in result else ""),
                 flush=True,
             )
         if n % 200 == 0:
@@ -814,7 +947,7 @@ def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool 
     if archive_tiles:
         print(f"  {len(archive_tiles)} country tiles from the composite", flush=True)
     if not merge:
-        named = set(index["country"].values()) | {n for a in index["hero"].values() for n in a["tiles"]}
+        named = set(index["country"].values()) | {n for a in index["hero"].values() for n in a["tiles"] + a.get("fine", [])}
         for file in (out_dir / "files").glob("*.webp"):
             if file.stem not in named:
                 file.unlink()
@@ -837,7 +970,7 @@ def main(argv: list[str] | None = None) -> int:
         areas = [a for a in areas if a.key in wanted]
     if args.step == "plan":
         tiles: set[tuple[int, int, int]] = set()
-        for area in areas:
+        for area in areas + fine_from_mosaic(areas):
             x0, y0, x1, y1 = source_tiles(area)
             tiles.update((area.zoom, x, y) for x in range(x0, x1) for y in range(y0, y1))
         by_zoom: dict[int, int] = {}
@@ -847,7 +980,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{country} country tiles, {len(areas) - country} hero areas; mosaic tiles by zoom: {dict(sorted(by_zoom.items()))}")
         return 0
     if args.step == "fetch":
-        print(fetch(areas, args.workers, args.rate))
+        print(fetch(areas + fine_from_mosaic(areas), args.workers, args.rate))
         return 0
     out = args.world / "colour"
     index = cut(areas, out, merge=args.only is not None)

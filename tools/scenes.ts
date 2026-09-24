@@ -5,7 +5,7 @@
  * ask for (`engine/src/film/reach.ts`: the rail to where the fastest viewer
  * gets, the widest drift off it, the terrain's view disc around every place
  * the camera can stand) and the scene's own hero area, its heights coded
- * like a tile. Beside the packs it copies the few small files the film reads
+ * like a tile, with its colour and its fine colour (F87, F91). Beside the packs it copies the few small files the film reads
  * before any pack - the world's manifest, its tile index, the horizon field
  * and the hero manifests - so `dist-film/` is everything a static host needs.
  *
@@ -145,7 +145,9 @@ for (const scene of film.scenes) {
   if (scene.hero && colour) {
     const area = colour.hero[scene.hero];
     if (area) {
-      for (const c of area.tiles) if (c) colours.add(c);
+      // The fine images too (F91): the area whole, since the camera's drift
+      // off the rail decides which tiles it passes near.
+      for (const c of [...area.tiles, ...(area.fine ?? [])]) if (c) colours.add(c);
     } else {
       uncoloured++;
     }

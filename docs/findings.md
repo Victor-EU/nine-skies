@@ -1080,3 +1080,94 @@ levels, most of it in the sun's disc).
 The film is 60.1 MB, up 2.1 MB: sharper, cloud-free ground codes larger.
 The composites under `data/work/composite/mgrs/` are 160 m, not much
 finer than the 250 m colour cut from them.
+
+## F91 — Ten metres near the camera, from Sentinel-2's own pixels, 24 September 2026
+
+**Why.** A hero tile's colour is 257 samples a side whatever the tile: 45 m
+on the 90 m lattice and 15 m on the 30 m one. The camera flies 150 to 300 m
+up in four of the nine scenes, and a pixel at 1080p is a milliradian, so a
+45 m texel is a pixel only 45 km away and dozens of pixels wide under the
+camera. Sentinel-2 sees 10 m. At 10 m every tile of every hero area would
+be about 800 MB of GPU memory, against about 200 MB for all the colour now.
+The camera needs the fine colour only where it is.
+
+**A second image a tile.** Each hero tile is cut again at 10 m: 1,153
+samples a side on the 90 m lattice, 385 on the 30 m one. It is read from
+the tile's own source (the composite in the south, the 2016 mosaic at zoom
+14 elsewhere) and given the colour tile's corrections: the tone leaning
+onto the country at the area's edge, the haze lifted round a cloud. Where
+the colour tile was filled, the fine tile takes the colour tile. So a
+fine tile averaged over a colour sample is that sample, and the two differ
+only in detail. The colour tiles themselves are unchanged, byte for byte.
+- *Lanczos, not averaging.* Taken onto the Albers grid by averaging, as the
+  colour tiles are, the fine tile kept 5.5 of the source's 8.4 (mean
+  Laplacian, Huangshan). Averaging blurs across the turn from UTM, pixel
+  for pixel. Lanczos keeps 6.8.
+- *WebP at 90, not 82.* At 82, WebP smoothed away a fifth of what was left
+  in dark forest.
+- *Size.* The fine tiles are 30 MB for all seven areas: 11.9 MB at the
+  Three Gorges, 7.7 MB at Tiger Leaping Gorge, 6.2 MB at Guilin, and under
+  2 MB each elsewhere.
+
+**Ten metres in the south.** F89 read Tiger Leaping Gorge and the Three
+Gorges from the 20 m overview. They are now read at 10 m, as Guilin and
+Huangshan were: 300 passes, 10.3 GB, in 17 minutes. The first attempt hung
+for two hours when the laptop's network dropped under it, so GDAL's reads
+now time out and are retried. Views per pixel at the 5th / 50th / 95th
+percentile:
+- Three Gorges: 18 / 39 / 59.
+- Tiger Leaping Gorge: 14 / 41 / 83.
+
+The pooled tone line refitted over the four areas moved by half a level
+(red gain 0.887 to 0.901), so the south's hero areas and country tiles were
+cut again with it. The 20 m reads, 3.8 GB, are no longer read.
+
+**In the engine** (`engine/src/terrain/fineColour.ts`). Each hero lattice
+keeps a pool of fine layers and hands them to the tiles nearest the camera.
+Once a frame, the tiles drawn within reach are sorted by distance. The
+nearest take free layers first, then the layers of tiles flown away from
+longest ago. The shader fades from the fine layer to the colour layer
+across the ground between two distances. A tile claims its layer further
+out than the fade reaches, so its image is fetched, decoded and uploaded
+before it shows, and it is let go only once the fade has left it.
+
+| Lattice | Fine whole to | Gone by | Claimed within | Layers | GPU memory |
+| --- | --- | --- | --- | --- | --- |
+| 90 m | 8 km | 12 km | 16 km | 16 | 113 MB |
+| 30 m | 5 km | 8 km | 10 km | 40 | 32 MB |
+
+At most 14 and 37 tiles lie that near any point. A pool's array is made
+when a tile first wants it and freed after ten seconds with none, so the
+two are held together for at most those ten seconds after a scene changes
+lattice. An image into the 90 m pool costs about 1 ms on the M3, the mip
+rebuild included, and two go up a frame. The first costs 7 ms, as it
+allocates the array: once each time a scene nears a hero area. The 30 m
+pool's cost 0.1 ms.
+
+**What it gives.** The fine colour shows where the camera sees ground
+from above.
+- **The Three Gorges:** gains most. Its forested walls have their texture,
+  and the villages and the road show. 14 % of the still changes by more
+  than 8 levels.
+- **Heaven Lake:** the crater rim and the forest round it are sharper
+  (17 %).
+- **The First Bend:** the river banks and fields are sharper (4.5 %).
+- **Huangshan and Karst:** barely change (1.8 % and 0.9 %). Their cameras
+  look at tower walls, and a picture taken from above has nothing to add
+  to a wall.
+- **On the steepest walls,** the 10 m detail is now drawn down the face as
+  streaks where the 45 m colour was a blur.
+
+The walls are the next lever: colour for ground seen side-on, which no
+overhead image holds. Stills 01 to 04 and 06 are re-taken, 06 now headless
+too. The rest show nothing of this change, and the Wall's re-take differed
+only in its sky (window against headless, F89), so they stand.
+
+**The film is 90.2 MB**, up 30.1 MB, of the 2 GB D89 allows.
+
+**Frame cost: not measured.** Photos and a second Chrome held the GPU
+through the capture. Loess read 6.7 ms against its 2.1 ms anchor, and the
+capture resolved ±6 ms. Two paired runs, fine colour on and off, differed
+by less than that with no consistent sign. The shader adds one texture read
+on the tiles that hold a fine layer, which F87 put at a few tenths of a
+millisecond. To be timed at the nine stations with the machine idle.

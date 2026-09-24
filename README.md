@@ -43,8 +43,8 @@ CORRIDOR=china` runs them (about six minutes once the source is fetched).
 Then:
 
 ```bash
-make colour    # the ground's colour: the 2016 Sentinel-2 mosaic, and the archive's median in the south (fetches ~16 GB once)
-make scenes    # a pack per scene into dist-film/, 60.1 MB
+make colour    # the ground's colour: the 2016 Sentinel-2 mosaic, and the archive's median in the south (fetches ~22 GB once)
+make scenes    # a pack per scene into dist-film/, 90.2 MB
 make rails     # every rail flown over the world: docs/rails-report.md
 make stations  # the frame-cost stations: app/public/capture-stations.json
 npm run check  # typecheck, tests, and the content gate

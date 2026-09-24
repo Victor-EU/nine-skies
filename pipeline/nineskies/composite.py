@@ -25,9 +25,10 @@ bakes long shadows into every south-east-facing gorge. Under the Three
 Gorges' evening sun from the west those shadows would light the relief
 inside out; under a high sun a slope's shading is a fraction of winter's.
 Of those, each tile's clearest are read, a month at a time from spring to
-early autumn. Each is read only where it covers the area: from the 20 m
-overview for the 90 m lattice (colour 45 m), at the full 10 m for the 30 m
-one (15 m). Reads are cached under `data/source/`, never made twice.
+early autumn. Each is read only where it covers the area, at the full 10 m,
+which the finest colour is cut at (F91; F89 read the 90 m lattice's areas
+from the 20 m overview). Reads are cached under `data/source/`, never made
+twice.
 
 **The median.** On the area's UTM grid - every MGRS tile of a zone shares
 it, so the passes stack without resampling - a pixel's colour is the
@@ -79,10 +80,11 @@ MAX_ITEM_CLOUD = 70
 
 #: The hero areas composited: the ones the 2016 mosaic leaves most cloud in.
 SOUTH = ("tiger-leaping-gorge", "three-gorges", "guilin", "huangshan")
-#: Metres a pixel the source is read at, by lattice: finer than half a colour sample.
-READ_M = {"hero": 20, "hero-30m": 10}
-#: Passes read per MGRS tile, by read resolution: a 10 m read is four times the bytes.
-PER_TILE = {20: 80, 10: 50}
+#: Metres a pixel the source is read at: the true colour's own 10 m, which the
+#: finest colour tiles are cut at (`imagery.FINE_CELLS`).
+READ_M = 10
+#: Passes read per MGRS tile.
+PER_TILE = 50
 #: A pass that sees less of the area than this clear is not read.
 MIN_CLEAR = 0.3
 #: Nor one with the sun lower than this: its shadows are baked in.
@@ -103,6 +105,11 @@ GDAL_ENV = {
     "GDAL_HTTP_MAX_RETRY": "5",
     "GDAL_HTTP_RETRY_DELAY": "3",
     "GDAL_HTTP_MERGE_CONSECUTIVE_RANGES": "YES",
+    # A connection that dies mid-read (the laptop's network dropping) would
+    # otherwise hang its thread for good; this fails it, and it is retried.
+    "GDAL_HTTP_TIMEOUT": "120",
+    "GDAL_HTTP_LOW_SPEED_TIME": "60",
+    "GDAL_HTTP_LOW_SPEED_LIMIT": "1000",
 }
 
 
@@ -337,7 +344,7 @@ def select(items: list[dict], per_tile: int, min_clear: float = MIN_CLEAR, min_s
 
 
 def window_path(area: str, item_id: str, root: Path | None = None) -> Path:
-    return source_dir(area, root) / "windows" / f"{item_id}.tif"
+    return source_dir(area, root) / f"windows-{READ_M}m" / f"{item_id}.tif"
 
 
 def fetch_item(area: imagery.Area, g: UtmGrid, item: dict, root: Path | None = None) -> int:
@@ -409,8 +416,8 @@ def fetch(area: imagery.Area, workers: int = 8, root: Path | None = None) -> dic
     from rasterio.env import Env
 
     items = catalogue(area, root=root)
-    res = READ_M[area.lattice]
-    chosen = select(items, PER_TILE[res])
+    res = READ_M
+    chosen = select(items, PER_TILE)
     g = utm_grid(area, area_epsg(chosen), res)
     todo = [i for i in chosen if not window_path(area.key, i["id"], root).exists()]
     print(f"  {area.key}: {len(chosen)} passes chosen of {len(items)}, {len(todo)} to read at {res} m", flush=True)
@@ -464,8 +471,8 @@ def build(area: imagery.Area, root: Path | None = None, strip: int = 256) -> Pat
     from rasterio.windows import Window, from_bounds
 
     items = catalogue(area, root=root)
-    res = READ_M[area.lattice]
-    chosen = select(items, PER_TILE[res])
+    res = READ_M
+    chosen = select(items, PER_TILE)
     if not chosen:
         return None
     g = utm_grid(area, area_epsg(chosen), res)
@@ -849,8 +856,8 @@ def main(argv: list[str] | None = None) -> int:
         area = areas[key]
         if args.step == "plan":
             items = catalogue(area)
-            res = READ_M[area.lattice]
-            chosen = select(items, PER_TILE[res])
+            res = READ_M
+            chosen = select(items, PER_TILE)
             months = np.bincount([int(i["datetime"][5:7]) - 1 for i in chosen], minlength=12)
             print(f"{key}: {len(items)} items, {len(chosen)} chosen at {res} m; by month {months.tolist()}")
         elif args.step == "fetch":

@@ -73,6 +73,11 @@ class TestTheGrid(unittest.TestCase):
         self.assertLessEqual(g.south, s)
         self.assertGreaterEqual(g.north, n)
 
+    def test_passes_are_kept_by_the_resolution_they_were_read_at(self):
+        # F89 read the 90 m lattice's areas at 20 m; F91 reads them all at 10 m.
+        self.assertEqual(composite.READ_M, 10)
+        self.assertEqual(composite.window_path("a", "p", Path("/r")).parent.name, "windows-10m")
+
     def test_a_pass_is_read_where_it_meets_the_grid(self):
         from affine import Affine
 
@@ -121,7 +126,7 @@ class TestTheComposite(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         w, h = g.width // 2 + 10, g.height - skip
         profile = dict(driver="GTiff", width=w, height=h, count=4, dtype="uint8", crs=f"EPSG:{EPSG}",
-                       transform=Affine(20, 0, g.west, 0, -20, g.north - 20 * skip))
+                       transform=Affine(g.res, 0, g.west, 0, -g.res, g.north - g.res * skip))
         with rasterio.open(path, "w", **profile) as ds:
             ds.write(np.full((3, h, w), value, np.uint8), [1, 2, 3])
             ds.write(scl(h, w), 4)
@@ -134,7 +139,7 @@ class TestTheComposite(unittest.TestCase):
             ids = ["p1", "p2", "p3", "p4", "p5"]
             (here / "items.json").write_text(json.dumps([dict(item(i, 1 + k, 0.9), visual="", scl="", cloud=1) for k, i in enumerate(ids)]))
             (here / "probe.json").write_text(json.dumps({i: {"cover": 0.5, "clear": 0.9} for i in ids}))
-            g = composite.utm_grid(self.area, EPSG, 20)
+            g = composite.utm_grid(self.area, EPSG, composite.READ_M)
             clear = lambda h, w: np.full((h, w), 4, np.uint8)  # noqa: E731
 
             def cloud_north(h, w):
