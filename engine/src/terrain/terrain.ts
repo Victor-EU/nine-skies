@@ -18,7 +18,8 @@ import { SyntheticTileSource, type TileSource } from "./tileSource.js";
 import { NO_WATER } from "./tileStream.js";
 import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M, RESOLVED_RIBBON_SAMPLES } from "./water.js";
 import type { AreaBounds, HeroCover } from "./heroSource.js";
-import { createRimMaterial, createTerrainMaterial, MAX_CUT_RECTS, setTerrainPalette } from "./terrainMaterial.js";
+import { createRimMaterial, createTerrainMaterial, MAX_CUT_RECTS, setRockFace, setTerrainPalette } from "./terrainMaterial.js";
+import { rockAcrossM, type RockFaces } from "./rock.js";
 import type { ScenePalette } from "./palette.js";
 import { RimCurtain, type DrawnTiles } from "./rimCurtain.js";
 import { viewOffsets } from "./view.js";
@@ -99,6 +100,11 @@ export interface TerrainOptions {
    * is the palette's, as before; a lattice the index has no tiles for is too.
    */
   colour?: ColourSource | null;
+  /**
+   * The photographed rock laid on the walls (F92), a face per scene as its
+   * palette names. Absent, steep ground keeps the palette's rock as a veil.
+   */
+  rock?: RockFaces | null;
 }
 
 export interface TerrainStats {
@@ -418,6 +424,7 @@ class TileLattice implements DrawnTiles {
   setScale(scale: WorldScale, hazeDensityPerM: number): void {
     const u = this.material.uniforms;
     u.uTileWorldSize!.value = this.tileWorldSize(scale);
+    if (u.uRockAcross) u.uRockAcross.value = rockAcrossM(this.tileM / (this.samples - 1)) / scale.horizontalCompression;
     u.uVerticalExaggeration!.value = scale.verticalExaggeration;
     u.uSkirtDepth!.value = SKIRT_DEPTH_M * scale.verticalExaggeration;
     // The air is a real quantity; only its expression in world units moves.
@@ -530,6 +537,8 @@ export class Terrain {
   private readonly hazeDensityPerM = DEFAULT_HAZE_DENSITY_PER_M;
   private readonly uploaders = new Map<TileLattice, ColourUploader>();
   private readonly fineUploaders = new WeakMap<ColourLayers, ColourUploader>();
+  /** The rock face the scene's palette names (F92). */
+  private rockWanted: string | null = null;
   /** Rebase point in real metres; world units are measured from here. */
   private originEastM = 0;
   private originNorthM = 0;
@@ -761,6 +770,7 @@ export class Terrain {
     this.stats.waterPending = this.source.waterPending ?? 0;
     this.stats.colourPending =
       (this.options.colour?.pending ?? 0) +
+      (this.options.rock?.pending ? 1 : 0) +
       this.lattices.reduce((n, l) => n + (l.heights.colour?.pending ?? 0) + (l.fine?.pending ?? 0), 0);
     this.stats.colourFine = this.lattices.reduce((n, l) => n + l.fineDrawn, 0);
     this.stats.hero = {
@@ -819,6 +829,21 @@ export class Terrain {
   setPalette(palette: ScenePalette): void {
     for (const m of this.materials) setTerrainPalette(m, palette);
     if (this.rim) setTerrainPalette(this.rim.mesh.material as ShaderMaterial, palette);
+    this.showRock(palette.rockFace);
+  }
+
+  /** The face the scene's walls are laid with, once it has loaded; none clears it (F92). */
+  private showRock(name: string | null): void {
+    this.rockWanted = name;
+    const rock = this.options.rock;
+    if (!name || !rock) {
+      for (const m of this.materials) setRockFace(m, null);
+      return;
+    }
+    void rock.face(name).then((face) => {
+      if (this.rockWanted !== name) return;
+      for (const m of this.materials) setRockFace(m, face);
+    });
   }
 
   /** Every mesh that stands in the sun: the lattices' tiles and the curtain. */

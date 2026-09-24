@@ -20,6 +20,7 @@ import { LookRig } from "../../engine/src/look/look.js";
 import { SyntheticTileSource, loadWorld, type LoadedWorld } from "../../engine/src/terrain/tileSource.js";
 import { StreamingTileSource } from "../../engine/src/terrain/tileStream.js";
 import { ColourSource, loadColourIndex } from "../../engine/src/terrain/colour.js";
+import { RockFaces, loadRockIndex } from "../../engine/src/terrain/rock.js";
 import { loadHeroCovers, type HeroCover } from "../../engine/src/terrain/heroSource.js";
 import { WorldCoverage } from "../../engine/src/terrain/coverage.js";
 import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
@@ -128,6 +129,9 @@ const colourIndex = world ? await loadColourIndex(`/world/${worldName}/colour/in
 const colour = colourIndex
   ? new ColourSource(colourIndex, `/world/${worldName}/colour/files`, packs?.fetchTile)
   : null;
+// The walls' rock (F92): photographed faces, one loaded for each scene's palette.
+const rockIndex = world ? await loadRockIndex(`/world/${worldName}/rock/index.json`) : null;
+const rock = rockIndex ? new RockFaces(rockIndex, `/world/${worldName}/rock`) : null;
 if (!world && film)
   notice(
     `No built world at <code>dist-world/${worldName}</code>: flying the stand-in. ` +
@@ -141,6 +145,7 @@ const terrain = new Terrain({
   source: world?.source ?? new SyntheticTileSource(),
   heroes,
   colour,
+  rock,
 });
 for (const mesh of terrain.meshes) scene.add(mesh);
 if (packed) packs.attach(streamed.index, heroes, colourIndex);

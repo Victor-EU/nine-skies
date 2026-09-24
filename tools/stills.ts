@@ -101,5 +101,5 @@ try {
 } finally {
   chrome.kill();
   await sleep(300);
-  rmSync(profile, { recursive: true, force: true });
+  rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }

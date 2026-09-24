@@ -1,4 +1,4 @@
-import { Color, ShaderMaterial, GLSL3, Vector2, Vector3, Vector4 } from "three";
+import { Color, DataTexture, ShaderMaterial, GLSL3, Vector2, Vector3, Vector4 } from "three";
 import {
   AERIAL_HAZE_GLSL,
   COLOR_SPACE_GLSL,
@@ -12,6 +12,7 @@ import { MIST_GLSL, NOISE_GLSL, SHADOW_GLSL, SKY_GLSL, TIME_GLSL } from "../look
 import { lookUniformDefaults } from "../look/uniforms.js";
 import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
 import { COLOUR_SAMPLES } from "./colour.js";
+import type { RockFace } from "./rock.js";
 
 /**
  * Terrain shader (build plan D3 and D12; design v2, "The look").
@@ -68,6 +69,43 @@ const WATER_VERTEX_BODY = /* glsl */ `
 const WATER_FRAGMENT_INPUTS = /* glsl */ `
 flat in float vWater;`;
 
+/** Until a scene's rock face is loaded. */
+const ROCK_PLACEHOLDER = new DataTexture(new Uint8Array([128, 128, 255, 128]), 1, 1);
+ROCK_PLACEHOLDER.needsUpdate = true;
+
+/**
+ * The walls (F92). The film draws relief six times steeper than the
+ * ground's (F14), so a wall carries about six times the surface its
+ * photograph from above covers, and the photograph's texels ran down it as
+ * streaks. On a wall the photograph is read blurred by as much as it is
+ * stretched, for its tone, and a scanned rock face (`rock.ts`) is laid over
+ * it, mapped on the wall itself from the two sides a wall can face, in tile
+ * coordinates, so it meets the next tile's and stays put when the world
+ * rebases.
+ *
+ * `uWall`: the blur per doubling of the stretch; the face's relief where it
+ * is rock and where it is plants; 1 while a face is held. `uRockAcross`:
+ * world units a face spans, fitted to a whole number a tile.
+ */
+const WALL_GLSL = /* glsl */ `
+uniform float uTileWorldSize;
+uniform vec4 uWall;
+uniform sampler2D uRockAlbedo;
+uniform sampler2D uRockNormal;
+uniform vec3 uRockMean;
+uniform float uRockAcross;
+
+// Rock where the wall's bareness (its slope's rock band, less its green) passes this.
+const float WALL_BARE_FROM = 0.35;
+// How much a green photograph keeps a wall clothed.
+const float WALL_GREEN = 0.5;
+// Plants seen from the side show their shaded interior: this much greyer, and darker.
+const vec2 WALL_SIDE = vec2(0.3, 0.2);
+
+float luma(vec3 c) {
+  return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}`;
+
 /** What the ground's colour adds (F87), and its fine layer where there is one (F91). */
 const colourVertexInputs = (fine: boolean): string => /* glsl */ `
 in float iColour;
@@ -112,20 +150,21 @@ flat in float vFine;`
     : ""
 }
 
-vec3 imageryAt(vec2 texel, float layer, float across) {
+vec3 imageryAt(vec2 texel, float layer, float across, float blur) {
   vec2 uv = texel / uTileTexels;
-  vec3 c = texture(uColour, vec3(${colourSt("uv", COLOUR_SAMPLES)}, layer)).rgb;
+  vec3 c = texture(uColour, vec3(${colourSt("uv", COLOUR_SAMPLES)}, layer), blur).rgb;
 ${
   fineSamples > 0
     ? `  if (vFine > 0.5) {
-    vec3 f = texture(uColourFine, vec3(${colourSt("uv", fineSamples)}, vFine - 1.0)).rgb;
+    vec3 f = texture(uColourFine, vec3(${colourSt("uv", fineSamples)}, vFine - 1.0), blur).rgb;
     c = mix(f, c, smoothstep(uFineFade.x, uFineFade.y, across));
   }`
     : ""
 }
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   return max(mix(vec3(l), c, uImagery.y), 0.0) * uImagery.x * uImageryTint;
-}`;
+}
+${WALL_GLSL}`;
 
 // A tile whose water has landed. Flat per instance, so every fragment of a
 // triangle takes the same branch and the derivatives inside it hold.
@@ -232,10 +271,17 @@ export const MAX_CUT_RECTS = 8;
 
 /**
  * How the mosaic is graded into the film's light (F87): gain, saturation,
- * then the share of the palette's rock laid on steep ground and of its snow
- * above the line. Set against the nine stills.
+ * then the share of the palette's rock laid on steep ground, while no rock
+ * face is (F92), and of its snow above the line. Set against the nine stills.
  */
 export const DEFAULT_IMAGERY: readonly [number, number, number, number] = [1.4, 1.05, 0.5, 0.0];
+
+/**
+ * The walls (F92): the photograph blurred by its whole stretch, so a texel
+ * on a wall is as tall as it is wide; the face's relief at full strength on
+ * rock and half on plants; and no face until one is held.
+ */
+export const DEFAULT_WALL: readonly [number, number, number, number] = [1, 1, 0.5, 0];
 
 /** The mosaic's white balance in the film's light: its greens lean to blue (F87). */
 export const DEFAULT_IMAGERY_TINT: readonly [number, number, number] = [1.1, 1.0, 0.78];
@@ -287,15 +333,67 @@ const cutBody = (maxCuts: number): string =>
 `;
 
 // The mosaic in place of the palette where the tile has its colour. It
-// photographed the rock and the snow, so the palette's are only laid over it
-// where the relief is steeper than a photograph from above can show - a
-// cliff is a smear of a few texels - and not at all for snow (`uImagery`:
-// the rock's share, the snow's). Flat per instance, so the texture read's
-// derivatives hold.
+// photographed the rock and the snow, so the palette's snow is not laid over
+// it at all (`uImagery.w`). Where the relief is steeper than a photograph
+// from above can show, the scene's rock face is (`WALL_GLSL`); without one,
+// the palette's rock is laid over half of it as a veil (`uImagery.z`), as it
+// was before the faces. Flat per instance, so the derivatives hold.
 const COLOUR_FRAGMENT_BODY = /* glsl */ `
   if (vColour > 0.5) {
-    base = imageryAt(vTexel, vLayer, length(vWorld.xz - uCameraWorld.xz));
-    rock *= uImagery.z;
+    float stretch = 1.0 / max(n.y, 0.02);
+    base = imageryAt(vTexel, vLayer, length(vWorld.xz - uCameraWorld.xz), log2(stretch) * uWall.x);
+    // Where the face's coordinates are, and how they change across the pixel, while every
+    // fragment of the triangle is here: the branch below is not the same across it.
+    vec2 local = vTexel / uTileTexels * uTileWorldSize;
+    float k = max(floor(uTileWorldSize / uRockAcross + 0.5), 1.0) / uTileWorldSize;
+    float sx = n.x < 0.0 ? -1.0 : 1.0;
+    float sz = n.z < 0.0 ? -1.0 : 1.0;
+    vec2 uvX = vec2(-sx * local.y, -vWorld.y) * k;
+    vec2 uvZ = vec2(sz * local.x, -vWorld.y) * k;
+    vec4 dX = vec4(dFdx(uvX), dFdy(uvX));
+    vec4 dZ = vec4(dFdx(uvZ), dFdy(uvZ));
+    float lod = log2(max(max(length(dX.xy), length(dX.zw)), 1e-6) * float(textureSize(uRockAlbedo, 0).x));
+    if (uWall.w > 0.5 && rock > 0.0) {
+      // How bare the wall is: its band of slope, less how green its photograph is, and
+      // none where the photograph is far brighter than the rock, which saw snow or pale ground.
+      float green = clamp((base.g / max(max(base.r, base.b), 1e-4) - 1.0) / 1.5, 0.0, 1.0);
+      float pale = luma(base) / max(luma(srgbToLinear(ROCK_SRGB)), 1e-4);
+      float bare = rock - WALL_GREEN * green - smoothstep(1.5, 3.0, pale);
+      // The face from the side the wall looks to, x or z, with a narrow blend between.
+      float wx = pow(abs(n.x), 4.0);
+      float wz = pow(abs(n.z), 4.0);
+      float ws = max(wx + wz, 1e-4);
+      wx /= ws;
+      wz /= ws;
+      vec4 a = wx * textureGrad(uRockAlbedo, uvX, dX.xy, dX.zw) + wz * textureGrad(uRockAlbedo, uvZ, dZ.xy, dZ.zw);
+      float broad = wx * textureGrad(uRockAlbedo, uvX, dX.xy * 6.0, dX.zw * 6.0).a
+        + wz * textureGrad(uRockAlbedo, uvZ, dZ.xy * 6.0, dZ.zw * 6.0).a;
+      float wide = wx * textureGrad(uRockAlbedo, uvX * 0.31 + 0.37, dX.xy * 0.31, dX.zw * 0.31).g
+        + wz * textureGrad(uRockAlbedo, uvZ * 0.31 + 0.61, dZ.xy * 0.31, dZ.zw * 0.31).g;
+      vec3 tX = textureGrad(uRockNormal, uvX, dX.xy, dX.zw).xyz * 2.0 - 1.0;
+      vec3 tZ = textureGrad(uRockNormal, uvZ, dZ.xy, dZ.zw).xyz * 2.0 - 1.0;
+      // Rock where the wall is barest, edged by the face's relief (a few mips up, for whole
+      // faces, and its own), with plants in its cracks. Seen from far off, the share alone.
+      float edge = 0.18 * (broad - 0.5) + 0.12 * (a.a - 0.5);
+      float face = mix(
+        smoothstep(WALL_BARE_FROM - 0.03, WALL_BARE_FROM + 0.03, bare + edge) * smoothstep(0.06, 0.18, a.a),
+        clamp((bare - WALL_BARE_FROM) / 0.3 + 0.5, 0.0, 1.0) * 0.88,
+        smoothstep(4.0, 6.0, lod));
+      // The face's colour about its mean, with half its hue, and its brightness read again at
+      // a third of the scale, so a wall taller than a face does not show it repeating; tinted
+      // to the scene's rock.
+      vec3 ratio = a.rgb / uRockMean;
+      ratio = mix(vec3(luma(ratio)), ratio, 0.5) * mix(1.0, wide / uRockMean.g, 0.45);
+      vec3 plants = mix(base, vec3(luma(base)), WALL_SIDE.x * rock) * (1.0 - WALL_SIDE.y * rock);
+      base = mix(plants * mix(1.0, luma(ratio), 0.35), srgbToLinear(ROCK_SRGB) * ratio, face);
+      // Its relief, from its normals: across the wall and up it.
+      vec3 bend = wx * (tX.x * vec3(0.0, 0.0, -sx) + tX.y * vec3(0.0, 1.0, 0.0))
+        + wz * (tZ.x * vec3(sz, 0.0, 0.0) + tZ.y * vec3(0.0, 1.0, 0.0));
+      nLit = normalize(n + bend * mix(uWall.z, uWall.y, face) * smoothstep(0.0, 0.6, rock));
+      rock = 0.0;
+    } else {
+      rock *= uImagery.z;
+    }
     snow *= uImagery.w;
   }`;
 
@@ -353,6 +451,7 @@ ${smooth ? SMOOTH_NORMAL : FLAT_NORMAL}
   vec3 sun = normalize(uSunDirection);
 
   vec3 base = elevationColor(vElevation);
+  vec3 nLit = n;
 
   // Steep ground reads as rock wherever it is; snow lies where the ground
   // can hold it, above the scene's line.
@@ -364,7 +463,7 @@ ${colour ? COLOUR_FRAGMENT_BODY : ""}
   base = mix(base, srgbToLinear(SNOW_SRGB), snow);
 
   float shadow = sunShadow(vWorld, n, sun);
-  vec3 lit = base * groundLight(n, sun, uSunColor, shadow);
+  vec3 lit = base * groundLight(nLit, sun, uSunColor, shadow);
 
   vec3 toFrag = vWorld - uCameraWorld;
   vec3 dir = toFrag / max(length(toFrag), 1e-3);
@@ -482,6 +581,11 @@ export function createTerrainMaterial(
         uTileTexels: { value: heights.image.width - 1 },
         uImagery: { value: new Vector4(...DEFAULT_IMAGERY) },
         uImageryTint: { value: new Vector3(...DEFAULT_IMAGERY_TINT) },
+        uWall: { value: new Vector4(...DEFAULT_WALL) },
+        uRockAlbedo: { value: ROCK_PLACEHOLDER },
+        uRockNormal: { value: ROCK_PLACEHOLDER },
+        uRockMean: { value: new Vector3(0.5, 0.5, 0.5) },
+        uRockAcross: { value: 64 },
         ...(fine && {
           uColourFine: { value: fine.texture },
           uFineFade: {
@@ -537,6 +641,19 @@ export function setTerrainPalette(material: ShaderMaterial, palette: ScenePalett
     recipe.fineSamples,
   );
   material.needsUpdate = true;
+}
+
+/**
+ * Lay a rock face on a material's walls, or take it off (F92). A material
+ * with no colour has no walls to lay it on.
+ */
+export function setRockFace(material: ShaderMaterial, face: RockFace | null): void {
+  const u = material.uniforms;
+  if (!u.uRockAlbedo) return;
+  u.uRockAlbedo.value = face?.albedo ?? ROCK_PLACEHOLDER;
+  u.uRockNormal!.value = face?.normal ?? ROCK_PLACEHOLDER;
+  if (face) (u.uRockMean!.value as Vector3).set(...face.entry.meanLinear);
+  (u.uWall!.value as Vector4).w = face ? 1 : 0;
 }
 
 /**

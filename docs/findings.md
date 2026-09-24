@@ -1171,3 +1171,110 @@ capture resolved ±6 ms. Two paired runs, fine colour on and off, differed
 by less than that with no consistent sign. The shader adds one texture read
 on the tiles that hold a fine layer, which F87 put at a few tenths of a
 millisecond. To be timed at the nine stations with the machine idle.
+
+## F92 — The walls in photographed rock, 24 September 2026
+
+**Why.** The film draws relief six times steeper than the ground's (F14),
+so a slope of 45 degrees stands on screen at 80, with about six times the
+surface its photograph from above covers. Each texel was drawn down the
+wall as a streak, and F91's 10 m colour only sharpened the streaks. Karst
+and Huangshan, whose cameras look at walls, barely changed with F91.
+
+**Detail made in the shader was tried first.** Noise for rock bands,
+stains, joints, ledges and clumps of plants, with relief from its gradient.
+It read as camouflage, then as crackle glaze, then as engraving. Most of a
+wall has no photograph, so its detail has to come from somewhere, and a
+photograph of real rock was chosen over one made up.
+
+**The source.** Poly Haven's scans. Every Poly Haven asset is CC0
+(<https://polyhaven.com/license>, read 24 September 2026): no credit is
+required. They are credited in `NOTICE.md` all the same. Four faces, one
+for each kind of rock the film's walls are. Each scan has its colour,
+normals and height:
+
+| Face | Scan | Across | Scenes |
+| --- | --- | --- | --- |
+| limestone | Marble Cliff 04 | 12.7 m | Three Gorges, Karst, First Bend |
+| granite | Marble Cliff 03 | 5.7 m | Huangshan |
+| dark | Dark Rock 02 | 2.0 m | The Roof, The Wall |
+| sediment | Cliff Side | 1.8 m | Loess, Heaven Lake, Below the Sea |
+
+`make rock` fetches the 2k maps once (28 MB). `pipeline/nineskies/rock.py`
+cuts each face to 1,024 a side: its colour with its height, ranked as a
+percentile, in alpha, and its normals. All four come to 4.0 MB, carried in
+the film's shared files.
+
+**In the shader** (`terrainMaterial.ts`, `rock.ts`):
+- *The photograph's tone, not its streaks.* On steep ground the photograph
+  is read log2 of its stretch mips up, so a texel on a wall is as tall as
+  it is wide. Its tone stays.
+- *The face, mapped on the wall itself.* The face is projected from the
+  two sides a wall can face, in tile coordinates, a whole number of faces
+  to a tile. It meets the next tile's face, and the world's rebase does not
+  move it.
+- *Its size follows the grid.* Seventeen samples, the size of the relief
+  the grid can draw: eight faces to a hero tile, 480 m on the 30 m grids
+  and 1,440 m on the 90 m ones, and 42 to a country tile. First tried at a
+  third of that everywhere, the Tiger Leaping Gorge's 3 km walls came out
+  as a fine, bark-like repeat.
+- *Where the rock shows.* A wall's bareness is its slope's rock band (the
+  palette's, as before), less half of how green its photograph is. There is
+  none where the photograph is far brighter than the rock: that is snow,
+  which at Everest otherwise went dark. Rock shows where the bareness passes
+  0.35, edged by the face's own height, with plants in the lowest sixth of
+  its heights, which are its cracks. The slope leads, so rock comes in faces
+  down the steepest sides. Thresholded by the face's height alone, it came
+  in islands, like cobbles on moss.
+- *Its colour.* The face's colour is divided by its mean, keeps half its
+  hue and is tinted to the palette's rock. Its brightness is read again at
+  a third of the scale, so a wall taller than a face does not show it
+  repeating.
+- *Plants seen from the side* are 30 % greyer and 20 % darker on the
+  steepest ground, where the canopy's shaded interior shows.
+- *Relief* comes from the face's normals: whole on rock, half on plants.
+  It changes the lighting only. The shadow keeps the ground's own normal
+  (F86).
+- *Far off,* where the face's height is under a pixel, the share of rock
+  alone is drawn.
+- *One face is held at a time,* the one the scene's palette names: 11 MB of
+  GPU memory with mips, let go once the next has loaded. A still waits for
+  it.
+
+Two palettes were set when rock was a half-strength veil, and their bands
+now put a face on nearly every wall. Huangshan's band moved from 0.45–0.8
+to 0.6–0.95. Heaven Lake's moved from 0.5–0.85 to 0.65–0.95, and it takes
+the layered sediment face: the dark face's blocky heights, tinted pale,
+made white blocks.
+
+**The stills.** Six were re-taken. Share of each still changed by more
+than 8 levels:
+- **Huangshan (33 %):** grey granite pinnacles with pines on the slopes
+  between, where there was a khaki blur.
+- **Three Gorges (37 %):** limestone cliff bands among the forest.
+- **Karst (35 %):** grey limestone faces down the steep sides of green
+  towers.
+- **First Bend (66 %):** walls of grey rock, where they were smooth dark
+  slopes. The busiest of the six.
+- **Heaven Lake (40 %):** layered rock inside the crater. The outer slopes
+  are the photograph's, greener and yellower than the veil left them.
+- **The Wall (27 %):** mostly sky, since the old still was taken in a window
+  (F89); 6 % of its ground changed. The peaks keep their snow.
+
+Loess, Below the Sea and The Roof changed by under 0.3 % and their stills
+stand. Each scene's look was signed off on its still (D77), so the six
+need signing off again.
+
+**Frame cost: not measured.** Photos, a second Chrome and another
+session's headless Chrome held the GPU. Loess read 4.9 and 7.9 ms against
+its 2.1 ms anchor, and the capture resolved ±4 to ±5 ms. The work added:
+- On wall fragments only: eight texture reads. The colour three times
+  (at the face's scale, a third of it, and blurred) and the normals once,
+  each from two sides.
+- Everywhere else: a derivative and a mip bias.
+- A face's upload once a scene, in its lead-in.
+
+**The film is 94.1 MB**, up 3.9 MB, of the 2 GB D89 allows.
+
+**Next.** Timing at the nine stations with the machine idle. Then detail
+below the grid on the ground that is not wall, where the photograph's texel
+is drawn as it was.

@@ -44,7 +44,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles water package hero colour siting probes hydro rivers sources vectors reference film rails stations scenes release-packs test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero colour rock siting probes hydro rivers sources vectors reference film rails stations scenes release-packs test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -243,6 +243,15 @@ colour: $(PY)
 	$(PIPELINE) -m nineskies.composite fetch
 	$(PIPELINE) -m nineskies.composite build
 	$(PIPELINE) -m nineskies.imagery cut
+
+## The walls' rock (F92): four scanned cliff faces from Poly Haven, CC0,
+## laid on the ground steeper than a photograph from above can show. Fetches
+## their colour, normals and heights once (~28 MB, cached under
+## data/source/polyhaven/) and cuts them to 1,024 a side (~4 MB) into
+## dist-world/china/rock/; run `make scenes` after it to ship them.
+rock: $(PY)
+	$(PIPELINE) -m nineskies.rock fetch
+	$(PIPELINE) -m nineskies.rock cut
 
 ## A pack per scene (plan v2, stage 4): every tile the scene's camera can ask
 ## for and its hero area, into dist-film/ with the files read before them.

@@ -293,6 +293,11 @@ export interface ScenePalette {
    * rock later than a scree slope does.
    */
   readonly rockSlope: readonly [number, number];
+  /**
+   * The photographed rock face laid on its walls (F92), by name in the
+   * world's `rock/index.json`, tinted to `rockSrgb`; null for none.
+   */
+  readonly rockFace: string | null;
   readonly seaSrgb: readonly [number, number, number];
   readonly lakeSrgb: readonly [number, number, number];
   readonly riverSrgb: readonly [number, number, number];
@@ -314,6 +319,7 @@ export const DEFAULT_PALETTE: ScenePalette = {
   snowSrgb: [0.95, 0.95, 0.97],
   snowLineM: 5400,
   rockSlope: [0.35, 0.75],
+  rockFace: null,
   seaSrgb: [0.15, 0.27, 0.38],
   lakeSrgb: [0.2, 0.4, 0.5],
   riverSrgb: [0.42, 0.66, 0.84],

@@ -76,6 +76,20 @@ with other data. Whoever distributes an adaptation carries the notice
 above. The data come without warranty, and a user renounces any claim for
 damages against the European Union and the data's providers.
 
+## The walls' rock — Poly Haven
+
+Where the ground stands steeper than a photograph from above can show, the
+film lays photographed rock over it (`make rock`, F92): four scans from Poly
+Haven, <https://polyhaven.com>, resized, their heights ranked and
+re-encoded into `dist-world/<world>/rock/` and the film's shared files.
+Marble Cliff 03 (<https://polyhaven.com/a/marble_cliff_03>), Marble Cliff 04
+(<https://polyhaven.com/a/marble_cliff_04>) and Dark Rock 02
+(<https://polyhaven.com/a/dark_rock_02>) are by Amal Kumar; Cliff Side
+(<https://polyhaven.com/a/cliff_side>) is photographed by James Ray Cock and
+Dario Barresi and processed by Jenelle van Heerden. Every Poly Haven asset is
+CC0, <https://polyhaven.com/license>: in the public domain, to be used for
+any purpose, credit not required. They are credited all the same.
+
 ## Music and sound
 
 Nine cues, one a scene, and a bed of wind, each licensed or commissioned

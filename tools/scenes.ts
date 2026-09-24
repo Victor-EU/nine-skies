@@ -6,8 +6,9 @@
  * gets, the widest drift off it, the terrain's view disc around every place
  * the camera can stand) and the scene's own hero area, its heights coded
  * like a tile, with its colour and its fine colour (F87, F91). Beside the packs it copies the few small files the film reads
- * before any pack - the world's manifest, its tile index, the horizon field
- * and the hero manifests - so `dist-film/` is everything a static host needs.
+ * before any pack - the world's manifest, its tile index, the horizon field,
+ * the hero manifests and the walls' rock faces (F92) - so `dist-film/` is
+ * everything a static host needs.
  *
  * The index of what each pack holds is committed (`app/public/packs/index.json`):
  * the app reads it to know which pack a tile is in, and `test/film/packs.test.ts`
@@ -29,6 +30,7 @@ import type { TileIndex } from "../engine/src/terrain/tileStream.js";
 import type { WorldManifest } from "../engine/src/terrain/tileSource.js";
 import { colourProblem, type ColourIndex } from "../engine/src/terrain/colour.js";
 import { colourFile } from "../engine/src/film/pack.js";
+import { rockProblem, type RockIndex } from "../engine/src/terrain/rock.js";
 import { formatProblems, loadFilm } from "./film.ts";
 
 /**
@@ -96,6 +98,17 @@ for (const dir of HERO_DIRS) {
   shared.push(`${dir}/index.json`, ...json<HeroIndex>(path).areas.map((a) => `${dir}/${a.file}`));
 }
 if (colour) shared.push("colour/index.json");
+// The walls' rock (F92): every face, since each scene's palette names one and they are 1 MB each.
+const rockIndexPath = `${WORLD_DIR}/rock/index.json`;
+const rock = existsSync(rockIndexPath) ? json<RockIndex>(rockIndexPath) : null;
+if (rock) {
+  const problem = rockProblem(rock);
+  if (problem) {
+    console.error(`${rockIndexPath}: ${problem}`);
+    process.exit(1);
+  }
+  shared.push("rock/index.json", ...rock.rocks.flatMap((r) => [`rock/${r.albedo}`, `rock/${r.normal}`]));
+}
 let sharedBytes = 0;
 for (const file of shared) {
   const to = join(OUT, "world", WORLD, file);

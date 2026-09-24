@@ -48,6 +48,8 @@ export interface PalettePreset {
   readonly snowLine?: number | "latitude";
   /** The slope band over which ground turns to rock; see `ScenePalette.rockSlope`. */
   readonly rockSlope?: readonly [number, number];
+  /** The rock face its walls are laid with; see `ScenePalette.rockFace`. */
+  readonly face?: string;
   readonly sea?: Rgb;
   readonly lake?: Rgb;
   readonly river?: Rgb;
@@ -114,18 +116,20 @@ export const SKY_PRESETS: Readonly<Record<string, SkyPreset>> = {
 export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
   default: {},
   "granite-pine": {
+    face: "granite",
     stops: { plain: [0.24, 0.36, 0.23], farmland: [0.28, 0.38, 0.24], loess: [0.34, 0.4, 0.28], highDry: [0.42, 0.42, 0.36] },
     rock: [0.54, 0.52, 0.5],
-    rockSlope: [0.45, 0.8],
+    rockSlope: [0.6, 0.95],
     river: [0.4, 0.55, 0.58],
   },
   // August: the Xilingol steppe and Changbai's forest are green, the tundra
   // above the trees olive, the crater's rim pale grey trachyte and pumice,
   // and the lake the blue-green of deep cold water (F83).
   "grassland-volcano": {
+    face: "sediment",
     stops: { plain: [0.27, 0.38, 0.22], farmland: [0.33, 0.42, 0.25], loess: [0.43, 0.47, 0.31], highDry: [0.49, 0.5, 0.4], plateau: [0.64, 0.64, 0.62] },
     rock: [0.56, 0.56, 0.55],
-    rockSlope: [0.5, 0.85],
+    rockSlope: [0.65, 0.95],
     lake: [0.14, 0.46, 0.58],
   },
   "delta-grey-green": {
@@ -134,24 +138,28 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     river: [0.55, 0.62, 0.62],
   },
   "limestone-green": {
+    face: "limestone",
     stops: { plain: [0.28, 0.4, 0.24], farmland: [0.35, 0.44, 0.27], loess: [0.46, 0.48, 0.31], highDry: [0.52, 0.48, 0.38] },
     rock: [0.56, 0.53, 0.49],
     rockSlope: [0.55, 0.9],
     river: [0.35, 0.55, 0.55],
   },
   "jade-limestone": {
+    face: "limestone",
     stops: { plain: [0.3, 0.46, 0.26], farmland: [0.38, 0.5, 0.29], loess: [0.46, 0.52, 0.31] },
     rock: [0.52, 0.51, 0.46],
     rockSlope: [0.62, 0.95],
     river: [0.4, 0.62, 0.58],
   },
   "snow-and-scree": {
+    face: "limestone",
     stops: { loess: [0.5, 0.5, 0.33], highDry: [0.5, 0.45, 0.38], plateau: [0.58, 0.55, 0.5] },
     rock: [0.42, 0.38, 0.35],
     snowLine: 4900,
     river: [0.45, 0.6, 0.66],
   },
   "loess-ochre": {
+    face: "sediment",
     stops: { farmland: [0.6, 0.5, 0.3], loess: [0.72, 0.58, 0.32], highDry: [0.68, 0.56, 0.4] },
     rock: [0.55, 0.45, 0.35],
     river: [0.7, 0.6, 0.4],
@@ -162,6 +170,7 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     rock: [0.45, 0.4, 0.36],
   },
   "dune-orange": {
+    face: "sediment",
     stops: {
       saltPan: [0.85, 0.82, 0.75],
       plain: [0.72, 0.6, 0.42],
@@ -173,11 +182,13 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     lake: [0.3, 0.45, 0.5],
   },
   "plateau-tan-turquoise": {
+    face: "dark",
     stops: { highDry: [0.6, 0.55, 0.42], plateau: [0.66, 0.6, 0.48], alpine: [0.72, 0.7, 0.66] },
     lake: [0.15, 0.55, 0.62],
     snowLine: 5600,
   },
   "snow-rock": {
+    face: "dark",
     stops: { plateau: [0.55, 0.5, 0.45], alpine: [0.6, 0.58, 0.56] },
     rock: [0.32, 0.3, 0.3],
     snow: [0.97, 0.97, 1.0],
@@ -251,6 +262,7 @@ export function scenePalette(preset: PalettePreset, latDeg: number): ScenePalett
     snowSrgb: preset.snow ?? DEFAULT_PALETTE.snowSrgb,
     snowLineM: snowLine === "latitude" ? snowLineForLatitude(latDeg) : snowLine,
     rockSlope: preset.rockSlope ?? DEFAULT_PALETTE.rockSlope,
+    rockFace: preset.face ?? DEFAULT_PALETTE.rockFace,
     seaSrgb: preset.sea ?? DEFAULT_PALETTE.seaSrgb,
     lakeSrgb: preset.lake ?? DEFAULT_PALETTE.lakeSrgb,
     riverSrgb: preset.river ?? DEFAULT_PALETTE.riverSrgb,
