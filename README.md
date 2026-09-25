@@ -58,9 +58,12 @@ In the dev server the console has `__ns`: `__ns.hold(i, seconds)` holds a
 scene, `await __ns.settled()` waits for its ground to land,
 `await __ns.still(name, 1280, 720)` writes a still to
 `docs/stills/`, and `__ns.frameCost()` asks the GPU what a frame costs.
-`npm run cover` draws the cover, the nine stills as nine cards, from
+`npm run cover` draws the cover, the nine scenes as nine cards, from
 `tools/cover.html` with a headless Chrome: `app/public/cover.png`, and the
-postcards in `docs/cover-postcards.png`.
+postcards in `docs/cover-postcards.png`. Seven cards are the stills; Huangshan
+and the Wall, whose stills do not hold up that small, are the cover's own
+frames in `docs/cover/`, taken again with `npm run cover -- frames` while the
+dev server runs.
 `?frametime` shows the frame time by wall clock, for a phone.
 
 ## What the repository holds
