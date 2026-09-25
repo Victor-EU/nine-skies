@@ -91,9 +91,14 @@ MAX_ITEM_CLOUD = 70
 #: The hero areas composited: the ones the 2016 mosaic leaves most cloud in.
 SOUTH = ("tiger-leaping-gorge", "three-gorges", "guilin", "huangshan")
 #: And Everest's, whose mosaic was cut from winter's clear passes, with the
-#: low sun's shadows black on its north faces (F98). It takes the tone line
-#: fitted over the south's four rather than joining the fit.
-COMPOSITED = (*SOUTH, "everest")
+#: low sun's shadows black on its north faces (F98); and Changbai's, whose
+#: crater the mosaic had under cloud and filled with a blur (F99). They take
+#: the tone line fitted over the south's four rather than joining the fit.
+COMPOSITED = (*SOUTH, "everest", "changbai")
+#: The months an area's passes are taken from, where not every month a high
+#: sun allows. Changbai's crater keeps its snow, and its lake its ice, into
+#: June, and April and May would lay both on the scene's August (F99).
+MONTHS = {"changbai": (6, 7, 8)}
 #: Metres a pixel the source is read at: the true colour's own 10 m, which the
 #: finest colour tiles are cut at (`imagery.FINE_CELLS`).
 READ_M = 10
@@ -339,7 +344,10 @@ def choose(area: imagery.Area, items: list[dict]) -> list[dict]:
     """The passes read over an area: each MGRS tile's clearest (`select`).
     Over the southern rails' sub-tiles, each tile's from each orbit that
     sees it, as the country's are (F90): taken by tile alone, a strip only
-    the other orbit sees was left with a view or two (F95)."""
+    the other orbit sees was left with a view or two (F95). Only from the
+    area's `MONTHS`, where it has them."""
+    if area.key in MONTHS:
+        items = [i for i in items if int(i["datetime"][5:7]) in MONTHS[area.key]]
     if area.lattice != NEAR:
         return select(items, PER_TILE)
     by_orbit: dict[str, list[dict]] = {}

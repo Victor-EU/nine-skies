@@ -246,7 +246,8 @@ stations:
 ## the archive's too, where the mosaic's clear passes are winter's and every
 ## north face is in shadow (F98): Everest's hero area (200 passes, ~1.3 GB),
 ## the Wall's country tiles (3,209 at 160 m, ~3 GB) and its rail at 10 m
-## (816, ~20 GB).
+## (816, ~20 GB). So is Changbai's, whose crater the mosaic had under cloud,
+## from June to August's passes alone, after the snow (F99: 100, ~2 GB).
 ## Needs a world, its hero areas and the pack index; run `make scenes` after
 ## it to pack the colour.
 colour: $(PY)

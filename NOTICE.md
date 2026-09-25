@@ -57,7 +57,7 @@ film's Albers grid, cloud flecks filled from the ground around them, and
 re-encoded as WebP. Later years of the mosaic are CC BY-NC-SA 4.0 and are
 not used (F87).
 
-## The south's and the Wall's colour — Copernicus Sentinel-2
+## The south's, the Wall's and Heaven Lake's colour — Copernicus Sentinel-2
 
 Where that mosaic is most cloud, the south is coloured from the Sentinel-2
 archive instead: four hero areas (Tiger Leaping Gorge, the Three Gorges,
@@ -65,7 +65,9 @@ Guilin and Huangshan), the country tiles of their four scenes, and the
 ground along those scenes' rails at 10 m (F95). So is the Wall, where the
 mosaic was cut from winter's passes with every north face in shadow:
 Everest's hero area, the Wall's country tiles, 95 of them the Roof's too,
-and the ground along its rail and the Roof's on those tiles (F98). Their
+and the ground along its rail and the Roof's on those tiles (F98). So is
+Changbai's hero area, round Heaven Lake, whose crater the mosaic had under
+cloud (F99). Their
 colour tiles in `dist-world/<world>/colour/`, the scene packs that carry
 them and the stills rendered from them are the median of the clear views of
 Sentinel-2 Level-2A passes from 2018 to 2025, reprojected, toned to match

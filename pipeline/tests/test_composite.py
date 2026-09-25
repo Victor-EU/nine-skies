@@ -54,6 +54,13 @@ class TestChoosing(unittest.TestCase):
         self.assertEqual(len(chosen), 8)
         self.assertFalse({"murk", "winter"} & {i["id"] for i in chosen})
 
+    def test_changbai_is_read_after_the_melt(self):
+        items = [item(f"m{m}", m, 0.9) for m in range(4, 9)]
+        area = lambda key: imagery.Area(key=key, lattice="hero", tile_m=11_520, tx0=0, ty0=0, tiles_x=1, tiles_y=1)
+        self.assertEqual([i["id"] for i in composite.choose(area("changbai"), items)], ["m6", "m7", "m8"])
+        # Everywhere else, every month a high sun allows.
+        self.assertEqual(len(composite.choose(area("everest"), items)), 5)
+
 
 @unittest.skipUnless(HAVE_NUMPY and HAVE_RASTERIO, "numpy and rasterio")
 class TestTheGrid(unittest.TestCase):

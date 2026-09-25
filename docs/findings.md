@@ -1954,3 +1954,73 @@ colour compresses less well than the mosaic's.
 
 **Next.** Where else the mosaic's winter bakes north faces black: the
 Roof's plateau beyond the Wall's tiles, Heaven Lake's crater.
+
+## F99 — Heaven Lake's crater from the summers after the melt, 25 September 2026
+
+**Why.** Asked to check the Roof and Heaven Lake for the winter shadows F98
+took off the Wall, measured on the colour as shipped: steep north faces
+against steep south faces, on the relief's own GLO-30 normals (F93, F94).
+Calibrated on the Wall's ground, where both are to hand, north faces darker
+than all but a tenth of south faces are a tenth of them where the light was
+high (the archive, 7 %) and a fifth where it was winter's (the mosaic,
+17 to 19 %). By stretch of rail:
+
+| Ground | North faces over south | Light |
+| --- | ---: | --- |
+| The Roof, Qinghai Lake to Madoi (0-43 s) | 0.72 | low: winter to spring |
+| The Roof, east of the Hoh Xil (80-103 s) | 0.79 | low |
+| The Roof, Tuotuohe to Nagqu (130-195 s) | 0.96 | high, snow on the north faces |
+| The Roof, Namtso to Lhasa (195-237 s) | 1.17 | the archive's since F98 |
+| Heaven Lake, round the volcano | 0.85-0.86 | high: summer |
+
+A summer mid-morning sun leaves a north face of 25 to 35° about 0.89 as
+bright as a south one; an equinox one about half, a winter one a third,
+with the sky's light. Heaven Lake has no winter
+shadows. The Roof's two low-sun stretches are brown, not black: the ground
+is dry and holds no snow, and the shaded faces are dark earth. On screen,
+such shading is hills striped light and dark across the scene's own light,
+which is ahead in the west; the Roof's still, at 60 s just past the first
+stretch, has it mildly. Not changed here (Next).
+
+**What the check found at Heaven Lake instead.** The mosaic had the crater
+under cloud, and the cut filled it from the ground round it (F87): the
+inner walls, and the south half of the lake, were a smear, and they are
+what the camera looks down on from 90 s. The water layer draws the lake
+over its half, but not the walls.
+
+**So Changbai's hero area is the archive's,** as F98 did Everest's:
+- *June to August only* (`composite.MONTHS`). A high sun at 42° N allows
+  April to August, but the crater's clear views are snow in 95 % of April's
+  and 58 % of May's, 4 % of June's and none after, and its lake is ice.
+  Every allowed month laid gullies of snow over the flanks and a grey ice
+  lake on the scene's August; the three months after the melt leave the
+  lake dark and the rim bare.
+- 100 passes, 50 from each of two Sentinel-2 tiles, 2.1 GB read at 10 m
+  (and 0.9 GB of April and May's, read to compare); 33 clear views a pixel
+  at the median, 0.07 % filled.
+- It takes the tone line fitted over the south's four and does not join
+  the fit: tone.json is unchanged.
+- *`make colour` composites it too* (`COMPOSITED`), and the notice says so.
+
+**What it looks like.** The crater is its own: the rim's pale pumice, grey
+and buff, the lake whole, forest to the rim's foot. The wall reads cream in
+the evening sun it faces; measured, it is a grey-buff of about 130 (sRGB),
+where the mosaic's smear was 100 and yellower, and four fifths of it is
+dark enough that the scene's rock face stays laid on it (F92). The flanks
+are a brighter green than the mosaic's olive, which was its haze.
+
+**The stills.** One changed, by more than 8 levels: Heaven Lake's, at
+108 s over the crater, by 76.7 %. The other eight are as they were, to the
+level. The cover's Heaven Lake card is that still, and the cover and the
+postcards are drawn again. Signed off (D77): the crater walls the rim's own
+pale pumice round a whole, dark lake, and the slopes below a brighter
+summer green than the mosaic's olive.
+
+**The film is 1,062.5 MB**, up 0.7 MB: Heaven Lake's pack 149.6 to
+150.4 MB, its hero area's 10 m colour 0.9 to 1.7 MB.
+
+**Next.**
+- *The Roof's first 43 s and 80-103 s,* from the archive as F98 did the
+  Wall: 86 sub-tiles along the rail and about 40 country tiles near it,
+  some 17 GB at the Wall's rate. Its gold would go greener: the archive's
+  months there are April to August, the mosaic's dry season's.
