@@ -45,7 +45,7 @@ CORRIDOR=china` runs them (about six minutes once the source is fetched).
 Then:
 
 ```bash
-make colour    # the ground's colour: the 2016 Sentinel-2 mosaic, the archive's median in the south, and 10 m along the rails (fetches ~52 GB once, after `make scenes`)
+make colour    # the ground's colour: the 2016 Sentinel-2 mosaic, the archive's median in the south, and 10 m along the rails (fetches ~80 GB once, after `make scenes`)
 make rock      # the walls' rock: four scanned cliff faces from Poly Haven, CC0 (fetches ~28 MB once)
 make relief    # the ground's relief below its grid, and at 31 m along the rails, from the GLO-30 already on disk (after `make scenes`)
 make scenes    # a pack per scene into dist-film/, 1,030.3 MB
@@ -64,7 +64,9 @@ postcards in `docs/cover-postcards.png`. Seven cards are the stills; Huangshan
 and the Wall, whose stills do not hold up that small, are the cover's own
 frames in `docs/cover/`, taken again with `npm run cover -- frames` while the
 dev server runs.
-`?frametime` shows the frame time by wall clock, for a phone.
+`?frametime` shows the frame time by wall clock, for a phone, and
+`?without=fine,near,rock,relief` flies without those layers, to measure
+what each costs.
 
 ## What the repository holds
 

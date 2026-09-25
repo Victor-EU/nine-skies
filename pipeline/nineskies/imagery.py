@@ -98,10 +98,17 @@ EARTH_RADIUS_M = 6378137.0
 HALF_WORLD_M = math.pi * EARTH_RADIUS_M
 SOURCE_TILE_PX = 256
 
-#: The mosaic's zoom for each lattice: its pixel a little finer than half a
-#: colour sample at China's latitudes, so the reprojection averages rather
-#: than invents. Zoom 10 is 132 m at 30 N; 13 is 16.5 m; 14 is 8.3 m.
-ZOOM_FOR_TILE_M = {64_000: 10, 11_520: 13, 3_840: 14}
+#: The mosaic's zoom for each lattice: its pixel finer than half a colour
+#: sample at China's latitudes, so the reprojection averages rather than
+#: invents. Zoom 12 is 33 m at 30 N; 13 is 16.5 m; 14 is 8.3 m.
+#:
+#: The country's was zoom 10 (132 m) until F96. EOX's zooms 10 and 11 are
+#: not where its 12 to 14 are, nor where the ground is: up to 120 m off,
+#: by different amounts from place to place, and their content is not
+#: zoom 14's averaged. Zooms 12 to 14 agree with each other to half a level
+#: and with GLO-30's hillshade where they lie, so zoom 12 is the coarsest
+#: the ground can be cut from.
+ZOOM_FOR_TILE_M = {64_000: 12, 11_520: 13, 3_840: 14}
 
 #: A hero tile's finest colour, cells a side (F91): 10 m, Sentinel-2's own,
 #: drawn over the tiles nearest the camera. Its broad tone is the colour

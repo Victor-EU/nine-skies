@@ -129,6 +129,21 @@ export async function decodeColourImage(bytes: Uint8Array): Promise<ColourImage>
   return { width: bitmap.width, height: bitmap.height, source: bitmap, close: () => bitmap.close() };
 }
 
+/**
+ * The index less the finer layers named: `fine`, the hero tiles' 10 m (F91);
+ * `near`, the country's along the rails (F95). What a frame costs without
+ * them is measured by flying so (`?without=`, F96).
+ */
+export function withoutFine(index: ColourIndex, without: ReadonlySet<string>): ColourIndex {
+  const { fine, near, ...rest } = index;
+  const kept = Object.entries(fine ?? {}).filter(([lattice]) => !without.has(lattice === "near" ? "near" : "fine"));
+  return {
+    ...rest,
+    ...(kept.length > 0 && { fine: Object.fromEntries(kept) }),
+    ...(near && !without.has("near") && { near }),
+  };
+}
+
 export async function loadColourIndex(url: string, fetch: FetchBytes = fetchBytes): Promise<ColourIndex | null> {
   try {
     const index = JSON.parse(new TextDecoder().decode(await fetch(url))) as ColourIndex;

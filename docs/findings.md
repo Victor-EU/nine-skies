@@ -1655,6 +1655,109 @@ detail further out. The southern stations' terrain, at 5.7 to 6.3 ms,
 wants its share found among F91's fine colour, F92's walls and F93's
 relief.
 
+## F96 — The country's colour where the ground is, and what the southern frame costs, 25 September 2026
+
+**Why.** F95 found EOX's zoom-10 tiles, which every country tile was cut
+from, sitting up to 120 m off the ground in places. So the country's colour
+was half a 250 m sample away from its own relief and from the 10 m colour
+along the rails. And F95 left the southern stations' terrain at 6 ms of
+the 8 it has, up 2 to 2.7 ms on F87, without knowing which layers cost it.
+
+**Which zoom is where the ground is.** Thirteen sub-tiles along the
+northern rails (the Loess, Heaven Lake, Below the Sea, the Roof, the Wall),
+each read at zooms 10 to 14. Each was correlated against a hillshade of
+GLO-30 on the same ground, and compared with zoom 14 averaged to 250 m, at
+shifts of up to 240 m.
+- *Zooms 12, 13 and 14* agree with each other to 0.3 to 0.6 of a level at
+  no shift, at all thirteen. Where the ground has relief enough to tell,
+  all three match the hillshade best where they lie.
+- *Zooms 10 and 11* do not. Against zoom 14 they are 1 to 10 levels off,
+  worst on the Roof. At several sites they fit best 40 to 120 m away, and
+  are still 1 to 5 levels off there, so their content differs as well as
+  their place. EOX's coarse zooms are evidently not its fine ones averaged.
+- *The tone is the same.* Zoom 12 is 0.45 of a level darker than zoom 10,
+  alike everywhere, so F87's grade stands.
+
+So the country is cut from zoom 12 (33 m at 30° N, eight pixels to a
+sample), the coarsest zoom that lies where the ground is. The hero areas
+were already at 13 and 14. That is 148,312 tiles, 2.4 GB, fetched once at
+the service's six a second: seven hours.
+
+**What changed.** The whole colour was cut again, in 25 minutes:
+- *Country tiles.* 1,700 of the 2,178 changed, 416 of them the archive's
+  (F90, F98) in the mosaic their edges fall back on. Where the archive
+  sees a tile whole, the mosaic never shows, so the four southern packs
+  came out byte for byte the same.
+- *Hero areas.* Unchanged, Everest's new composite (F98) included.
+- *Sub-tiles along the rails.* 170 of the 1,056 changed. Their detail was
+  always zoom 14's, and a sub-tile takes from its country tile only what
+  that tile did to its source, which differs only where cloud was filled.
+  What changed is what they fade into: the country tile now lies where
+  their detail does, so the fade 10 to 16 km out no longer moves anything
+  (F95).
+- *Three tiles of open sea* off Vladivostok, at the edge of Heaven Lake's
+  view, have no colour now. Zoom 10 had a sliver of coast in each (1 to
+  10 %), filled across the tile; zoom 12 has nothing there. They fly in the
+  palette, as the 18 of open sea round them always have.
+
+**What the southern frame costs.** The layers since F87 that draw on
+hero ground were timed by their absence. `?without=fine,near,rock,relief`
+loads the film without the named layers, and the shader is compiled
+without them. Each configuration was captured five or six times,
+interleaved, at 1920 × 1080. The captures came from a separate checkout at
+30d68c2, so another session's work in progress (F97) was not in them.
+Medians of terrain ms, and what removing each layer saves:
+
+| | Three Gorges | Karst | First Bend |
+| --- | ---: | ---: | ---: |
+| Everything | 6.21 | 6.39 | 6.00 |
+| without F92's rock | 5.02 (1.2) | 5.72 (0.7) | 5.42 (0.6) |
+| without F91's fine colour | 5.78 (0.4) | 5.14 (1.3) | 6.36 (−0.4) |
+| without F93's relief | 6.49 (−0.3) | 6.73 (−0.3) | 7.20 (−1.2) |
+| without all three | 4.30 (1.9) | 5.56 (0.8) | 4.51 (1.5) |
+
+- *The walls' rock* is the one layer that costs everywhere: 0.6 to 1.2 ms.
+  A wall's fragment reads its face some ten times.
+- *The fine colour* costs most at Karst, where Guilin's 30 m pool holds 40
+  layers. Elsewhere it is within the noise.
+- *The relief* costs nothing these captures can see.
+- *Together* the three are 0.8 to 1.9 ms. Without them the terrain is
+  still 4.3 to 5.6 ms, 0.7 to 1 ms above F87. That is older than these
+  layers, or the instrument's drift from day to day: the Loess read 2.2 ms
+  one night and 2.8 the next morning.
+
+*The instrument is the limit.* The `clear` pass, the same work at every
+station, resolved to 0.1 to 0.3 ms with 80 samples. The terrain moved 1 to
+2 ms between rounds with nothing changed: Karst with everything on read
+7.71, 6.59 and 5.59. The M3's GPU sets its own clock, so single
+differences under a millisecond are not measurements, and the table's are
+medians. Huangshan was left out: its captures are never whole, and its
+`clear` reads 2 to 8 ms.
+
+The capture was refused, at 13 to 19 Hz, whenever anything else drew.
+That included this session's own window redrawing between captures, and
+the display after 90 idle minutes. The table's captures were taken with
+the display held awake and nothing else drawing.
+
+**The stills.** Two changed. Share of each still changed by more than 8
+levels:
+
+| Still | Changed | What changed |
+| --- | ---: | --- |
+| The Roof | 13.9 % | The middle distance's pale and dark patches move onto the hills they belong to. |
+| Below the Sea | 2.2 % | The far plain's colour, a little. |
+
+The other seven changed by 0.4 % at most and stand. Frame cost was not
+timed again: the layers and their sizes are as they were.
+
+**The film is 1,061.8 MB**, up 1.7 MB: the five northern packs each about
+0.4 MB. The southern four are unchanged.
+
+**Next.** The walls' rock is the southern frame's largest optional cost.
+It could read its face fewer times a fragment, or only near the camera.
+The base terrain's 4.3 to 5.6 ms is the rest of the budget, and F97's 500 m
+level adds 0.7 to 0.9 ms to it at Karst and the Three Gorges.
+
 ## F97 — The Wall as mountains: the country finer than its samples, the curtain lit, and a drama of three, 25 September 2026
 
 **Why.** Three things were wrong with the Wall, found making the cover:

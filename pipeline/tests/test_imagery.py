@@ -133,8 +133,11 @@ class TestTheSource(unittest.TestCase):
         self.assertLessEqual(y0 * 256, py.min())
         self.assertGreaterEqual(x1 * 256, px.max())
         self.assertGreaterEqual(y1 * 256, py.max())
-        # A 64 km tile at zoom 10 is a few mosaic tiles a side, not dozens.
-        self.assertLessEqual((x1 - x0) * (y1 - y0), 25)
+        # A 64 km tile at zoom 12 is about nine mosaic tiles a side, not dozens.
+        self.assertLessEqual((x1 - x0) * (y1 - y0), 100)
+        # And not below zoom 12, where EOX's tiles are not where the ground is (F96).
+        self.assertEqual(area.zoom, 12)
+        self.assertTrue(all(z >= 12 for z in imagery.ZOOM_FOR_TILE_M.values()))
 
     def test_a_tile_encodes_and_decodes(self):
         from rasterio.io import MemoryFile

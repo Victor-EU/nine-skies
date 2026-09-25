@@ -19,7 +19,7 @@ import { DEFAULT_HAZE_DENSITY_PER_M, HAZE_SCALE_HEIGHT_M } from "../../engine/sr
 import { LookRig } from "../../engine/src/look/look.js";
 import { SyntheticTileSource, loadWorld, type LoadedWorld } from "../../engine/src/terrain/tileSource.js";
 import { StreamingTileSource } from "../../engine/src/terrain/tileStream.js";
-import { ColourSource, loadColourIndex } from "../../engine/src/terrain/colour.js";
+import { ColourSource, loadColourIndex, withoutFine } from "../../engine/src/terrain/colour.js";
 import { RockFaces, loadRockIndex } from "../../engine/src/terrain/rock.js";
 import { ReliefSource, loadReliefIndex } from "../../engine/src/terrain/relief.js";
 import { loadHeroCovers, type HeroCover } from "../../engine/src/terrain/heroSource.js";
@@ -128,17 +128,23 @@ if (world) {
     console.error("hero cover failed to load; flying the country grid alone", error);
   }
 }
+// `?without=fine,near,rock,relief` flies without those layers, the shader's
+// code for them and all, so what each costs a frame can be measured by its
+// absence (F96): the hero tiles' 10 m colour (F91), the country's along the
+// rails (F95), the walls' rock (F92), the relief (F93, F94).
+const without = new Set((query.get("without") ?? "").split(",").filter(Boolean));
 // The ground's colour (F87): the satellite mosaic cut onto every tile the
 // film can see. Its files come with the scene packs; without packs, one at a time.
-const colourIndex = world ? await loadColourIndex(`/world/${worldName}/colour/index.json`) : null;
+const loadedColour = world ? await loadColourIndex(`/world/${worldName}/colour/index.json`) : null;
+const colourIndex = loadedColour && withoutFine(loadedColour, without);
 const colour = colourIndex
   ? new ColourSource(colourIndex, `/world/${worldName}/colour/files`, packs?.fetchTile)
   : null;
 // The walls' rock (F92): photographed faces, one loaded for each scene's palette.
-const rockIndex = world ? await loadRockIndex(`/world/${worldName}/rock/index.json`) : null;
+const rockIndex = world && !without.has("rock") ? await loadRockIndex(`/world/${worldName}/rock/index.json`) : null;
 const rock = rockIndex ? new RockFaces(rockIndex, `/world/${worldName}/rock`) : null;
 // The ground's relief below its grid (F93), from the source's 30 m, lighting the tiles nearest the camera.
-const reliefIndex = world ? await loadReliefIndex(`/world/${worldName}/relief/index.json`) : null;
+const reliefIndex = world && !without.has("relief") ? await loadReliefIndex(`/world/${worldName}/relief/index.json`) : null;
 const relief = reliefIndex ? new ReliefSource(reliefIndex, `/world/${worldName}/relief/files`, packs?.fetchTile) : null;
 if (!world && film)
   notice(

@@ -13,6 +13,7 @@ import {
   ColourSource,
   NO_COLOUR,
   colourProblem,
+  withoutFine,
   type ColourAnswer,
   type ColourImage,
   type ColourIndex,
@@ -469,6 +470,18 @@ describe("the country's near colour (F95)", () => {
     expect(country.material.vertexShader).toContain("iNearColour");
     terrain.setScale({ ...DEFAULT_SCALE, horizontalCompression: 4 });
     expect(u.uColourNearFade!.value.x).toBeCloseTo(FINE_REACH.near!.fullM / 4);
+  });
+
+  it("can be left out, and the hero tiles' fine colour apart from it, to measure what each costs", () => {
+    const both = { ...withNear, fine: { ...withNear.fine, hero: { cells: 1152, samples: FINE } } };
+    expect(withoutFine(both, new Set())).toEqual(both);
+    const noNear = withoutFine(both, new Set(["near"]));
+    expect(noNear.near).toBeUndefined();
+    expect(Object.keys(noNear.fine!)).toEqual(["hero"]);
+    const noFine = withoutFine(both, new Set(["fine"]));
+    expect(Object.keys(noFine.fine!)).toEqual(["near"]);
+    expect(noFine.near).toEqual(withNear.near);
+    expect(withoutFine(both, new Set(["fine", "near"])).fine).toBeUndefined();
   });
 
   it("is not compiled in where the index has none", () => {
