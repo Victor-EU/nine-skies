@@ -47,6 +47,16 @@ wide; each tile's passes are the catalogue's least cloudy under a high
 sun, a month at a time, and the median is taken on the tile's own grid.
 The rest of the country keeps the mosaic.
 
+**Along the southern rails** (F95). The country's sub-tiles along the
+rails are coloured at 10 m (`imagery.cut_near`). In the south their
+country tiles are the archive's at 160 m, so their 10 m is the archive's
+too: a median like a hero area's, over the rectangle of sub-tiles each
+country tile holds (`near_areas`), from fewer passes (`NEAR_PER_TILE`),
+since only its detail is kept, laid onto the country tile's colour. The
+passes are chosen by tile and orbit, as the country's are, and a rectangle
+across the edge of a UTM zone has a median in each zone (`choose`,
+`zones`).
+
 **No light is taken off.** Under a high sun what is left on the slopes is
 what grows on them: steep forested slopes turned toward the satellite's sun
 are darker, not lighter, than those turned away (the gorge walls keep their
@@ -85,6 +95,12 @@ SOUTH = ("tiger-leaping-gorge", "three-gorges", "guilin", "huangshan")
 READ_M = 10
 #: Passes read per MGRS tile.
 PER_TILE = 50
+#: For the southern rails' sub-tiles (F95), from each orbit that sees a
+#: tile, whose broad tone is the country tile's and only their detail the
+#: median's: enough views to outvote what the classifier misses.
+NEAR_PER_TILE = 16
+#: The key that names them all on the command line.
+NEAR = "near"
 #: A pass that sees less of the area than this clear is not read.
 MIN_CLEAR = 0.3
 #: Nor one with the sun lower than this: its shadows are baked in.
@@ -315,6 +331,32 @@ def catalogue(area: imagery.Area, workers: int = 16, root: Path | None = None) -
     return [{**i, **probes[i["id"]]} for i in items]
 
 
+def choose(area: imagery.Area, items: list[dict]) -> list[dict]:
+    """The passes read over an area: each MGRS tile's clearest (`select`).
+    Over the southern rails' sub-tiles, each tile's from each orbit that
+    sees it, as the country's are (F90): taken by tile alone, a strip only
+    the other orbit sees was left with a view or two (F95)."""
+    if area.lattice != NEAR:
+        return select(items, PER_TILE)
+    by_orbit: dict[str, list[dict]] = {}
+    for item in items:
+        by_orbit.setdefault(str(item.get("orbit")), []).append(item)
+    return sorted((i for orbit in sorted(by_orbit) for i in select(by_orbit[orbit], NEAR_PER_TILE)), key=lambda i: i["id"])
+
+
+def zones(area: imagery.Area, chosen: list[dict]) -> list[tuple[int, str]]:
+    """Each UTM zone a median is taken in, and the key it is kept under:
+    the zone most of the passes are in, under the area's own key. Over the
+    southern rails' sub-tiles, each other zone too, under the key and the
+    zone's code (F95): a rectangle across the edge of a zone would otherwise
+    leave what lies past it unseen. A hero area passes them over."""
+    main = area_epsg(chosen)
+    out = [(main, area.key)]
+    if area.lattice == NEAR:
+        out += [(z, f"{area.key}-{z}") for z in sorted({i["epsg"] for i in chosen} - {main})]
+    return out
+
+
 def select(items: list[dict], per_tile: int, min_clear: float = MIN_CLEAR, min_sun: float = MIN_SUN_DEG) -> list[dict]:
     """Each MGRS tile's clearest passes under a high sun, taken a month at a
     time: each month's clearest, then each month's second, and so on."""
@@ -417,16 +459,18 @@ def fetch(area: imagery.Area, workers: int = 8, root: Path | None = None) -> dic
 
     items = catalogue(area, root=root)
     res = READ_M
-    chosen = select(items, PER_TILE)
-    g = utm_grid(area, area_epsg(chosen), res)
-    todo = [i for i in chosen if not window_path(area.key, i["id"], root).exists()]
+    chosen = choose(area, items)
+    if not chosen:
+        return {"area": area.key, "chosen": 0, "read": 0, "bytes": 0}
+    grids = {z: utm_grid(area, z, res) for z, _key in zones(area, chosen)}
+    todo = [i for i in chosen if i["epsg"] in grids and not window_path(area.key, i["id"], root).exists()]
     print(f"  {area.key}: {len(chosen)} passes chosen of {len(items)}, {len(todo)} to read at {res} m", flush=True)
     started, done, written = time.monotonic(), 0, 0
 
     def one(item: dict) -> int:
         for attempt in range(4):
             try:
-                return fetch_item(area, g, item, root)
+                return fetch_item(area, grids[item["epsg"]], item, root)
             except Exception as error:  # noqa: BLE001 - the network, retried
                 if attempt == 3:
                     print(f"    gave up on {item['id']}: {error}", flush=True)
@@ -466,16 +510,26 @@ def median_of(stack: np.ndarray, count: np.ndarray) -> np.ndarray:
 
 def build(area: imagery.Area, root: Path | None = None, strip: int = 256) -> Path | None:
     """The median of the area's clear views, on its UTM grid, with the
-    number of views behind each pixel as a fourth band."""
+    number of views behind each pixel as a fourth band; and over the
+    southern rails' sub-tiles, one in each other zone its passes are in
+    (`zones`). Returns the first."""
+    items = catalogue(area, root=root)
+    chosen = choose(area, items)
+    if not chosen:
+        return None
+    built = [
+        build_zone(area, key, utm_grid(area, z, READ_M), [i for i in chosen if i["epsg"] == z], root, strip)
+        for z, key in zones(area, chosen)
+    ]
+    return built[0]
+
+
+def build_zone(area: imagery.Area, key: str, g: UtmGrid, chosen: list[dict], root: Path | None = None, strip: int = 256) -> Path:
+    """One zone's median of the area's passes in it, kept under `key`."""
     import rasterio
     from rasterio.windows import Window, from_bounds
 
-    items = catalogue(area, root=root)
-    res = READ_M
-    chosen = select(items, PER_TILE)
-    if not chosen:
-        return None
-    g = utm_grid(area, area_epsg(chosen), res)
+    res = g.res
     files = [p for p in (window_path(area.key, i["id"], root) for i in chosen) if p.exists()]
     sources = [rasterio.open(p) for p in files]
     halo = int(round(CLOUD_MARGIN_M / res)) + 1
@@ -522,11 +576,11 @@ def build(area: imagery.Area, root: Path | None = None, strip: int = 256) -> Pat
             rgb_out[:, r0:r1][:, count == 0] = 0
             views[r0:r1] = count
             if r1 // 2048 != r0 // 2048 or r1 == g.height:
-                print(f"    {area.key}: rows {r1}/{g.height}, {len(layers)} passes, {time.monotonic() - started:.0f} s", flush=True)
+                print(f"    {key}: rows {r1}/{g.height}, {len(layers)} passes, {time.monotonic() - started:.0f} s", flush=True)
     finally:
         for ds in sources:
             ds.close()
-    out = composite_path(area.key, root)
+    out = composite_path(key, root)
     out.parent.mkdir(parents=True, exist_ok=True)
     profile = {
         "driver": "GTiff",
@@ -578,6 +632,35 @@ def mgrs_path(tile: str, root: Path | None = None) -> Path:
 
 def mgrs_index_path(root: Path | None = None) -> Path:
     return (root or data_root()) / "work" / "composite" / "mgrs" / "index.json"
+
+
+def near_areas(packs_index: Path, root: Path | None = None) -> list[imagery.Area]:
+    """The southern rails' sub-tiles (F95), as one area a country tile: the
+    rectangle of its sub-tiles that spans those the packs list, keyed as
+    `imagery.near_view` reads it. Its samples are the country tile's 250 m,
+    so the composite reaches half a sample and more past its edge, as the
+    colour tile's own average there does."""
+    region = imagery.archive_region(root)
+    out = []
+    for parent, wanted in imagery.near_groups(packs_index):
+        if (parent.tx0, parent.ty0) not in region:
+            continue
+        view = imagery.near_view(parent.tx0, parent.ty0)
+        i0, i1 = min(i for i, _ in wanted), max(i for i, _ in wanted)
+        j0, j1 = min(j for _, j in wanted), max(j for _, j in wanted)
+        out.append(
+            imagery.Area(
+                key=view.key,
+                lattice=NEAR,
+                tile_m=view.tile_m,
+                tx0=i0,
+                ty0=j0,
+                tiles_x=i1 - i0 + 1,
+                tiles_y=j1 - j0 + 1,
+                cells=view.cells,
+            )
+        )
+    return out
 
 
 def country_region(packs_index: Path) -> set[tuple[int, int]]:
@@ -840,14 +923,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("step", choices=["plan", "fetch", "build"])
     parser.add_argument("--world", type=Path, default=Path("dist-world/china"))
     parser.add_argument("--packs", type=Path, default=Path("app/public/packs/index.json"))
-    parser.add_argument("--only", default=None, help="comma-separated hero area ids, or `country`")
+    parser.add_argument("--only", default=None, help="comma-separated hero area ids, or `country` or `near`")
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args(argv)
 
-    keys = args.only.split(",") if args.only else [*SOUTH, COUNTRY]
+    keys = args.only.split(",") if args.only else [*SOUTH, COUNTRY, NEAR]
     areas = {a.key: a for a in imagery.hero_areas(args.world)}
     with_country = COUNTRY in keys
-    keys = [k for k in keys if k != COUNTRY]
+    with_near = NEAR in keys
+    keys = [k for k in keys if k not in (COUNTRY, NEAR)]
     missing = [k for k in keys if k not in areas]
     if missing:
         print(f"no hero area {', '.join(missing)} in {args.world}", file=sys.stderr)
@@ -857,7 +941,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.step == "plan":
             items = catalogue(area)
             res = READ_M
-            chosen = select(items, PER_TILE)
+            chosen = choose(area, items)
             months = np.bincount([int(i["datetime"][5:7]) - 1 for i in chosen], minlength=12)
             print(f"{key}: {len(items)} items, {len(chosen)} chosen at {res} m; by month {months.tolist()}")
         elif args.step == "fetch":
@@ -874,6 +958,18 @@ def main(argv: list[str] | None = None) -> int:
             print(fetch_country(args.packs, max(args.workers, 16)))
         else:
             print(build_country(args.packs))
+    if with_near:
+        # After the country's: the sub-tiles are the archive's where their country tile is.
+        near = near_areas(args.packs)
+        for area in near:
+            if args.step == "plan":
+                items = catalogue(area)
+                chosen = choose(area, items)
+                print(f"{area.key}: {area.tiles_x * area.tiles_y} sub-tiles, {len(items)} items, {len(chosen)} chosen", flush=True)
+            elif args.step == "fetch":
+                print(fetch(area, args.workers), flush=True)
+            else:
+                print(build(area), flush=True)
     if args.step == "build" and keys:
         # Over every composited area, not only those just built.
         tone = fit_tones([a for a in areas.values() if a.key in SOUTH])

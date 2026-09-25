@@ -196,5 +196,110 @@ class TestTheFineColour(unittest.TestCase):
         self.assertLess(abs(float(fine[:, 20:60, 20:60].mean() - final[:, 15:40, 15:40].mean())), 1.0)
 
 
+
+@unittest.skipUnless(HAVE_NUMPY, "numpy")
+class TestTheNearColour(unittest.TestCase):
+    """F95: the country's sub-tiles along the rails, at 10 m."""
+
+    def test_a_country_tiles_near_view_is_its_grid_in_sixteen_sub_tiles(self):
+        from rasterio.warp import Resampling
+
+        view, tile = imagery.near_view(5, 9), imagery.country_area(5, 9)
+        self.assertEqual(view.bounds_m(), tile.bounds_m())
+        self.assertEqual((view.width, view.height, view.cell_m), (257, 257, 250.0))
+        np.testing.assert_allclose(view.transform() @ (0.5, 0.5), tile.transform() @ (0.5, 0.5))
+        image = np.arange(257 * 257, dtype=np.float32).reshape(1, 257, 257)
+        west, east = view.split(image, 21, 38), view.split(image, 22, 38)
+        self.assertEqual(west.shape, (1, 65, 65))
+        np.testing.assert_array_equal(west[..., -1], east[..., 0])  # neighbours share their edge
+        # The sub-tile at 10 m: its own ground, read as the fine hero tiles are.
+        fine = view.fine(22, 38)
+        self.assertEqual((fine.width, fine.cell_m, fine.zoom, fine.key), (1601, 10.0, imagery.FINE_ZOOM, "near-5_9"))
+        self.assertTrue(fine.is_fine)
+        self.assertEqual(imagery.resampling_for(fine), Resampling.lanczos)
+        self.assertEqual(imagery.resampling_for(view), Resampling.average)
+        self.assertEqual(fine.bounds_m()[:2], (grid.ORIGIN_X_M + 22 * 16_000, grid.ORIGIN_Y_M + 38 * 16_000))
+
+    def test_the_packs_sub_tiles_are_grouped_by_country_tile_and_the_mosaics_read_at_10_m(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            packs = Path(tmp) / "index.json"
+            packs.write_text(json.dumps({"scenes": [{"near": [21, 38, 22, 38, 8, 5]}, {"near": [22, 38]}, {}]}))
+            groups = imagery.near_groups(packs)
+            self.assertEqual([(p.key, w) for p, w in groups], [("2_1", [(8, 5)]), ("5_9", [(21, 38), (22, 38)])])
+            with mock.patch.object(imagery, "archive_region", return_value={(2, 1)}):
+                mosaic = imagery.near_from_mosaic(packs)
+            self.assertEqual([(a.tx0, a.ty0, a.cells) for a in mosaic], [(21, 38, 1600), (22, 38, 1600)])
+
+    def cut(self, source: str, composite=None, medians=("near-5_9",)):
+        """A country tile's near cut, its colour and 10 m source stood in for,
+        and in the south the archive's `medians` on disk."""
+        from unittest import mock
+
+        parent = imagery.country_area(5, 9)
+        rng = np.random.default_rng(2)
+        raw = np.full((3, 257, 257), 90, np.float32)
+        rgb = raw + 10  # the country tile moved off its source, as a cloud fill or the archive would
+        hole = np.zeros((257, 257), bool)
+        hole[:, :65] = True  # the western sub-tiles' colour filled
+        cut = imagery.Cut(raw, rgb, hole, np.ones((257, 257), bool), source)
+        detail = 90 + rng.normal(0, 8, (3, 1601, 1601)).astype(np.float32)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        kept = Path(tmp.name) / "composite"
+        kept.mkdir()
+        for key in medians:
+            (kept / f"{key}.tif").write_bytes(b"")
+        with (
+            mock.patch("nineskies.composite.composite_path", side_effect=lambda key, root=None: kept / f"{key}.tif"),
+            mock.patch.object(imagery, "colour_of", return_value=cut),
+            mock.patch.object(imagery, "reproject_area", return_value=(detail, np.ones((1601, 1601), bool))),
+            mock.patch.object(imagery, "composite_on", side_effect=composite or (lambda area, root=None: None)),
+            mock.patch("nineskies.composite.load_tone", return_value=[{"gain": 1.0, "offset": 0.0, "knee": 250.0}] * 3),
+        ):
+            result = imagery.cut_near(parent, [(20, 36), (22, 38)], Path(tmp.name))
+        return result, rgb, Path(tmp.name)
+
+    def test_a_sub_tile_is_its_own_detail_on_its_country_tiles_colour_and_only_those_wanted_are_cut(self):
+        result, rgb, out = self.cut("mosaic")
+        self.assertEqual(sorted(result["tiles"]), ["20_36", "22_38"])
+        self.assertEqual(result["name"], imagery.name_of(imagery.encode(rgb)))  # checked against the one published
+        with rasterio.open(out / "files" / f"{result['tiles']['22_38']}.webp") as ds:
+            tile = ds.read().astype(np.float32)
+        self.assertEqual(tile.shape, (3, 1601, 1601))
+        # Its broad tone is the country tile's, its detail its own.
+        self.assertLess(abs(float(tile.mean()) - 100.0), 1.0)
+        self.assertGreater(float(tile.std()), 5.0)
+        # Where the country tile was filled, the country tile alone: the sub-tile at its western edge.
+        with rasterio.open(out / "files" / f"{result['tiles']['20_36']}.webp") as ds:
+            filled = ds.read().astype(np.float32)
+        self.assertLess(float(filled[:, :, :1500].std()), 2.0)
+
+    def test_in_the_south_the_detail_is_the_archives_or_nothing_is_cut(self):
+        result, _rgb, _out = self.cut("composite", medians=())
+        self.assertEqual((result["tiles"], result["source"]), ({}, "none"))
+        asked = []
+
+        def archive(area, root=None):
+            asked.append((area.key, area.width))
+            if area.key == "near-5_9" and area.tx0 == 22:
+                return None  # sub-tile 22_38 lies past the edge of this median's zone
+            rng = np.random.default_rng(area.width)
+            return 70 + rng.normal(0, 8, (3, area.height, area.width)).astype(np.float32), np.ones((area.height, area.width), bool)
+
+        result, _rgb, out = self.cut("composite", archive, medians=("near-5_9", "near-5_9-32649"))
+        self.assertEqual(result["source"], "composite")
+        # Each sub-tile's 250 m from every median, then its 10 m from the one that sees most of it.
+        self.assertEqual(
+            asked,
+            [("near-5_9", 65), ("near-5_9-32649", 65), ("near-5_9", 1601), ("near-5_9", 65), ("near-5_9-32649", 65), ("near-5_9-32649", 1601)],
+        )
+        with rasterio.open(out / "files" / f"{result['tiles']['22_38']}.webp") as ds:
+            tile = ds.read().astype(np.float32)
+        # The median's tone is its own; the sub-tile's is the country tile's.
+        self.assertLess(abs(float(tile.mean()) - 100.0), 1.5)
+
+
 if __name__ == "__main__":
     unittest.main()

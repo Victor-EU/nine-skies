@@ -58,7 +58,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 try {
   let socketUrl: string | undefined;
-  for (let k = 0; k < 50 && !socketUrl; k++) {
+  // Two minutes: on a loaded machine, or the first launch after Chrome updates itself, it has taken seventy seconds (F95).
+  for (let k = 0; k < 600 && !socketUrl; k++) {
     await sleep(200);
     try {
       const port = readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0];

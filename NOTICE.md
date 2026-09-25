@@ -41,9 +41,10 @@ as the country grid, so the elevation above is also made with Natural Earth. It 
 ## The ground's colour — EOxCloudless 2016
 
 The colour of the ground in the film — every colour tile `make colour` cuts
-into `dist-world/<world>/colour/`, the scene packs that carry them, and the
-stills rendered from them — is cut from EOX's Sentinel-2 cloudless mosaic of
-2016, reprojected, cleared of cloud and re-encoded:
+into `dist-world/<world>/colour/`, the 10 m tiles along the northern rails
+among them (F95), the scene packs that carry them, and the stills rendered
+from them — is cut from EOX's Sentinel-2 cloudless mosaic of 2016,
+reprojected, cleared of cloud and re-encoded:
 
 > EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains
 > modified Copernicus Sentinel data 2016), released under the Creative
@@ -60,7 +61,8 @@ not used (F87).
 
 Where that mosaic is most cloud, the south is coloured from the Sentinel-2
 archive instead: four hero areas (Tiger Leaping Gorge, the Three Gorges,
-Guilin and Huangshan) and the country tiles of their four scenes. Their
+Guilin and Huangshan), the country tiles of their four scenes, and the
+ground along those scenes' rails at 10 m (F95). Their
 colour tiles in `dist-world/<world>/colour/`, the scene packs that carry
 them and the stills rendered from them are the median of the clear views of
 Sentinel-2 Level-2A passes from 2018 to 2025, reprojected, toned to match

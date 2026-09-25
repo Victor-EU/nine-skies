@@ -1486,3 +1486,171 @@ now the coarser of the two: the country's colour is 250 m, and on the Roof
 and Below the Sea the near ground is a blur of colour under a sharp relief.
 The Sentinel-2 10 m colour along the rails, as F91 did for the hero areas,
 would be the next lever.
+
+## F95 — The ground along the rails in Sentinel-2's own ten metres, 25 September 2026
+
+**Why.** F94 lit the ground along the rails by its relief at 31 m, and
+the colour on it stayed the country's 250 m. On the Roof and Below the
+Sea the near ground was sharp relief under a smear of colour: 250 m is
+dozens of pixels wide at the bottom of the frame. Sentinel-2 sees 10 m.
+F91 gave it to the hero tiles nearest the camera, and the country's ground
+along the rails now has it too, in the near relief's own 16 km sub-tiles.
+
+**What was weighed.** One sub-tile under each of the Loess's, Below the
+Sea's and the Roof's cameras, cut from the mosaic at zoom 14:
+
+| Spacing | Samples | Per sub-tile (WebP 90) | GPU, 16 layers |
+| --- | ---: | ---: | ---: |
+| 20 m | 801² | 134-159 KB | 55 MB |
+| 15.6 m | 1,025² | 180-210 KB | 90 MB |
+| 10 m | 1,601² | 305-349 KB | 219 MB |
+
+Most of the change is from 250 m to 20 m: fields, tracks and dune crests
+where there was a wash. 10 m is a little crisper again and is the source's
+own, and a thousand sub-tiles at 10 m are a third of a gigabyte, so 10 m
+was taken, as F91 took it.
+
+**Where the 10 m comes from.** Each sub-tile is laid onto its country
+tile's colour as a fine hero tile is onto its colour tile (F91). Its
+detail is the tile's own source read again at 10 m, and whatever the
+colour tile did to its source is carried over. So the fade from one to
+the other changes the detail, not the colour.
+- *The north* (912 sub-tiles): the mosaic at zoom 14, the same 2016
+  mosaic the country tiles are. 70,188 of its tiles, 0.6 GB, fetched once
+  at the service's six a second: a little over three hours.
+- *The south* (144): the country tiles there are the archive's at 160 m
+  (F90), so the detail is the archive's too. It is a 10 m median over the
+  rectangle of sub-tiles each country tile holds, laid onto that tile's
+  colour against the median's own average. Two things F89's hero areas had
+  not met:
+  - *Passes by orbit.* Chosen by tile alone, the strip that only the
+    other orbit sees kept one or two views, as F90 found for the country.
+    At the First Bend that was 40 % of two sub-tiles. The passes are now
+    chosen by tile and orbit.
+  - *Zones.* A rectangle across the edge of a UTM zone needs a median in
+    each zone. At the Three Gorges, six sub-tiles (96 km of the rail east
+    of 108° E) lay in zone 49 while their median was built in zone 48, and
+    only an eighth of them was seen. They now have a zone-49 median of
+    their own.
+
+  1,425 passes, 31 GB, cached, of which one would not read. 11 / 15 / 32
+  views per pixel at the 5th / 50th / 95th percentile, and every southern
+  sub-tile at least 95 % seen.
+
+**EOX's zoom 10 is not where its zoom 14 is.** The first sub-tiles cut
+disagreed with their country tiles' broad tone by 3 to 7 levels on
+average, 18 at the 95th percentile. Neither warp was at fault: Lanczos and
+averaging from zoom 14 agree to within 0.8 of a level. Instead, EOX's own
+zoom-10 tiles, which every country tile is cut from, sit up to about
+120 m off its zoom-14 tiles, and not by the same amount everywhere. Each
+was correlated against a hillshade of GLO-30 on the same ground. Zoom 14
+matches best where it lies (the Loess r 0.53, Below the Sea 0.46, both at
+no offset). Zoom 10 matches where it lies at the Loess, but at Below the
+Sea only when read 120 m north (r 0.19, against 0.02 where it lies). So
+the 10 m detail is in the right place, and the country's 250 m is half a
+sample off in places.
+
+The sub-tiles keep their detail where it lies. Pulling it onto the
+shifted tone would print a faint second copy of every field 120 m off,
+right under the camera. Where the offset is, a feature moves 120 m across
+the fade 10 to 16 km out, over the minute or so it takes to cross it.
+
+**What is cut** (`make colour`, `imagery.cut_near`): the 1,056 sub-tiles
+`make scenes` lists along the rails (F94), 1,601 samples a side, WebP 90.
+- *Size.* 357.3 MB: 271.3 MB in the north, about 300 KB a sub-tile, and
+  86.0 MB in the south, about 600 KB, since forest codes larger than
+  desert.
+- *Checked.* Each country tile a sub-tile is laid onto is cut again as
+  `make colour` cuts it, and checked against the published one, file for
+  file. The whole cut, country, hero and near, takes 16 minutes.
+- *Three processes*, since each holds a gigabyte at its peak and this
+  machine has eight.
+
+**In the engine** (`colour.ts`, `fineColour.ts`, `terrain.ts`,
+`terrainMaterial.ts`, `near.ts`):
+- *A second near pool on the country lattice*, beside the near relief's:
+  16 layers of 1,601², 219 MB with mips, for the 14 sub-tiles at most within
+  20 km of a point. Whole to 10 km and the 250 m colour by 16, the near
+  relief's own distances, so the colour sharpens over the same ground the
+  relief does. One image is uploaded a frame.
+- *Its layers ride on the instance* as the near relief's do: a second
+  vec4, four 6-bit layers to a component, read by the same GLSL. The read
+  is given the whole tile's gradient, as the near relief's is, scaled
+  where the colour is blurred on steep ground.
+- *The sub-tiles' constants moved to `near.ts`*, which imports nothing.
+  The colour index now reads them, and the country tile's size imports the
+  colour's arrays. With that circle, the stand-in terrain's tiles came out
+  flat.
+- *The pack index's `reliefNear` is now `near`*: the same sub-tiles hold
+  both.
+
+**The stills.** Three changed. Share of each still changed by more than 8
+levels:
+
+| Still | Changed | What changed |
+| --- | ---: | --- |
+| Below the Sea | 14.0 % | The green smear under the camera is the oasis: its field parcels, the road and the town. |
+| The Roof | 6.9 % | The near grassland has its drainage lines, stony ground and texture. |
+| Loess | 5.5 % | The gullies' terraces take their ochre and green. |
+
+The other six changed by 0.4 % at most and stand: their cameras are over
+hero ground when they are held. The southern colour was looked at where
+the First Bend flies over country ground, 15 seconds in: the valley floor
+gains its fields and a village along the river. The walls read greener,
+because F92's rock backs off wherever the photograph is green, and at
+10 m it shows forest on walls the 250 m smeared grey. The three need
+signing off (D77).
+
+**Frame cost.** One clean capture, after the other session's Chrome and a
+Chrome tab drawing in the background were gone. It resolved ±1.3 ms with
+the fit at r² 0.9985, and Loess and the Roof sit on their F83 anchors.
+Terrain ms, with F87's before relief and near layers:
+
+| Station | Now | F87 |
+| --- | ---: | ---: |
+| Loess | 2.24 | 2.4 |
+| Heaven Lake | 2.01 | 2.6 |
+| Below the Sea | 2.02 | 2.2 |
+| The Roof | 2.28 | 2.3 |
+| The Wall | 2.32 | 2.6 |
+| Huangshan | 3.25 (not whole) | 4.5 |
+| Three Gorges | 6.29 | 3.6 |
+| Karst | 6.07 | 4.5 |
+| First Bend | 5.71 | 3.7 |
+
+The northern stations carry F93 to F95 and are where they were, within
+what the instrument resolves: the near colour costs less than it can see.
+The southern ones are 2 to 2.7 ms up on F87. They fly over hero ground,
+where the near colour hardly draws, so that is F91 to F93's layers there,
+timed here for the first time; the Three Gorges is at 6.3 of the 8 ms
+the terrain has. A paired run, with the near colour and without, could not
+be taken: the display slept, and the frames it drew came at 17 Hz.
+
+**The film is 1,030.3 MB**, up 357.4 MB, of the 2 GB D89 allows. By pack:
+
+| Pack | Near colour | Pack now |
+| --- | ---: | ---: |
+| The Roof | 94.9 MB | 228.1 MB |
+| Below the Sea | 57.4 MB | 196.5 MB |
+| Loess | 52.9 MB | 146.8 MB |
+| Heaven Lake | 51.3 MB | 149.3 MB |
+| Three Gorges | 39.6 MB | 106.4 MB |
+| First Bend | 23.0 MB | 65.8 MB |
+| Karst | 16.6 MB | 54.0 MB |
+| The Wall | 14.9 MB | 53.9 MB |
+| Huangshan | 6.8 MB | 24.8 MB |
+
+The Roof's pack is now the largest, and has its scene's two minutes to
+arrive: about 15 Mbit/s.
+
+**The stills tool** waits two minutes for Chrome to open, where it waited
+ten seconds. On a loaded machine, and on the first launch of an update
+Chrome had fetched itself, it took seventy.
+
+**Next.** The country's 250 m colour registered to the ground: cut from a
+finer zoom of the mosaic, or from the archive, rather than from EOX's
+zoom 10. Beyond 16 km the colour is still 250 m under a 125 m relief; a
+middle level for the country's colour, as the relief has, would carry the
+detail further out. The southern stations' terrain, at 5.7 to 6.3 ms,
+wants its share found among F91's fine colour, F92's walls and F93's
+relief.

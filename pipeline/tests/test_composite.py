@@ -299,5 +299,51 @@ class TestTheCountry(unittest.TestCase):
             self.assertTrue(imagery.country_archive_on(hero, root)[1].all())
 
 
+
+@unittest.skipUnless(HAVE_NUMPY and HAVE_RASTERIO, "numpy and rasterio")
+class TestTheSouthernRails(unittest.TestCase):
+    """F95: the archive at 10 m over the southern rails' sub-tiles."""
+
+    def test_each_southern_country_tile_composites_the_rectangle_of_its_sub_tiles(self):
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            packs = Path(tmp) / "index.json"
+            packs.write_text(json.dumps({"scenes": [{"near": [21, 38, 23, 39, 8, 5]}]}))
+            with mock.patch.object(imagery, "archive_region", return_value={(5, 9)}):
+                areas = composite.near_areas(packs)
+        self.assertEqual(len(areas), 1)  # tile (2, 1) is the mosaic's
+        a = areas[0]
+        self.assertEqual((a.key, a.lattice, a.tx0, a.ty0, a.tiles_x, a.tiles_y), ("near-5_9", "near", 21, 38, 3, 2))
+        # Keyed as the country tile's near view reads it, and reaching a whole colour sample past its edge.
+        self.assertEqual(a.key, imagery.near_view(5, 9).key)
+        self.assertEqual(a.cell_m, 250.0)
+        g = composite.utm_grid(a, EPSG, composite.READ_M)
+        self.assertGreater((g.east - g.west) * (g.north - g.south), (3 * 16_000 + 500) * (2 * 16_000 + 500))
+
+
+    def test_the_southern_rails_passes_are_chosen_by_orbit_and_kept_by_zone(self):
+        near = imagery.Area("near-5_9", "near", 16_000, 21, 38, 3, 2, cells=64)
+        hero = imagery.Area("t", "hero", 11_520, 256, 89, 1, 1)
+
+        def item(n: int, tile: str, orbit: int, epsg: int, month: int) -> dict:
+            return {"id": f"p{n:03}", "tile": tile, "orbit": orbit, "epsg": epsg, "datetime": f"2020-{month:02}-01", "cover": 1.0, "clear": 0.9, "sun": 60}
+
+        # One tile seen by two orbits, the first seeing it clearer; another tile in the next zone.
+        items = [item(n, "48RYU", 4, 32648, 1 + n % 12) for n in range(40)]
+        items += [item(100 + n, "48RYU", 104, 32648, 1 + n % 12) for n in range(40)]
+        items += [item(200 + n, "49RBP", 4, 32649, 1 + n % 12) for n in range(40)]
+        for i in items[:40]:
+            i["clear"] = 1.0
+        chosen = composite.choose(near, items)
+        by = {(i["tile"], i["orbit"]) for i in chosen}
+        self.assertEqual(by, {("48RYU", 4), ("48RYU", 104), ("49RBP", 4)})
+        self.assertEqual(len(chosen), 3 * composite.NEAR_PER_TILE)
+        # A hero area takes each tile's clearest, whichever orbit sees it.
+        self.assertEqual(len(composite.choose(hero, items)), composite.PER_TILE + 40)
+        self.assertEqual(composite.zones(near, chosen), [(32648, "near-5_9"), (32649, "near-5_9-32649")])
+        self.assertEqual(composite.zones(hero, chosen), [(32648, "t")])
+
+
 if __name__ == "__main__":
     unittest.main()

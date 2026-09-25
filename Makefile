@@ -235,7 +235,11 @@ stations:
 ## read once at 10 m where they cover the areas (~13 GB), and the country
 ## tiles of their scenes from 7,340 whole passes at 160 m (~9 GB, F90), all
 ## cached under data/source/. Every hero tile is cut a second time at 10 m,
-## for the tiles nearest the camera (F91).
+## for the tiles nearest the camera (F91), and so is the country's ground
+## along the rails, in the near relief's 16 km sub-tiles (F95): from the
+## mosaic at zoom 14 in the north (~70,000 tiles, ~0.6 GB, three hours at the
+## service's pace, once), and in the south from a 10 m median of the archive
+## over just those sub-tiles (~1,425 passes, ~31 GB, once).
 ## Needs a world, its hero areas and the pack index; run `make scenes` after
 ## it to pack the colour.
 colour: $(PY)

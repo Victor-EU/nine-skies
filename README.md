@@ -43,10 +43,10 @@ CORRIDOR=china` runs them (about six minutes once the source is fetched).
 Then:
 
 ```bash
-make colour    # the ground's colour: the 2016 Sentinel-2 mosaic, and the archive's median in the south (fetches ~22 GB once)
+make colour    # the ground's colour: the 2016 Sentinel-2 mosaic, the archive's median in the south, and 10 m along the rails (fetches ~52 GB once, after `make scenes`)
 make rock      # the walls' rock: four scanned cliff faces from Poly Haven, CC0 (fetches ~28 MB once)
 make relief    # the ground's relief below its grid, and at 31 m along the rails, from the GLO-30 already on disk (after `make scenes`)
-make scenes    # a pack per scene into dist-film/, 672.8 MB
+make scenes    # a pack per scene into dist-film/, 1,030.3 MB
 make rails     # every rail flown over the world: docs/rails-report.md
 make stations  # the frame-cost stations: app/public/capture-stations.json
 npm run check  # typecheck, tests, and the content gate

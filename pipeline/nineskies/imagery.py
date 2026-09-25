@@ -24,6 +24,15 @@ Country tiles are 64 km, so a sample is 250 m; a 90 m hero tile is 11.52 km
 hero tile is cut a second time at 10 m (`FINE_CELLS`, F91), which the
 engine draws over the tiles nearest the camera (`fine_tile`).
 
+**Along the rails (F95).** A country tile's 250 m is dozens of pixels wide
+under the camera, where the ground's relief is now 31 m (F94). The same
+16 km sub-tiles the near relief is cut in are cut again at 10 m, from each
+country tile's own source: the mosaic at `FINE_ZOOM` in the north, and in
+the south a 10 m median of the archive over just those sub-tiles
+(`composite.py`). Each is laid onto its country tile's colour the way a
+fine hero tile is laid onto its colour tile (`fine_tile`), so the two
+differ only in detail (`cut_near`).
+
 **Clouds.** The 2016 mosaic was built from one satellite's first year, and
 over the humid south it keeps flecks of cloud, each with a pale ring where
 the mosaic stitched round it and often a shadow beside it. They are found
@@ -43,15 +52,17 @@ too, at 250 m (F90); the rest of the country keeps the mosaic.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import math
+import os
 import sys
 import threading
 import time
 import urllib.error
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -95,7 +106,8 @@ ZOOM_FOR_TILE_M = {64_000: 10, 11_520: 13, 3_840: 14}
 #: A hero tile's finest colour, cells a side (F91): 10 m, Sentinel-2's own,
 #: drawn over the tiles nearest the camera. Its broad tone is the colour
 #: tile's (`fine_tile`), so the two differ only in what the finer one adds.
-FINE_CELLS = {"hero": 1_152, "hero-30m": 384}
+#: And a country tile's near sub-tiles along the rails (F95), 16 km at 10 m.
+FINE_CELLS = {"hero": 1_152, "hero-30m": 384, "near": 1_600}
 #: The mosaic's zoom for it: 8.3 m at 30 N, about the mosaic's own 10 m.
 FINE_ZOOM = 14
 
@@ -108,7 +120,7 @@ def resampling_for(area: Area):
     most of it (F91)."""
     from rasterio.warp import Resampling
 
-    return Resampling.average if area.cells == COLOUR_CELLS else Resampling.lanczos
+    return Resampling.lanczos if area.is_fine else Resampling.average
 
 #: Requests a second across all workers. EOX rate-limits heavy use.
 REQUESTS_PER_S = 6.0
@@ -178,8 +190,13 @@ class Area:
     cells: int = COLOUR_CELLS
 
     @property
+    def is_fine(self) -> bool:
+        """A fine tile (F91, F95): read at about its source's own pixel."""
+        return self.cells == FINE_CELLS.get(self.lattice)
+
+    @property
     def zoom(self) -> int:
-        return ZOOM_FOR_TILE_M[self.tile_m] if self.cells == COLOUR_CELLS else FINE_ZOOM
+        return FINE_ZOOM if self.is_fine else ZOOM_FOR_TILE_M[self.tile_m]
 
     @property
     def cell_m(self) -> float:
@@ -298,6 +315,56 @@ def country_area(tx: int, ty: int) -> Area:
 
 def plan(world: Path, packs_index: Path) -> list[Area]:
     return [country_area(tx, ty) for tx, ty in film_country_tiles(packs_index)] + hero_areas(world)
+
+
+def near_view(tx: int, ty: int) -> Area:
+    """A country tile's colour grid seen as its near sub-tiles (F95): its
+    `split` is a sub-tile's share of the tile's samples, and its `fine` the
+    sub-tile at 10 m. Keyed as the archive's median of its sub-tiles is, in
+    the south (`composite.near_areas`)."""
+    from .relief import NEAR_SPLIT, NEAR_TILE_M
+
+    return Area(
+        key=f"near-{tx}_{ty}",
+        lattice="near",
+        tile_m=NEAR_TILE_M,
+        tx0=tx * NEAR_SPLIT,
+        ty0=ty * NEAR_SPLIT,
+        tiles_x=NEAR_SPLIT,
+        tiles_y=NEAR_SPLIT,
+        cells=COLOUR_CELLS // NEAR_SPLIT,
+    )
+
+
+def near_groups(packs_index: Path) -> list[tuple[Area, list[tuple[int, int]]]]:
+    """The near sub-tiles the packs list along the rails (F94), by the
+    country tile holding them: that tile, and its sub-tiles wanted."""
+    from .relief import NEAR_SPLIT, near_tiles
+
+    by_parent: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    for i, j in near_tiles(packs_index):
+        by_parent.setdefault((i // NEAR_SPLIT, j // NEAR_SPLIT), []).append((i, j))
+    return [(country_area(tx, ty), sorted(w)) for (tx, ty), w in sorted(by_parent.items(), key=lambda kv: (kv[0][1], kv[0][0]))]
+
+
+def archive_region(root: Path | None = None) -> set[tuple[int, int]]:
+    """The country tiles coloured from the archive rather than the mosaic (F90)."""
+    from .composite import mgrs_index_path
+
+    path = mgrs_index_path(root)
+    return {tuple(t) for t in json.loads(path.read_text())["region"]} if path.exists() else set()
+
+
+def near_from_mosaic(packs_index: Path, root: Path | None = None) -> list[Area]:
+    """The near sub-tiles the mosaic colours at 10 m (F95): those of country
+    tiles it colours. What `fetch` reads for them, at `FINE_ZOOM`."""
+    region = archive_region(root)
+    return [
+        near_view(parent.tx0, parent.ty0).fine(i, j)
+        for parent, wanted in near_groups(packs_index)
+        if (parent.tx0, parent.ty0) not in region
+        for i, j in wanted
+    ]
 
 
 def fine_from_mosaic(areas: list[Area], root: Path | None = None) -> list[Area]:
@@ -826,14 +893,32 @@ def write_tile(tile: np.ndarray, out_dir: Path, quality: int = WEBP_QUALITY) -> 
     path = out_dir / "files" / f"{name}.webp"
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(body)
+        # Whole or not at all: the near sub-tiles are cut in several processes (F95).
+        part = path.with_suffix(f".{os.getpid()}.part")
+        part.write_bytes(body)
+        part.replace(path)
     return name, len(body)
 
 
-def cut_area(area: Area, out_dir: Path, root: Path | None = None, fine: bool = True) -> dict:
+@dataclass
+class Cut:
+    """An area's colour as it is cut: `raw`, its source on its grid before
+    anything is done to it; `rgb`, the colour; `hole`, where that was filled
+    rather than seen; `valid`, where the source has anything; and which
+    source it is."""
+
+    raw: np.ndarray
+    rgb: np.ndarray
+    hole: np.ndarray
+    valid: np.ndarray
+    source: str
+
+
+def colour_of(area: Area, root: Path | None = None) -> Cut | None:
+    """The area's colour, or None where the mosaic has nothing under it."""
     rgb, valid = reproject_area(area, root)
     if not valid.any():
-        return {"key": area.key, "tiles": [""] * (area.tiles_x * area.tiles_y), "cloud": 0.0, "bytes": 0, "source": "none"}
+        return None
     elevation = elevation_for(area, root)
     raw = rgb
     rgb, cloud = clean_clouds(rgb, elevation, area.cell_m)
@@ -868,6 +953,14 @@ def cut_area(area: Area, out_dir: Path, root: Path | None = None, fine: bool = T
                 target_ok = country[1] | ~hole
             rgb = meet_the_mosaic(archive, target, seen & target_ok, area)
             raw, hole, source = archive, ~seen, "composite"
+    return Cut(raw, rgb, hole, valid, source)
+
+
+def cut_area(area: Area, out_dir: Path, root: Path | None = None, fine: bool = True) -> dict:
+    cut = colour_of(area, root)
+    if cut is None:
+        return {"key": area.key, "tiles": [""] * (area.tiles_x * area.tiles_y), "cloud": 0.0, "bytes": 0, "source": "none"}
+    rgb, hole, valid, source = cut.rgb, cut.hole, cut.valid, cut.source
     names = []
     total = 0
     for tx, ty in area.tiles():
@@ -878,11 +971,76 @@ def cut_area(area: Area, out_dir: Path, root: Path | None = None, fine: bool = T
     if fine and area.lattice in FINE_CELLS:
         result["fine"], result["fine_bytes"] = [], 0
         for tx, ty in area.tiles():
-            tile = fine_tile(area, tx, ty, raw, rgb, hole | ~valid, source, root)
+            tile = fine_tile(area, tx, ty, cut.raw, rgb, hole | ~valid, source, root)
             name, size = write_tile(tile, out_dir, FINE_WEBP_QUALITY)
             result["fine"].append(name)
             result["fine_bytes"] += size
     return result
+
+
+def cut_near(parent: Area, wanted: list[tuple[int, int]], out_dir: Path, root: Path | None = None) -> dict:
+    """A country tile's near sub-tiles at 10 m (F95), each laid onto the
+    tile's colour as a fine hero tile is onto its colour tile (`fine_tile`):
+    its detail from the tile's own source read again at 10 m, its broad tone
+    the colour tile's, and the colour tile alone wherever that was filled.
+
+    In the north the source is the mosaic, and the colour tile's own read of
+    it is what the detail's broad tone is measured against. In the south the
+    colour tile is the archive's at 160 m (F90), and the 10 m source is the
+    archive's median over just these sub-tiles, measured against itself
+    averaged onto the colour tile's grid: from each sub-tile's own zone,
+    where the tile lies across the edge of one (`composite.zones`). Without
+    a median, nothing is cut. `name` is the colour tile's as this cut makes
+    it, to be checked against the one published."""
+    out: dict = {"key": parent.key, "tiles": {}, "bytes": 0, "source": "none", "name": ""}
+    cut = colour_of(parent, root)
+    if cut is None:
+        return out
+    out["name"] = name_of(encode(parent.split(cut.rgb, parent.tx0, parent.ty0)))
+    view = near_view(parent.tx0, parent.ty0)
+    medians = []
+    if cut.source == "composite":
+        from .composite import composite_path
+
+        main = composite_path(view.key, root)
+        medians = ([view.key] if main.exists() else []) + sorted(p.stem for p in main.parent.glob(f"{view.key}-*.tif"))
+        if not medians:
+            return out
+    out["source"] = cut.source
+    for i, j in wanted:
+        raw, hole, source = cut.raw, cut.hole | ~cut.valid, view
+        if medians:
+            raw = raw.copy()  # its samples are this sub-tile's median's
+            source = archive_near(view, medians, i, j, raw, hole, root)
+        tile = fine_tile(source, i, j, raw, cut.rgb, hole, cut.source, root)
+        name, size = write_tile(tile, out_dir, FINE_WEBP_QUALITY)
+        out["tiles"][f"{i}_{j}"] = name
+        out["bytes"] += size
+    return out
+
+
+def archive_near(view: Area, medians: list[str], i: int, j: int, raw: np.ndarray, hole: np.ndarray, root: Path | None = None) -> Area:
+    """The southern sub-tile (i, j) from the archive's median that sees most
+    of it (F95): its samples of `raw` and `hole` are that median's, averaged
+    onto the colour tile's grid and toned, and the view returned reads the
+    sub-tile's 10 m from the same median."""
+    from dataclasses import replace
+
+    from .composite import load_tone
+
+    best, seen_most = None, -1.0
+    for key in medians:
+        got = composite_on(Area(key=key, lattice=view.lattice, tile_m=view.tile_m, tx0=i, ty0=j, tiles_x=1, tiles_y=1, cells=view.cells), root)
+        if got is not None and got[1].mean() > seen_most:
+            best, seen_most = (key, got), float(got[1].mean())
+    part_raw, part_hole = view.split(raw, i, j), view.split(hole, i, j)
+    if best is None:
+        part_hole[...] = True  # nothing sees it: the colour tile alone
+        return view
+    key, (rgb, seen) = best
+    part_raw[...] = apply_tone(rgb, load_tone(root))
+    part_hole |= ~seen
+    return replace(view, key=key)
 
 
 def composite_source() -> dict:
@@ -892,10 +1050,19 @@ def composite_source() -> dict:
     return {"collection": COLLECTION, "years": [FIRST_YEAR, LAST_YEAR], "attribution": NOTICE}
 
 
-def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool = False) -> dict:
-    """Cut every area and write the index. A partial cut (`merge`) updates
-    the index it finds; a whole one replaces it and clears files no longer
-    named."""
+def cut(
+    areas: list[Area],
+    out_dir: Path,
+    root: Path | None = None,
+    merge: bool = False,
+    near: list[tuple[Area, list[tuple[int, int]]]] = (),
+    workers: int = 3,
+) -> dict:
+    """Cut every area, and every country tile's `near` sub-tiles (F95), and
+    write the index. A partial cut (`merge`) updates the index it finds; a
+    whole one replaces it and clears files no longer named."""
+    from .relief import NEAR_TILE_M
+
     path = out_dir / "index.json"
     index: dict = {
         "version": INDEX_VERSION,
@@ -906,13 +1073,16 @@ def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool 
         "source": {"layer": LAYER, "year": YEAR, "attribution": ATTRIBUTION, "licence": LICENCE, "licenceUrl": LICENCE_URL},
         "country": {},
         "hero": {},
-        # The tiles nearest the camera, at 10 m (F91), by lattice.
+        # The tiles nearest the camera, at 10 m (F91), by lattice; and the
+        # country's sub-tiles along the rails (F95).
         "fine": {lattice: {"cells": cells, "samples": cells + 1} for lattice, cells in FINE_CELLS.items()},
+        "near": {"tileM": NEAR_TILE_M, "tiles": {}},
     }
     archive_tiles: set[str] = set()
     if merge and path.exists():
         before = json.loads(path.read_text())
         index["country"], index["hero"] = before["country"], before["hero"]
+        index["near"]["tiles"] = before.get("near", {}).get("tiles", {})
         archive_tiles.update(before.get("archive", {}).get("country", []))
     started = time.monotonic()
     for n, area in enumerate(areas, 1):
@@ -940,6 +1110,31 @@ def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool 
             )
         if n % 200 == 0:
             print(f"  {n}/{len(areas)}  {time.monotonic() - started:.0f} s", flush=True)
+    if near:
+        # Under two seconds a sub-tile, most of it the warp at 10 m: in
+        # processes, but few, as each holds a gigabyte at its peak.
+        started, done, total, left_out = time.monotonic(), 0, 0, []
+        with ProcessPoolExecutor(workers) if workers > 1 else contextlib.nullcontext() as pool:
+            args = ([p for p, _ in near], [w for _, w in near], [out_dir] * len(near), [root] * len(near))
+            for (parent, wanted), result in zip(near, pool.map(cut_near, *args) if pool else map(cut_near, *args)):
+                published = index["country"].get(parent.key)
+                if result["tiles"] and result["name"] != published:
+                    # The sub-tiles are laid onto the colour tile as this cut
+                    # makes it; one that differs from the tile the packs carry
+                    # would step at the fade.
+                    raise RuntimeError(f"country tile {parent.key} cuts as {result['name']}, published as {published}")
+                for key in [f"{i}_{j}" for i, j in wanted]:
+                    index["near"]["tiles"].pop(key, None)
+                index["near"]["tiles"].update(result["tiles"])
+                total += result["bytes"]
+                if len(result["tiles"]) < len(wanted):
+                    left_out.append(f"{parent.key} ({len(wanted) - len(result['tiles'])}, {result['source']})")
+                done += len(wanted)
+                if done // 100 > (done - len(wanted)) // 100:
+                    print(f"  near: {done} sub-tiles, {total / 1e6:.0f} MB, {time.monotonic() - started:.0f} s", flush=True)
+        print(f"  near: {sum(len(w) for _, w in near)} sub-tiles along the rails, {total / 1e6:.1f} MB", flush=True)
+        if left_out:
+            print(f"  near: none cut under {', '.join(left_out)}", flush=True)
     if archive_tiles:
         # Which country tiles are the archive's rather than the mosaic's (F90).
         index["archive"] = {**composite_source(), "country": sorted(archive_tiles)}
@@ -948,6 +1143,7 @@ def cut(areas: list[Area], out_dir: Path, root: Path | None = None, merge: bool 
         print(f"  {len(archive_tiles)} country tiles from the composite", flush=True)
     if not merge:
         named = set(index["country"].values()) | {n for a in index["hero"].values() for n in a["tiles"] + a.get("fine", [])}
+        named |= set(index["near"]["tiles"].values())
         for file in (out_dir / "files").glob("*.webp"):
             if file.stem not in named:
                 file.unlink()
@@ -959,32 +1155,43 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("step", choices=["plan", "fetch", "cut"])
     parser.add_argument("--world", type=Path, default=Path("dist-world/china"))
     parser.add_argument("--packs", type=Path, default=Path("app/public/packs/index.json"))
-    parser.add_argument("--only", default=None, help="comma-separated area keys (hero ids or tx_ty)")
+    parser.add_argument("--only", default=None, help="comma-separated area keys (hero ids or tx_ty), or `near`")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--rate", type=float, default=REQUESTS_PER_S)
     args = parser.parse_args(argv)
 
     areas = plan(args.world, args.packs)
+    near = near_groups(args.packs)
+    near_mosaic = near_from_mosaic(args.packs)
     if args.only:
         wanted = set(args.only.split(","))
         areas = [a for a in areas if a.key in wanted]
+        if "near" not in wanted:
+            near, near_mosaic = [], []
     if args.step == "plan":
         tiles: set[tuple[int, int, int]] = set()
-        for area in areas + fine_from_mosaic(areas):
+        for area in areas + fine_from_mosaic(areas) + near_mosaic:
             x0, y0, x1, y1 = source_tiles(area)
             tiles.update((area.zoom, x, y) for x in range(x0, x1) for y in range(y0, y1))
         by_zoom: dict[int, int] = {}
         for z, _x, _y in tiles:
             by_zoom[z] = by_zoom.get(z, 0) + 1
         country = sum(1 for a in areas if a.lattice == "country")
-        print(f"{country} country tiles, {len(areas) - country} hero areas; mosaic tiles by zoom: {dict(sorted(by_zoom.items()))}")
+        subs = sum(len(w) for _, w in near)
+        print(
+            f"{country} country tiles, {len(areas) - country} hero areas, {subs} near sub-tiles "
+            f"({len(near_mosaic)} from the mosaic); mosaic tiles by zoom: {dict(sorted(by_zoom.items()))}"
+        )
         return 0
     if args.step == "fetch":
-        print(fetch(areas + fine_from_mosaic(areas), args.workers, args.rate))
+        print(fetch(areas + fine_from_mosaic(areas) + near_mosaic, args.workers, args.rate))
         return 0
     out = args.world / "colour"
-    index = cut(areas, out, merge=args.only is not None)
-    print(f"{len(index['country'])} country tiles and {len(index['hero'])} hero areas coloured into {out}")
+    index = cut(areas, out, merge=args.only is not None, near=near)
+    print(
+        f"{len(index['country'])} country tiles, {len(index['hero'])} hero areas and "
+        f"{len(index['near']['tiles'])} near sub-tiles coloured into {out}"
+    )
     return 0
 
 

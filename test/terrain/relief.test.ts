@@ -13,10 +13,8 @@ import type { InstancedBufferGeometry, ShaderMaterial } from "three";
 import { COLOUR_SAMPLES, ColourSource, type ColourImage, type ColourIndex } from "../../engine/src/terrain/colour.js";
 import type { ColourUploader } from "../../engine/src/terrain/colourLayers.js";
 import type { FineColour } from "../../engine/src/terrain/fineColour.js";
+import { NEAR_LAYER_BITS, NEAR_SPLIT, NEAR_TILE_M } from "../../engine/src/terrain/near.js";
 import {
-  NEAR_LAYER_BITS,
-  NEAR_SPLIT,
-  NEAR_TILE_M,
   RELIEF_ENCODING,
   RELIEF_INDEX_VERSION,
   RELIEF_REACH,
@@ -317,7 +315,7 @@ describe("a lattice lit by its relief", () => {
 
 describe("the scene packs' relief", () => {
   const packs = JSON.parse(readFileSync("app/public/packs/index.json", "utf8")) as {
-    scenes: { id: string; relief: number[]; reliefNear: number[]; hero: { area: string } | null }[];
+    scenes: { id: string; relief: number[]; near: number[]; hero: { area: string } | null }[];
   };
   const { film } = loadFilm();
 
@@ -335,7 +333,7 @@ describe("the scene packs' relief", () => {
   it("lists, for every scene, each sub-tile within the near relief's fade of the rail as the film flies it", () => {
     for (const [i, scene] of film.scenes.entries()) {
       const listed = new Set<number>();
-      const flat = packs.scenes[i]!.reliefNear;
+      const flat = packs.scenes[i]!.near;
       for (let k = 0; k < flat.length; k += 2) listed.add(tileKey(flat[k]!, flat[k + 1]!));
       const along = nearTiles(buildRail(scene.rail), NEAR_TILE_M, RELIEF_REACH.near!.goneM, { ...DEFAULT_REACH, maxOffsetM: 0 });
       expect(listed.size, scene.id).toBeGreaterThan(0);

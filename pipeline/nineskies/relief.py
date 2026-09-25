@@ -39,7 +39,7 @@ whole. The 30 m hero areas are cut at the source's own spacing already.
 of pixels wide. The country's ground along each rail is cut once more at
 the source's spacing: each country tile split `NEAR_SPLIT` ways a side,
 16 km sub-tiles of 31.25 m, 513 samples like the country's relief. Only
-the sub-tiles the packs list (`reliefNear`) are written; each country tile
+the sub-tiles the packs list (`near`) are written; each country tile
 that holds any is read from the source once, over just the sub-tiles it
 needs.
 """
@@ -102,7 +102,7 @@ def near_tiles(packs_index: Path) -> list[tuple[int, int]]:
     index = json.loads(packs_index.read_text())
     keys: set[tuple[int, int]] = set()
     for scene in index["scenes"]:
-        t = scene.get("reliefNear", [])
+        t = scene.get("near", [])
         keys.update((t[k], t[k + 1]) for k in range(0, len(t), 2))
     return sorted(keys, key=lambda k: (k[1], k[0]))
 

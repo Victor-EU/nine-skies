@@ -17,7 +17,12 @@
  * A hero tile has a second image, its fine one (F91): 10 m, Sentinel-2's
  * own, drawn over the tiles nearest the camera (`fineColour.ts`). Its grid
  * is the lattice's own (`fine`), and its broad tone the colour tile's.
+ *
+ * So do the country's sub-tiles along the rails (F95), the near relief's
+ * 16 km (`near.ts`): 10 m, their broad tone their country tile's, in a pool
+ * of the country lattice's own (`fine.near`, and `near` for their files).
  */
+import { NEAR_TILE_M } from "./near.js";
 import { FileCache, fetchBytes, type FetchBytes, type FileStats } from "./tileStream.js";
 
 export const COLOUR_INDEX_VERSION = 1;
@@ -59,8 +64,10 @@ export interface ColourIndex {
   readonly country: Readonly<Record<string, string>>;
   /** Hero areas by id. */
   readonly hero: Readonly<Record<string, ColourHeroArea>>;
-  /** The fine grids (F91), by hero lattice. */
+  /** The fine grids (F91), by hero lattice, and the near sub-tiles' (F95) as `near`. */
   readonly fine?: Readonly<Record<string, ColourFineGrid>>;
+  /** The country's sub-tiles along the rails at 10 m (F95): by `i_j`, in `tileM` from the grid's corner. */
+  readonly near?: { readonly tileM: number; readonly tiles: Readonly<Record<string, string>> };
 }
 
 /** Why an index cannot colour this engine's ground, or null when it can. */
@@ -73,6 +80,10 @@ export function colourProblem(index: ColourIndex): string | null {
   if (index.rows !== "north to south") return `colour rows run ${index.rows}`;
   for (const [lattice, grid] of Object.entries(index.fine ?? {})) {
     if (grid.samples !== grid.cells + 1) return `${lattice}'s fine colour is ${grid.cells} cells and ${grid.samples} samples`;
+  }
+  if (index.near && Object.keys(index.near.tiles).length > 0) {
+    if (index.near.tileM !== NEAR_TILE_M) return `near colour is cut in ${index.near.tileM} m sub-tiles, the engine reads ${NEAR_TILE_M}`;
+    if (!index.fine?.near) return "near colour has no grid";
   }
   return null;
 }
@@ -258,6 +269,8 @@ export class ColourSource {
       for (const [key, name] of heroTileNames(area.window, area.fine)) fine.set(key, name);
       this.fineNames.set(area.lattice, fine);
     }
+    const near = Object.entries(index.near?.tiles ?? {});
+    if (near.length > 0 && index.fine?.near) this.fineNames.set("near", new Map(near.map(([key, name]) => [key.replace("_", ","), name])));
   }
 
   get stats(): FileStats {
@@ -284,7 +297,7 @@ export class ColourSource {
     return names ? this.images.answer(names) : null;
   }
 
-  /** A hero lattice's fine colour (F91), or null where it has none. */
+  /** A hero lattice's fine colour (F91), or the country's near sub-tiles' (`near`, F95); null where it has none. */
   fine(lattice: string): FineColourSource | null {
     const names = this.fineNames.get(lattice);
     const grid = this.index.fine?.[lattice];

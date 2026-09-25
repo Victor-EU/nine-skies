@@ -7,9 +7,10 @@
  * the camera can stand) and the scene's own hero area, its heights coded
  * like a tile, with its colour and its fine colour (F87, F91), and the
  * ground's relief (F93) for the country tiles the camera comes near and the
- * hero area whole, and at the source's spacing for the country's ground
- * along the rail itself (F94); the pack index lists those country tiles and
- * sub-tiles, which is what `make relief` cuts. Beside the packs it copies the few small files the film reads
+ * hero area whole, and for the country's ground along the rail itself its
+ * relief at the source's spacing (F94) and its colour at 10 m (F95); the
+ * pack index lists those country tiles and sub-tiles, which is what `make
+ * relief` and `make colour` cut. Beside the packs it copies the few small files the film reads
  * before any pack - the world's manifest, its tile index, the horizon field,
  * the hero manifests and the walls' rock faces (F92) - so `dist-film/` is
  * everything a static host needs.
@@ -35,7 +36,8 @@ import type { WorldManifest } from "../engine/src/terrain/tileSource.js";
 import { colourProblem, type ColourIndex } from "../engine/src/terrain/colour.js";
 import { colourFile } from "../engine/src/film/pack.js";
 import { rockProblem, type RockIndex } from "../engine/src/terrain/rock.js";
-import { NEAR_TILE_M, RELIEF_REACH, reliefProblem, type ReliefIndex } from "../engine/src/terrain/relief.js";
+import { NEAR_TILE_M } from "../engine/src/terrain/near.js";
+import { RELIEF_REACH, reliefProblem, type ReliefIndex } from "../engine/src/terrain/relief.js";
 import { formatProblems, loadFilm } from "./film.ts";
 
 /**
@@ -147,12 +149,14 @@ interface PackRow {
   readonly hero: { dir: string; area: string; bytes: number } | null;
   /** Of `bytes`, the ground's colour (F87). */
   readonly colourBytes: number;
+  /** Of `colourBytes`, the sub-tiles' along the rail (F95). */
+  readonly colourNearBytes: number;
   /** The country tiles the camera comes near enough to light by their relief (F93), as flat pairs. */
   readonly relief: number[];
   /** Of `bytes`, the ground's relief. */
   readonly reliefBytes: number;
-  /** The country's sub-tiles along the rail, at the source's spacing (F94), as flat pairs. */
-  readonly reliefNear: number[];
+  /** The country's sub-tiles along the rail, as flat pairs: their relief at the source's spacing (F94) and their colour at 10 m (F95). */
+  readonly near: number[];
   /** Of `reliefBytes`, theirs. */
   readonly reliefNearBytes: number;
 }
@@ -210,10 +214,11 @@ for (const scene of film.scenes) {
   const reliefHero = scene.hero && relief?.hero[scene.hero];
   if (reliefHero) for (const r of reliefHero.tiles) if (r) reliefs.add(r);
   if (relief && unlit > 0) console.warn(`${scene.id}: ${unlit} country tiles near the camera without relief; \`make relief\` cuts them`);
-  // The near relief (F94): the sub-tiles within its fade of the rail as the
-  // film flies it, to the fastest viewer's reach. A viewer who drifts off the
-  // rail has the 125 m relief beyond them. Not those the scene's own hero
-  // area covers whole, where the country is cut out.
+  // The near relief (F94) and colour (F95): the sub-tiles within their fade
+  // of the rail as the film flies it, to the fastest viewer's reach. A viewer
+  // who drifts off the rail has the 125 m relief and 250 m colour beyond
+  // them. Not those the scene's own hero area covers whole, where the
+  // country is cut out.
   const heroBox = scene.hero ? heroes.get(scene.hero)?.manifest : undefined;
   const covered = (i: number, j: number): boolean =>
     !!heroBox &&
@@ -224,7 +229,9 @@ for (const scene of film.scenes) {
   const nearKeys = [...nearTiles(rail, NEAR_TILE_M, RELIEF_REACH.near!.goneM, { ...DEFAULT_REACH, maxOffsetM: 0 })].sort((a, b) => a - b);
   const nearTilesOut: number[] = [];
   const nears = new Set<string>();
+  const nearColours = new Set<string>();
   let unlitNear = 0;
+  let uncolouredNear = 0;
   for (const key of nearKeys) {
     const [i, j] = tileOfKey(key);
     if (covered(i, j)) continue;
@@ -233,13 +240,20 @@ for (const scene of film.scenes) {
     const ty = Math.floor(j * NEAR_TILE_M / (TILE_KM * 1000));
     if (tx < w.tx0 || tx >= w.tx1 || ty < w.ty0 || ty >= w.ty1) continue;
     nearTilesOut.push(i, j);
+    if (colour) {
+      const c = colour.near?.tiles[`${i}_${j}`];
+      if (c) nearColours.add(c);
+      else uncolouredNear++;
+    }
     if (!relief) continue;
     const r = relief.near?.tiles[`${i}_${j}`];
     if (r) nears.add(r);
     else unlitNear++;
   }
   if (relief && unlitNear > 0) console.warn(`${scene.id}: ${unlitNear} sub-tiles along the rail without near relief; \`make relief\` cuts them`);
+  if (colour && uncolouredNear > 0) console.warn(`${scene.id}: ${uncolouredNear} sub-tiles along the rail without near colour; \`make colour\` cuts them`);
   for (const r of nears) reliefs.add(r);
+  for (const c of nearColours) colours.add(c);
   const files = [
     ...[...names].sort().map((name) => ({ name, bytes: new Uint8Array(readFileSync(`${WORLD_DIR}/tiles/${name}.bin`)) })),
     ...[...colours].sort().map(colourBytes),
@@ -248,6 +262,8 @@ for (const scene of film.scenes) {
   const reliefTotal = files.filter((f) => f.name.startsWith("relief-")).reduce((n, f) => n + f.bytes.length, 0);
   const nearFiles = new Set([...nears].map(colourFile));
   const nearTotal = files.filter((f) => nearFiles.has(f.name)).reduce((n, f) => n + f.bytes.length, 0);
+  const nearColourFiles = new Set([...nearColours].map(colourFile));
+  const nearColourTotal = files.filter((f) => nearColourFiles.has(f.name)).reduce((n, f) => n + f.bytes.length, 0);
   const colourTotal = files.filter((f) => f.name.endsWith(".webp")).reduce((n, f) => n + f.bytes.length, 0) - reliefTotal;
 
   let hero: Parameters<typeof writePack>[3] = null;
@@ -286,9 +302,10 @@ for (const scene of film.scenes) {
     files: files.length,
     hero: hero && { dir: hero.dir, area: hero.area, bytes: heroBytes },
     colourBytes: colourTotal,
+    colourNearBytes: nearColourTotal,
     relief: reliefTiles,
     reliefBytes: reliefTotal,
-    reliefNear: nearTilesOut,
+    near: nearTilesOut,
     reliefNearBytes: nearTotal,
   });
 }
@@ -319,6 +336,7 @@ for (const r of rows) {
     `  ${r.id.padEnd(26)} ${mb(r.bytes).padStart(9)}  ${String(r.tiles.length / 2).padStart(4)} tiles  ${String(r.files).padStart(4)} files  ` +
       `reach ${r.reachKm} km${r.hero ? `  hero ${r.hero.area} ${mb(r.hero.bytes)}` : ""}` +
       (r.colourBytes > 0 ? `  colour ${mb(r.colourBytes)}` : "") +
+      (r.colourNearBytes > 0 ? ` (near ${mb(r.colourNearBytes)})` : "") +
       (r.reliefBytes > 0 ? `  relief ${mb(r.reliefBytes)}` : "") +
       (r.reliefNearBytes > 0 ? ` (near ${mb(r.reliefNearBytes)})` : ""),
   );

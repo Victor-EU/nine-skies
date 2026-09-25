@@ -118,7 +118,7 @@ class TestTheCut(unittest.TestCase):
     def test_the_plan_reads_the_country_tiles_the_packs_list_near_each_camera(self):
         with tempfile.TemporaryDirectory() as tmp:
             packs = Path(tmp) / "index.json"
-            packs.write_text(json.dumps({"scenes": [{"relief": [3, 4, 5, 4], "reliefNear": [13, 17, 12, 17]}, {"relief": [3, 4], "reliefNear": [12, 17]}, {}]}))
+            packs.write_text(json.dumps({"scenes": [{"relief": [3, 4, 5, 4], "near": [13, 17, 12, 17]}, {"relief": [3, 4], "near": [12, 17]}, {}]}))
             self.assertEqual(relief.country_tiles(packs), [(3, 4), (5, 4)])
             self.assertEqual(relief.near_tiles(packs), [(12, 17), (13, 17)])
             areas = relief.plan(Path(tmp), packs)

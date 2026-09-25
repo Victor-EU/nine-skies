@@ -3,7 +3,8 @@
  * tile's fine image is, a small pool of layers handed to the nearest tiles
  * and taken back from the ones flown away from, an array held only while a
  * tile near wants it, and a hero lattice that draws a tile's fine layer once
- * its image is on the GPU.
+ * its image is on the GPU. And the country's sub-tiles along the rails at
+ * 10 m (F95), each country instance carrying the layers of its sixteen.
  */
 import { describe, expect, it } from "vitest";
 import type { InstancedBufferGeometry, ShaderMaterial } from "three";
@@ -20,6 +21,9 @@ import {
 import type { ColourUploader } from "../../engine/src/terrain/colourLayers.js";
 import { FINE_REACH, FineColour, IDLE_FRAMES, type FineReach } from "../../engine/src/terrain/fineColour.js";
 import { HeroCover, type HeroAreaData } from "../../engine/src/terrain/heroSource.js";
+import { NEAR_LAYER_BITS, NEAR_SPLIT, NEAR_TILE_M } from "../../engine/src/terrain/near.js";
+import { RELIEF_REACH } from "../../engine/src/terrain/relief.js";
+import { TILE_KM } from "../../engine/src/terrain/syntheticTiles.js";
 import { HERO_TILE_SAMPLES } from "../../engine/src/terrain/tileArray.js";
 import { SKIRT_DEPTH_M, Terrain } from "../../engine/src/terrain/terrain.js";
 import { SyntheticTileSource } from "../../engine/src/terrain/tileSource.js";
@@ -230,9 +234,9 @@ describe("the fine colour's pool", () => {
     expect(source.asked).toEqual(["1,1", "1,1"]);
   });
 
-  it("holds, for each hero lattice, every tile within its reach of any point", () => {
+  it("holds, for each hero lattice and the country's near sub-tiles, every tile within its reach of any point", () => {
     for (const [lattice, reach] of Object.entries(FINE_REACH)) {
-      const tileM = lattice === "hero" ? TILE_M : 3_840;
+      const tileM = lattice === "hero" ? TILE_M : lattice === "near" ? NEAR_TILE_M : 3_840;
       expect(reach.fullM).toBeLessThan(reach.goneM);
       expect(reach.goneM).toBeLessThan(reach.reachM);
       // The worst point is a tile's corner: count the tiles whose nearest point is in reach.
@@ -351,5 +355,133 @@ describe("a hero lattice in fine colour", () => {
     terrain.update(10.05 * TILE_M, 20.05 * TILE_M, 2000);
     expect(fineFlags(terrain)).toEqual([]);
     for (const m of terrain.materials) expect(m.fragmentShader).not.toContain("uColourFine");
+  });
+});
+
+const COUNTRY_M = TILE_KM * 1000;
+const NEAR = 1601;
+
+/** The country in colour, with 10 m colour for three sub-tiles of tile (0, 0) and one beyond the reach (F95). */
+const withNear: ColourIndex = {
+  ...index,
+  country: { "0_0": "c00", "1_0": "c10", "0_1": "c01", "1_1": "c11" },
+  hero: {},
+  fine: { ...index.fine, near: { cells: 1600, samples: NEAR } },
+  near: { tileM: NEAR_TILE_M, tiles: { "1_1": "n11", "2_1": "n21", "1_2": "n12", "0_0": "n00" } },
+};
+
+/** The index as it was before F95: no near sub-tiles. */
+function withoutNear(i: ColourIndex): ColourIndex {
+  const { near: _near, ...rest } = i;
+  return rest;
+}
+
+/** The same wire, but near files decode near-sized. */
+function nearWire() {
+  const w = wire();
+  const decode = async (bytes: Uint8Array) => {
+    const url = new TextDecoder().decode(bytes);
+    return image(url.includes("/n") ? NEAR : COLOUR_SAMPLES, w.closed, url);
+  };
+  return { ...w, decode };
+}
+
+/** The country instances' near colour rows, where any holds a layer. */
+function nearColourRows(terrain: Terrain): number[][] {
+  const out: number[][] = [];
+  for (const mesh of terrain.meshes) {
+    const geometry = mesh.geometry as InstancedBufferGeometry;
+    const rows = geometry.getAttribute("iNearColour");
+    if (!rows) continue;
+    for (let k = 0; k < geometry.instanceCount; k++) {
+      const row = Array.from((rows.array as Float32Array).slice(k * 4, k * 4 + 4));
+      if (row.some((v) => v > 0)) out.push(row);
+    }
+  }
+  return out;
+}
+
+describe("the country's near colour (F95)", () => {
+  it("is taken cut in the engine's sub-tiles, and refused in others or without its grid", () => {
+    expect(colourProblem(withNear)).toBeNull();
+    expect(colourProblem({ ...withNear, near: { tileM: 32_000, tiles: { "0_0": "n" } } })).toMatch(/sub-tiles/);
+    expect(colourProblem({ ...withNear, fine: { hero: { cells: 1152, samples: FINE } } })).toMatch(/no grid/);
+    // An index with the key and nothing under it is as good as none.
+    expect(colourProblem({ ...index, near: { tileM: 32_000, tiles: {} } })).toBeNull();
+  });
+
+  it("names a sub-tile's file by the sub-tile", () => {
+    const w = nearWire();
+    const near = new ColourSource(withNear, "/c", w.fetch, w.decode, () => 0).fine("near")!;
+    expect(near.samples).toBe(NEAR);
+    expect(near.take(2, 1)).toBeNull();
+    expect(w.fetched).toEqual(["/c/n21.webp"]);
+    expect(near.take(3, 3)).toBe(NO_COLOUR);
+    expect(new ColourSource(index, "/c", w.fetch, w.decode, () => 0).fine("near")).toBeNull();
+  });
+
+  it("sharpens over the same ground as the near relief, in layers the instance's six bits can name", () => {
+    const reach = FINE_REACH.near!;
+    expect([reach.fullM, reach.goneM, reach.reachM]).toEqual([RELIEF_REACH.near!.fullM, RELIEF_REACH.near!.goneM, RELIEF_REACH.near!.reachM]);
+    expect(reach.layers).toBeLessThan(1 << NEAR_LAYER_BITS);
+  });
+
+  it("draws the sub-tiles near the camera in their near colour once uploaded, each instance carrying its sixteen layers", async () => {
+    const w = nearWire();
+    const terrain = new Terrain({
+      scale: { ...DEFAULT_SCALE },
+      viewRadiusTiles: 1,
+      layers: 16,
+      source: new SyntheticTileSource(),
+      colour: new ColourSource(withNear, "/c", w.fetch, w.decode, () => 0),
+    });
+    // Over the corner of four sub-tiles, in the middle of tile (0, 0).
+    const fly = () => terrain.update(0.5 * COUNTRY_M, 0.5 * COUNTRY_M, 2000);
+    for (let k = 0; k < 4; k++) {
+      fly();
+      await w.settle();
+    }
+    fly();
+    expect(terrain.stats.colourPending).toBeGreaterThan(0); // a still waits for it
+    const country = (terrain as unknown as { country: { nearColour: FineColour; material: ShaderMaterial } }).country;
+    expect(nearColourRows(terrain)).toEqual([]); // nothing drawn from a layer not yet uploaded
+    country.nearColour.layers!.flush(recorder(), 16);
+    fly();
+    // The sub-tile beyond the reach is never fetched; the three within it colour their parts of the tile.
+    expect(w.fetched.filter((u) => u.includes("/n")).sort()).toEqual(["/c/n11.webp", "/c/n12.webp", "/c/n21.webp"]);
+    expect(terrain.stats.colourNear).toBe(3);
+    const rows = nearColourRows(terrain);
+    expect(rows, "one instance holds near colour").toHaveLength(1);
+    // Read back as the shader does: row by sub-tile north, six bits a sub-tile from the west.
+    const lit: string[] = [];
+    for (let b = 0; b < NEAR_SPLIT; b++) {
+      for (let a = 0; a < NEAR_SPLIT; a++) {
+        const layer = (rows[0]![b]! >>> (NEAR_LAYER_BITS * a)) & ((1 << NEAR_LAYER_BITS) - 1);
+        if (layer > 0) lit.push(`${a}_${b}`);
+      }
+    }
+    expect(lit.sort()).toEqual(["1_1", "1_2", "2_1"]);
+    const u = country.material.uniforms;
+    expect(u.uColourNear!.value).toBe(country.nearColour.layers!.texture);
+    expect(country.nearColour.layers!.texture.internalFormat).toBe("SRGB8_ALPHA8"); // colour, read as light
+    expect(u.uColourNearFade!.value.y).toBeCloseTo(FINE_REACH.near!.goneM / DEFAULT_SCALE.horizontalCompression);
+    expect(country.material.fragmentShader).toContain("uColourNear");
+    expect(country.material.vertexShader).toContain("iNearColour");
+    terrain.setScale({ ...DEFAULT_SCALE, horizontalCompression: 4 });
+    expect(u.uColourNearFade!.value.x).toBeCloseTo(FINE_REACH.near!.fullM / 4);
+  });
+
+  it("is not compiled in where the index has none", () => {
+    const w = nearWire();
+    const terrain = new Terrain({
+      scale: { ...DEFAULT_SCALE },
+      viewRadiusTiles: 1,
+      layers: 16,
+      source: new SyntheticTileSource(),
+      colour: new ColourSource(withoutNear(withNear), "/c", w.fetch, w.decode, () => 0),
+    });
+    terrain.update(0.5 * COUNTRY_M, 0.5 * COUNTRY_M, 2000);
+    for (const m of terrain.materials) expect(m.fragmentShader).not.toContain("uColourNear");
+    for (const mesh of terrain.meshes) expect((mesh.geometry as InstancedBufferGeometry).getAttribute("iNearColour")).toBeUndefined();
   });
 });

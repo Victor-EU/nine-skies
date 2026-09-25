@@ -24,25 +24,17 @@
  * Under the camera a 125 m sample is still dozens of pixels wide. The
  * country's ground near each rail is cut once more at the source's own
  * spacing (F94): a country tile split `NEAR_SPLIT` ways each side, 16 km
- * sub-tiles of 31.25 m, held in a pool of their own and faded into the
- * 125 m relief. A country tile's instance carries the pool's layer for each
- * of its sixteen sub-tiles, six bits apiece, four to a float.
+ * sub-tiles of 31.25 m (`near.ts`), held in a pool of their own and faded
+ * into the 125 m relief.
  */
 import { ImageFiles, decodeColourImage, heroTileNames, type DecodeColour, type FineColourSource } from "./colour.js";
 import type { FineReach } from "./fineColour.js";
-import { TILE_KM } from "./syntheticTiles.js";
+import { NEAR_TILE_M } from "./near.js";
 import { fetchBytes, type FetchBytes, type FileStats } from "./tileStream.js";
 
 export const RELIEF_INDEX_VERSION = 1;
 export const RELIEF_CODEC = "webp";
 export const RELIEF_ENCODING = "normal-east-north-sqrt";
-
-/** Sub-tiles of near relief a country tile holds each way (F94): the shader reads four to a row. */
-export const NEAR_SPLIT = 4;
-/** A near sub-tile's side, real metres. */
-export const NEAR_TILE_M = (TILE_KM * 1000) / NEAR_SPLIT;
-/** The bits a near layer takes in its instance's row: layers + 1 must fit, and four of them a float's 24. */
-export const NEAR_LAYER_BITS = 6;
 
 export interface ReliefHeroArea {
   readonly lattice: string;

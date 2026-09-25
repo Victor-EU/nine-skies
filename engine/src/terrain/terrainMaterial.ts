@@ -106,23 +106,44 @@ float luma(vec3 c) {
   return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }`;
 
-/** What the ground's colour adds (F87), its fine layer where there is one (F91), and its relief (F93, F94). */
-const colourVertexInputs = (fine: boolean, relief: boolean, near: boolean): string => /* glsl */ `
+/** What the ground's colour adds (F87), its fine layer where there is one (F91), its relief (F93, F94) and its near colour (F95). */
+const colourVertexInputs = (fine: boolean, relief: boolean, near: boolean, nearColour: boolean): string => /* glsl */ `
 in float iColour;
 flat out float vColour;
 ${fine ? "in float iFine;\nflat out float vFine;" : ""}
 ${relief ? "in float iRelief;\nflat out float vRelief;" : ""}
-${near ? "in vec4 iNear;\nflat out vec4 vNear;" : ""}`;
+${near ? "in vec4 iNear;\nflat out vec4 vNear;" : ""}
+${nearColour ? "in vec4 iNearColour;\nflat out vec4 vNearColour;" : ""}`;
 
-const colourVertexBody = (fine: boolean, relief: boolean, near: boolean): string => /* glsl */ `
+const colourVertexBody = (fine: boolean, relief: boolean, near: boolean, nearColour: boolean): string => /* glsl */ `
   vColour = iColour;
 ${fine ? "  vFine = iFine;" : ""}
 ${relief ? "  vRelief = iRelief;" : ""}
-${near ? "  vNear = iNear;" : ""}`;
+${near ? "  vNear = iNear;" : ""}
+${nearColour ? "  vNearColour = iNearColour;" : ""}`;
 
 /** Where in a colour image a tile-local position is: `samples` a side, rows north to south. */
 const colourSt = (uv: string, samples: number): string =>
   `vec2(${uv}.x, 1.0 - ${uv}.y) * (${(samples - 1).toFixed(1)} / ${samples.toFixed(1)}) + 0.5 / ${samples.toFixed(1)}`;
+
+/** How far `colourSt` moves for a step of the tile-local position: the gradient a read is given across the whole tile. */
+const colourStep = (samples: number): string => `vec2(1.0, -1.0) * ${((samples - 1) / samples).toFixed(6)}`;
+
+/**
+ * A country tile's four by four sub-tiles (F94, F95): which one a
+ * tile-local position `q`, four a tile, is in, and the layer + 1 its pool
+ * holds for it, from the instance's rows (`terrain.ts`), one a component
+ * south to north, six bits apiece from the west.
+ */
+const NEAR_GLSL = /* glsl */ `
+vec2 nearSub(vec2 q) {
+  return min(floor(q), 3.0);
+}
+
+uint nearLayer(vec4 rows, vec2 sub) {
+  float row = sub.y < 0.5 ? rows.x : sub.y < 1.5 ? rows.y : sub.y < 2.5 ? rows.z : rows.w;
+  return (uint(row) >> (6u * uint(sub.x))) & 63u;
+}`;
 
 /**
  * The mosaic at a fragment. Colour tiles are `COLOUR_SAMPLES` a side with
@@ -138,8 +159,15 @@ const colourSt = (uv: string, samples: number): string =>
  * The two share their broad tone, so the fade changes only the detail.
  * `vFine` is flat per instance, so the branch is the same across a triangle
  * and the texture read's derivatives hold.
+ *
+ * A country tile's sub-tiles along the rails may hold the near colour
+ * (F95), 10 m where the tile's is 250 m: whole within `uColourNearFade.x`
+ * and the colour layer by `uColourNearFade.y`. `vNearColour` holds their
+ * layers as `vNear` holds the near relief's, and the read is given the
+ * gradient across the whole tile for the same reason, as blurred on steep
+ * ground as the colour layer's read is (`blur`, in mips).
  */
-const colourFragmentInputs = (fineSamples: number, reliefSamples: number, nearSamples: number): string => /* glsl */ `
+const colourFragmentInputs = (fineSamples: number, reliefSamples: number, nearSamples: number, nearColourSamples: number): string => /* glsl */ `
 precision highp sampler2DArray;
 uniform sampler2DArray uColour;
 uniform float uTileTexels;
@@ -153,6 +181,14 @@ uniform vec2 uFineFade;
 flat in float vFine;`
     : ""
 }
+${
+  nearColourSamples > 0
+    ? `uniform sampler2DArray uColourNear;
+uniform vec2 uColourNearFade;
+flat in vec4 vNearColour;`
+    : ""
+}
+${nearSamples > 0 || nearColourSamples > 0 ? NEAR_GLSL : ""}
 
 vec3 imageryAt(vec2 texel, float layer, float across, float blur) {
   vec2 uv = texel / uTileTexels;
@@ -162,6 +198,20 @@ ${
     ? `  if (vFine > 0.5) {
     vec3 f = texture(uColourFine, vec3(${colourSt("uv", fineSamples)}, vFine - 1.0), blur).rgb;
     c = mix(f, c, smoothstep(uFineFade.x, uFineFade.y, across));
+  }`
+    : ""
+}
+${
+  nearColourSamples > 0
+    ? `  vec2 q = uv * 4.0;
+  vec2 dq = ${colourStep(nearColourSamples)} * exp2(blur);
+  vec2 qx = dFdx(q) * dq;
+  vec2 qy = dFdy(q) * dq;
+  vec2 sub = nearSub(q);
+  uint held = nearLayer(vNearColour, sub);
+  if (held > 0u) {
+    vec3 f = textureGrad(uColourNear, vec3(${colourSt("(q - sub)", nearColourSamples)}, float(held - 1u)), qx, qy).rgb;
+    c = mix(f, c, smoothstep(uColourNearFade.x, uColourNearFade.y, across));
   }`
     : ""
 }
@@ -186,8 +236,7 @@ ${WALL_GLSL}`;
  * Nearer still, a country tile's sub-tiles may hold the near relief (F94),
  * at the source's spacing: whole within `uReliefNearFade.x` and the 125 m
  * relief by `uReliefNearFade.y`. `vNear` holds the layer + 1 of each of the
- * tile's four by four, a row of them south to north to a component, six
- * bits apiece from the west (`terrain.ts`). Which sub-tile a fragment is in
+ * tile's four by four (`NEAR_GLSL`). Which sub-tile a fragment is in
  * changes across a triangle, so the read is given the gradient of the
  * position across the tile, which does not jump where the sub-tile does.
  */
@@ -221,15 +270,12 @@ vec3 reliefNormal(vec2 texel, vec3 n, float across) {
 ${
   nearSamples > 0
     ? `  vec2 q = uv * 4.0;
-  vec2 flip = vec2(1.0, -1.0) * ${((nearSamples - 1) / nearSamples).toFixed(6)};
-  vec2 qx = dFdx(q) * flip;
-  vec2 qy = dFdy(q) * flip;
-  vec2 sub = min(floor(q), 3.0);
-  float row = sub.y < 0.5 ? vNear.x : sub.y < 1.5 ? vNear.y : sub.y < 2.5 ? vNear.z : vNear.w;
-  uint layer = (uint(row) >> (6u * uint(sub.x))) & 63u;
+  vec2 qx = dFdx(q) * ${colourStep(nearSamples)};
+  vec2 qy = dFdy(q) * ${colourStep(nearSamples)};
+  vec2 sub = nearSub(q);
+  uint layer = nearLayer(vNear, sub);
   if (layer > 0u) {
-    vec2 local = q - sub;
-    vec3 source = reliefDecode(textureGrad(uReliefNear, vec3(${colourSt("local", nearSamples)}, float(layer - 1u)), qx, qy).rg);
+    vec3 source = reliefDecode(textureGrad(uReliefNear, vec3(${colourSt("(q - sub)", nearSamples)}, float(layer - 1u)), qx, qy).rg);
     normal = normalize(mix(source, normal, smoothstep(uReliefNearFade.x, uReliefNearFade.y, across)));
   }`
     : ""
@@ -284,7 +330,7 @@ vec3 groundNormal(ivec2 t, float here) {
   return normalize(vec3(-dx, 1.0, -dz));
 }`;
 
-const vertexShader = (water: boolean, normals: boolean, colour: boolean, fine = false, relief = false, near = false): string => /* glsl */ `
+const vertexShader = (water: boolean, normals: boolean, colour: boolean, fine = false, relief = false, near = false, nearColour = false): string => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp isampler2DArray;
@@ -295,7 +341,7 @@ in vec2 iOrigin;
 in float iLayer;
 ${water || colour ? TEXEL_VERTEX_INPUTS : ""}
 ${water ? WATER_VERTEX_INPUTS : ""}
-${colour ? colourVertexInputs(fine, relief, near) : ""}
+${colour ? colourVertexInputs(fine, relief, near, nearColour) : ""}
 
 uniform isampler2DArray uHeights;
 uniform float uTileWorldSize;
@@ -325,7 +371,7 @@ void main() {
 ${normals ? "  vNormal = groundNormal(ivec2(aTexel), elevationM);" : ""}
 ${water || colour ? TEXEL_VERTEX_BODY : ""}
 ${water ? WATER_VERTEX_BODY : ""}
-${colour ? colourVertexBody(fine, relief, near) : ""}
+${colour ? colourVertexBody(fine, relief, near, nearColour) : ""}
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
 `;
@@ -490,6 +536,7 @@ const fragmentShader = (
   fineSamples = 0,
   reliefSamples = 0,
   nearSamples = 0,
+  nearColourSamples = 0,
 ): string => /* glsl */ `
 precision highp float;
 precision highp int;
@@ -501,7 +548,7 @@ ${smooth ? "in vec3 vNormal;" : ""}
 ${waterSamples > 0 || colour ? TEXEL_FRAGMENT_INPUTS : ""}
 ${waterSamples > 0 ? WATER_FRAGMENT_INPUTS : ""}
 uniform vec3 uCameraWorld;
-${colour ? colourFragmentInputs(fineSamples, reliefSamples, nearSamples) : ""}
+${colour ? colourFragmentInputs(fineSamples, reliefSamples, nearSamples, nearColourSamples) : ""}
 
 uniform vec3 uSunColor;
 uniform float uHazeDensity;
@@ -569,6 +616,8 @@ interface Recipe {
   readonly reliefSamples: number;
   /** Samples a side of the near relief (F94); 0 for none. */
   readonly nearSamples: number;
+  /** Samples a side of the near colour (F95); 0 for none. */
+  readonly nearColourSamples: number;
 }
 
 export interface TerrainUniformValues {
@@ -596,6 +645,13 @@ export interface TerrainUniformValues {
    * metres over which it fades to the colour layer.
    */
   fine?: {
+    texture: import("three").DataArrayTexture;
+    samples: number;
+    fadeM: readonly [number, number];
+    horizontalCompression: number;
+  };
+  /** The country's near colour (F95), the same way: its pool's array, its images' size, and the real metres over which it fades to the colour layer. */
+  nearColour?: {
     texture: import("three").DataArrayTexture;
     samples: number;
     fadeM: readonly [number, number];
@@ -669,6 +725,7 @@ export function createTerrainMaterial(
       }
     : {};
   const fine = values.colour ? values.fine : undefined;
+  const nearColour = values.colour ? values.nearColour : undefined;
   const relief = values.colour ? values.relief : undefined;
   const recipe: Recipe = {
     kind: "terrain",
@@ -678,6 +735,7 @@ export function createTerrainMaterial(
     fineSamples: fine?.samples ?? 0,
     reliefSamples: relief?.samples ?? 0,
     nearSamples: relief?.near?.samples ?? 0,
+    nearColourSamples: nearColour?.samples ?? 0,
   };
   const colourUniforms = values.colour
     ? {
@@ -694,6 +752,12 @@ export function createTerrainMaterial(
           uColourFine: { value: fine.texture },
           uFineFade: {
             value: new Vector2(fine.fadeM[0] / fine.horizontalCompression, fine.fadeM[1] / fine.horizontalCompression),
+          },
+        }),
+        ...(nearColour && {
+          uColourNear: { value: nearColour.texture },
+          uColourNearFade: {
+            value: new Vector2(nearColour.fadeM[0] / nearColour.horizontalCompression, nearColour.fadeM[1] / nearColour.horizontalCompression),
           },
         }),
         ...(relief && {
@@ -713,7 +777,15 @@ export function createTerrainMaterial(
     : {};
   const material = new ShaderMaterial({
     glslVersion: GLSL3,
-    vertexShader: vertexShader(water !== undefined, true, recipe.colour, recipe.fineSamples > 0, recipe.reliefSamples > 0, recipe.nearSamples > 0),
+    vertexShader: vertexShader(
+      water !== undefined,
+      true,
+      recipe.colour,
+      recipe.fineSamples > 0,
+      recipe.reliefSamples > 0,
+      recipe.nearSamples > 0,
+      recipe.nearColourSamples > 0,
+    ),
     fragmentShader: fragmentShader(
       maxCuts,
       recipe.waterSamples,
@@ -723,6 +795,7 @@ export function createTerrainMaterial(
       recipe.fineSamples,
       recipe.reliefSamples,
       recipe.nearSamples,
+      recipe.nearColourSamples,
     ),
     uniforms: {
       ...lookUniformDefaults(),
@@ -760,6 +833,7 @@ export function setTerrainPalette(material: ShaderMaterial, palette: ScenePalett
     recipe.fineSamples,
     recipe.reliefSamples,
     recipe.nearSamples,
+    recipe.nearColourSamples,
   );
   material.needsUpdate = true;
 }
@@ -832,7 +906,7 @@ export function createRimMaterial(country: ShaderMaterial, palette: ScenePalette
       ...Object.fromEntries(SHARED_WITH_RIM.map((name) => [name, u[name]!])),
     },
   });
-  material.userData.recipe = { kind: "rim", maxCuts: 0, waterSamples: 0, colour: false, fineSamples: 0, reliefSamples: 0, nearSamples: 0 } satisfies Recipe;
+  material.userData.recipe = { kind: "rim", maxCuts: 0, waterSamples: 0, colour: false, fineSamples: 0, reliefSamples: 0, nearSamples: 0, nearColourSamples: 0 } satisfies Recipe;
   return material;
 }
 

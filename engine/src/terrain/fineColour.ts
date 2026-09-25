@@ -26,7 +26,8 @@ import { tileId } from "./tileArray.js";
  * lattice's areas at most, so only one is held at a time.
  *
  * The ground's relief (F93) is held in pools of the same kind, its images
- * data rather than colour (`linear`).
+ * data rather than colour (`linear`). So are the country's sub-tiles along
+ * the rails (F94, F95), placed by the lattice a sub-tile at a time.
  */
 
 export interface FineReach {
@@ -50,10 +51,19 @@ export interface FineReach {
  * within 16 km of a point. The 30 m lattice's are 3.84 km and 15 m, only
  * one and a half times the fine, so the step at 8 km is a small one: 40
  * layers of 385² (32 MB) for the 37 within 10 km.
+ *
+ * The country's near sub-tiles (F95) are 16 km, their colour 10 m against
+ * the country's 250 m, a step no distance hides: 250 m is still sixteen
+ * pixels wide at 16 km. So they reach as far as the near relief (F94) does,
+ * and the colour sharpens over the same ground the relief does: whole to
+ * 10 km, gone by 16, claimed within 20, with 16 layers of 1,601² (219 MB
+ * with mips) for the 14 at most that near a point. One image a frame, as
+ * each is twice a 90 m tile's.
  */
 export const FINE_REACH: Readonly<Record<string, FineReach>> = {
   hero: { fullM: 8_000, goneM: 12_000, reachM: 16_000, layers: 16, uploadsPerFrame: 2 },
   "hero-30m": { fullM: 5_000, goneM: 8_000, reachM: 10_000, layers: 40, uploadsPerFrame: 6 },
+  near: { fullM: 10_000, goneM: 16_000, reachM: 20_000, layers: 16, uploadsPerFrame: 1 },
 };
 
 /** Frames with no tile wanting a fine layer before the pool's array is freed: ten seconds at 60 Hz. */
