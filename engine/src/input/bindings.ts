@@ -96,6 +96,27 @@ export interface HelpLine {
   readonly label: string;
 }
 
+const CAPS: Record<string, string> = { " ": "Space", arrowup: "↑", arrowdown: "↓", arrowleft: "←", arrowright: "→" };
+
+/** A key as it is printed on the key. */
+export const keyCap = (k: string): string => CAPS[k] ?? k.toUpperCase();
+
+export interface HelpCaps {
+  /** Alternatives, each a pair (or one key) in reading order: left before right, faster before slower. */
+  readonly caps: readonly (readonly string[])[];
+  readonly label: string;
+}
+
+/** The same help as keycaps, for the film's hint: one entry per axis, then per action. */
+export function helpCaps(): HelpCaps[] {
+  const out: HelpCaps[] = AXIS_BINDINGS.map((b) => {
+    const [first, second] = b.axis === "heading" ? [b.minus, b.plus] : [b.plus, b.minus];
+    return { caps: first.map((k, i) => [keyCap(k), keyCap(second[i] ?? k)]), label: b.label };
+  });
+  for (const b of ACTION_BINDINGS) out.push({ caps: b.keys.map((k) => [keyCap(k)]), label: b.label });
+  return out;
+}
+
 /** The help, derived: one line per axis, then one per action, in table order. */
 export function helpLines(): HelpLine[] {
   const lines: HelpLine[] = AXIS_BINDINGS.map((b) => ({

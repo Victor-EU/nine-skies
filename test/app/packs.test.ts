@@ -137,6 +137,34 @@ describe("the scene packs at run time", () => {
     expect(store.stats.misses).toBe(0);
   });
 
+  it("says how much of a pack is in while it comes, and all of it once it is settled", async () => {
+    const pack = writePack("a", SHA, [{ name: "t0", bytes: new Uint8Array([10]) }], null);
+    const index: PackIndex = {
+      version: 1,
+      world: "test",
+      heightsSha256: SHA,
+      totalBytes: pack.length,
+      scenes: [{ id: "a", file: "packs/a.bin", bytes: pack.length, tiles: [0, 0], hero: null }],
+    };
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const fetch = async (_url: string, onBytes?: (received: number) => void): Promise<Uint8Array> => {
+      onBytes?.(pack.length / 2);
+      await gate;
+      onBytes?.(pack.length);
+      return pack;
+    };
+    const store = new ScenePacks(index, "", "/world", fetch);
+    store.attach(tileIndex, []);
+    expect(store.progress(0)).toBe(0);
+    store.play(0);
+    expect(store.progress(0)).toBeCloseTo(0.5);
+    expect(store.isSettled(0)).toBe(false);
+    release();
+    await store.fetchTile("/world/tiles/t0.bin");
+    expect(store.progress(0)).toBe(1);
+  });
+
   it("hands its scene's hero area to the cover, which draws it from then on", async () => {
     const { store, cover } = world(true);
     expect(cover.request(0, 0)).toBeNull();

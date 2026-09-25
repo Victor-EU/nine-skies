@@ -7,6 +7,7 @@ import {
   ACTION_BINDINGS,
   AXIS_BINDINGS,
   boundKeys,
+  helpCaps,
   helpLines,
 } from "../../engine/src/input/bindings.js";
 
@@ -42,5 +43,13 @@ describe("the binding table", () => {
     expect(lines).toHaveLength(3);
     expect(lines[2]).toMatchObject({ keys: "Space", pad: "A", label: "auto" });
     expect(lines[0]!.keys).toContain("up arrow");
+  });
+
+  it("derives the keys as keycaps, left before right and faster before slower", () => {
+    expect(helpCaps()).toEqual([
+      { caps: [["W", "S"], ["↑", "↓"]], label: "faster / slower" },
+      { caps: [["A", "D"], ["←", "→"]], label: "direction" },
+      { caps: [["Space"]], label: "auto" },
+    ]);
   });
 });

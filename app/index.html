@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1117" />
     <title>Nine Skies</title>
     <meta name="description" content="Eighteen minutes over real ground: nine scenes of China, two minutes each, flown over open elevation data." />
     <!-- The cover: the nine scenes as nine cards, drawn by `npm run cover`.
@@ -16,52 +17,89 @@
   </head>
   <body>
     <canvas id="view"></canvas>
-    <div id="film">
+    <div id="film" class="awake">
+      <!-- Between scenes the picture dips to dark and comes back under the title. -->
+      <div id="curtain" class="curtain"></div>
       <!-- The lead-in: the map with the jump to this scene, and the title card.
            Characters, pinyin, English, one line. -->
-      <div id="title" class="title" hidden>
-        <canvas id="leadMap" class="leadMap" width="800" height="560"></canvas>
-        <div class="zh" id="titleZh"></div>
-        <div class="pinyin" id="titlePinyin"></div>
-        <div class="en" id="titleEn"></div>
-        <div class="line" id="titleLine"></div>
+      <div id="title" class="title fades">
+        <canvas id="leadMap" class="leadMap"></canvas>
+        <div class="card">
+          <div class="zh" id="titleZh" lang="zh-Hans"></div>
+          <div class="pinyin" id="titlePinyin" lang="zh-Latn-pinyin"></div>
+          <div class="en" id="titleEn"></div>
+          <div class="line" id="titleLine"></div>
+          <!-- Only when the scene's ground is still on its way: the clock waits for it. -->
+          <div id="buffer" class="buffer" aria-live="polite"><span class="track"><i></i></span><span class="words"></span></div>
+        </div>
       </div>
       <!-- Up to three captions a scene, twelve words or fewer, six seconds each. -->
-      <div id="caption" class="caption"></div>
+      <div id="caption" class="caption" aria-live="polite"></div>
       <!-- Lit while the rail is flying. Tapping it resumes auto. -->
-      <button id="auto" class="auto" type="button">AUTO</button>
+      <div class="flightState">
+        <span id="speed" class="speed"></span>
+        <button id="auto" class="auto" type="button" title="Back to the rail (Space)"><i></i>AUTO</button>
+      </div>
       <!-- Something the film has to say about itself: no world, no film. -->
       <div id="notice" class="notice" hidden></div>
       <!-- After the last scene: the whole route, and the credits. -->
-      <div id="end" class="end" hidden>
-        <canvas id="endMap" class="leadMap" width="800" height="560"></canvas>
-        <div class="en">Nine Skies</div>
-        <div class="line">Eighteen minutes over real ground.</div>
-        <button id="again" type="button">Watch again</button>
-        <a class="creditsLink" href="./credits.html">Credits, sources and the question this asks</a>
+      <div id="end" class="end fades">
+        <canvas id="endMap" class="leadMap"></canvas>
+        <div class="card">
+          <div class="en">Nine Skies</div>
+          <div class="line">Eighteen minutes over real ground.</div>
+          <ol id="endChapters" class="endChapters"></ol>
+          <div class="endActions">
+            <button id="again" type="button">Watch again</button>
+            <a class="creditsLink" href="./credits.html">Credits, sources and the question this asks</a>
+          </div>
+        </div>
       </div>
       <!-- The player bar: play and pause, the chapters, the time. Navigation, not flight. -->
       <div id="bar" class="bar">
-        <button id="play" type="button" aria-label="pause">❚❚</button>
+        <button id="play" class="icon" type="button" aria-label="Pause" title="Pause (P)"></button>
         <!-- Shown when there is licensed sound to play: mutes it. -->
-        <button id="sound" type="button" aria-label="mute" hidden>♪</button>
-        <div id="chapters" class="chapters"></div>
+        <button id="sound" class="icon" type="button" aria-label="Mute" title="Mute (M)" hidden></button>
+        <div id="chapters" class="chapters" role="group" aria-label="Chapters"></div>
         <span id="time" class="time">0:00 / 0:00</span>
         <a class="creditsLink" href="./credits.html">Credits</a>
+        <button id="full" class="icon" type="button" aria-label="Full screen" title="Full screen (F)"></button>
       </div>
       <!-- Touch: two held buttons for speed; the drag for direction is the canvas itself. -->
       <div class="touch">
-        <button id="slower" type="button" aria-label="slower">−</button>
-        <button id="faster" type="button" aria-label="faster">+</button>
+        <button id="slower" type="button" aria-label="Slower">−</button>
+        <button id="faster" type="button" aria-label="Faster">+</button>
       </div>
       <div id="hint" class="hint"></div>
       <!-- Phones play in landscape; in portrait the film asks and waits. -->
-      <div id="rotate" class="rotate"><div>Turn your phone sideways.</div></div>
+      <div id="rotate" class="rotate">
+        <svg viewBox="0 0 48 48" width="56" height="56" aria-hidden="true"><rect x="15" y="6" width="18" height="32" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 34a17 17 0 0 0 26 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M34 38l1.5 4.5-4.5 1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>Turn your phone sideways.</div>
+      </div>
+      <!-- Before the first frame: the name, while the film and its first ground load. -->
+      <div id="loading" class="loading">
+        <div class="en">Nine Skies</div>
+        <div class="line">Eighteen minutes over real ground.</div>
+        <span class="track"><i></i></span>
+      </div>
       <!-- Frame time by wall clock: ?frametime. -->
       <div id="frametime" class="frametime" hidden></div>
       <!-- The rail recorder, dev only: ?record=<scene-id>. -->
       <div id="recorder" class="recorder" hidden></div>
     </div>
+    <script>
+      // If the film cannot start - no WebGL 2, most often - the name says so
+      // rather than waiting on its loading line for ever.
+      function filmFailed() {
+        const card = document.getElementById("loading");
+        if (!card || card.classList.contains("gone") || card.classList.contains("failed")) return;
+        card.classList.add("failed");
+        card.querySelector(".line").textContent =
+          "The film could not start in this browser. It draws with WebGL 2, which current Chrome, Edge, Firefox and Safari all have.";
+      }
+      addEventListener("error", filmFailed);
+      addEventListener("unhandledrejection", filmFailed);
+    </script>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

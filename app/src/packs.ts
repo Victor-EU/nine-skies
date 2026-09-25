@@ -19,7 +19,7 @@ import { decodeHeroArea, loadHeroArea, type HeroCover } from "../../engine/src/t
 import type { ColourIndex } from "../../engine/src/terrain/colour.js";
 import type { ReliefIndex } from "../../engine/src/terrain/relief.js";
 import { colourFile } from "../../engine/src/film/pack.js";
-import { fetchBytes, type FetchBytes, type TileIndex } from "../../engine/src/terrain/tileStream.js";
+import type { FetchBytes, TileIndex } from "../../engine/src/terrain/tileStream.js";
 
 export interface PackIndexScene {
   readonly id: string;
@@ -63,6 +63,36 @@ export interface PackStats {
 
 type State = "queued" | "loading" | "loaded" | "failed";
 
+/** `FetchBytes` that can also say how much has come, for the one file big enough to wait on. */
+export type FetchPack = (url: string, onBytes?: (received: number) => void, expected?: number) => Promise<Uint8Array>;
+
+/**
+ * Fetch a file whole, telling `onBytes` as it arrives. The buffer is sized
+ * from `expected` up front, so a 200 MB pack is held once and not twice.
+ */
+export async function fetchCounted(url: string, onBytes?: (received: number) => void, expected = 0): Promise<Uint8Array> {
+  const response = await fetch(url);
+  // A 404 still resolves, and its HTML body would decode as a bad tile rather than as a missing one.
+  if (!response.ok) throw new Error(`${url}: ${response.status} ${response.statusText}`);
+  if (!onBytes || !response.body) return new Uint8Array(await response.arrayBuffer());
+  const reader = response.body.getReader();
+  let out = new Uint8Array(Math.max(expected, Number(response.headers.get("content-length")) || 0, 1 << 16));
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (received + value.length > out.length) {
+      const grown = new Uint8Array(Math.max(out.length * 2, received + value.length));
+      grown.set(out.subarray(0, received));
+      out = grown;
+    }
+    out.set(value, received);
+    received += value.length;
+    onBytes(received);
+  }
+  return received === out.length ? out : out.slice(0, received);
+}
+
 const nameOf = (url: string): string => url.slice(url.lastIndexOf("/") + 1).replace(/\.bin$/, "");
 
 export class ScenePacks {
@@ -70,6 +100,8 @@ export class ScenePacks {
   private readonly held = new Map<string, Uint8Array>();
   private readonly owners = new Map<string, number[]>();
   private readonly state = new Map<number, State>();
+  /** Bytes of each pack in so far, while it loads. */
+  private readonly received = new Map<number, number>();
   private readonly waiters = new Map<number, Array<() => void>>();
   private queue: number[] = [];
   private busy = false;
@@ -84,7 +116,7 @@ export class ScenePacks {
     private readonly baseUrl: string,
     /** The world's own base, for a hero area whose pack will not come. */
     private readonly worldUrl: string,
-    private readonly fetch: FetchBytes = fetchBytes,
+    private readonly fetch: FetchPack = fetchCounted,
   ) {}
 
   /**
@@ -159,6 +191,13 @@ export class ScenePacks {
     return s === "loaded" || s === "failed";
   }
 
+  /** How much of scene `i`'s pack is in, 0 to 1; 1 once it is settled either way. */
+  progress(i: number): number {
+    if (this.isSettled(i)) return 1;
+    const bytes = this.index.scenes[i]?.bytes ?? 0;
+    return bytes > 0 ? Math.min(1, (this.received.get(i) ?? 0) / bytes) : 0;
+  }
+
   /** `FetchBytes` for the tile source: from a pack when one holds the file. */
   readonly fetchTile: FetchBytes = async (url) => {
     const name = nameOf(url);
@@ -210,7 +249,7 @@ export class ScenePacks {
     const scene = this.index.scenes[i]!;
     let header: PackHeader | null = null;
     try {
-      const bytes = await this.fetch(`${this.baseUrl}/${scene.file}`);
+      const bytes = await this.fetch(`${this.baseUrl}/${scene.file}`, (n) => this.received.set(i, n), scene.bytes);
       const pack = readPack(bytes);
       header = pack.header;
       if (header.heightsSha256 !== this.index.heightsSha256) throw new Error("cut from other heights than its index");

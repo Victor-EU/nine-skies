@@ -8,11 +8,20 @@
   </head>
   <body>
     <main class="credits">
-      <p class="back"><a href="./">← Back to the film</a></p>
+      <p class="back"><a href="./" id="back">← Back to the film</a></p>
       <h1>Nine Skies</h1>
       <p class="lede">Eighteen minutes over real ground: nine scenes of China, flown over open elevation data.</p>
       <!-- Filled at build time from NOTICE.md and content/sound.yaml (content/credits.ts). -->
       <!--credits-->
     </main>
+    <script>
+      // Come from the film, go back to it where it was: its address names the chapter.
+      const from = document.referrer ? new URL(document.referrer) : null;
+      if (from && from.origin === location.origin && !from.pathname.endsWith("credits.html"))
+        document.getElementById("back").addEventListener("click", (e) => {
+          e.preventDefault();
+          history.back();
+        });
+    </script>
   </body>
 </html>

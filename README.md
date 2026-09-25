@@ -28,7 +28,11 @@ auto, which the film returns to by itself after a few seconds.
 | Direction | `A`/`D` or the left and right arrows | drag on the picture |
 | Auto | `Space` | the AUTO badge |
 
-The player bar pauses, jumps to a chapter, and links to the credits.
+The player bar pauses, jumps to a chapter, fills the screen, and links to
+the credits; in flight it steps aside until the pointer moves. Its keys are
+`P` to pause, `F` for full screen, `M` to mute and `1` to `9` for a chapter.
+A chapter's name in the address starts the film there (`#karst`), and a
+scene whose ground has not arrived holds on its title card until it has.
 Phones play in landscape.
 
 ## Running it

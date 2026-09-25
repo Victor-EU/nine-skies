@@ -23,13 +23,12 @@ import { ColourSource, loadColourIndex, withoutFine } from "../../engine/src/ter
 import { RockFaces, loadRockIndex } from "../../engine/src/terrain/rock.js";
 import { ReliefSource, loadReliefIndex } from "../../engine/src/terrain/relief.js";
 import { loadHeroCovers, type HeroCover } from "../../engine/src/terrain/heroSource.js";
-import { WorldCoverage } from "../../engine/src/terrain/coverage.js";
 import { HorizonScheduler } from "../../engine/src/terrain/horizon.js";
 import { HorizonRing } from "../../engine/src/terrain/horizonRing.js";
 import { COUNTRY_EAST_KM, COUNTRY_NORTH_KM, projectAlbers, unprojectAlbers } from "../../engine/src/terrain/worldGrid.js";
 import { TILE_KM } from "../../engine/src/terrain/syntheticTiles.js";
 import { Input } from "../../engine/src/input/input.js";
-import { helpLines } from "../../engine/src/input/bindings.js";
+import { boundKeys, helpCaps } from "../../engine/src/input/bindings.js";
 import type { PadSnapshot } from "../../engine/src/input/gamepad.js";
 import {
   CAMERA_FAR_REAL_M,
@@ -42,7 +41,7 @@ import {
   toWorldH,
   type WorldScale,
 } from "../../engine/src/sim/scale.js";
-import { LEAD_IN_S, Timeline, type TimelinePosition } from "../../engine/src/film/timeline.js";
+import { LEAD_IN_S, SCENE_S, Timeline, type TimelinePosition } from "../../engine/src/film/timeline.js";
 import { FILM_VERSION, buildRail, railAtKm, type BuiltRail, type Film, type Scene } from "../../engine/src/film/scene.js";
 import { RailFlight, type RailState } from "../../engine/src/film/rail.js";
 import { AltitudeController } from "../../engine/src/film/altitude.js";
@@ -232,13 +231,22 @@ const mapBounds = world
       northM1: (world.manifest.window.ty1 + 2) * TILE_KM * 1000,
     }
   : { eastM0: 0, northM0: 0, eastM1: COUNTRY_EAST_KM * 1000, northM1: COUNTRY_NORTH_KM * 1000 };
-const leadIn = new LeadInMap(horizonField, mapBounds, world ? WorldCoverage.from(world.manifest) : null);
+const leadIn = new LeadInMap(horizonField, mapBounds);
 const leadCanvas = document.getElementById("leadMap") as HTMLCanvasElement;
 const endCanvas = document.getElementById("endMap") as HTMLCanvasElement;
-for (const c of [leadCanvas, endCanvas]) {
-  const aspect = (mapBounds.eastM1 - mapBounds.eastM0) / (mapBounds.northM1 - mapBounds.northM0);
-  c.width = 900;
-  c.height = Math.round(900 / aspect);
+for (const c of [leadCanvas, endCanvas])
+  c.style.setProperty("--map-aspect", String((mapBounds.eastM1 - mapBounds.eastM0) / (mapBounds.northM1 - mapBounds.northM0)));
+
+/** Size a map's pixels to its box on screen, sharp on any display; returns device pixels per CSS pixel. */
+function fitCanvas(c: HTMLCanvasElement): number {
+  const ratio = Math.min(devicePixelRatio || 1, 2);
+  const w = Math.round(c.clientWidth * ratio);
+  const h = Math.round(c.clientHeight * ratio);
+  if (w > 0 && h > 0 && (c.width !== w || c.height !== h)) {
+    c.width = w;
+    c.height = h;
+  }
+  return ratio;
 }
 
 // ---- Input ----------------------------------------------------------------
@@ -286,9 +294,74 @@ for (const [id, speed] of [
 }
 el("auto").addEventListener("click", () => input.touch.press("auto"));
 
-el("hint").textContent = helpLines()
-  .map((l) => `${l.keys} ${l.label}`)
-  .join("   ·   ");
+// The keys, as keycaps, derived from the binding table like every other help.
+el("hint").innerHTML = helpCaps()
+  .map(
+    (h) =>
+      `<span>${h.caps.map((pair) => pair.map((k) => `<kbd>${k}</kbd>`).join("")).join('<span class="or">/</span>')}<em>${h.label}</em></span>`,
+  )
+  .join("");
+
+// ---- The furniture steps aside ----------------------------------------------
+//
+// In flight, three seconds after the pointer last moved, the bar, the keys
+// and a quiet auto badge fade, and the pointer with them: what is left is the
+// picture and its caption. Any movement brings them back. The flight keys do
+// not, so steering is not interrupted by the bar it has no use for.
+
+const IDLE_MS = 3000;
+let activeAt = performance.now();
+const wake = (): void => {
+  activeAt = performance.now();
+};
+for (const type of ["pointermove", "pointerdown", "wheel", "touchstart"] as const) addEventListener(type, wake, { passive: true });
+const flightKeys = boundKeys();
+addEventListener("keydown", (e) => {
+  if (!flightKeys.has(e.key.toLowerCase())) wake();
+});
+const bar = el("bar");
+const filmEl = el("film");
+function setIdle(idle: boolean): void {
+  filmEl.classList.toggle("idle", idle);
+  document.body.classList.toggle("idle", idle);
+}
+
+// ---- Icons and full screen -------------------------------------------------
+
+const ICON = {
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6L18.8 12z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5h3.8v14H6.5zM13.7 5h3.8v14h-3.8z"/></svg>',
+  replay:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5V1.8L7.4 5.9 12 10V7.3a5.2 5.2 0 1 1-5.2 5.2H4a8 8 0 1 0 8-8z"/></svg>',
+  sound:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9h3.8L12 5v14l-4.7-4H3.5z"/><path d="M15.4 8.6a4.8 4.8 0 0 1 0 6.8M18 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  muted:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9h3.8L12 5v14l-4.7-4H3.5z"/><path d="M15.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  full:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  window:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+el("sound").innerHTML = ICON.sound;
+
+const fullButton = el("full");
+const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void; webkitFullscreenEnabled?: boolean };
+const canFull = document.fullscreenEnabled || doc.webkitFullscreenEnabled === true;
+fullButton.hidden = !canFull;
+function toggleFullScreen(): void {
+  const root = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void };
+  if (document.fullscreenElement ?? doc.webkitFullscreenElement) void (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.());
+  else void (root.requestFullscreen?.() ?? root.webkitRequestFullscreen?.());
+}
+function drawFullButton(): void {
+  const full = Boolean(document.fullscreenElement ?? doc.webkitFullscreenElement);
+  fullButton.innerHTML = full ? ICON.window : ICON.full;
+  fullButton.setAttribute("aria-label", full ? "Leave full screen" : "Full screen");
+  fullButton.title = full ? "Leave full screen (F)" : "Full screen (F)";
+}
+drawFullButton();
+fullButton.addEventListener("click", toggleFullScreen);
+for (const type of ["fullscreenchange", "webkitfullscreenchange"]) document.addEventListener(type, drawFullButton);
 
 /** Phones play in landscape; in portrait the clock waits with the viewer. */
 const portrait = matchMedia("(pointer: coarse) and (orientation: portrait)");
@@ -296,46 +369,100 @@ const portrait = matchMedia("(pointer: coarse) and (orientation: portrait)");
 // ---- The clock and the scene on screen ------------------------------------
 
 const timeline = new Timeline(film?.scenes.length ?? 0);
+// A chapter named in the address starts the film there: a shared link, a
+// reload, the way back from the credits. With none, it starts at the start.
+const namedChapter = (): number => {
+  const id = decodeURIComponent(location.hash.slice(1));
+  return id ? (film?.scenes.findIndex((s) => s.id === id) ?? -1) : -1;
+};
+if (namedChapter() > 0) timeline.jumpTo(namedChapter());
+addEventListener("hashchange", () => {
+  const i = namedChapter();
+  if (i >= 0 && i !== current) playChapter(i);
+});
 let current = -1;
 let flight: RailFlight | null = null;
 const altitude = new AltitudeController();
 let lastState: RailState | null = null;
 
+/** Go to chapter `i`, from its lead-in, and play. */
+function playChapter(i: number): void {
+  timeline.jumpTo(i);
+  timeline.paused = false;
+  pinned = null;
+}
+
 const chapters = el("chapters");
 for (const [i, s] of (film?.scenes ?? []).entries()) {
   const b = document.createElement("button");
   b.type = "button";
-  b.title = `${i + 1}. ${s.title.en}`;
-  b.textContent = s.title.en;
-  b.appendChild(document.createElement("i"));
-  b.addEventListener("click", () => {
-    timeline.jumpTo(i);
-    timeline.paused = false;
-    pinned = null;
-    el("end").hidden = true;
-  });
+  b.dataset.name = `${i + 1}. ${s.title.en}`;
+  b.setAttribute("aria-label", `Chapter ${i + 1}: ${s.title.en}`);
+  const track = document.createElement("span");
+  track.className = "track";
+  track.appendChild(document.createElement("i"));
+  b.appendChild(track);
+  b.addEventListener("click", () => playChapter(i));
   chapters.appendChild(b);
 }
-el("play").addEventListener("click", () => {
+// The end card lists them again, for the one the viewer wants to see twice.
+const endChapters = el("endChapters");
+for (const [i, s] of (film?.scenes ?? []).entries()) {
+  const li = document.createElement("li");
+  const b = document.createElement("button");
+  b.type = "button";
+  b.innerHTML = `<b>${i + 1}</b>`;
+  b.append(s.title.en);
+  b.addEventListener("click", () => playChapter(i));
+  li.appendChild(b);
+  endChapters.appendChild(li);
+}
+function togglePlay(): void {
+  if (timeline.ended) {
+    playChapter(0);
+    return;
+  }
   timeline.paused = !timeline.paused;
   pinned = null;
-});
+}
+el("play").addEventListener("click", togglePlay);
 el("again").addEventListener("click", () => {
   timeline.restart();
   timeline.paused = false;
-  el("end").hidden = true;
 });
 // A browser starts sound only for something the viewer does.
 for (const type of ["pointerdown", "keydown"] as const) addEventListener(type, () => soundTrack.wake());
-if (soundTrack.hasSound) {
+function toggleMute(): void {
+  if (!soundTrack.hasSound) return;
   const button = el("sound");
-  button.hidden = false;
-  button.addEventListener("click", () => {
-    const muted = soundTrack.toggleMute();
-    button.classList.toggle("off", muted);
-    button.setAttribute("aria-label", muted ? "sound on" : "mute");
-  });
+  const muted = soundTrack.toggleMute();
+  button.classList.toggle("off", muted);
+  button.innerHTML = muted ? ICON.muted : ICON.sound;
+  button.setAttribute("aria-label", muted ? "Sound on" : "Mute");
+  button.title = muted ? "Sound on (M)" : "Mute (M)";
 }
+if (soundTrack.hasSound) {
+  el("sound").hidden = false;
+  el("sound").addEventListener("click", toggleMute);
+}
+// A button clicked with the pointer lets go of the focus, or the next Space -
+// auto - would press it again and restart the chapter it names.
+filmEl.addEventListener("click", (e) => {
+  const b = (e.target as Element).closest("button");
+  if (b && e.detail > 0) b.blur();
+});
+// The player's own keys, beside the four flight inputs and never among them:
+// P pauses, F fills the screen, M mutes, and 1 to 9 go to a chapter.
+addEventListener("keydown", (e) => {
+  if (recorder || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === "p") togglePlay();
+  else if (k === "f" && canFull) toggleFullScreen();
+  else if (k === "m") toggleMute();
+  else if (/^[1-9]$/.test(k) && Number(k) <= (film?.scenes.length ?? 0)) playChapter(Number(k) - 1);
+  else return;
+  e.preventDefault();
+});
 
 const groundAt = (eastM: number, northM: number): number | null => terrain.groundElevationM(eastM, northM);
 
@@ -356,6 +483,8 @@ function useSceneScale(s: Scene | null): void {
 
 function startScene(i: number): void {
   const s = film!.scenes[i]!;
+  // The address says which chapter is on, so a reload or a shared link comes back to it.
+  if (!recorder) history.replaceState(null, "", i === 0 ? location.pathname + location.search : `#${s.id}`);
   current = i;
   flight = new RailFlight(rails[i]!, { corridorRad: (s.corridorDeg * Math.PI) / 180 });
   altitude.reset();
@@ -368,7 +497,7 @@ function startScene(i: number): void {
   el("titlePinyin").textContent = s.title.pinyin;
   el("titleEn").textContent = s.title.en;
   el("titleLine").textContent = s.line;
-  el("caption").textContent = "";
+  showCaption("");
   document.title = `Nine Skies — ${s.title.en}`;
 }
 
@@ -377,22 +506,50 @@ function captionAt(s: Scene, flightS: number): string {
   return "";
 }
 
+/** A caption fades in and out; its words stay while it fades. */
+let captionShown = "";
+function showCaption(text: string): void {
+  if (text === captionShown) return;
+  const c = el("caption");
+  if (text) c.textContent = text;
+  c.classList.toggle("on", text !== "");
+  captionShown = text;
+}
+
 const mmss = (seconds: number): string => {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 };
 
+let barDrawn = { time: "", play: "", scene: -2, phase: "" };
 function drawBar(pos: TimelinePosition): void {
-  el("time").textContent = `${mmss(pos.filmS)} / ${mmss(timeline.totalS)}`;
-  el("play").textContent = timeline.paused ? "▶" : "❚❚";
-  el("play").setAttribute("aria-label", timeline.paused ? "play" : "pause");
-  for (const [i, b] of Array.from(chapters.children).entries()) {
-    b.classList.toggle("done", i < pos.scene || pos.phase === "end");
-    b.classList.toggle("now", i === pos.scene && pos.phase !== "end");
-    const fill = b.firstElementChild as HTMLElement | null;
-    if (fill) fill.style.width = i === pos.scene ? `${(pos.t / 120) * 100}%` : "0";
+  const name = film && pos.phase !== "end" ? film.scenes[pos.scene]!.title.en : "";
+  const clock = `${mmss(pos.filmS)} / ${mmss(timeline.totalS)}`;
+  const time = `${name}|${clock}`;
+  if (time !== barDrawn.time) {
+    const b = document.createElement("b");
+    b.textContent = name;
+    el("time").replaceChildren(...(name ? [b] : []), clock);
   }
+  const play = pos.phase === "end" ? "replay" : timeline.paused ? "play" : "pause";
+  if (play !== barDrawn.play) {
+    const button = el("play");
+    button.innerHTML = ICON[play];
+    const label = { replay: "Watch again", play: "Play", pause: "Pause" }[play];
+    button.setAttribute("aria-label", label);
+    button.title = `${label} (P)`;
+  }
+  if (pos.scene !== barDrawn.scene || pos.phase !== barDrawn.phase) {
+    for (const [i, b] of Array.from(chapters.children).entries()) {
+      b.classList.toggle("done", i < pos.scene || pos.phase === "end");
+      b.classList.toggle("now", i === pos.scene && pos.phase !== "end");
+      if (i !== pos.scene) (b.querySelector("i") as HTMLElement).style.width = "0";
+    }
+  }
+  const fill = chapters.children[pos.scene]?.querySelector("i") as HTMLElement | undefined;
+  if (fill) fill.style.width = pos.phase === "end" ? "0" : `${(pos.t / SCENE_S) * 100}%`;
+  barDrawn = { time, play, scene: pos.scene, phase: pos.phase };
 }
 
 // ---- Placing the camera ---------------------------------------------------
@@ -566,6 +723,35 @@ addEventListener("blur", () => keysDown.clear());
 
 let last = performance.now();
 
+/** 0 to 1, eased at both ends. */
+const smooth = (x: number): number => {
+  const t = Math.max(0, Math.min(1, x));
+  return t * t * (3 - 2 * t);
+};
+/** Seconds the picture takes to dip to dark at a cut, and to come back. */
+const DIP_OUT_S = 0.9;
+const DIP_IN_S = 0.9;
+/** Where a lead-in waits when its scene's ground has not come: its last moment, the jump drawn. */
+const HOLD_AT_S = LEAD_IN_S - 0.4;
+
+const curtain = el("curtain");
+const bufferEl = el("buffer");
+let curtainDrawn = -1;
+function setCurtain(opacity: number): void {
+  const o = Math.round(opacity * 100) / 100;
+  if (o === curtainDrawn) return;
+  curtain.style.opacity = String(o);
+  curtainDrawn = o;
+}
+const shown = (id: string, on: boolean): void => {
+  el(id).classList.toggle("on", on);
+};
+let bufferWords = "";
+let speedSeen = 1;
+let speedChangedAt = -Infinity;
+let endShownAt: number | null = null;
+let firstFrame = true;
+
 function frame(now: number): void {
   if (suspended) {
     last = now;
@@ -577,15 +763,22 @@ function frame(now: number): void {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
 
+  if (firstFrame) {
+    // The name steps aside once there is a picture to hand over to.
+    firstFrame = false;
+    el("loading").classList.add("gone");
+  }
   if (recorder) {
+    setCurtain(0);
     recordFrame(dt);
     rig.render();
     requestAnimationFrame(frame);
     return;
   }
   if (pinned) {
-    el("title").hidden = true;
-    el("caption").textContent = "";
+    setCurtain(0);
+    shown("title", false);
+    showCaption("");
     if (pinned.aboveGroundM !== null) {
       const scene = film?.scenes[Math.max(0, current)];
       const band = scene?.band ?? { minM: 50, maxM: 6000 };
@@ -600,6 +793,7 @@ function frame(now: number): void {
   }
 
   if (!film) {
+    setCurtain(0);
     // Nothing to fly: hold a view of whatever world there is.
     placeAt(world?.manifest.start.eastM ?? 120_000, world?.manifest.start.northM ?? 1_500_000, 3000, -Math.PI / 2, 0);
     rig.render();
@@ -608,8 +802,26 @@ function frame(now: number): void {
   }
 
   const held = timeline.paused || portrait.matches;
-  const pos = timeline.advance(held ? 0 : dt);
+  // The ground before the flight: a lead-in holds its last moment until its
+  // scene's pack is in, as a video waits for its buffer. The scene's two
+  // minutes are untouched; the clock only stops.
+  const before = timeline.at();
+  const waiting = packed && before.phase === "lead-in" && before.scene === current && !packs.isSettled(current);
+  const pos = timeline.advance(held ? 0 : waiting ? Math.max(0, Math.min(dt, HOLD_AT_S - before.t)) : dt);
   if (pos.scene !== current) startScene(pos.scene);
+  const holding = waiting && pos.t >= HOLD_AT_S - 1e-6;
+  bufferEl.classList.toggle("on", holding);
+  if (holding) {
+    const got = packs.progress(current);
+    const words = `Loading the ground · ${Math.round(got * 100)}%`;
+    if (words !== bufferWords) {
+      (bufferEl.querySelector(".words") as HTMLElement).textContent = words;
+      (bufferEl.querySelector("i") as HTMLElement).style.width = `${got * 100}%`;
+      bufferWords = words;
+    }
+  }
+  filmEl.classList.toggle("between", pos.phase !== "flight");
+  setIdle(pos.phase === "flight" && !timeline.paused && now - activeAt > IDLE_MS && !bar.matches(":hover"));
   const s = film.scenes[current]!;
   const intent = input.poll(connectedPad());
   soundTrack.update({
@@ -625,11 +837,23 @@ function frame(now: number): void {
     const start = railAtKm(rails[current]!, 0);
     const alt = altitude.update(0, start.eastM, start.northM, start.headingRad, start.aboveGroundM, s.band, groundAt, s.lookAheadKm);
     placeAt(start.eastM, start.northM, alt, start.headingRad, 0, clockNow(), start.pitchDeg);
-    el("title").hidden = false;
-    el("caption").textContent = "";
-    leadIn.draw(leadCanvas.getContext("2d")!, { rails, next: current, progress: pos.t / (LEAD_IN_S * 0.7) });
+    setCurtain(1 - smooth(pos.t / DIP_IN_S));
+    shown("title", true);
+    shown("end", false);
+    endShownAt = null;
+    showCaption("");
+    leadIn.draw(leadCanvas.getContext("2d")!, {
+      rails,
+      next: current,
+      progress: pos.t / (LEAD_IN_S * 0.7),
+      ratio: fitCanvas(leadCanvas),
+      timeS: now / 1000,
+    });
   } else if (pos.phase === "flight") {
-    el("title").hidden = true;
+    setCurtain(smooth((pos.t - (SCENE_S - DIP_OUT_S)) / DIP_OUT_S));
+    shown("title", false);
+    shown("end", false);
+    endShownAt = null;
     const state = flight!.update(
       held
         ? { speed: 0, heading: 0, auto: false }
@@ -640,14 +864,30 @@ function frame(now: number): void {
     lastFlightS = pos.flightS;
     const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt, s.lookAheadKm);
     placeAt(state.eastM, state.northM, alt, state.headingRad, state.bankRad, clockNow(), state.pitchDeg);
-    el("caption").textContent = captionAt(s, pos.flightS);
+    showCaption(captionAt(s, pos.flightS));
     el("auto").classList.toggle("on", state.auto);
-  } else {
-    el("title").hidden = true;
-    if (el("end").hidden) {
-      el("end").hidden = false;
-      leadIn.draw(endCanvas.getContext("2d")!, { rails, next: rails.length, progress: 1 });
+    // The speed, while the viewer is changing it and for a moment after; the
+    // badge is quiet while the rail flies itself.
+    if (Math.abs(state.speedMul - speedSeen) > 1e-4) {
+      speedSeen = state.speedMul;
+      speedChangedAt = now;
+      el("speed").textContent = `${state.speedMul.toFixed(1)}×`;
     }
+    const speaking = now - speedChangedAt < 2000;
+    el("speed").classList.toggle("on", speaking);
+    el("auto").parentElement!.classList.toggle("calm", state.auto && !speaking);
+  } else {
+    shown("title", false);
+    showCaption("");
+    if (endShownAt === null) {
+      endShownAt = now;
+      shown("end", true);
+      // Over: the address no longer names a chapter, so coming back starts it again.
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+    // The last frame comes back from the dark behind the whole route.
+    setCurtain(1 - smooth((now - endShownAt) / 1500));
+    leadIn.draw(endCanvas.getContext("2d")!, { rails, next: rails.length, progress: 1, ratio: fitCanvas(endCanvas), timeS: now / 1000 });
     if (lastState) placeAt(lastState.eastM, lastState.northM, altitude.current ?? 0, lastState.headingRad, 0);
   }
   drawBar(pos);
