@@ -1654,3 +1654,138 @@ middle level for the country's colour, as the relief has, would carry the
 detail further out. The southern stations' terrain, at 5.7 to 6.3 ms,
 wants its share found among F91's fine colour, F92's walls and F93's
 relief.
+
+## F97 — The Wall as mountains: the country finer than its samples, the curtain lit, and a drama of three, 25 September 2026
+
+**Why.** Three things were wrong with the Wall, found making the cover:
+- *The approach was shards.* At authored speed the flight covers the rail's
+  first 114 of its 272 km, over the 1 km country grid. F86 lit it smooth,
+  but its silhouettes stayed kilometre-wide triangles wherever the camera
+  is low over it, each shaded apart in the last light.
+- *Everest was needles.* The hero grid's 90 m holds the slopes as they
+  are, and six times them is a field of white spires.
+- *A black wedge down the spires.* The curtain the country hangs along a
+  hero rim (F74) took the flat normal of its own triangles. A wall's normal
+  is level, so it took no snow, was painted the palette's rock, and stood
+  in shadow: black.
+
+**The country finer than its samples.** The research F86 ranked first: a
+level finer than L0, L-1, draws 500 m quads over the same 1 km samples, and
+a vertex between samples takes the height of a Catmull-Rom spline through
+the 4 × 4 samples round it (`spline.ts`).
+- *It passes through every sample.* A vertex on a sample keeps its height,
+  so a coarser level beside a finer one meets it at every sample it draws,
+  and the skirts close what is between.
+- *Its slope at a sample is the central difference* the lit pass already
+  took there (D86), so the normal between samples runs smoothly into it.
+- *Past a tile's edge it reads the tile beside,* as the normal already did
+  (`iNeighbours`); where that tile is not resident, the edge is held. Within
+  one sample of a corner the 4 × 4 reaches the tile diagonal, which neither
+  side reads: heights along the shared edge still agree exactly, and the
+  slope across it differs by under a metre in a kilometre.
+- *Where.* A tile at L0 whose nearest point is within 40 km of the camera
+  is drawn at L-1, unless hero areas cover half of it or more: the country
+  is cut away there, and its vertices would only be work. At the First
+  Bend's station the camera's own tile is 71 % Tiger Leaping Gorge.
+- *A 250 m level too, and refused.* L-2, 256 quads a side within 16 km,
+  was built and timed at six stations against L-1 alone, twice each, 80
+  samples a capture. It cost 1.1 to 3.4 ms of GPU a frame more, where L-1
+  costs 0.3 to 0.9 over L0, and the near ground at 1080p could not be told
+  from L-1's.
+- *The curtain follows.* It hangs from exactly the surface the tile draws,
+  so its CPU reads the same spline by the same rule.
+- *The shadow draws the same ground*: the depth pass shares the vertex
+  shader.
+
+**The curtain lit as the ground.** Each point now carries the ground's
+slope and height at its top, from the spline through the country's
+samples, and the whole column is lit, coloured and snowed as that ground
+is. The flat normal is gone from the shader.
+
+**A drama of three for the Wall.** `exaggeration` in a scene file is its
+own `A` (`sim/scale.ts`), the film's six unless it says otherwise (D90).
+Six was measured on the 1 km grid, whose samples flatten real slopes (F14).
+F14 called a route drawn a third past 60° and a ninth past 75° spikes,
+not mountains. Measured the same way, the share of ground drawn past 60°
+and 75°:
+
+| Ground | A | Past 60° | Past 75° |
+| --- | ---: | ---: | ---: |
+| Everest hero area, 90 m | 6 | 68.2 % | 35.4 % |
+| | 4 | 54.2 % | 12.9 % |
+| | 3 | 40.0 % | 4.5 % |
+| Country within 10 km of the rail's first 114 km, 1 km | 6 | 2.3 % | 0.0 % |
+
+At four, more than a ninth is still past 75°; three is the most drama
+under it. The
+approach was never steep: its shards were the grid and the light, which the
+finer levels answer. The camera's altitude is real metres throughout, so
+nothing it flies changes; the terrain, the horizon and the look (haze,
+mist, the shadow's reach, the clouds) are put into world units at the
+scene's scale when it starts (`useSceneScale`), and a frame-cost station is
+drawn at its scene's.
+
+Tried and refused: reading rock and snow at the film's six whatever the
+scene draws at. Six paints real 20° slopes as rock, and it brought back the
+pale veils on the approach's hills that were half of its smear.
+
+**What it shows that six hid.** Looking south at Everest the camera sees
+north faces, and near Rongbuk (100-114 s) the ground's colour has black
+patches. Both the archive's median (F89) and the 2016 mosaic hold them in
+the same places: they are the shadows the ground cast when the satellite
+passed. At six the spires hid the valleys they lie in. Dividing them out
+of the imagery is F86's research item and the next lever for the Wall.
+
+**The stills.** Six changed. Share of each still changed by more than 8
+levels:
+
+| Still | Changed | What changed |
+| --- | ---: | --- |
+| The Wall | 58.0 % | The approach is rolling ground with its river's valley, where it was shards; the range stands on the horizon as a range, not a wall of spikes. |
+| Loess | 6.2 % | The nearest ridges are rounded where they were straight edges. |
+| The Roof | 5.3 % | The same, on the plateau's near hills. |
+| Below the Sea | 4.0 % | The same, on the near desert and the range beyond it. |
+| First Bend | 1.1 % | The country beyond the gorge, a little rounder. |
+| Heaven Lake | 0.7 % | The hills round the volcano, a little rounder. |
+
+Huangshan, the Three Gorges and Karst changed by 0.3 % at most, what two
+takes of the same frame differ by, and stand. The six need signing off
+(D77). The cover's Everest card is now the north face at 136 s, on the
+rail's own height, where it had been a frame chosen to hide the needles.
+
+**Frame cost.** Timed headless at 1920 × 1080 on the M3, one station a
+capture, 80 samples, each variant twice, the lowest of the two. Terrain, ms
+over the clear pass:
+
+| Station | L0 alone | With L-1 | With L-2 too |
+| --- | ---: | ---: | ---: |
+| Loess | 2.24 | 2.50 | 3.77 |
+| Below the Sea | 2.07 | 2.36 | 3.63 |
+| The Roof | 1.82 | 2.09 | 3.14 |
+| The Wall | 1.13 | 1.70 | 4.56 |
+| Karst | 5.07 | 5.99 | 6.17 |
+| Three Gorges | 4.60 | 5.29 | 6.78 |
+
+L-1 costs 0.3 ms on the three northern stations, 0.6 at the Wall, and
+0.7 to 0.9 at Karst and the Three Gorges, where F96 finds the terrain
+already near 6 ms. It adds 100,000 to 150,000 triangles. The timings were
+taken before the rule on hero cover, which changes only a neighbour at the
+Three Gorges and the First Bend's own tile. Huangshan, the First Bend and
+Heaven Lake were not timed cleanly: twice the frames fell to 18 and 19 Hz,
+the second time with the display held awake, and the capture refused.
+
+**Next.**
+- *The imagery's own shadows* on the Wall's north faces (above).
+- *The other walls at six.* F14's measure over every hero area. Past a
+  ninth at 75° are five of the seven, all scenes of cliffs and pinnacles
+  whose looks were signed off at six:
+
+| Hero area | Grid | Past 75° at 6 | at 3 |
+| --- | ---: | ---: | ---: |
+| Everest | 90 m | 35.4 % | 4.5 % |
+| Huangshan | 30 m | 34.0 % | 0.6 % |
+| Tiger Leaping Gorge | 90 m | 21.2 % | 0.9 % |
+| Three Gorges | 90 m | 19.6 % | 0.7 % |
+| Guilin | 30 m | 15.8 % | 0.4 % |
+| Changbai | 90 m | 0.9 % | 0.0 % |
+| Taklamakan | 90 m | 0.0 % | 0.0 % |

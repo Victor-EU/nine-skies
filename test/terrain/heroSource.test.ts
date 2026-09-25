@@ -316,8 +316,9 @@ describe("terrain over both grids at once", () => {
 
   it("draws two lattices and the rim between them, and says which bucket is which", () => {
     const terrain = build(cover());
-    expect(terrain.meshes.length).toBe(9);
+    expect(terrain.meshes.length).toBe(10);
     expect(terrain.stats.bucketLabels).toEqual([
+      "L-1",
       "L0",
       "L1",
       "L2",
@@ -334,7 +335,7 @@ describe("terrain over both grids at once", () => {
 
   it("is the world as it was when nothing is published", () => {
     const terrain = build(null);
-    expect(terrain.meshes.length).toBe(4);
+    expect(terrain.meshes.length).toBe(5);
     expect(terrain.materials.length).toBe(1);
     // A shader with no `discard` in it, so the country grid keeps early-Z.
     expect(terrain.material.uniforms.uCutCount).toBeUndefined();
@@ -349,8 +350,8 @@ describe("terrain over both grids at once", () => {
     expect(terrain.stats.hero.resident).toBe(6);
     expect(terrain.material.uniforms.uCutCount!.value).toBe(1);
     // Every hero instance is in a bucket, and the buckets are the four after
-    // the country's; the rim's, last, counts stretches of rim.
-    const heroBuckets = terrain.stats.perLod.slice(4, 8);
+    // the country's five; the rim's, last, counts stretches of rim.
+    const heroBuckets = terrain.stats.perLod.slice(5, 9);
     expect(heroBuckets.reduce((a, b) => a + b, 0)).toBe(6);
   });
 

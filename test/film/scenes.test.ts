@@ -117,6 +117,14 @@ describe("what the gate refuses", () => {
     expect(problemsOf(good({ look_ahead_km: "far" })).map((p) => p.field)).toEqual(["look_ahead_km"]);
   });
 
+  it("an exaggeration off the drama's range; the film's six unless the scene says (F97)", () => {
+    expect(sceneFromRaw(good(), "gorges").scene!.exaggeration).toBe(6);
+    expect(sceneFromRaw(good({ exaggeration: 3 }), "gorges").scene!.exaggeration).toBe(3);
+    expect(problemsOf(good({ exaggeration: 0.5 })).map((p) => p.field)).toEqual(["exaggeration"]);
+    expect(problemsOf(good({ exaggeration: 12 })).map((p) => p.field)).toEqual(["exaggeration"]);
+    expect(problemsOf(good({ exaggeration: "less" })).map((p) => p.field)).toEqual(["exaggeration"]);
+  });
+
   it("a hero grid the world has not built, when there is a world to ask", () => {
     const { scene } = sceneFromRaw(good({ hero: "everest" }), "gorges");
     expect(validateScene(scene!, { heroBuilt: () => false }).map((p) => p.field)).toEqual(["hero"]);

@@ -37,15 +37,12 @@ const FRAMES: Record<string, { at: number; aboveGroundM?: number }> = {
   // grid (F92), shows its blocks. At 8 s the camera is still 800 m up on the
   // way in, the peaks ahead over the cloud, and a face is a few pixels.
   huangshan: { at: 8 },
-  // The film's still is at 60 s, past Lhatse. At the film's apparent
-  // exaggeration of six (engine/src/sim/scale.ts) the coarse ground under
-  // the camera, lit by the last light, comes out as large shaded facets, and
-  // no frame on the approach is without them. The Everest hero grid, from
-  // 112 s, has none, but draws the massif as white needles with cracks
-  // between its tiles. At 96 s with the camera at the top of the scene's
-  // band, 3,000 m, which the film itself reaches (docs/rails-report.md),
-  // the facets are about a third the size; the card is cropped to the wall.
-  "the-wall": { at: 96, aboveGroundM: 3000 },
+  // The film's still is at 60 s, past Lhatse, with the range 60-90 km off.
+  // The card is the scene's subject: at 136 s the camera is past Rongbuk,
+  // over the glacier, with the north face ahead. A viewer reaches it at 1.2
+  // times the authored speed. Drawn at the Wall's own exaggeration of three
+  // it is a mountain; at the film's six it was a white needle (F97).
+  "the-wall": { at: 136 },
 };
 /** Drawn at 1920 × 1080: a card is 666 pixels wide at twice the cover's size. */
 const FRAME_W = 1920;

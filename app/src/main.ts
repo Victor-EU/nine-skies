@@ -35,9 +35,12 @@ import {
   CAMERA_FAR_REAL_M,
   CAMERA_NEAR_REAL_M,
   DEFAULT_SCALE,
+  apparentExaggeration,
   hazeDensityPerWorldUnit,
   hazeFalloffPerWorldUnit,
+  scaleFor,
   toWorldH,
+  type WorldScale,
 } from "../../engine/src/sim/scale.js";
 import { LEAD_IN_S, Timeline, type TimelinePosition } from "../../engine/src/film/timeline.js";
 import { FILM_VERSION, buildRail, railAtKm, type BuiltRail, type Film, type Scene } from "../../engine/src/film/scene.js";
@@ -62,7 +65,8 @@ const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene = new ThreeScene();
 const camera = new PerspectiveCamera(BUDGET_FOV_DEG, 1, 1, 1);
-const scale = DEFAULT_SCALE;
+/** The world's scale: the film's, or the scene's own exaggeration (`useSceneScale`). */
+let scale: WorldScale = DEFAULT_SCALE;
 const query = new URLSearchParams(location.search);
 
 function notice(html: string | null): void {
@@ -329,6 +333,21 @@ if (soundTrack.hasSound) {
 
 const groundAt = (eastM: number, northM: number): number | null => terrain.groundElevationM(eastM, northM);
 
+/**
+ * Draw the relief at a scene's own exaggeration, the film's six unless it
+ * says otherwise (F97): the terrain, the horizon and the look, everything
+ * that puts real metres into world units. The camera's altitude is real
+ * metres throughout, so nothing it flies changes.
+ */
+function useSceneScale(s: Scene | null): void {
+  const next = scaleFor(DEFAULT_SCALE.horizontalCompression, s?.exaggeration ?? apparentExaggeration(DEFAULT_SCALE));
+  if (next.verticalExaggeration === scale.verticalExaggeration) return;
+  scale = next;
+  terrain.setScale(scale);
+  ring.rebuild(scale);
+  rig.setScale(scale);
+}
+
 function startScene(i: number): void {
   const s = film!.scenes[i]!;
   current = i;
@@ -336,6 +355,7 @@ function startScene(i: number): void {
   altitude.reset();
   lastState = null;
   lastFlightS = null;
+  useSceneScale(s);
   rig.setScene(s);
   if (packed) packs.play(i);
   el("titleZh").textContent = s.title.zh;
@@ -773,6 +793,7 @@ if (import.meta.env.DEV) {
       const asScene = (i: number): void => {
         if (i === drawnAs) return;
         current = i;
+        useSceneScale(film?.scenes[i] ?? null);
         rig.setScene(film?.scenes[i] ?? null);
         drawnAs = i;
       };

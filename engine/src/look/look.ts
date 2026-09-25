@@ -80,7 +80,7 @@ export class LookRig {
   private mist: MistPreset | null = null;
   private readonly forward = new Vector3();
   private readonly sunDirection = new Vector3();
-  private readonly scale: WorldScale;
+  private scale: WorldScale;
 
   constructor(private readonly options: LookRigOptions) {
     this.scale = options.scale;
@@ -94,6 +94,17 @@ export class LookRig {
   /** The materials the look writes: the terrain's, the curtain's, the ring's, the clouds'. */
   private get materials(): ShaderMaterial[] {
     return [...this.options.terrain.lookMaterials, this.options.ring.material, this.sky.material, this.deck.material, this.cirrus.material];
+  }
+
+  /**
+   * The world's scale, when a scene draws its relief at its own (F97). The
+   * air, the mist, the shadow's reach and the clouds are all real
+   * quantities put into world units here, so they follow it.
+   */
+  setScale(scale: WorldScale): void {
+    this.scale = scale;
+    this.deck.set(this.look.cloud.deck, scale);
+    this.cirrus.set(this.look.cloud.cirrus, scale);
   }
 
   /** A scene's look, or the defaults for none. Recompiles the palette shaders. */

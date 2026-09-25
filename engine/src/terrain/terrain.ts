@@ -13,7 +13,8 @@ import { rendererUploader, type ColourLayers, type ColourUploader } from "./colo
 import { FINE_REACH, FineColour, type FineReach } from "./fineColour.js";
 import { NEAR_LAYER_BITS, NEAR_SPLIT } from "./near.js";
 import { RELIEF_REACH, type ReliefSource } from "./relief.js";
-import { LOD_SEGMENTS, buildGrid, lodForDistance, type LodLevel } from "./grid.js";
+import { FINE_SEGMENTS, LOD_SEGMENTS, buildGrid, fineLevelFor, lodForDistance } from "./grid.js";
+import { tileFetch, type TexelFetch } from "./spline.js";
 import { HeightTileArray, MAX_LAYERS, TILE_SAMPLES, tileId } from "./tileArray.js";
 import { TILE_KM } from "./syntheticTiles.js";
 import { SyntheticTileSource, type TileSource } from "./tileSource.js";
@@ -82,6 +83,12 @@ export const VIEW_RADIUS_TILES = 6;
  * every LOD lands on real samples.
  */
 export const HERO_LOD_SEGMENTS = [128, 64, 32, 16] as const;
+
+/**
+ * The country grid's ladder: the level finer than its samples (F97), then
+ * L0 to L3. A tile's bucket is its index here, so L0 is bucket 1.
+ */
+export const COUNTRY_SEGMENTS = [...FINE_SEGMENTS, ...LOD_SEGMENTS] as const;
 
 export interface TerrainOptions {
   scale: WorldScale;
@@ -253,8 +260,8 @@ class TileLattice implements DrawnTiles {
   private readonly maxInstances: number;
   /** Tiles this lattice made resident during the current frame. */
   generated = 0;
-  /** Each tile drawn this frame and the LOD it is drawn at. */
-  private readonly drawnLod = new Map<string, LodLevel>();
+  /** Each tile drawn this frame and the bucket it is drawn in. */
+  private readonly drawnLod = new Map<string, number>();
   /** The 10 m colour over the tiles nearest the camera, for a hero lattice that has it (F91). */
   readonly fine: FineColour | null;
   /** Tiles drawn with their fine colour this frame. */
@@ -279,6 +286,7 @@ class TileLattice implements DrawnTiles {
     readonly name: string,
     readonly tileM: number,
     readonly samples: number,
+    /** Quads a side of each bucket, finest first. */
     readonly segments: readonly number[],
     readonly source: TileSource,
     layers: number,
@@ -432,11 +440,23 @@ class TileLattice implements DrawnTiles {
   }
 
   /** `DrawnTiles`: what the curtain along a hero rim hangs from (F74). */
-  drawn(i: number, j: number): { data: Int16Array; base: number; segments: number } | null {
+  drawn(i: number, j: number): { data: Int16Array; base: number; segments: number; fetch: TexelFetch } | null {
     const lod = this.drawnLod.get(tileId(i, j));
     if (lod === undefined) return null;
     const tile = this.heights.tileData(i, j);
-    return tile && { ...tile, segments: this.segments[lod]! };
+    if (!tile) return null;
+    // Past its edge, the tile beside it as the vertex shader reads it (F97).
+    const fetch = tileFetch(tile, this.samples, (di, dj) => this.heights.tileData(i + di, j + dj));
+    return { ...tile, segments: this.segments[lod]!, fetch };
+  }
+
+  /**
+   * The bucket a tile at L0 is drawn in: one of the levels finer than its
+   * samples when its nearest point is near enough the camera (F97), and
+   * `l0`, L0's own bucket, otherwise.
+   */
+  nearLevel(i: number, j: number, l0: number): number {
+    return Math.min(l0, fineLevelFor(this.distanceM(i, j, this.tileM)));
   }
 
   /**
@@ -446,7 +466,8 @@ class TileLattice implements DrawnTiles {
   place(
     i: number,
     j: number,
-    lod: LodLevel,
+    /** The bucket: an index into `segments`. */
+    lod: number,
     originEastM: number,
     originNorthM: number,
     scale: WorldScale,
@@ -767,7 +788,7 @@ export class Terrain {
       "country",
       TILE_KM * 1000,
       TILE_SAMPLES,
-      LOD_SEGMENTS,
+      COUNTRY_SEGMENTS,
       this.source,
       options.layers,
       span * span,
@@ -842,7 +863,7 @@ export class Terrain {
         this.publishedAreas,
         this.country.tileM,
         this.country.samples,
-        LOD_SEGMENTS[0],
+        COUNTRY_SEGMENTS[0],
         Math.min(...this.heroCovers.map((c) => c.lowestM)),
       );
     } else {
@@ -853,10 +874,12 @@ export class Terrain {
       this.materials.push(lattice.material);
       const hero = this.heroLattices.find((h) => h.lattice === lattice);
       const prefix = !hero ? "" : hero.cover.resolutionM === 90 ? "hero" : `hero${hero.cover.resolutionM}`;
+      // The country's finer level comes first and is L-1 (F97).
+      const finer = lattice === this.country ? FINE_SEGMENTS.length : 0;
       for (const [i, mesh] of lattice.meshes.entries()) {
         this.meshes.push(mesh);
         this.stats.perLod.push(0);
-        this.stats.bucketLabels.push(prefix ? `${prefix} L${i}` : `L${i}`);
+        this.stats.bucketLabels.push(prefix ? `${prefix} L${i - finer}` : `L${i - finer}`);
       }
     }
     // Its uniforms are the country material's own objects, so it is not in
@@ -909,6 +932,18 @@ export class Terrain {
     return this.heroLattices.some((h) => h.lattice.sampleGroundM(eastM, northM) !== null);
   }
 
+  /** How much of a country tile the published hero areas cover, 0 to 1. */
+  private heroShare(i: number, j: number): number {
+    const t = TILE_KM * 1000;
+    let covered = 0;
+    for (const a of this.publishedAreas) {
+      const e = Math.max(0, Math.min(a.eastM1, (i + 1) * t) - Math.max(a.eastM0, i * t));
+      const n = Math.max(0, Math.min(a.northM1, (j + 1) * t) - Math.max(a.northM0, j * t));
+      covered += e * n;
+    }
+    return Math.min(1, covered / (t * t));
+  }
+
   /**
    * Called once per frame with the aircraft's real position.
    * Makes nearby tiles resident, buckets the visible ones by LOD and fills the
@@ -933,7 +968,13 @@ export class Terrain {
       const ty = centreY + dy;
       if (tx < 0 || ty < 0) continue;
       const lod = lodForDistance(distTiles * size, size);
-      if (!this.country.place(tx, ty, lod, this.originEastM, this.originNorthM, scale)) missing++;
+      // Near the camera, finer than its samples, unless hero areas draw most
+      // of it: the country is cut away there, and its vertices are only
+      // work (F97). At the First Bend's station the camera's own tile is
+      // 71 % Tiger Leaping Gorge.
+      const l0 = FINE_SEGMENTS.length;
+      const bucket = lod === 0 && this.heroShare(tx, ty) < 0.5 ? this.country.nearLevel(tx, ty, l0) : lod + l0;
+      if (!this.country.place(tx, ty, bucket, this.originEastM, this.originNorthM, scale)) missing++;
     }
 
     const heroStats = this.drawHeroAreas(eastM, northM, radius * tileM);

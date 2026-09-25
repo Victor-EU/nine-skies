@@ -161,6 +161,20 @@ describe("the settle before a station is timed", () => {
     expect(r.ms).toBeGreaterThanOrEqual(5_000);
   });
 
+  it("holds the country's grid from L0 finer to the D3 trip-wire, its finer level with it (F97)", () => {
+    const r = report([1.0, 1.1]);
+    const s0 = r.stations[0]!;
+    const fine: StationCost = {
+      ...s0,
+      perLod: [2, 4, 3, 60, 68, 0, 6],
+      bucketLabels: ["L-2", "L-1", "L0", "L1", "L2", "L3", "hero L0"],
+      ms: { ...s0.ms, "terrain.L-2": 2.0, "terrain.L-1": 1.5, "terrain.L0": 1.2, "terrain.L1": 1.9, "terrain.hero L0": 3.0 },
+    };
+    const table = frameCostTable({ ...r, stations: [fine, r.stations[1]!] });
+    // (2.0 - 1) + (1.5 - 1) + (1.2 - 1): L1 and the hero's L0 are not the country's near grid.
+    expect(table).toMatch(/s0\s+9 instances ·\s+1\.70 ms · under the trip-wire/);
+  });
+
   it("marks a station that is not whole in the table", () => {
     const r = report([1.0, 1.1]);
     const half = { ...r, stations: [r.stations[0]!, { ...r.stations[1]!, whole: false, missing: 52, settleMs: 30_000 }] };

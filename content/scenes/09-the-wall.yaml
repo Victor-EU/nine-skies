@@ -28,6 +28,9 @@ rail:
 
 band: { above_ground_m: [300, 3000] }
 corridor_deg: 60
+# Everest's slopes as the 90 m grid holds them, at half the film's drama:
+# at six they are needles (F97).
+exaggeration: 3
 
 look:
   sky: last-light

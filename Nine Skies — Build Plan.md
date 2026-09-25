@@ -16,7 +16,7 @@ inherits; their numbering continues here rather than starting again.
 | 4 — Delivery | **Done.** Nine packs, 16.4 MB with what is read before them (55.8 MB since the colour, F87); no tile fetched outside them; the build ships them. First frame on a phone over 4G is arithmetic, not measured. | F84 |
 | 5 — Text, sound, credits | **Text and credits done**, every figure in metric and imperial. **No sound**: a stand-in and a synthesised wind were both rejected, and all of it is to be found on the web (D85). | — |
 | 6 — Launch | Not started. | |
-| 7 — Detail | **Started.** The terrain lit smooth (D86); the ground coloured from the 2016 Sentinel-2 mosaic, and the four southern scenes, hero areas and country, from a median of the Sentinel-2 archive, 2018-2025; the hero tiles nearest the camera at 10 m, and the country's ground along each rail at 10 m too; the walls laid with photographed rock (Poly Haven's scans, CC0) over the photograph's own tone; the ground near the camera lit by its relief below the grid, from GLO-30 (125 m on the country, 30 m on the 90 m hero areas), and the country's ground along each rail at the source's own 31 m. 1,030.3 MB of the 2 GB D89 allows; the terrain 2.0-2.3 ms at the northern stations and 5.7-6.3 at the southern (F95). Next: the country's 250 m colour registered to the ground; the southern stations' cost found among F91-F93; the changed stills signed off (six from F92, seven from F93, three again from F94 and again from F95). | F86, F87, F89, F90, F91, F92, F93, F94, F95 |
+| 7 — Detail | **Started.** The terrain lit smooth (D86); the ground coloured from the 2016 Sentinel-2 mosaic, and the four southern scenes, hero areas and country, from a median of the Sentinel-2 archive, 2018-2025; the hero tiles nearest the camera at 10 m, and the country's ground along each rail at 10 m too; the walls laid with photographed rock (Poly Haven's scans, CC0) over the photograph's own tone; the ground near the camera lit by its relief below the grid, from GLO-30 (125 m on the country, 30 m on the 90 m hero areas), and the country's ground along each rail at the source's own 31 m; the country within 40 km of the camera drawn at 500 m on a spline through its 1 km samples, the curtain along a hero rim lit as its ground, and the Wall at an exaggeration of three (D90). 1,030.3 MB of the 2 GB D89 allows; the terrain 2.0-2.3 ms at the northern stations and 5.7-6.3 at the southern (F95), and the 500 m level 0.3 to 0.9 ms more (F97). Next: the country's 250 m colour registered to the ground; the Wall's imagery with its own shadows divided out; the southern stations' cost found among F91-F93; the changed stills signed off (six from F92, seven from F93, three again from F94 and again from F95, six from F97). | F86, F87, F89, F90, F91, F92, F93, F94, F95, F97 |
 
 Stages 0 to 4 and most of 3 and 5 took one day against five and a half
 weeks planned.
@@ -101,6 +101,13 @@ Everything else in the repository served the version-1 game and goes.
   one pack, and the next is fetched during the current one. The cost falls
   on the host. Past 1 GB the film no longer fits GitHub Pages' site limit,
   and the packs are served from somewhere else (stage 6).
+- **D90** A scene may draw its relief at its own exaggeration, the film's
+  six unless its file says otherwise, and the Wall's is three (decided 25
+  September 2026). Six was measured on the 1 km country grid, whose samples
+  flatten real slopes (F14). The Everest hero grid holds its slopes as they
+  are, and at six two thirds of it is drawn past 60 degrees and a third past
+  75: needles. At three, under a ninth is past 75, the share F14 called
+  spikes. The camera flies in real metres, so nothing it does changes (F97).
 
 
 ## What each part of the repository becomes
@@ -142,6 +149,7 @@ band: { above_ground_m: [120, 600] }   # what the controller holds between keys
 corridor_deg: 60              # how far off the rail's heading a viewer may turn
 pitch_deg: 6                  # how far below level the camera looks; a rail key may say `pitch:` (F79)
 look_ahead_km: 8              # how far ahead the altitude reads the ground; 1.5 over a massif of spires (F81)
+exaggeration: 6               # the relief's apparent exaggeration, A; the Wall's is 3 (D90, F97)
 look:
   sky: gorge-afternoon
   palette: limestone-green

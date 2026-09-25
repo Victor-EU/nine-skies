@@ -73,6 +73,14 @@ export interface Scene {
    * highest of them (F81).
    */
   readonly lookAheadKm: number;
+  /**
+   * The relief's apparent exaggeration, `A` (`sim/scale.ts`): six, the
+   * film's, unless the scene says otherwise. Six was measured on the 1 km
+   * country grid, whose samples flatten real slopes (F14). Ground seen on a
+   * finer grid shows its slopes as they are, and six times Everest's is a
+   * field of needles, so a scene flown mostly over it may ask for less (F97).
+   */
+  readonly exaggeration: number;
   readonly look: SceneLook;
   readonly captions: readonly Caption[];
   readonly music: string | null;

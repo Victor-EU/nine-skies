@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { BufferGeometry } from "three";
-import { LOD_SEGMENTS, buildGrid, lodForDistance } from "../../engine/src/terrain/grid.js";
+import { FINE_SEGMENTS, LOD_SEGMENTS, buildGrid, fineLevelFor, lodForDistance } from "../../engine/src/terrain/grid.js";
+import { splineAt, tileFetch } from "../../engine/src/terrain/spline.js";
 import {
   crossings,
   drawnHeightAt,
@@ -15,6 +16,7 @@ import {
 } from "../../engine/src/terrain/heroSource.js";
 import { HERO_TILE_SAMPLES, TILE_SAMPLES } from "../../engine/src/terrain/tileArray.js";
 import {
+  COUNTRY_SEGMENTS,
   HERO_LOD_SEGMENTS,
   SKIRT_DEPTH_M,
   Terrain,
@@ -214,6 +216,7 @@ describe("the curtain the country hangs along a drawn rim", () => {
     return {
       position: geometry.getAttribute("position").array as Float32Array,
       skirt: geometry.getAttribute("aSkirt").array as Float32Array,
+      ground: geometry.getAttribute("aGround").array as Float32Array,
       index: geometry.getIndex()!.array as Uint32Array,
       count: geometry.drawRange.count,
       geometry,
@@ -243,19 +246,38 @@ describe("the curtain the country hangs along a drawn rim", () => {
       const onWestEast = Math.min(Math.abs(e - area.eastM0), Math.abs(e - area.eastM1)) < 1;
       const onSouthNorth = Math.min(Math.abs(n - area.northM0), Math.abs(n - area.northM1)) < 1;
       expect(onWestEast || onSouthNorth).toBe(true);
-      // The drawn country ground just outside, from the tile and LOD there.
-      const candidates: number[] = [];
+      // The drawn country ground just outside, from the tile and level there:
+      // at L0, the level finer than its samples if near enough (F97),
+      // read past the tile's edge as the shader reads it.
+      const candidates: { h: number; slope: { dx: number; dy: number } }[] = [];
       const out = (oe: number, on: number) => {
         const i = Math.floor(oe / COUNTRY_M);
         const j = Math.floor(on / COUNTRY_M);
         const lod = lodForDistance(Math.hypot(i - camera.i, j - camera.j), 1);
+        const dx = Math.max(i * COUNTRY_M - eastM, 0, eastM - (i + 1) * COUNTRY_M);
+        const dy = Math.max(j * COUNTRY_M - northM, 0, northM - (j + 1) * COUNTRY_M);
+        const bucket = lod === 0 ? fineLevelFor(Math.hypot(dx, dy)) : lod + FINE_SEGMENTS.length;
         const u = (e - i * COUNTRY_M) / 1000;
         const v = (n - j * COUNTRY_M) / 1000;
-        candidates.push(drawnHeightAt(source.request(i, j)!, 0, TILE_SAMPLES, LOD_SEGMENTS[lod], u, v));
+        const tile = { data: source.request(i, j)!, base: 0 };
+        const fetch = tileFetch(tile, TILE_SAMPLES, (di, dj) => ({ data: source.request(i + di, j + dj)!, base: 0 }));
+        candidates.push({
+          h: drawnHeightAt(tile.data, 0, TILE_SAMPLES, COUNTRY_SEGMENTS[bucket]!, u, v, fetch),
+          slope: splineAt(fetch, TILE_SAMPLES, u, v),
+        });
       };
       if (onWestEast) out(e + (Math.abs(e - area.eastM0) < 1 ? -1 : 1), n);
       if (onSouthNorth) out(e, n + (Math.abs(n - area.northM0) < 1 ? -1 : 1));
-      expect(Math.min(...candidates.map((d) => Math.abs(d - h)))).toBeLessThan(0.01);
+      const nearest = candidates.reduce((a, b) => (Math.abs(a.h - h) <= Math.abs(b.h - h) ? a : b));
+      expect(Math.abs(nearest.h - h)).toBeLessThan(0.01);
+      // And the ground there, for its light (F97): its slope a world unit,
+      // and its height, on the top and the bottom alike.
+      for (const k of [0, 1]) {
+        const g = p * 6 + k * 3;
+        expect(rim.ground[g]).toBeCloseTo((nearest.slope.dx * c) / 1000, 4);
+        expect(rim.ground[g + 1]).toBeCloseTo((nearest.slope.dy * c) / 1000, 4);
+        expect(rim.ground[g + 2]).toBe(Math.fround(h));
+      }
       // Top, then bottom: the bottom stands at the floor and drops a skirt.
       expect(rim.skirt[p * 2]).toBe(0);
       expect(rim.skirt[p * 2 + 1]).toBe(1);

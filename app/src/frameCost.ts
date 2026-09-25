@@ -607,13 +607,16 @@ export function frameCostTable(report: FrameCostReport): string {
           `(the spread of \`clear\`, which is the same work at every station)`),
   );
   lines.push("");
-  lines.push("  the D3 trip-wire — displaced grid at L0, against 4 ms");
+  lines.push("  the D3 trip-wire — the country's displaced grid at L0 and the level finer (F97), against 4 ms");
   for (const s of report.stations) {
-    const l0 = s.ms[`terrain.${s.bucketLabels[0] ?? "L0"}`];
-    if (l0 === undefined) continue;
-    const net = l0 - (s.ms["clear"] ?? 0);
+    // Every country bucket from L0 in: L0 itself, and L-1 near the camera.
+    const near = s.bucketLabels.flatMap((label, i) => (/^L(0|-\d+)$/.test(label) ? [i] : []));
+    const timed = near.filter((i) => s.ms[`terrain.${s.bucketLabels[i]}`] !== undefined);
+    if (timed.length === 0) continue;
+    const net = timed.reduce((sum, i) => sum + s.ms[`terrain.${s.bucketLabels[i]}`]! - (s.ms["clear"] ?? 0), 0);
+    const instances = near.reduce((sum, i) => sum + (s.perLod[i] ?? 0), 0);
     lines.push(
-      `  ${s.station.id.padEnd(12)} ${pad(s.perLod[0] ?? 0, 3)} instances · ` +
+      `  ${s.station.id.padEnd(12)} ${pad(instances, 3)} instances · ` +
         `${ms(net)} ms · ${net <= L0_TRIPWIRE_MS ? "under" : "OVER"} the trip-wire`,
     );
   }

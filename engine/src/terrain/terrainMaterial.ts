@@ -13,6 +13,7 @@ import { lookUniformDefaults } from "../look/uniforms.js";
 import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
 import { COLOUR_SAMPLES } from "./colour.js";
 import type { RockFace } from "./rock.js";
+import { SPLINE_GLSL } from "./spline.js";
 
 /**
  * Terrain shader (build plan D3 and D12; design v2, "The look").
@@ -34,8 +35,9 @@ import type { RockFace } from "./rock.js";
  *    lit facet. Along a tile's edge the difference reads the neighbour's row
  *    (`iNeighbours`), since tiles share their edge samples; a one-sided
  *    difference stands in where the neighbour is not resident, so the only
- *    seam is at the edge of what is loaded. The rim's curtain, a wall with
- *    no heights around it, keeps the flat normal.
+ *    seam is at the edge of what is loaded. The rim's curtain takes the
+ *    ground's at the top of each column (F97). Where the mesh is finer
+ *    than the heights, the normal is the spline's between samples.
  *
  * Colour is the scene's palette: an elevation ramp, rock on the steep, snow
  * above a line, baked in as constants and regenerated at scene start
@@ -290,8 +292,14 @@ const WATER_FRAGMENT_BODY = /* glsl */ `
 
 /** The ground's normal at a vertex, for the lit pass (not the depth pass). */
 const NORMAL_VERTEX_INPUTS = /* glsl */ `
-in vec4 iNeighbours;
 out vec3 vNormal;
+
+// The normal of a slope in metres a texel, east and north, as the ground
+// drawn: the spline's, between samples (F97).
+vec3 slopeNormal(vec2 slope) {
+  float k = uVerticalExaggeration * float(textureSize(uHeights, 0).x - 1) / uTileWorldSize;
+  return normalize(vec3(-slope.x * k, 1.0, -slope.y * k));
+}
 
 // The height one texel from t along d, which is on the neighbouring tile when
 // the step leaves this one: tiles share their edge row, so the neighbour's
@@ -339,6 +347,7 @@ in vec2 aTexel;
 in float aSkirt;
 in vec2 iOrigin;
 in float iLayer;
+in vec4 iNeighbours;
 ${water || colour ? TEXEL_VERTEX_INPUTS : ""}
 ${water ? WATER_VERTEX_INPUTS : ""}
 ${colour ? colourVertexInputs(fine, relief, near, nearColour) : ""}
@@ -350,11 +359,18 @@ uniform float uSkirtDepth;
 
 out vec3 vWorld;
 out float vElevation;
+${SPLINE_GLSL}
 ${normals ? NORMAL_VERTEX_INPUTS : ""}
 
 void main() {
-  int h = texelFetch(uHeights, ivec3(int(aTexel.x), int(aTexel.y), int(iLayer)), 0).r;
-  float elevationM = float(h);
+  // A vertex on a sample reads it. One between samples, which only the
+  // country's finest level has, takes the spline through the samples round
+  // it, and its slope (F97).
+  bool between = any(notEqual(fract(aTexel), vec2(0.0)));
+  vec3 spline = between ? splineAt(aTexel) : vec3(0.0);
+  float elevationM = between
+    ? spline.x
+    : float(texelFetch(uHeights, ivec3(int(aTexel.x), int(aTexel.y), int(iLayer)), 0).r);
 
   // Skirt vertices duplicate the edge sample and drop straight down, which
   // hides the crack where a coarser neighbour tile disagrees about the height.
@@ -368,7 +384,7 @@ void main() {
 
   vWorld = world;
   vElevation = elevationM;
-${normals ? "  vNormal = groundNormal(ivec2(aTexel), elevationM);" : ""}
+${normals ? "  vNormal = between ? slopeNormal(spline.yz) : groundNormal(ivec2(aTexel), elevationM);" : ""}
 ${water || colour ? TEXEL_VERTEX_BODY : ""}
 ${water ? WATER_VERTEX_BODY : ""}
 ${colour ? colourVertexBody(fine, relief, near, nearColour) : ""}
@@ -518,20 +534,10 @@ const COLOUR_FRAGMENT_BODY = /* glsl */ `
 const reliefFragmentBody = (near: boolean): string => /* glsl */ `
   if (vRelief > 0.5${near ? " || any(greaterThan(vNear, vec4(0.5)))" : ""}) nLit = reliefNormal(vTexel, n, length(vWorld.xz - uCameraWorld.xz));`;
 
-// The ground's normal, interpolated from its vertices (header).
-const SMOOTH_NORMAL = /* glsl */ `
-  vec3 n = normalize(vNormal);`;
-
-// The drawn triangle's own, from the derivative of world position: the rim's.
-const FLAT_NORMAL = /* glsl */ `
-  vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
-  if (n.y < 0.0) n = -n;`;
-
 const fragmentShader = (
   maxCuts: number,
   waterSamples: number,
   palette: ScenePalette,
-  smooth: boolean,
   colour: boolean,
   fineSamples = 0,
   reliefSamples = 0,
@@ -544,7 +550,7 @@ precision highp usampler2DArray;
 
 in vec3 vWorld;
 in float vElevation;
-${smooth ? "in vec3 vNormal;" : ""}
+in vec3 vNormal;
 ${waterSamples > 0 || colour ? TEXEL_FRAGMENT_INPUTS : ""}
 ${waterSamples > 0 ? WATER_FRAGMENT_INPUTS : ""}
 uniform vec3 uCameraWorld;
@@ -571,7 +577,9 @@ ${waterSamples > 0 ? waterGlsl(waterSamples, palette) : ""}
 
 void main() {
 ${cutBody(maxCuts)}
-${smooth ? SMOOTH_NORMAL : FLAT_NORMAL}
+  // The ground's normal, interpolated from its vertices (header); on the
+  // curtain, the ground's at the top of each column.
+  vec3 n = normalize(vNormal);
   vec3 sun = normalize(uSunDirection);
 
   vec3 base = elevationColor(vElevation);
@@ -790,7 +798,6 @@ export function createTerrainMaterial(
       maxCuts,
       recipe.waterSamples,
       values.palette ?? DEFAULT_PALETTE,
-      true,
       recipe.colour,
       recipe.fineSamples,
       recipe.reliefSamples,
@@ -828,7 +835,6 @@ export function setTerrainPalette(material: ShaderMaterial, palette: ScenePalett
     terrain ? recipe.maxCuts : 0,
     recipe.waterSamples,
     palette,
-    terrain,
     recipe.colour,
     recipe.fineSamples,
     recipe.reliefSamples,
@@ -860,17 +866,22 @@ const rimVertexShader = /* glsl */ `
 precision highp float;
 
 in float aSkirt;
+// The ground at the top of this point's column: its slope in metres a world
+// unit, east and north, and its height (F97).
+in vec3 aGround;
 
 uniform float uVerticalExaggeration;
 uniform float uSkirtDepth;
 
 out vec3 vWorld;
 out float vElevation;
+out vec3 vNormal;
 
 void main() {
   vec3 world = vec3(position.x, position.y * uVerticalExaggeration - aSkirt * uSkirtDepth, position.z);
   vWorld = world;
-  vElevation = position.y;
+  vElevation = aGround.z;
+  vNormal = normalize(vec3(-aGround.x * uVerticalExaggeration, 1.0, -aGround.y * uVerticalExaggeration));
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
 `;
@@ -892,15 +903,16 @@ const SHARED_WITH_RIM = [
  * anyone writing to it; the look's uniforms are its own, because the rig
  * writes every material it draws with. No cut, since the curtain stands
  * exactly on the rectangle's edge and a `discard` would take it or leave it
- * by rounding, no water, since it is a wall, and the flat normal, since a
- * wall has no heights around it to difference.
+ * by rounding, and no water, since it is a wall. Its normal and height are
+ * the ground's at the top of each column (F97), so it is lit and snowed as
+ * the ground it hangs from; its own, a wall's, painted it rock in shadow.
  */
 export function createRimMaterial(country: ShaderMaterial, palette: ScenePalette = DEFAULT_PALETTE): ShaderMaterial {
   const u = country.uniforms;
   const material = new ShaderMaterial({
     glslVersion: GLSL3,
     vertexShader: rimVertexShader,
-    fragmentShader: fragmentShader(0, 0, palette, false, false),
+    fragmentShader: fragmentShader(0, 0, palette, false),
     uniforms: {
       ...lookUniformDefaults(),
       ...Object.fromEntries(SHARED_WITH_RIM.map((name) => [name, u[name]!])),

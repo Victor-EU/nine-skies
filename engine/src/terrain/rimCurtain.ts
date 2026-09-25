@@ -5,6 +5,7 @@ import {
   type ShaderMaterial,
 } from "three";
 import type { AreaBounds } from "./heroSource.js";
+import { splineAt, tileFetch, type TexelFetch } from "./spline.js";
 
 /**
  * The country grid's curtain along the rim of each hero area (F74).
@@ -35,6 +36,13 @@ import type { AreaBounds } from "./heroSource.js";
  * Built on the CPU each frame from the same Int16 copy the texture array is
  * uploaded from, because it is a few hundred points and the LOD that decides
  * them is the CPU's choice anyway.
+ *
+ * Lit as the ground it hangs from (F97). With the flat normal of its own
+ * triangles, a wall, it took no snow, was painted the palette's rock and
+ * stood in shadow: at the Wall's hero rim, a black wedge down Everest's
+ * spires. Each point now carries the ground's slope and height at its top,
+ * from the spline through the country's samples, and the whole column is
+ * lit, coloured and snowed as that ground is.
  */
 
 /**
@@ -43,7 +51,10 @@ import type { AreaBounds } from "./heroSource.js";
  * `grid.ts` builds each quad from corners `a = (i, j)`, `b = (i+1, j)`,
  * `c = (i, j+1)` and `d = (i+1, j+1)` as the triangles `(a, c, b)` and
  * `(b, c, d)`, so every quad is split on its `b-c` diagonal. At a coarser
- * LOD the quads stride across the same samples.
+ * LOD the quads stride across the same samples. At a finer one a corner
+ * between samples stands where the spline puts it (F97), read past the
+ * tile's edge by `fetch` as the vertex shader reads it; without one, the
+ * edge is held.
  */
 export function drawnHeightAt(
   data: ArrayLike<number>,
@@ -52,6 +63,7 @@ export function drawnHeightAt(
   segments: number,
   u: number,
   v: number,
+  fetch?: TexelFetch,
 ): number {
   const stride = (samples - 1) / segments;
   const fu = Math.min(segments, Math.max(0, u / stride));
@@ -60,8 +72,13 @@ export function drawnHeightAt(
   const j = Math.min(segments - 1, Math.floor(fv));
   const s = fu - i;
   const t = fv - j;
-  const at = (ci: number, cj: number): number =>
-    data[base + cj * stride * samples + ci * stride] ?? 0;
+  const read = stride < 1 ? (fetch ?? tileFetch({ data, base }, samples)) : null;
+  const at = (ci: number, cj: number): number => {
+    const x = ci * stride;
+    const y = cj * stride;
+    if (read && !(Number.isInteger(x) && Number.isInteger(y))) return splineAt(read, samples, x, y).h;
+    return data[base + y * samples + x] ?? 0;
+  };
   const a = at(i, j);
   const b = at(i + 1, j);
   const c = at(i, j + 1);
@@ -167,10 +184,11 @@ export interface DrawnTiles {
   readonly tileM: number;
   readonly samples: number;
   /**
-   * A tile drawn this frame: its heights, where in them it starts, and how many
-   * quads a side its LOD draws. Null for a tile not drawn.
+   * A tile drawn this frame: its heights, where in them it starts, how many
+   * quads a side its LOD draws, and its samples read past its edge as the
+   * vertex shader reads them. Null for a tile not drawn.
    */
-  drawn(i: number, j: number): { data: ArrayLike<number>; base: number; segments: number } | null;
+  drawn(i: number, j: number): { data: ArrayLike<number>; base: number; segments: number; fetch?: TexelFetch } | null;
 }
 
 /** Points along one piece at the finest LOD, which no coarser LOD exceeds. */
@@ -190,8 +208,11 @@ export class RimCurtain {
   private readonly position: BufferAttribute;
   private readonly skirt: BufferAttribute;
   private readonly index: BufferAttribute;
-  /** This frame's positions and triangles, compared with the last before upload. */
+  /** The ground's slope at each point's top, metres a world unit east and north, and its height. */
+  private readonly ground: BufferAttribute;
+  /** This frame's positions, ground and triangles, compared with the last before upload. */
   private readonly nextPosition: Float32Array;
+  private readonly nextGround: Float32Array;
   private readonly nextIndex: Uint32Array;
 
   /**
@@ -222,15 +243,19 @@ export class RimCurtain {
     this.position = new BufferAttribute(new Float32Array(capacity * 2 * 3), 3);
     this.skirt = new BufferAttribute(new Float32Array(capacity * 2), 1);
     this.index = new BufferAttribute(new Uint32Array(capacity * 6), 1);
+    this.ground = new BufferAttribute(new Float32Array(capacity * 2 * 3), 3);
     this.nextPosition = new Float32Array(capacity * 2 * 3);
+    this.nextGround = new Float32Array(capacity * 2 * 3);
     this.nextIndex = new Uint32Array(capacity * 6);
     // Every point is a top and a bottom, in that order, whatever it is hung on.
     const skirt = this.skirt.array as Float32Array;
     for (let k = 1; k < skirt.length; k += 2) skirt[k] = 1;
     this.position.setUsage(35048 /* DynamicDrawUsage */);
+    this.ground.setUsage(35048);
     this.index.setUsage(35048);
     this.geometry.setAttribute("position", this.position);
     this.geometry.setAttribute("aSkirt", this.skirt);
+    this.geometry.setAttribute("aGround", this.ground);
     this.geometry.setIndex(this.index);
     this.geometry.setDrawRange(0, 0);
     this.mesh = new Mesh(this.geometry, material);
@@ -254,6 +279,7 @@ export class RimCurtain {
     const { tileM, samples } = country;
     const cellM = tileM / (samples - 1);
     const next = this.nextPosition;
+    const ground = this.nextGround;
     const index = this.nextIndex;
     let points = 0;
     let indices = 0;
@@ -263,19 +289,26 @@ export class RimCurtain {
         const tile = country.drawn(piece.i, piece.j);
         if (tile === null) continue;
         const along = crossings(samples, tile.segments, piece.across, piece.from, piece.to);
+        const fetch = tile.fetch ?? tileFetch(tile, samples);
         const start = points;
         for (const t of along) {
           const u = piece.alongU ? t : piece.across;
           const v = piece.alongU ? piece.across : t;
-          const h = drawnHeightAt(tile.data, tile.base, samples, tile.segments, u, v);
+          const h = drawnHeightAt(tile.data, tile.base, samples, tile.segments, u, v, fetch);
           const x = (piece.i * tileM + u * cellM - originEastM) / compression;
           const z = (piece.j * tileM + v * cellM - originNorthM) / compression;
+          // The ground's own slope there, metres a texel, to metres a world unit.
+          const slope = splineAt(fetch, samples, u, v);
+          const perWorld = compression / cellM;
           for (let k = 0; k < 2; k++) {
             const w = (points * 2 + k) * 3;
             next[w] = x;
             // The bottom stands at the floor and the shader drops it a skirt.
             next[w + 1] = k === 0 ? h : Math.min(h, this.floorM);
             next[w + 2] = z;
+            ground[w] = slope.dx * perWorld;
+            ground[w + 1] = slope.dy * perWorld;
+            ground[w + 2] = h;
           }
           points++;
         }
@@ -301,14 +334,17 @@ export class RimCurtain {
     }
 
     const livePosition = this.position.array as Float32Array;
+    const liveGround = this.ground.array as Float32Array;
     const liveIndex = this.index.array as Uint32Array;
     let changed = indices !== this.geometry.drawRange.count;
-    for (let k = 0; !changed && k < points * 6; k++) changed = livePosition[k] !== next[k];
+    for (let k = 0; !changed && k < points * 6; k++) changed = livePosition[k] !== next[k] || liveGround[k] !== ground[k];
     for (let k = 0; !changed && k < indices; k++) changed = liveIndex[k] !== index[k];
     if (changed) {
       livePosition.set(next.subarray(0, points * 6));
+      liveGround.set(ground.subarray(0, points * 6));
       liveIndex.set(index.subarray(0, indices));
       this.position.needsUpdate = true;
+      this.ground.needsUpdate = true;
       this.index.needsUpdate = true;
       this.geometry.setDrawRange(0, indices);
     }

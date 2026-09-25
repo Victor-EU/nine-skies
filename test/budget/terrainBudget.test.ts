@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Terrain } from "../../engine/src/terrain/terrain.js";
+import { COUNTRY_SEGMENTS, HERO_LOD_SEGMENTS, Terrain } from "../../engine/src/terrain/terrain.js";
 import { DEFAULT_SCALE } from "../../engine/src/sim/scale.js";
 import { DEFAULT_HORIZON } from "../../engine/src/terrain/horizon.js";
 import {
@@ -25,7 +25,12 @@ import {
  */
 
 const BUDGET = {
-  drawCalls: 8,
+  /**
+   * One draw a level, whatever the tile count (D4): the country's five, the
+   * one finer than its samples among them (F97), a hero lattice's four, and
+   * the curtain along the rim.
+   */
+  drawCalls: COUNTRY_SEGMENTS.length + HERO_LOD_SEGMENTS.length + 1,
   triangles: 1_200_000,
   residentTiles: 256,
   /** The horizon is meant to be nearly free. If it stops being, say so. */
@@ -60,7 +65,7 @@ describe("terrain budget on the Sea to Sky corridor", () => {
   it("collapses the terrain to one draw call per LOD level", () => {
     terrain.update(3_900_000, 1_500_000, 5000);
     // The whole point of D4: tile count must not drive draw count.
-    expect(terrain.stats.drawCalls).toBeLessThanOrEqual(4);
+    expect(terrain.stats.drawCalls).toBeLessThanOrEqual(COUNTRY_SEGMENTS.length);
     expect(terrain.stats.instances).toBeGreaterThan(80);
   });
 
@@ -271,5 +276,28 @@ describe("a second hero area", () => {
           hero: coverOf(...wide),
         }),
     ).toThrow(/288 tiles/);
+  });
+});
+
+describe("the country's level finer than its samples (F97)", () => {
+  // Country tile (46, 16), and a hero area over 90 % of it each way: 81 %.
+  const eastM = 46.5 * 64_000;
+  const northM = 16.5 * 64_000;
+  const fly = (hero: HeroCover | null) => {
+    const terrain = new Terrain({ scale: { ...DEFAULT_SCALE }, viewRadiusTiles: 6, layers: 256, hero });
+    terrain.update(eastM, northM, 3000);
+    return terrain.stats;
+  };
+
+  it("draws the tiles within 40 km at 500 m: the camera's, and the four whose edge is 32 km off", () => {
+    const s = fly(null);
+    expect(s.bucketLabels[0]).toBe("L-1");
+    expect(s.perLod[0]).toBe(5);
+  });
+
+  it("leaves a tile mostly under a hero area at L0, where it is cut away and only costs", () => {
+    const s = fly(coverOf({ hx0: 256, hy0: 89, hx1: 261, hy1: 94 }));
+    expect(s.hero.areasDrawn).toBe(1);
+    expect(s.perLod[0]).toBe(4);
   });
 });

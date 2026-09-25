@@ -28,6 +28,7 @@ import {
   type Scene,
 } from "../engine/src/film/scene.js";
 import { DEFAULT_LOOK_AHEAD_KM } from "../engine/src/film/altitude.js";
+import { DEFAULT_SCALE, DRAMA_CANDIDATES, apparentExaggeration } from "../engine/src/sim/scale.js";
 import { DEFAULT_RAIL } from "../engine/src/film/rail.js";
 import { FLIGHT_S } from "../engine/src/film/timeline.js";
 import { dayOfYear, sunPosition } from "../engine/src/gfx/solar.js";
@@ -129,6 +130,16 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     else add("look_ahead_km", `real kilometres the altitude reads ahead, ${LOOK_AHEAD_RANGE_KM[0]} to ${LOOK_AHEAD_RANGE_KM[1]}`);
   }
 
+  // The film's six unless the scene asks for less, or more, within the
+  // range the drama A/B was ever to offer (F97).
+  let exaggeration = apparentExaggeration(DEFAULT_SCALE);
+  const exaggerationRange = [1, Math.max(...DRAMA_CANDIDATES)] as const;
+  if (raw.exaggeration !== undefined) {
+    if (isNum(raw.exaggeration) && raw.exaggeration >= exaggerationRange[0] && raw.exaggeration <= exaggerationRange[1])
+      exaggeration = raw.exaggeration;
+    else add("exaggeration", `the relief's apparent exaggeration, ${exaggerationRange[0]} to ${exaggerationRange[1]}`);
+  }
+
   const rail: RailKey[] = [];
   if (!Array.isArray(raw.rail)) add("rail", "a list of keys is required");
   else
@@ -200,6 +211,7 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     corridorDeg,
     pitchDeg,
     lookAheadKm,
+    exaggeration,
     look,
     captions,
     music,
