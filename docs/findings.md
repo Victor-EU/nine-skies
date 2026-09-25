@@ -1789,3 +1789,65 @@ the second time with the display held awake, and the capture refused.
 | Guilin | 30 m | 15.8 % | 0.4 % |
 | Changbai | 90 m | 0.9 % | 0.0 % |
 | Taklamakan | 90 m | 0.0 % | 0.0 % |
+
+## F98 — The Wall's ground from high suns, its north faces lit, 25 September 2026
+
+**Why.** F97 drew the Wall at a drama of three, and what the spires had
+hidden showed: from about 100 s, black patches on the snow of the north
+faces the camera looks at on its way south to Everest. They were not cloud
+shadows. The 2016 mosaic and the archive's own passes hold them in the same
+places: they were the ground's own shadows, baked into its colour. All the
+Wall's ground was the mosaic's, and over the Himalaya the mosaic's clear
+passes are winter's, the sun low in the south at the satellite's
+mid-morning. The archive's median (F89) takes only passes with the sun at
+least 55° high, which at 28° N means March to September. A north face of
+55° is lit then.
+
+**Everest's hero area first,** composited as F89 did the south's four: 200
+passes from March to September, 1.3 GB, 47 clear views a pixel at the
+median, 0.1 % filled. It takes the tone line fitted over those four and
+does not join the fit, so the line is unchanged, byte for byte. The north
+face came clean, but the patches at 114 s did not: they lay on the country
+ground just outside the hero area, coloured by the mosaic at 10 m along the
+rail (F95) and at 250 m under it.
+
+**So the Wall's country and its rail too** (`composite.py`,
+`SOUTH_SCENES`), as F90 and F95 did the south's:
+- *Its 209 country tiles:* 3,209 passes read whole at 160 m, 3.0 GB, 201
+  medians by Sentinel-2 tile and orbit.
+- *Its rail at 10 m:* 54 sub-tiles, and 46 of the Roof's. The Roof's pack
+  shares 95 of the Wall's country tiles, one colour file each, and a
+  sub-tile on an archive tile needs the archive's own detail, or is left out
+  of the cut. 816 passes, 19.8 GB, 17 medians.
+- *The catalogue grows and is never searched again where it was searched.*
+  A search made again would find passes published since, and change which
+  passes a tile already coloured was chosen from. The tiles searched are
+  kept beside it; where the cache said nothing, a tile any cached pass
+  covers counts as searched. The south's 10,100 passes are chosen as
+  before, and its 631 medians came out byte for byte the same.
+- *`make colour` composites Everest too* (`COMPOSITED`), and the notice
+  says so.
+
+**What it looks like.** The approach is brown plateau and its valleys, the
+river's among them, with no black on it anywhere. From 100 s the foothills
+are bare rock under snow on the high peaks, where the mosaic's winter had
+laid snow to their feet and shadow across it: the passes are the months
+nearer the scene's October than winter's.
+
+**The stills.** Two changed, by more than 8 levels:
+
+| Still | Changed |
+| --- | ---: |
+| The Wall | 54.6 % |
+| The Roof | 1.3 % |
+
+The other seven do not touch the Wall's tiles and were not retaken. The
+cover's Everest card changed by 15.6 %. The Wall's and the Roof's need
+signing off (D77).
+
+**The film is 1,060.1 MB**, up 29.8 MB, of the 2 GB D89 allows: the Wall's
+pack 53.9 to 73.6 MB, the Roof's 228.1 to 238.3 MB. The archive's 10 m
+colour compresses less well than the mosaic's.
+
+**Next.** Where else the mosaic's winter bakes north faces black: the
+Roof's plateau beyond the Wall's tiles, Heaven Lake's crater.

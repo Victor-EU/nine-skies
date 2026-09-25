@@ -90,6 +90,10 @@ MAX_ITEM_CLOUD = 70
 
 #: The hero areas composited: the ones the 2016 mosaic leaves most cloud in.
 SOUTH = ("tiger-leaping-gorge", "three-gorges", "guilin", "huangshan")
+#: And Everest's, whose mosaic was cut from winter's clear passes, with the
+#: low sun's shadows black on its north faces (F98). It takes the tone line
+#: fitted over the south's four rather than joining the fit.
+COMPOSITED = (*SOUTH, "everest")
 #: Metres a pixel the source is read at: the true colour's own 10 m, which the
 #: finest colour tiles are cut at (`imagery.FINE_CELLS`).
 READ_M = 10
@@ -604,8 +608,10 @@ def build_zone(area: imagery.Area, key: str, g: UtmGrid, chosen: list[dict], roo
 # --- the country round the southern scenes (F90) ---------------------------
 
 #: The scenes whose country tiles are composited too: the south, where the
-#: 2016 mosaic's country tiles are a fifth cloud.
-SOUTH_SCENES = ("huangshan", "three-gorges", "karst", "first-bend")
+#: 2016 mosaic's country tiles are a fifth cloud; and the Wall, whose were
+#: cut from the clear passes of winter, with the low sun's shadows black on
+#: every north face the camera looks at on its way to Everest (F98).
+SOUTH_SCENES = ("huangshan", "three-gorges", "karst", "first-bend", "the-wall")
 #: A country tile's colour is 250 m, so each pass is read whole at 160 m:
 #: the true colour's sixteenth overview and the classification's eighth,
 #: which are the same grid.
@@ -691,13 +697,29 @@ def albers_tiles_of(bbox: list[float]) -> tuple[int, int, int, int]:
 
 def country_catalogue(region: set[tuple[int, int]], workers: int = 8, root: Path | None = None) -> list[dict]:
     """Every clear, high-sun item over the region, from the cache or the
-    network, searched a block of country tiles at a time."""
+    network, searched a block of country tiles at a time.
+
+    The cache grows with the region and is never searched again where it
+    was searched (F98): the catalogue gains passes as the archive does, and
+    a search made again would change which passes a tile already coloured
+    was chosen from. Where the cache says nothing of which tiles it
+    searched, a tile any cached pass covers counts as searched."""
     here = source_dir(COUNTRY, root)
     path = here / "items.json"
-    if path.exists():
-        return json.loads(path.read_text())
+    searched_path = here / "searched.json"
+    cached: list[dict] = json.loads(path.read_text()) if path.exists() else []
+    if searched_path.exists():
+        searched = {(tx, ty) for tx, ty in json.loads(searched_path.read_text())}
+    else:
+        searched = set()
+        for item in cached:
+            tx0, ty0, tx1, ty1 = albers_tiles_of(item["bbox"])
+            searched.update((tx, ty) for tx in range(tx0, tx1 + 1) for ty in range(ty0, ty1 + 1))
+    todo = region - searched
+    if not todo:
+        return cached
     blocks: dict[tuple[int, int], list[tuple[int, int]]] = {}
-    for tx, ty in region:
+    for tx, ty in todo:
         blocks.setdefault((tx // SEARCH_BLOCK, ty // SEARCH_BLOCK), []).append((tx, ty))
     query = {"eo:cloud_cover": {"lt": COUNTRY_MAX_CLOUD}, "view:sun_elevation": {"gte": MIN_SUN_DEG}}
 
@@ -707,15 +729,17 @@ def country_catalogue(region: set[tuple[int, int]], workers: int = 8, root: Path
         lons, lats = imagery.boundary_lonlat(area)
         return search_items([float(lons.min()), float(lats.min()), float(lons.max()), float(lats.max())], query)
 
-    print(f"  country: searching {len(blocks)} blocks of {len(region)} tiles", flush=True)
-    found: dict[str, dict] = {}
+    print(f"  country: searching {len(blocks)} blocks of {len(todo)} tiles", flush=True)
+    found: dict[str, dict] = {item["id"]: item for item in cached}
     with ThreadPoolExecutor(workers) as pool:
         for items in pool.map(one, [blocks[k] for k in sorted(blocks)]):
             for item in items:
-                found[item["id"]] = item
+                # A pass the cache holds already keeps its cached record.
+                found.setdefault(item["id"], item)
     items = sorted(found.values(), key=lambda i: i["id"])
     here.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(items, indent=0) + "\n")
+    searched_path.write_text(json.dumps(sorted([tx, ty] for tx, ty in searched | region)) + "\n")
     return items
 
 
@@ -927,7 +951,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args(argv)
 
-    keys = args.only.split(",") if args.only else [*SOUTH, COUNTRY, NEAR]
+    keys = args.only.split(",") if args.only else [*COMPOSITED, COUNTRY, NEAR]
     areas = {a.key: a for a in imagery.hero_areas(args.world)}
     with_country = COUNTRY in keys
     with_near = NEAR in keys

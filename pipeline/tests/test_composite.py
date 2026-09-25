@@ -241,6 +241,38 @@ class TestTheCountry(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(composite.country_region(self.packs(tmp)), {self.tile})
 
+    def test_the_catalogue_grows_by_the_tiles_no_cached_pass_covers(self):
+        """F98: a scene added to the region is searched; the tiles searched
+        before are not, so the passes their colour was chosen from stay."""
+        from unittest import mock
+
+        near = self.bbox()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            here = composite.source_dir(composite.COUNTRY, root)
+            here.mkdir(parents=True)
+            old = dict(item("old", 4, 0, tile="47RPL"), bbox=near, cloud=5, nodata=0)
+            (here / "items.json").write_text(json.dumps([old]))
+            new = dict(item("new", 5, 0, tile="45RVL"), bbox=[86.5, 27.8, 87.5, 28.8], cloud=5, nodata=0)
+            restated = dict(old, cloud=50)  # the catalogue's record of a cached pass, changed since
+            asked = []
+
+            def search(bbox, query):
+                asked.append(bbox)
+                return [new, restated]
+
+            with mock.patch.object(composite, "search_items", search):
+                items = composite.country_catalogue({self.tile, (60, 40)}, workers=1, root=root)
+                self.assertEqual(len(asked), 1)  # one block, the new tile's
+                self.assertEqual([i["id"] for i in items], ["new", "old"])
+                self.assertEqual(next(i for i in items if i["id"] == "old")["cloud"], 5)
+                # Recorded as searched: the new tile, and every tile the cached pass covers.
+                searched = set(map(tuple, json.loads((here / "searched.json").read_text())))
+                self.assertLessEqual({self.tile, (60, 40)}, searched)
+                # Asked again, nothing is searched.
+                composite.country_catalogue({self.tile, (60, 40)}, workers=1, root=root)
+                self.assertEqual(len(asked), 1)
+
     def test_a_passs_orbit_from_its_product_name(self):
         self.assertEqual(composite.relative_orbit({"s2:product_uri": "S2A_MSIL2A_20241229T035151_N0511_R104_T47RPK_20241229T073649.SAFE"}), 104)
         self.assertIsNone(composite.relative_orbit({}))

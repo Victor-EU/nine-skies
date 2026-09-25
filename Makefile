@@ -239,7 +239,11 @@ stations:
 ## along the rails, in the near relief's 16 km sub-tiles (F95): from the
 ## mosaic at zoom 14 in the north (~70,000 tiles, ~0.6 GB, three hours at the
 ## service's pace, once), and in the south from a 10 m median of the archive
-## over just those sub-tiles (~1,425 passes, ~31 GB, once).
+## over just those sub-tiles (~1,425 passes, ~31 GB, once). The Wall's are
+## the archive's too, where the mosaic's clear passes are winter's and every
+## north face is in shadow (F98): Everest's hero area (200 passes, ~1.3 GB),
+## the Wall's country tiles (3,209 at 160 m, ~3 GB) and its rail at 10 m
+## (816, ~20 GB).
 ## Needs a world, its hero areas and the pack index; run `make scenes` after
 ## it to pack the colour.
 colour: $(PY)
