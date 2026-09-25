@@ -21,7 +21,8 @@
     "content:rails": "vite-node tools/rails.ts",
     "content:stations": "vite-node tools/stations.ts",
     "content:scenes": "vite-node tools/scenes.ts",
-    "stills": "vite-node tools/stills.ts"
+    "stills": "vite-node tools/stills.ts",
+    "cover": "vite-node tools/cover.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

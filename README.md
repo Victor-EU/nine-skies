@@ -1,5 +1,7 @@
 # Nine Skies
 
+![The nine scenes as nine cards: Huangshan, the Three Gorges, karst, the First Bend, loess, Heaven Lake, Turpan, the plateau, Everest](app/public/cover.png)
+
 Eighteen minutes over real ground: nine scenes of China, two minutes each,
 flown over open elevation data, from Huangshan's granite above the clouds
 to the face of Everest. You can steer, speed up or slow down, or do nothing
@@ -56,6 +58,9 @@ In the dev server the console has `__ns`: `__ns.hold(i, seconds)` holds a
 scene, `await __ns.settled()` waits for its ground to land,
 `await __ns.still(name, 1280, 720)` writes a still to
 `docs/stills/`, and `__ns.frameCost()` asks the GPU what a frame costs.
+`npm run cover` draws the cover, the nine stills as nine cards, from
+`tools/cover.html` with a headless Chrome: `app/public/cover.png`, and the
+postcards in `docs/cover-postcards.png`.
 `?frametime` shows the frame time by wall clock, for a phone.
 
 ## What the repository holds
