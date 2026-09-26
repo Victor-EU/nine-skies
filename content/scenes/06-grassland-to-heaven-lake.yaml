@@ -85,6 +85,9 @@ cast:
     facing_deg: 30
     from: 6
     until: 84
+    name_zh: 鹤
+    line: "Demoiselle cranes of the steppe, the immortals' mount in the stories."
+    line_at: 16
   - figure: cranes
     role: monument
     at: { lat: 42.006, lon: 128.055, above_ground_m: 300 }

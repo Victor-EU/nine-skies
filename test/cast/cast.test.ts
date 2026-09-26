@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { Vector3 } from "three";
 import { castFromRaw, cueFromRaw, SIZE_RANGE_M } from "../../content/cast.ts";
-import { sceneFromRaw, validateScene } from "../../content/scenes.ts";
+import { sceneFromRaw, textLines, validateScene } from "../../content/scenes.ts";
 import { FIGURE_KINDS } from "../../engine/src/cast/kinds.js";
 import { figureBuilder, registeredFigures } from "../../engine/src/cast/figure.js";
 import "../../engine/src/cast/figures/index.js";
@@ -15,6 +15,7 @@ import { dragonMaterials, DRAGON_LENGTH } from "../../engine/src/cast/figures/dr
 import { lanternSkin, SKINS } from "../../engine/src/cast/skin.js";
 import { companionTarget, cueFade, FADE_S, figureYaw } from "../../engine/src/cast/cast.js";
 import { FLIGHT_S } from "../../engine/src/film/timeline.js";
+import { castLineAt, CAST_LINE_SHOW_S } from "../../engine/src/film/scene.js";
 import { DEFAULT_SCALE, toWorldH } from "../../engine/src/sim/scale.js";
 import { wantedAtStart } from "../../app/src/cast.ts";
 import { loadFilm } from "../../tools/film.ts";
@@ -40,6 +41,29 @@ describe("a cue", () => {
     expect(c.variant).toBeNull();
     expect(c.facingDeg).toBe(0);
     expect(cueFromRaw({ ...companion, facing_deg: 180 }, p.add)?.facingDeg).toBe(180);
+  });
+
+  it("carries a line with a name over it, at the cue's start unless told", () => {
+    const p = problems();
+    const bare = cueFromRaw({ ...monument, line: "The East King, up from the cloud." }, p.add)!;
+    expect(bare.nameZh).toBeNull();
+    expect(bare.lineAtS).toBe(monument.from);
+    const named = cueFromRaw({ ...monument, line: "The East King, up from the cloud.", name_zh: "东海龙王 敖广", line_at: 20 }, p.add)!;
+    expect(p.out).toEqual([]);
+    expect(named.nameZh).toBe("东海龙王 敖广");
+    expect(named.lineAtS).toBe(20);
+    const cases: [Record<string, unknown>, string][] = [
+      [{ ...monument, line: "A line.", name_zh: "Ao Guang" }, "name_zh"],
+      [{ ...monument, name_zh: "敖广" }, "name_zh"],
+      [{ ...monument, line_at: 20 }, "line_at"],
+      [{ ...monument, line: "A line.", line_at: monument.until + 5 }, "line_at"],
+      [{ ...monument, line: "A line.", line_at: "soon" }, "line_at"],
+    ];
+    for (const [raw, field] of cases) {
+      const q = problems();
+      expect(cueFromRaw(raw, q.add), field).toBeNull();
+      expect(q.out.map((x) => x.field), field).toContain(field);
+    }
   });
 
   it("refuses what the layer could not build or place", () => {
@@ -109,6 +133,20 @@ describe("a scene with a cast", () => {
     const long = sceneFromRaw(good([{ ...monument, line: "one two three four five six seven eight nine ten eleven twelve thirteen" }]), "gorges");
     expect(long.problems).toEqual([]);
     expect(validateScene(long.scene!).map((p) => p.field)).toContain("cast[0].line");
+  });
+
+  it("keeps the cast's lines off the captions and off each other, and out of the film's count", () => {
+    const withCaptions = (cast: unknown) => ({ ...good(cast), captions: [{ at: 20, text: "The walls close in." }] });
+    const clear = sceneFromRaw(withCaptions([{ ...monument, line: "A dragon.", line_at: 30 }]), "gorges").scene!;
+    expect(validateScene(clear).filter((p) => p.field.startsWith("cast"))).toEqual([]);
+    const over = sceneFromRaw(withCaptions([{ ...monument, line: "A dragon.", line_at: 16 }]), "gorges").scene!;
+    expect(validateScene(over).map((p) => p.field)).toContain("cast[0].line_at");
+    const crowded = sceneFromRaw(withCaptions([{ ...monument, line: "A dragon.", line_at: 30 }, { ...companion, line: "Another.", line_at: 33 }]), "gorges").scene!;
+    expect(validateScene(crowded).map((p) => p.field)).toContain("cast[1].line_at");
+    const late = sceneFromRaw(withCaptions([{ ...monument, until: FLIGHT_S, line: "A dragon.", line_at: FLIGHT_S - 2 }]), "gorges").scene!;
+    expect(validateScene(late).map((p) => p.field)).toContain("cast[0].line_at");
+    // The film's forty lines are the film's; the cast's are the cast's.
+    expect(textLines({ scenes: [clear] } as unknown as Parameters<typeof textLines>[0])).toHaveLength(2);
   });
 
   it("names its sky, whole or not at all", () => {
@@ -203,6 +241,16 @@ describe("the layer", () => {
     const q = companionTarget(eye, east, { aheadM: 800, rightM: 0, upM: 0 }, DEFAULT_SCALE);
     expect(q.x - eye.x).toBeCloseTo(toWorldH(800, DEFAULT_SCALE));
     expect(q.z - eye.z).toBeCloseTo(0);
+  });
+
+  it("has a line on for six seconds from its time, and none otherwise", () => {
+    const cue = cueFromRaw({ ...monument, line: "A dragon.", line_at: 30 }, () => {})!;
+    const mute = cueFromRaw({ ...companion }, () => {})!;
+    const scene = { cast: [mute, cue] };
+    expect(castLineAt(scene, 29)).toBeNull();
+    expect(castLineAt(scene, 30)).toBe(cue);
+    expect(castLineAt(scene, 30 + CAST_LINE_SHOW_S - 0.01)).toBe(cue);
+    expect(castLineAt(scene, 30 + CAST_LINE_SHOW_S)).toBeNull();
   });
 
   it("turns a companion from the flight and a monument from north", () => {

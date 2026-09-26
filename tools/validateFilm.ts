@@ -29,7 +29,7 @@ console.log(
     (heroBuiltIn(worldDir) ? ` · hero grids checked against ${worldDir}` : " · no world here, hero grids not checked"),
 );
 for (const s of film.scenes)
-  console.log(`  ${s.id.padEnd(24)} ${s.title.zh} · ${s.title.en} · ${s.rail.length} keys · ${s.captions.length} caption(s)` + (s.cast.length ? ` · ${s.cast.length} in the cast` : "") + (s.heaven ? ` · under ${s.heaven.zh}` : ""));
+  console.log(`  ${s.id.padEnd(24)} ${s.title.zh} · ${s.title.en} · ${s.rail.length} keys · ${s.captions.length} caption(s)` + (s.cast.length ? ` · ${s.cast.length} in the cast` + (s.cast.some((c) => c.line) ? `, ${s.cast.filter((c) => c.line).length} line(s) of its own` : "") : "") + (s.heaven ? ` · under ${s.heaven.zh}` : ""));
 console.log(soundStatus(sound.sound, film) + (complete ? "" : " (the launch gate, --complete, requires all of it)"));
 if (problems.length > 0) {
   console.error(`\n${problems.length} problem(s):\n${formatProblems(problems)}`);

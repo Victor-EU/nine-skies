@@ -54,6 +54,9 @@ cast:
     facing_deg: 235
     from: 10
     until: 114
+    name_zh: 取经人
+    line: "Tang Sanzang and his disciples, walking west on a road of cloud."
+    line_at: 26
   - figure: cranes
     variant: still
     role: companion

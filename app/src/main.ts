@@ -42,7 +42,7 @@ import {
   type WorldScale,
 } from "../../engine/src/sim/scale.js";
 import { LEAD_IN_S, SCENE_S, Timeline, type TimelinePosition } from "../../engine/src/film/timeline.js";
-import { FILM_VERSION, buildRail, railAtKm, type BuiltRail, type Film, type Scene } from "../../engine/src/film/scene.js";
+import { FILM_VERSION, buildRail, castLineAt, railAtKm, type BuiltRail, type CastCue, type Film, type Scene } from "../../engine/src/film/scene.js";
 import { RailFlight, type RailState } from "../../engine/src/film/rail.js";
 import { AltitudeController } from "../../engine/src/film/altitude.js";
 import { captureFrameCost, frameCostTable, quietFrame, BUDGET_FOV_DEG } from "./frameCost.js";
@@ -508,6 +508,7 @@ function startScene(i: number): void {
   el("titleLine").textContent = s.line;
   showSky(s);
   showCaption("");
+  showCastLine(null);
   document.title = `Nine Skies — ${s.title.en}`;
 }
 
@@ -544,6 +545,25 @@ function showCaption(text: string): void {
   if (text) c.textContent = text;
   c.classList.toggle("on", text !== "");
   captionShown = text;
+}
+
+/**
+ * The cast's own line (D91), in its register: the figure's name in
+ * characters over the words, only while the cast is on. The gate keeps its
+ * seconds off the captions', so the two are never on together.
+ */
+let castLineShown: CastCue | null = null;
+function showCastLine(cue: CastCue | null): void {
+  if (cue === castLineShown) return;
+  const e = el("castLine");
+  if (cue) {
+    const zh = e.querySelector(".zh") as HTMLElement;
+    zh.textContent = cue.nameZh ?? "";
+    zh.hidden = !cue.nameZh;
+    (e.querySelector(".en") as HTMLElement).textContent = cue.line ?? "";
+  }
+  e.classList.toggle("on", cue !== null);
+  castLineShown = cue;
 }
 
 const mmss = (seconds: number): string => {
@@ -839,6 +859,7 @@ function frame(now: number): void {
     setCurtain(0);
     shown("title", false);
     showCaption("");
+    showCastLine(null);
     if (pinned.aboveGroundM !== null) {
       const scene = film?.scenes[Math.max(0, current)];
       const band = scene?.band ?? { minM: 50, maxM: 6000 };
@@ -908,6 +929,7 @@ function frame(now: number): void {
     shown("end", false);
     endShownAt = null;
     showCaption("");
+    showCastLine(null);
     leadIn.draw(leadCanvas.getContext("2d")!, {
       rails,
       next: current,
@@ -931,6 +953,7 @@ function frame(now: number): void {
     const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt, s.lookAheadKm);
     placeAt(state.eastM, state.northM, alt, state.headingRad, state.bankRad, clockNow(), state.pitchDeg);
     showCaption(captionAt(s, pos.flightS));
+    showCastLine(cast ? castLineAt(s, pos.flightS) : null);
     el("auto").classList.toggle("on", state.auto);
     // The speed, while the viewer is changing it and for a moment after; the
     // badge is quiet while the rail flies itself.
@@ -945,6 +968,7 @@ function frame(now: number): void {
   } else {
     shown("title", false);
     showCaption("");
+    showCastLine(null);
     if (endShownAt === null) {
       endShownAt = now;
       shown("end", true);

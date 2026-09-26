@@ -2420,3 +2420,44 @@ company and its sky. Captures in this session's scratchpad, `castC-*`.
 budgeted, and the shell does not show it yet); the stations priced with
 the cast on; feathered wings; the figures above, as the film wants them.
 
+## F105 — The cast's own lines, in a second register, 27 September 2026
+
+Stage D of D91. A cue may carry a line, and the shell now says it: the
+figure's name in characters over the words, in the lantern's warmth
+(`--warm`), the characters in the song face and the words in italic
+serif, in the caption's place. It shows only while the cast is on, for
+six seconds like a caption, and it is never on at the same time as one.
+
+**The shape.** `line` on a cue was read and budgeted since F102; it now
+has `name_zh` (characters only) over it and `line_at`, the second it
+shows, the cue's `from` unless said. The gate refuses a name or a time
+with no line, a time outside the cue's own seconds, a line over the
+flight's end, a line whose six seconds cross a caption's, and two of the
+cast's lines within six seconds of each other. The cast's lines are the
+cast's: `textLines` does not count them, so the film still says 36 of
+its 40 with fifteen more in the sky.
+
+**The lines** (fifteen, one to three a scene, each twelve words or fewer,
+each a name and one thing about the figure the viewer is looking at):
+the four Dragon Kings, Wukong and Nezha over Huangshan; the White Dragon
+in the Gorges; the party at the Karst and at the Bend; Xuanzang riding
+out alone and the Jing River king on the Loess; the steppe's cranes; the
+Queen Mother, Nezha and the Flowing Sands at Turpan; the black-necked
+cranes and the Tongtian on the Roof; the last crossing at the Wall.
+Their seconds sit between the captions' (a caption at 8, 50 and 96 s
+leaves 20, 32 and 62 for the cast at Huangshan).
+
+**Checked.** `npm run check` passes; the gate reports each scene's
+lines of its own. The hold harness (`castshot.mjs`) pins the camera and
+the shell clears all text on a pinned camera, so it cannot show a line;
+a play-through harness (`playshot.mjs <chapter> <out.png>`, scratchpad)
+plays a chapter headless from its lead-in and logs every caption and
+cast line as it comes and goes. Huangshan: the caption at flight 8–14,
+the cast's line at 20–26, nothing overlapping. Loess: the caption at
+15–21, then 玄奘 at 24–30. Frames of both in the scratchpad.
+
+**Next.** The stations priced with the cast on (a window and a GPU, not
+this session's headless swiftshader); feathered wings for the birds; the
+figures the board still wants (F104); a decision on scene 9 and the
+switch's name.
+

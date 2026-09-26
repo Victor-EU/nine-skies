@@ -62,6 +62,9 @@ cast:
     facing_deg: 200
     from: 60
     until: 114
+    name_zh: 西天
+    line: "The last crossing, into the Western Heaven, over the wall."
+    line_at: 70
 
 captions:
   - { at: 24, text: "Tingri, {4300 m}. The wall ahead is the Himalaya." }

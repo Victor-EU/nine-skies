@@ -28,6 +28,7 @@ import {
   type RailKey,
   type Scene,
   type SceneTitle,
+  CAST_LINE_SHOW_S,
 } from "../engine/src/film/scene.js";
 import { DEFAULT_LOOK_AHEAD_KM } from "../engine/src/film/altitude.js";
 import { DEFAULT_SCALE, DRAMA_CANDIDATES, apparentExaggeration } from "../engine/src/sim/scale.js";
@@ -278,6 +279,16 @@ export function validateScene(scene: Scene, options: ValidateOptions = {}): Prob
   scene.cast.forEach((c, i) => {
     if (c.line && wordCount(c.line) > WORDS_PER_LINE) add(`cast[${i}].line`, `${wordCount(c.line)} words; the budget is ${WORDS_PER_LINE}`);
   });
+  // The cast's lines keep the film's timing, though not its count: six
+  // seconds each, one line on the screen at a time, never over a caption.
+  const castLines = scene.cast.map((c, i) => ({ c, i })).filter(({ c }) => c.line).sort((a, b) => a.c.lineAtS - b.c.lineAtS);
+  castLines.forEach(({ c, i }, k) => {
+    if (c.lineAtS > FLIGHT_S - CAST_LINE_SHOW_S) add(`cast[${i}].line_at`, `${c.lineAtS} s is outside the flight's 0–${FLIGHT_S - CAST_LINE_SHOW_S}`);
+    for (const cap of scene.captions)
+      if (c.lineAtS < cap.at + CAPTION_SHOW_S && cap.at < c.lineAtS + CAST_LINE_SHOW_S) add(`cast[${i}].line_at`, `${c.lineAtS} s is over the caption at ${cap.at} s; one line at a time`);
+    const next = castLines[k + 1];
+    if (next && next.c.lineAtS < c.lineAtS + CAST_LINE_SHOW_S) add(`cast[${next.i}].line_at`, `overlaps the cast's line before it; ${CAST_LINE_SHOW_S} s apart at least`);
+  });
 
   if (scene.captions.length > CAPTIONS_PER_SCENE) add("captions", `${scene.captions.length}; the budget is ${CAPTIONS_PER_SCENE}`);
   const sorted = [...scene.captions].sort((a, b) => a.at - b.at);
@@ -309,7 +320,7 @@ export interface FilmOptions extends ValidateOptions {
   readonly complete?: boolean | undefined;
 }
 
-/** Every line the film says, in order. */
+/** Every line the film says, in order. The cast's lines are the cast's, not counted here. */
 export function textLines(film: Film): string[] {
   return film.scenes.flatMap((s) => [s.line, ...s.captions.map((c) => c.text)]);
 }

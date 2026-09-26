@@ -75,8 +75,21 @@ export interface CastCue {
   /** Seconds into the flight it is in play. */
   readonly fromS: number;
   readonly untilS: number;
-  /** The layer's own line for the moment it appears, or null. */
+  /** The layer's own line for the figure, or null: the cast's register, not the film's count. */
   readonly line: string | null;
+  /** The figure's name in characters, over the line, or null. */
+  readonly nameZh: string | null;
+  /** Seconds into the flight the line shows: the cue's `fromS` unless it says. */
+  readonly lineAtS: number;
+}
+
+/** Seconds a line of the cast stays, as a caption does. */
+export const CAST_LINE_SHOW_S = 6;
+
+/** The cue whose line is on at this second of the flight, or null. */
+export function castLineAt(scene: Pick<Scene, "cast">, flightS: number): CastCue | null {
+  for (const c of scene.cast) if (c.line && flightS >= c.lineAtS && flightS < c.lineAtS + CAST_LINE_SHOW_S) return c;
+  return null;
 }
 
 export interface Scene {

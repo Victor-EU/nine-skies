@@ -118,7 +118,8 @@ Everything else in the repository served the version-1 game and goes.
   swapped or dropped without the film noticing. *Journey to the West* is
   its spine: the novel goes west as the film does, and its episodes land on
   the rails (F102). Each scene names its sky from the *Huainanzi*'s nine
-  fields of heaven, shown on the card while the cast is on (F104).
+  fields of heaven, shown on the card while the cast is on (F104), and the
+  cast speaks in its own register, outside the film's forty lines (F105).
 
 
 ## What each part of the repository becomes

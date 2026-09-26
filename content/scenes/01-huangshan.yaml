@@ -72,6 +72,9 @@ cast:
     facing_deg: 250
     from: 6
     until: 108
+    name_zh: 四海龙王
+    line: "The four Dragon Kings, up from the cloud sea with Wukong's gifts."
+    line_at: 20
   - figure: dragon
     variant: south-king
     role: monument
@@ -112,6 +115,9 @@ cast:
     facing_deg: 150
     from: 12
     until: 100
+    name_zh: 孙悟空
+    line: "Sun Wukong, the Monkey King, scouting from his somersault cloud."
+    line_at: 32
   - figure: nezha
     variant: still
     role: companion
@@ -120,6 +126,9 @@ cast:
     facing_deg: 120
     from: 40
     until: 104
+    name_zh: 哪吒
+    line: "Nezha on his wind-fire wheels, sent to bring the monkey in."
+    line_at: 62
 
 captions:
   - { at: 8, text: "Huangshan. Granite, pines, and cloud filling every valley below." }

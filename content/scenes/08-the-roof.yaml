@@ -52,6 +52,9 @@ cast:
     facing_deg: 60
     from: 6
     until: 56
+    name_zh: 黑颈鹤
+    line: "Black-necked cranes, the plateau's own."
+    line_at: 20
   - figure: pilgrims
     variant: still
     role: companion
@@ -60,6 +63,9 @@ cast:
     facing_deg: 215
     from: 8
     until: 110
+    name_zh: 通天河
+    line: "The pilgrims, bound for the Tongtian, the river that reaches heaven."
+    line_at: 68
 
 captions:
   - { at: 12, text: "Qinghai Lake. From here the ground stays above {4000 m}." }

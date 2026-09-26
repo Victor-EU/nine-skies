@@ -104,6 +104,9 @@ cast:
     facing_deg: 215
     from: 8
     until: 114
+    name_zh: 玄奘
+    line: "Xuanzang rides out of Chang'an alone. The Journey to the West begins."
+    line_at: 24
   - figure: dragon
     variant: dust
     role: companion
@@ -112,6 +115,9 @@ cast:
     facing_deg: 160
     from: 30
     until: 104
+    name_zh: 泾河龙王
+    line: "The Jing River Dragon King, beheaded for altering the rain."
+    line_at: 40
 
 captions:
   - { at: 15, text: "The Yellow River, south through the loess plateau." }

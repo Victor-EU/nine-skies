@@ -116,6 +116,9 @@ cast:
     facing_deg: 210
     from: 10
     until: 112
+    name_zh: 小白龙
+    line: "The White Dragon of Eagle Grief Stream, before he was the horse."
+    line_at: 30
 
 captions:
   - { at: 18, text: "The camera is below the rim." }

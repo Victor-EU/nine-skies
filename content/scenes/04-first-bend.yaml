@@ -101,6 +101,9 @@ cast:
     facing_deg: 215
     from: 10
     until: 112
+    name_zh: 唐僧师徒
+    line: "Wukong ahead, the monk on the white horse, Bajie and Sha behind."
+    line_at: 30
   - figure: cranes
     variant: still
     role: companion

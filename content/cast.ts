@@ -10,7 +10,9 @@
  * - a cue outside the flight, or one that ends before it starts;
  * - a size the world's scale would make invisible or absurd;
  * - a facing that is not a number of degrees;
- * - a line over the budget, since the layer's lines are lines.
+ * - a line over the budget, since the layer's lines are lines;
+ * - a name in anything but characters, a name or a time with no line, or a
+ *   time for the line outside the cue's own seconds.
  */
 import type { CastCue } from "../engine/src/film/scene.js";
 import { FLIGHT_S } from "../engine/src/film/timeline.js";
@@ -90,8 +92,21 @@ export function cueFromRaw(raw: unknown, add: Add): CastCue | null {
     if (isStr(raw.line)) line = raw.line.trim();
     else fail("line", "a line, or absent");
   }
+  let nameZh: string | null = null;
+  if (raw.name_zh !== undefined && raw.name_zh !== null) {
+    if (isStr(raw.name_zh) && /^[㐀-鿿·\s]+$/.test(raw.name_zh.trim())) nameZh = raw.name_zh.trim();
+    else fail("name_zh", "the figure's name in characters");
+  }
+  if (nameZh && !line) fail("name_zh", "a name goes over a line; this cue has none");
+  let lineAtS = fromS;
+  if (raw.line_at !== undefined) {
+    if (!isNum(raw.line_at)) fail("line_at", "seconds into the flight the line shows");
+    else if (!line) fail("line_at", "a time for a line; this cue has none");
+    else if (raw.line_at < fromS || raw.line_at >= untilS) fail("line_at", `${raw.line_at} s is outside the cue's ${fromS}–${untilS}`);
+    else lineAtS = raw.line_at;
+  }
   if (!ok) return null;
-  return { figure, variant, role: role!, at, offset, sizeM, facingDeg, fromS, untilS, line };
+  return { figure, variant, role: role!, at, offset, sizeM, facingDeg, fromS, untilS, line, nameZh, lineAtS };
 }
 
 /** Read a scene's `cast:` block: a list of cues, or nothing. */
