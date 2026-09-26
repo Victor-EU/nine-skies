@@ -94,7 +94,11 @@ look:
 # The cast (D91): the Journey begins at the film's midpoint. The monk
 # rides out of Chang'an alone on the white horse (ch. 12-13), beside the
 # camera; the Jing River's dragon king (ch. 9-10), who altered the rain
-# and lost his head for it, swims the river's air below, in dust.
+# and lost his head for it, swims the river's air below, in dust; the
+# carp leaps beside the camera, since the Dragon Gate at Longmen lies 240
+# km past the flight's end at one speed; and Jingwei, the Shan Hai
+# Jing's bird from Fajiu Mountain across the river, carries her twig to
+# the sea.
 cast:
   - figure: pilgrims
     variant: monk
@@ -118,6 +122,28 @@ cast:
     name_zh: 泾河龙王
     line: "The Jing River Dragon King, beheaded for altering the rain."
     line_at: 40
+  - figure: carp
+    variant: still
+    role: companion
+    offset: { ahead_m: 1300, right_m: 650, up_m: -520 }
+    size_m: 160
+    facing_deg: 200
+    from: 46
+    until: 100
+    name_zh: 鲤鱼
+    line: "The carp that leaps the Dragon Gate downstream becomes a dragon."
+    line_at: 62
+  - figure: jingwei
+    variant: still
+    role: companion
+    offset: { ahead_m: 900, right_m: -350, up_m: 200 }
+    size_m: 80
+    facing_deg: 240
+    from: 70
+    until: 110
+    name_zh: 精卫
+    line: "Jingwei, drowned in the Eastern Sea, filling it with pebbles ever since."
+    line_at: 78
 
 captions:
   - { at: 15, text: "The Yellow River, south through the loess plateau." }

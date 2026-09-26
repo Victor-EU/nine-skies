@@ -8,11 +8,12 @@ import { describe, expect, it } from "vitest";
 import { Vector3 } from "three";
 import { castFromRaw, cueFromRaw, SIZE_RANGE_M } from "../../content/cast.ts";
 import { sceneFromRaw, textLines, validateScene } from "../../content/scenes.ts";
-import { FIGURE_KINDS } from "../../engine/src/cast/kinds.js";
+import { FIGURE_KINDS, LIVING_FAITHS } from "../../engine/src/cast/kinds.js";
 import { figureBuilder, registeredFigures } from "../../engine/src/cast/figure.js";
 import "../../engine/src/cast/figures/index.js";
 import { dragonMaterials, DRAGON_LENGTH } from "../../engine/src/cast/figures/dragon.js";
 import { lanternSkin, SKINS } from "../../engine/src/cast/skin.js";
+import type { Wardrobe } from "../../engine/src/cast/parts.js";
 import { companionTarget, cueFade, FADE_S, figureYaw } from "../../engine/src/cast/cast.js";
 import { FLIGHT_S } from "../../engine/src/film/timeline.js";
 import { castLineAt, CAST_LINE_SHOW_S } from "../../engine/src/film/scene.js";
@@ -89,7 +90,7 @@ describe("a cue", () => {
 
   it("names the figures it knows when it refuses one", () => {
     const p = problems();
-    cueFromRaw({ ...monument, figure: "guanyin" }, p.add);
+    cueFromRaw({ ...monument, figure: "zhongkui" }, p.add);
     expect(p.out[0]!.message).toContain(FIGURE_KINDS[0]);
   });
 
@@ -203,6 +204,21 @@ describe("the figures", () => {
     monk.update({ timeS: 2, flightS: 2, eye: new Vector3(), headingRad: 0, group: monk.group });
     party.dispose();
     monk.dispose();
+    skin.dispose();
+  });
+
+  it("draw the figures of living faiths without a body: a mount, a seat, a standard, a flag, and nothing of skin", () => {
+    const skin = lanternSkin();
+    expect(LIVING_FAITHS.length).toBe(4);
+    for (const kind of LIVING_FAITHS) {
+      expect(FIGURE_KINDS).toContain(kind);
+      const f = figureBuilder(kind)!({ skin, variant: null, scale: DEFAULT_SCALE });
+      const parts = (f as unknown as { wardrobe?: Wardrobe }).wardrobe?.parts;
+      expect(parts, kind).toBeDefined();
+      expect(parts!.length, kind).toBeGreaterThan(5);
+      expect(parts!.filter((p) => p.role === "skin"), kind).toEqual([]);
+      f.dispose();
+    }
     skin.dispose();
   });
 

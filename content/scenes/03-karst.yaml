@@ -42,11 +42,26 @@ look:
   grade: cool
 
 # The cast (D91): Gao Village (ch. 18-19) is a river village like the ones
-# under these towers. The party walks the sky beside the camera, Bajie
-# among them; a flock crosses the Li ahead, the cranes standing in for the
-# river's egrets until those have a builder of their own; and the phoenix,
-# the Shan Hai Jing's bird of the far south, holds over the towers.
+# under these towers. Guilin's own elephant, the one that stayed to drink
+# and is Elephant Trunk Hill, walks the air beside the camera from the
+# start (the hill itself is behind the camera from the first second); the
+# party walks the sky beside the camera, Bajie among them; a line of the
+# Li's egrets crosses ahead; the phoenix, the Shan Hai Jing's bird of the
+# far south, holds over the towers; and at the end Guanyin of the South
+# Sea, by her empty lotus, her willow vase and her white parrot, the way a
+# living faith is drawn here (F107).
 cast:
+  - figure: elephant
+    variant: still
+    role: companion
+    offset: { ahead_m: 1300, right_m: 700, up_m: -360 }
+    size_m: 270
+    facing_deg: 220
+    from: 4
+    until: 64
+    name_zh: 象
+    line: "The elephant of heaven that stayed to drink, and is Guilin's hill."
+    line_at: 6
   - figure: pilgrims
     variant: still
     role: companion
@@ -58,14 +73,17 @@ cast:
     name_zh: 取经人
     line: "Tang Sanzang and his disciples, walking west on a road of cloud."
     line_at: 26
-  - figure: cranes
+  - figure: egrets
     variant: still
     role: companion
     offset: { ahead_m: 1200, right_m: -420, up_m: -360 }
-    size_m: 480
+    size_m: 440
     facing_deg: 60
     from: 20
     until: 100
+    name_zh: 白鹭
+    line: "Egrets of the Li, which fish the shallows under the towers."
+    line_at: 50
   - figure: phoenix
     variant: still
     role: companion
@@ -77,6 +95,17 @@ cast:
     name_zh: 凤凰
     line: "The phoenix of the south, seen when the world is at peace."
     line_at: 40
+  - figure: guanyin
+    variant: still
+    role: companion
+    offset: { ahead_m: 1300, right_m: 450, up_m: 180 }
+    size_m: 180
+    facing_deg: 200
+    from: 66
+    until: 112
+    name_zh: 南海观音
+    line: "Guanyin of the South Sea, by her lotus, vase and white parrot."
+    line_at: 72
 
 captions:
   - { at: 15, text: "Each tower is sea floor, 300 million years old." }

@@ -153,7 +153,12 @@ Nezha and the Monkey King at the Flaming Mountains, the pilgrims crossing
 the Tongtian River on the Roof; and the sky's own creatures beside them:
 cranes, the phoenix, the qilin walking on cloud, the tiger of the gorge,
 the Tongtian's turtle, the magpie of Changbai, the Peng over the steppe.
-Non-Han grounds keep their own figures.
+Non-Han grounds keep their own figures, and the figures of living faiths
+are never drawn as a body: Sanduo is his riderless white horse and his
+standard, Guanyin her empty lotus with the willow vase and the white
+parrot, the wind horse the prayer flags themselves, Miyolangsangma her
+tigress with the saddle empty, the way early Buddhist art showed the
+Buddha by an empty seat (F107).
 With the cast on, the title card also names the scene's sky from the
 *Huainanzi*'s nine fields of heaven: 苍天 the azure sky over Huangshan,
 玄天 the dark sky over the Wall, and the film's title made literal. The

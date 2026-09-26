@@ -5,10 +5,45 @@
  * here has a builder in `figures/`, and the cast tests hold the two lists
  * to each other.
  */
-export const FIGURE_KINDS = ["dragon", "nezha", "wukong", "pilgrims", "xiwangmu", "cranes", "qilin", "phoenix", "tiger", "turtle", "magpie", "peng"] as const;
+export const FIGURE_KINDS = [
+  "dragon",
+  "nezha",
+  "wukong",
+  "pilgrims",
+  "xiwangmu",
+  "cranes",
+  "qilin",
+  "phoenix",
+  "tiger",
+  "turtle",
+  "magpie",
+  "peng",
+  "yaoji",
+  "jingwei",
+  "carp",
+  "niumowang",
+  "baxian",
+  "elephant",
+  "egrets",
+  "sanduo",
+  "guanyin",
+  "lungta",
+  "miyolangsangma",
+] as const;
 
 export type FigureKind = (typeof FIGURE_KINDS)[number];
 
 export function isFigureKind(name: string): name is FigureKind {
   return (FIGURE_KINDS as readonly string[]).includes(name);
 }
+
+/**
+ * The figures of living faiths (decided 27 September 2026): the Naxi god
+ * of the snow mountain, the Bodhisattva, the Tibetan wind horse, the
+ * goddess of Chomolungma. The film draws none of them as a body: each is
+ * its mount, its seat, its standard or the thing its faith itself makes,
+ * the way early Buddhist art showed the Buddha by an empty seat, a wheel
+ * or a pair of footprints. The cast tests hold each to it: no part of
+ * theirs is skin.
+ */
+export const LIVING_FAITHS: readonly FigureKind[] = ["sanduo", "guanyin", "lungta", "miyolangsangma"];

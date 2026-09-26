@@ -43,7 +43,9 @@ look:
 # and black-necked cranes, the plateau's own, over the first leg from
 # Qinghai Lake; from the Hoh Xil a qilin walking the air, as asked, and
 # the old turtle of the Tongtian swimming it beside the party. The
-# Tibetan sky's lungta waits for a builder.
+# Tibetan sky's own figure is the wind horse, drawn as a living faith's
+# is drawn here (F107): the prayer flags themselves, a line of them
+# between two clouds on the left over the first leg.
 cast:
   - figure: cranes
     variant: still
@@ -56,6 +58,17 @@ cast:
     name_zh: 黑颈鹤
     line: "Black-necked cranes, the plateau's own."
     line_at: 20
+  - figure: lungta
+    variant: still
+    role: companion
+    offset: { ahead_m: 1000, right_m: -250, up_m: 260 }
+    size_m: 420
+    facing_deg: 20
+    from: 22
+    until: 60
+    name_zh: 风马旗
+    line: "Wind horses: five-coloured flags that carry prayers on the wind."
+    line_at: 30
   - figure: pilgrims
     variant: still
     role: companion

@@ -51,9 +51,23 @@ look:
 # the wall ahead of the camera, high and small against the last light, on
 # the way to the Western Heaven: the film crosses into Nepal, the novel
 # into India. Silhouettes only, and nothing else over Chomolungma. The
-# mountain's own goddess, Miyolangsangma on her tigress, is the
-# alternative if wanted, or silence.
+# mountain's own goddess, Miyolangsangma, is drawn as a living faith's is
+# drawn here (F107): her golden tigress with the saddle empty and the
+# bowl of her giving on it, walking the air below the camera on the
+# approach from Tingri, and gone before Rongbuk; the crossing follows.
+# Silence is one cue away.
 cast:
+  - figure: miyolangsangma
+    variant: still
+    role: companion
+    offset: { ahead_m: 1400, right_m: -520, up_m: -460 }
+    size_m: 190
+    facing_deg: 250
+    from: 20
+    until: 58
+    name_zh: 珠穆朗玛
+    line: "The tigress of Miyolangsangma, the mountain's goddess, who gives without end."
+    line_at: 34
   - figure: pilgrims
     variant: still
     role: companion

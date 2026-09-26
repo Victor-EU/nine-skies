@@ -9,6 +9,7 @@
  * what a builder adds afterwards.
  */
 import {
+  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   CapsuleGeometry,
@@ -22,6 +23,8 @@ import {
   RepeatWrapping,
   SphereGeometry,
   SRGBColorSpace,
+  TorusGeometry,
+  TubeGeometry,
   Vector3,
   type Material,
 } from "three";
@@ -343,6 +346,79 @@ export function cloudBank(w: Wardrobe, colour: number, puffs: readonly (readonly
 
 export function breathe(bank: Group, t: number, amount = 0.07): void {
   bank.children.forEach((p, i) => p.scale.setScalar(1 + Math.sin(t * 2 + i * 1.9) * amount));
+}
+
+// ---- The horse -------------------------------------------------------------
+//
+// The second body the cast shares: the pilgrims' white horse, an immortal's
+// donkey, a god's riderless mount. Built standing on y = 0, facing +z, 3.2
+// units nose to tail; the walk swings the legs and swishes the tail.
+
+export interface Horse {
+  readonly legs: readonly { hip: Group; phase: number }[];
+  readonly tail: Mesh;
+  readonly tailPts: Vector3[];
+  readonly tailCurve: CatmullRomCurve3;
+  /** The head, for a toss or a pair of longer ears. */
+  readonly head: Mesh;
+}
+
+export interface HorseOptions {
+  readonly coat: number;
+  readonly mane: number;
+  readonly hoof: number;
+  /** The saddle, or none for a bare back. */
+  readonly saddle?: number;
+  /** The girth ring and the bridle. */
+  readonly tack: number;
+}
+
+export function horse(w: Wardrobe, o: HorseOptions, parent: Group): Horse {
+  const body = w.part(new CapsuleGeometry(0.42, 1.3, 6, 14), "silk", o.coat, parent, 0, 1.1, 0);
+  body.rotation.x = Math.PI / 2;
+  const neck = w.part(new CapsuleGeometry(0.2, 0.8, 6, 12), "silk", o.coat, parent, 0, 1.55, 0.95);
+  neck.rotation.x = -0.6;
+  const head = w.part(new SphereGeometry(0.26, 16, 12), "silk", o.coat, parent, 0, 1.95, 1.35);
+  head.scale.set(0.8, 0.8, 1.6);
+  for (const s of [-1, 1]) {
+    w.part(new ConeGeometry(0.06, 0.22, 6), "silk", o.coat, parent, s * 0.12, 2.22, 1.15).rotation.x = -0.3;
+    w.part(new SphereGeometry(0.035, 8, 6), "eye", 0x111111, parent, s * 0.17, 2.02, 1.55);
+  }
+  for (let i = 0; i < 7; i++) w.part(new ConeGeometry(0.07, 0.3, 5), "mane", o.mane, parent, 0, 1.75 + i * 0.07, 1.05 - i * 0.16).rotation.x = -0.8;
+  const legs: { hip: Group; phase: number }[] = [];
+  for (const [x, z] of [
+    [-0.25, 0.55],
+    [0.25, 0.55],
+    [-0.25, -0.55],
+    [0.25, -0.55],
+  ] as const) {
+    const hip = new Group();
+    hip.position.set(x, 0.95, z);
+    parent.add(hip);
+    w.part(new CapsuleGeometry(0.09, 0.7, 4, 10), "silk", o.coat, hip, 0, -0.45, 0);
+    w.part(new CylinderGeometry(0.1, 0.11, 0.12, 10), "iron", o.hoof, hip, 0, -0.88, 0);
+    legs.push({ hip, phase: x < 0 !== z < 0 ? 0 : Math.PI });
+  }
+  const tailPts: Vector3[] = [];
+  for (let i = 0; i <= 6; i++) tailPts.push(new Vector3(0, 1.3 - i * 0.15, -0.75 - i * 0.05));
+  const tailCurve = new CatmullRomCurve3(tailPts);
+  const tail = w.dress(new Mesh(new TubeGeometry(tailCurve, 14, 0.06, 6, false)), "mane", o.mane);
+  parent.add(tail);
+  if (o.saddle !== undefined) w.part(new BoxGeometry(0.6, 0.18, 0.7), "silk", o.saddle, parent, 0, 1.55, -0.05);
+  w.part(new TorusGeometry(0.44, 0.03, 6, 20), "gold", o.tack, parent, 0, 1.12, -0.05).rotation.y = Math.PI / 2;
+  w.part(new TorusGeometry(0.28, 0.025, 6, 20), "gold", o.tack, parent, 0, 1.95, 1.4).rotation.x = Math.PI / 2;
+  return { legs, tail, tailPts, tailCurve, head };
+}
+
+/** The walk: legs swinging against each other, the tail rewritten along its curve. */
+export function horseWalk(h: Horse, t: number, rate = 5): void {
+  for (const l of h.legs) l.hip.rotation.x = Math.sin(t * rate + l.phase) * 0.4;
+  for (let i = 0; i <= 6; i++) {
+    const u = i / 6;
+    h.tailPts[i]!.set(Math.sin(t * 2.5 + u * 3) * 0.15 * u, 1.35 - u * 0.9, -0.75 - u * 0.35);
+  }
+  h.tail.geometry.dispose();
+  h.tail.geometry = new TubeGeometry(h.tailCurve, 14, 0.06, 6, false);
 }
 
 // ---- Stripes, feathers and wings ------------------------------------------

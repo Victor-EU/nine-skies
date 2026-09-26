@@ -11,9 +11,9 @@
  * The `monk` variant is the departure (ch. 12-13): the monk and the horse
  * alone, in place, 3.6 units long, before the road gave him his company.
  */
-import { BoxGeometry, CapsuleGeometry, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3 } from "three";
+import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry, Vector3 } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, cloudBank, breathe, humanoid, walk, type Humanoid } from "../parts.js";
+import { Wardrobe, breathe, cloudBank, horse, horseWalk, humanoid, walk, type Horse, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const COAT = 0xf7f4ee;
@@ -34,43 +34,6 @@ const DRAB = 0x5a4a3a;
 const BONE = 0xf2ecdc;
 const PACK = 0x8f6b3e;
 const CLOUD = 0xffffff;
-
-function horse(w: Wardrobe, parent: Group): { legs: { hip: Group; phase: number }[]; tail: Mesh; tailPts: Vector3[]; tailCurve: CatmullRomCurve3 } {
-  const body = w.part(new CapsuleGeometry(0.42, 1.3, 6, 14), "silk", COAT, parent, 0, 1.1, 0);
-  body.rotation.x = Math.PI / 2;
-  const neck = w.part(new CapsuleGeometry(0.2, 0.8, 6, 12), "silk", COAT, parent, 0, 1.55, 0.95);
-  neck.rotation.x = -0.6;
-  const head = w.part(new SphereGeometry(0.26, 16, 12), "silk", COAT, parent, 0, 1.95, 1.35);
-  head.scale.set(0.8, 0.8, 1.6);
-  for (const s of [-1, 1]) {
-    w.part(new ConeGeometry(0.06, 0.22, 6), "silk", COAT, parent, s * 0.12, 2.22, 1.15).rotation.x = -0.3;
-    w.part(new SphereGeometry(0.035, 8, 6), "eye", 0x111111, parent, s * 0.17, 2.02, 1.55);
-  }
-  for (let i = 0; i < 7; i++) w.part(new ConeGeometry(0.07, 0.3, 5), "mane", MANE, parent, 0, 1.75 + i * 0.07, 1.05 - i * 0.16).rotation.x = -0.8;
-  const legs: { hip: Group; phase: number }[] = [];
-  for (const [x, z] of [
-    [-0.25, 0.55],
-    [0.25, 0.55],
-    [-0.25, -0.55],
-    [0.25, -0.55],
-  ] as const) {
-    const hip = new Group();
-    hip.position.set(x, 0.95, z);
-    parent.add(hip);
-    w.part(new CapsuleGeometry(0.09, 0.7, 4, 10), "silk", COAT, hip, 0, -0.45, 0);
-    w.part(new CylinderGeometry(0.1, 0.11, 0.12, 10), "iron", HOOF, hip, 0, -0.88, 0);
-    legs.push({ hip, phase: x < 0 !== z < 0 ? 0 : Math.PI });
-  }
-  const tailPts: Vector3[] = [];
-  for (let i = 0; i <= 6; i++) tailPts.push(new Vector3(0, 1.3 - i * 0.15, -0.75 - i * 0.05));
-  const tailCurve = new CatmullRomCurve3(tailPts);
-  const tail = w.dress(new Mesh(new TubeGeometry(tailCurve, 14, 0.06, 6, false)), "mane", MANE);
-  parent.add(tail);
-  w.part(new BoxGeometry(0.6, 0.18, 0.7), "silk", SADDLE, parent, 0, 1.55, -0.05);
-  w.part(new TorusGeometry(0.44, 0.03, 6, 20), "gold", GOLD, parent, 0, 1.12, -0.05).rotation.y = Math.PI / 2;
-  w.part(new TorusGeometry(0.28, 0.025, 6, 20), "gold", GOLD, parent, 0, 1.95, 1.4).rotation.x = Math.PI / 2;
-  return { legs, tail, tailPts, tailCurve };
-}
 
 function monk(w: Wardrobe, parent: Group): Humanoid {
   const h = humanoid(w, { face: FACE, torso: ROBE, legs: ROBE, shoe: IRON }, parent);
@@ -148,7 +111,7 @@ class Pilgrims implements Figure {
   readonly triangles: number;
   private readonly w: Wardrobe;
   private readonly party = new Group();
-  private readonly horseParts: ReturnType<typeof horse>;
+  private readonly horse: Horse;
   private readonly monk: Humanoid;
   private readonly bajie: Humanoid | null = null;
   private readonly sha: Humanoid | null = null;
@@ -164,7 +127,7 @@ class Pilgrims implements Figure {
     this.nativeSize = alone ? 3.6 : 8;
     this.group.add(this.party);
     const horseG = new Group();
-    this.horseParts = horse(w, horseG);
+    this.horse = horse(w, { coat: COAT, mane: MANE, hoof: HOOF, saddle: SADDLE, tack: GOLD }, horseG);
     const monkG = new Group();
     monkG.position.set(0, 1.45, -0.05);
     monkG.scale.setScalar(0.72);
@@ -199,13 +162,7 @@ class Pilgrims implements Figure {
     } else {
       this.party.position.set(0, Math.sin(t * 1.1) * 0.08, 0);
     }
-    for (const l of this.horseParts.legs) l.hip.rotation.x = Math.sin(t * 5 + l.phase) * 0.4;
-    for (let i = 0; i <= 6; i++) {
-      const u = i / 6;
-      this.horseParts.tailPts[i]!.set(Math.sin(t * 2.5 + u * 3) * 0.15 * u, 1.35 - u * 0.9, -0.75 - u * 0.35);
-    }
-    this.horseParts.tail.geometry.dispose();
-    this.horseParts.tail.geometry = new TubeGeometry(this.horseParts.tailCurve, 14, 0.06, 6, false);
+    horseWalk(this.horse, t, 5);
     // the monk sits: legs down, the staff held, the reins in the other hand
     const [ml, mr] = this.monk.arms;
     mr!.shoulder.rotation.set(-0.5, 0, 0.6);

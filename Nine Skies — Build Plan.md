@@ -120,6 +120,8 @@ Everything else in the repository served the version-1 game and goes.
   the rails (F102). Each scene names its sky from the *Huainanzi*'s nine
   fields of heaven, shown on the card while the cast is on (F104), and the
   cast speaks in its own register, outside the film's forty lines (F105).
+  Figures of living faiths are drawn without a body, by mount, seat,
+  standard or the faith's own object (decided 27 September 2026, F107).
 
 
 ## What each part of the repository becomes

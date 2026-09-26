@@ -106,7 +106,12 @@ look:
 
 # The cast (D91): Eagle Grief Stream (ch. 15). The West King's third son,
 # the White Dragon, rises from the gorge water and swims the river's air
-# below the camera; at 90 km a minute he rides with it.
+# below the camera; at 90 km a minute he rides with it. Yao Ji, the
+# Goddess of Wu Mountain, rides above the camera through the Wu Gorge, her
+# own reach of the river, from 62 s; her peak on the north bank is passed
+# at about 98 s. She was cued as a monument on the summit first, and at
+# six times relief the gorge's nearer walls hid her from every second of
+# the approach, even at 1,800 m tall (F107).
 cast:
   - figure: dragon
     variant: white
@@ -119,6 +124,16 @@ cast:
     name_zh: 小白龙
     line: "The White Dragon of Eagle Grief Stream, before he was the horse."
     line_at: 30
+  - figure: yaoji
+    role: companion
+    offset: { ahead_m: 1400, right_m: 520, up_m: 120 }
+    size_m: 200
+    facing_deg: 205
+    from: 62
+    until: 106
+    name_zh: 巫山神女 瑶姬
+    line: "Yao Ji, goddess of Wu Mountain, who stayed and turned to stone."
+    line_at: 80
 
 captions:
   - { at: 18, text: "The camera is below the rim." }

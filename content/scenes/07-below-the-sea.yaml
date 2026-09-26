@@ -41,9 +41,13 @@ look:
 # passed in seconds, so the company rides with the camera: the Queen
 # Mother from Bogda's Jade Pool over the first leg, with her blue birds;
 # Wukong and Nezha over the Flaming Mountains (ch. 59-61); the party over
-# the Flowing Sands (ch. 22), where Sha is taken on. The Uyghur story's
-# slain dragon lies along the red range itself, a monument twenty
-# kilometres long, seen for the seconds the rail passes Turpan.
+# the Flowing Sands (ch. 22), where Sha is taken on; the Bull Demon King
+# as the white bull of the fight's end (ch. 61), the fire wheel on his
+# horn, on the far left of the Flaming Mountains' seconds; and the Eight
+# Immortals crossing the sea over Ayding Lake, the one ground below it.
+# The Uyghur story's slain dragon lies along the red range itself, a
+# monument twenty kilometres long, seen for the seconds the rail passes
+# Turpan.
 cast:
   - figure: xiwangmu
     role: companion
@@ -82,6 +86,28 @@ cast:
     name_zh: 哪吒
     line: "Nezha, who ends the battle of the Flaming Mountains."
     line_at: 30
+  - figure: niumowang
+    variant: still
+    role: companion
+    offset: { ahead_m: 1500, right_m: -760, up_m: -480 }
+    size_m: 400
+    facing_deg: 210
+    from: 26
+    until: 54
+    name_zh: 牛魔王
+    line: "The Bull Demon King, Nezha's fire wheel hung on his horn."
+    line_at: 46
+  - figure: baxian
+    variant: still
+    role: companion
+    offset: { ahead_m: 1800, right_m: 620, up_m: -150 }
+    size_m: 520
+    facing_deg: 200
+    from: 46
+    until: 100
+    name_zh: 八仙
+    line: "The Eight Immortals crossing the sea, each by their own art."
+    line_at: 52
   - figure: pilgrims
     variant: still
     role: companion

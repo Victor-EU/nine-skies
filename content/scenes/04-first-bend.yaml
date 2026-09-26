@@ -83,8 +83,10 @@ look:
 # Wukong's kilt), walking the sky over the gorge with Wukong ahead of
 # them; and cranes below, which winter at Lashi Lake by Lijiang, thirty
 # kilometres from the bend; then the tiger itself, walking the air over
-# the gorge named for its leap. Naxi ground: Sanduo on his white horse
-# would keep the mountain, when he has a builder.
+# the gorge named for its leap. Naxi ground: Sanduo keeps the mountain,
+# drawn as a living faith's god is drawn here (F107), by his mount and
+# his standard: the white horse riderless, the white spear at the saddle,
+# high on the right where Jade Dragon stands as the rail leaves the gorge.
 cast:
   - figure: wukong
     variant: still
@@ -124,6 +126,17 @@ cast:
     name_zh: 虎
     line: "Tiger Leaping Gorge is named for a tiger that jumped it."
     line_at: 64
+  - figure: sanduo
+    variant: still
+    role: companion
+    offset: { ahead_m: 1600, right_m: 600, up_m: -240 }
+    size_m: 260
+    facing_deg: 215
+    from: 82
+    until: 112
+    name_zh: 三朵
+    line: "Sanduo's white horse, riderless: the Naxi god is the snow mountain itself."
+    line_at: 86
 
 captions:
   - { at: 20, text: "The Jinsha, the Yangtze's upper name: the river of golden sand." }

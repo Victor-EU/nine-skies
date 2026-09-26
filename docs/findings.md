@@ -2543,3 +2543,95 @@ Immortals, the elephant, the egrets, which want time.
 **Checked.** `npm run check` passes; captures of each new figure in
 this session's scratchpad (`castC-castE-*`).
 
+## F107 — The rest of the board: eleven figures, four of them drawn without a body, 27 September 2026
+
+Stage F of D91. The casting board's last eleven figures are built and
+cued, and the four that belong to living faiths are drawn by a rule
+decided today.
+
+**The rule for living faiths.** Sanduo is the Naxi god of Jade Dragon
+Snow Mountain, with a temple and a festival; Guanyin is prayed to in
+every province; the wind horse hangs on every pass in Tibet;
+Miyolangsangma receives an offering from every Sherpa expedition before
+it sets out. A lantern doll of any of them would be a caricature of
+someone's god. So the film draws none of them as a body: each is its
+mount, its seat, its standard, or the thing its faith itself makes and
+hangs, the way early Buddhist art showed the Buddha for five centuries
+by an empty seat, a wheel or a pair of footprints. `LIVING_FAITHS` in
+`kinds.ts` names the four, each of them opens its wardrobe, and the cast
+tests hold them to it: no part of theirs has the role `skin`, the doll's
+face and hands.
+- Sanduo: the white horse saddled in white and gold, riderless, the
+  white spear upright at the saddle with a pennant streaming from it.
+  The line says why the saddle is empty: the Naxi god is the snow
+  mountain itself.
+- Guanyin of the South Sea: the lotus throne, empty; on it the vase of
+  pure water with the willow sprig; the novel's white parrot circling.
+- Lungta: the prayer flags themselves, fourteen on a line between two
+  clouds in the five colours, each block-printed in code (`flagPrint`:
+  the horse with the flaming jewel, rows of text above and below) and
+  fluttering on the rope.
+- Miyolangsangma: her golden tigress with the saddle cloth empty and the
+  bowl of inexhaustible food on it, cued on the approach from Tingri and
+  gone before Rongbuk; the crossing follows; nothing over the summit.
+
+**The seven that wanted time.** Yao Ji (6,908 triangles) on a cloud in
+jade, her hair in two loops, two ribbons streaming, a hand raised over
+the river; Jingwei (1,904), the crow-shaped bird of the Shan Hai Jing
+with the patterned head, white bill, red feet and a twig; the carp
+(3,268), leaping a tall ellipse out of a spray of cloud, tail beating,
+since the Dragon Gate lies past the Loess rail's reach; the Bull Demon
+King (6,652) as the white bull of ch. 61, iron horns and the fire wheel
+on the right one; the Eight Immortals (37,074 triangles, 211 meshes, the
+heaviest figure) each from the doll with their emblem, Zhang Guolao
+backwards on a donkey; the elephant (4,432) with the caparison, ears
+that swing and a trunk rewritten each frame; the egrets (12,168), nine
+with the neck drawn in and yellow feet, in a loose line. Two bodies are
+shared now: the horse moved from the pilgrims into `parts.ts` (`horse`,
+`horseWalk`) and carries the pilgrims, Sanduo's mount and the donkey;
+the tiger's body (`tigerBody`, `prowl` in `tiger.ts`) carries the tiger
+and the tigress. Twenty-three kinds, 41 cues, 32 lines of the cast's
+own; the film's own count is still 36 of 40.
+
+**Where they went.** The Gorges: Yao Ji above the camera through the Wu
+Gorge from 62 s. The Karst: the elephant beside the camera from the
+start, egrets in the cranes' place, Guanyin's seat over the towers at
+the end. The Bend: Sanduo high on the right as the rail leaves the
+gorge, Jade Dragon's side. The Loess: the carp and Jingwei. Turpan: the
+bull below Wukong and Nezha, the Eight Immortals crossing the sea over
+Ayding Lake, the one ground in the film below it. The Roof: the flags on
+the left over the first leg. The Wall: the tigress on the approach.
+
+**What the captures taught.**
+- A monument on a summit in a gorge scene is never seen: at six times
+  relief every nearer wall stands over the line of sight. Yao Ji was
+  cued on Goddess Peak first, at 700 m and again at 1,800 m tall, and in
+  no frame of the approach was she visible; she rides as a companion in
+  her own reach of the river instead. Monuments belong on open ground:
+  Huangshan's cloud sea, the crater, the Flaming Mountains.
+- Elephant Trunk Hill is behind the Karst camera from the first second
+  (0.3 km at 50 degrees off axis, then 173), so the elephant walks
+  beside the camera.
+- Where the rail pitches down (the Bend at 95 s looks 18 degrees into
+  the gorge), a companion's `up_m` has to follow: Sanduo at up 450 was
+  above the frame, at 40 cut by its top edge, at -240 in the upper
+  third. The probe's NDC is the check.
+- Two companions on one bearing overlap whatever their distance: the
+  bull at 1,900 m sat behind Wukong at 1,200 m. A companion needs its
+  own bearing in both axes, not its own distance.
+- An elephant in one grey is a lump: the trunk, ears and legs a shade
+  darker, it reads at 300 m.
+
+**Checked.** `npm run check` passes; the gate reports every scene's
+company; captures in this session's scratchpad (`castC-F-*`,
+`castC-G-*`, `castC-H-*`, `castC-I-*`).
+
+**Decisions taken, open to reversal.** The four figures of living faiths
+are drawn without a body, as above; the Wall keeps the crossing, with
+the tigress before it and nothing over the summit. The names over the
+lines: 三朵, 南海观音, 风马旗, and for the tigress 珠穆朗玛, the mountain's
+name, which is the goddess's.
+
+**Next.** A visible-window price at Turpan (46–54 s: Wukong, Nezha, the
+bull and the Eight Immortals, about 345 draws) and at Huangshan; the
+immortals could share fewer meshes if it costs. The board is built.

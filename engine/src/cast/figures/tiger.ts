@@ -6,6 +6,10 @@
  * black tip, and paws on puffs of cloud. It prowls a slow circle, or in
  * place as a companion.
  *
+ * The body is shared: `tigerBody` builds it in any livery, with or without
+ * the mark, and `prowl` walks it; the goddess's tigress is the same body
+ * in gold.
+ *
  * Native length 4.2 units, nose to tail tip.
  */
 import { BoxGeometry, CapsuleGeometry, CatmullRomCurve3, ConeGeometry, Group, Mesh, SphereGeometry, TubeGeometry, Vector3, type DataTexture, type Material } from "three";
@@ -26,87 +30,129 @@ interface Leg {
   readonly phase: number;
 }
 
+export interface TigerLivery {
+  readonly coat: number;
+  readonly stripe: number;
+  readonly pale: number;
+  readonly nose: number;
+  readonly eye: number;
+  /** The 王 on the brow, or a plain one. */
+  readonly mark: boolean;
+}
+
+export interface TigerBody {
+  readonly head: Group;
+  readonly legs: readonly Leg[];
+  readonly tail: Mesh;
+  readonly tip: Mesh;
+  readonly tailPts: Vector3[];
+  readonly tailCurve: CatmullRomCurve3;
+  readonly cloud: Group;
+}
+
+/** The tiger's body on `B`, standing on its cloud, 4.2 units nose to tail tip. */
+export function tigerBody(w: Wardrobe, B: Group, o: TigerLivery): TigerBody {
+  // The stripes are a texture the skin does not know; a striped part keeps its own map through a swap.
+  const striped = (mesh: Mesh): Mesh => {
+    const m = (mesh.material as Material).clone() as Material & { map?: DataTexture | null };
+    m.map = stripesTexture(o.stripe, o.coat);
+    mesh.material = m;
+    return mesh;
+  };
+  striped(w.part(new CapsuleGeometry(0.55, 1.7, 6, 16), "matte", o.coat, B, 0, 1.25, 0)).rotation.x = Math.PI / 2;
+  w.part(new SphereGeometry(0.45, 16, 12), "silk", o.pale, B, 0, 0.98, 0.05).scale.set(0.9, 0.5, 1.7);
+  // the head
+  const head = new Group();
+  head.position.set(0, 1.72, 1.35);
+  B.add(head);
+  striped(w.part(new SphereGeometry(0.42, 18, 14), "matte", o.coat, head)).scale.set(1, 0.9, 1);
+  w.part(new SphereGeometry(0.25, 14, 10), "silk", o.pale, head, 0, -0.12, 0.32).scale.set(1.1, 0.7, 0.9);
+  w.part(new SphereGeometry(0.07, 8, 6), "matte", o.nose, head, 0, -0.04, 0.56);
+  for (const s of [-1, 1]) {
+    w.part(new SphereGeometry(0.06, 8, 6), "gold", o.eye, head, s * 0.16, 0.08, 0.36);
+    w.part(new SphereGeometry(0.035, 8, 6), "eye", 0x111111, head, s * 0.16, 0.08, 0.41);
+    w.part(new SphereGeometry(0.13, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), "matte", o.coat, head, s * 0.3, 0.32, -0.05).rotation.z = s * -0.5;
+    w.part(new SphereGeometry(0.08, 8, 6), "silk", o.pale, head, s * 0.3, 0.33, 0.0).scale.set(0.6, 0.6, 0.3);
+  }
+  // the 王 on the brow: three bars and a stroke through them
+  if (o.mark) {
+    for (let i = 0; i < 3; i++) w.part(new BoxGeometry(0.2 - i * 0.02, 0.03, 0.02), "iron", o.stripe, head, 0, 0.3 - i * 0.07, 0.4 - i * 0.01);
+    w.part(new BoxGeometry(0.03, 0.18, 0.02), "iron", o.stripe, head, 0, 0.23, 0.4);
+  }
+  // four legs on hips, with a knee and a paw
+  const legs: Leg[] = [];
+  for (const [x, z] of [
+    [-0.35, 0.62],
+    [0.35, 0.62],
+    [-0.35, -0.62],
+    [0.35, -0.62],
+  ] as const) {
+    const hip = new Group();
+    hip.position.set(x, 0.95, z);
+    B.add(hip);
+    w.part(new CapsuleGeometry(0.16, 0.55, 4, 10), "matte", o.coat, hip, 0, -0.3, 0);
+    const knee = new Group();
+    knee.position.y = -0.6;
+    hip.add(knee);
+    w.part(new CapsuleGeometry(0.13, 0.5, 4, 10), "matte", o.coat, knee, 0, -0.27, 0);
+    w.part(new SphereGeometry(0.17, 10, 8), "silk", o.pale, knee, 0, -0.58, 0.05).scale.set(1.1, 0.6, 1.2);
+    legs.push({ hip, knee, phase: x < 0 !== z < 0 ? 0 : Math.PI });
+  }
+  // the tail, rewritten each frame, with a dark tip that follows its end
+  const tailPts: Vector3[] = [];
+  for (let i = 0; i <= 7; i++) tailPts.push(new Vector3(0, 1.45, -0.95 - i * 0.2));
+  const tailCurve = new CatmullRomCurve3(tailPts);
+  const tail = striped(w.dress(new Mesh(new TubeGeometry(tailCurve, 16, 0.07, 6, false)), "matte", o.coat));
+  B.add(tail);
+  const tip = w.part(new ConeGeometry(0.08, 0.3, 6), "iron", o.stripe, B);
+  const cloud = cloudBank(
+    w,
+    CLOUD,
+    [
+      [0, -0.35, 0.4, 0.45],
+      [-0.5, -0.4, -0.35, 0.38],
+      [0.55, -0.4, -0.3, 0.36],
+      [0.1, -0.38, -1.0, 0.3],
+      [-0.15, -0.45, 1.05, 0.3],
+    ],
+    B,
+  );
+  return { head, legs, tail, tip, tailPts, tailCurve, cloud };
+}
+
+/** The walk: legs, a look about, the tail along its curve, the cloud breathing. Returns the body's sway. */
+export function prowl(b: TigerBody, t: number, rate = 3.4): number {
+  for (const l of b.legs) {
+    l.hip.rotation.x = Math.sin(t * rate + l.phase) * 0.5;
+    l.knee.rotation.x = Math.max(0, Math.sin(t * rate + l.phase + 0.7)) * 0.75;
+  }
+  b.head.rotation.set(Math.sin(t * rate * 0.5) * 0.05 - 0.05, Math.sin(t * 0.7) * 0.2, 0);
+  for (let i = 0; i <= 7; i++) {
+    const u = i / 7;
+    b.tailPts[i]!.set(Math.sin(t * 1.8 + u * 3) * 0.3 * u, 1.45 + Math.sin(u * 2.5 + t * 1.5) * 0.3 * u + u * 0.5, -0.95 - u * 1.5);
+  }
+  b.tail.geometry.dispose();
+  b.tail.geometry = new TubeGeometry(b.tailCurve, 16, 0.07, 6, false);
+  b.tip.position.copy(b.tailPts[7]!);
+  b.tip.rotation.x = -Math.PI / 2;
+  breathe(b.cloud, t, 0.05);
+  return Math.sin(t * rate) * 0.04;
+}
+
 class Tiger implements Figure {
   readonly group = new Group();
   readonly nativeSize = 4.2;
   readonly triangles: number;
   private readonly w: Wardrobe;
   private readonly body = new Group();
-  private readonly head = new Group();
-  private readonly legs: Leg[] = [];
-  private readonly tail: Mesh;
-  private readonly tip: Mesh;
-  private readonly tailPts: Vector3[] = [];
-  private readonly tailCurve: CatmullRomCurve3;
-  private readonly cloud: Group;
+  private readonly b: TigerBody;
   private readonly circuit: number;
 
   constructor(ctx: BuildContext) {
     const w = (this.w = new Wardrobe(ctx.skin));
     this.circuit = ctx.variant === "still" ? 0 : 8;
-    const B = this.body;
-    this.group.add(B);
-    // The stripes are a texture the skin does not know; a striped part keeps its own map through a swap.
-    const striped = (mesh: Mesh): Mesh => {
-      const m = (mesh.material as Material).clone() as Material & { map?: DataTexture | null };
-      m.map = stripesTexture(BLACK, ORANGE);
-      mesh.material = m;
-      return mesh;
-    };
-    striped(w.part(new CapsuleGeometry(0.55, 1.7, 6, 16), "matte", ORANGE, B, 0, 1.25, 0)).rotation.x = Math.PI / 2;
-    w.part(new SphereGeometry(0.45, 16, 12), "silk", CREAM, B, 0, 0.98, 0.05).scale.set(0.9, 0.5, 1.7);
-    // the head
-    const H = this.head;
-    H.position.set(0, 1.72, 1.35);
-    B.add(H);
-    striped(w.part(new SphereGeometry(0.42, 18, 14), "matte", ORANGE, H)).scale.set(1, 0.9, 1);
-    w.part(new SphereGeometry(0.25, 14, 10), "silk", CREAM, H, 0, -0.12, 0.32).scale.set(1.1, 0.7, 0.9);
-    w.part(new SphereGeometry(0.07, 8, 6), "matte", PINK, H, 0, -0.04, 0.56);
-    for (const s of [-1, 1]) {
-      w.part(new SphereGeometry(0.06, 8, 6), "gold", GOLD, H, s * 0.16, 0.08, 0.36);
-      w.part(new SphereGeometry(0.035, 8, 6), "eye", 0x111111, H, s * 0.16, 0.08, 0.41);
-      w.part(new SphereGeometry(0.13, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6), "matte", ORANGE, H, s * 0.3, 0.32, -0.05).rotation.z = s * -0.5;
-      w.part(new SphereGeometry(0.08, 8, 6), "silk", CREAM, H, s * 0.3, 0.33, 0.0).scale.set(0.6, 0.6, 0.3);
-    }
-    // the 王 on the brow: three bars and a stroke through them
-    for (let i = 0; i < 3; i++) w.part(new BoxGeometry(0.2 - i * 0.02, 0.03, 0.02), "iron", BLACK, H, 0, 0.3 - i * 0.07, 0.4 - i * 0.01);
-    w.part(new BoxGeometry(0.03, 0.18, 0.02), "iron", BLACK, H, 0, 0.23, 0.4);
-    // four legs on hips, with a knee and a paw
-    for (const [x, z] of [
-      [-0.35, 0.62],
-      [0.35, 0.62],
-      [-0.35, -0.62],
-      [0.35, -0.62],
-    ] as const) {
-      const hip = new Group();
-      hip.position.set(x, 0.95, z);
-      B.add(hip);
-      w.part(new CapsuleGeometry(0.16, 0.55, 4, 10), "matte", ORANGE, hip, 0, -0.3, 0);
-      const knee = new Group();
-      knee.position.y = -0.6;
-      hip.add(knee);
-      w.part(new CapsuleGeometry(0.13, 0.5, 4, 10), "matte", ORANGE, knee, 0, -0.27, 0);
-      w.part(new SphereGeometry(0.17, 10, 8), "silk", CREAM, knee, 0, -0.58, 0.05).scale.set(1.1, 0.6, 1.2);
-      this.legs.push({ hip, knee, phase: x < 0 !== z < 0 ? 0 : Math.PI });
-    }
-    // the tail, rewritten each frame, with a black tip that follows its end
-    for (let i = 0; i <= 7; i++) this.tailPts.push(new Vector3(0, 1.45, -0.95 - i * 0.2));
-    this.tailCurve = new CatmullRomCurve3(this.tailPts);
-    this.tail = striped(w.dress(new Mesh(new TubeGeometry(this.tailCurve, 16, 0.07, 6, false)), "matte", ORANGE));
-    B.add(this.tail);
-    this.tip = w.part(new ConeGeometry(0.08, 0.3, 6), "iron", BLACK, B);
-    this.cloud = cloudBank(
-      w,
-      CLOUD,
-      [
-        [0, -0.35, 0.4, 0.45],
-        [-0.5, -0.4, -0.35, 0.38],
-        [0.55, -0.4, -0.3, 0.36],
-        [0.1, -0.38, -1.0, 0.3],
-        [-0.15, -0.45, 1.05, 0.3],
-      ],
-      B,
-    );
+    this.group.add(this.body);
+    this.b = tigerBody(w, this.body, { coat: ORANGE, stripe: BLACK, pale: CREAM, nose: PINK, eye: GOLD, mark: true });
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
@@ -118,29 +164,16 @@ class Tiger implements Figure {
   update(f: CastFrame): void {
     const t = f.timeS;
     const rate = 3.4;
-    const sway = Math.sin(t * rate) * 0.04;
+    const sway = prowl(this.b, t, rate);
+    const bob = Math.abs(Math.sin(t * rate)) * 0.04;
     if (this.circuit > 0) {
       const a = -t * 0.045;
-      this.body.position.set(Math.cos(a) * this.circuit, Math.abs(Math.sin(t * rate)) * 0.04, Math.sin(a) * this.circuit);
+      this.body.position.set(Math.cos(a) * this.circuit, bob, Math.sin(a) * this.circuit);
       this.body.rotation.set(0, -a, sway);
     } else {
-      this.body.position.set(0, Math.abs(Math.sin(t * rate)) * 0.04, 0);
+      this.body.position.set(0, bob, 0);
       this.body.rotation.set(0, 0, sway);
     }
-    for (const l of this.legs) {
-      l.hip.rotation.x = Math.sin(t * rate + l.phase) * 0.5;
-      l.knee.rotation.x = Math.max(0, Math.sin(t * rate + l.phase + 0.7)) * 0.75;
-    }
-    this.head.rotation.set(Math.sin(t * rate * 0.5) * 0.05 - 0.05, Math.sin(t * 0.7) * 0.2, 0);
-    for (let i = 0; i <= 7; i++) {
-      const u = i / 7;
-      this.tailPts[i]!.set(Math.sin(t * 1.8 + u * 3) * 0.3 * u, 1.45 + Math.sin(u * 2.5 + t * 1.5) * 0.3 * u + u * 0.5, -0.95 - u * 1.5);
-    }
-    this.tail.geometry.dispose();
-    this.tail.geometry = new TubeGeometry(this.tailCurve, 16, 0.07, 6, false);
-    this.tip.position.copy(this.tailPts[7]!);
-    this.tip.rotation.x = -Math.PI / 2;
-    breathe(this.cloud, t, 0.05);
   }
 
   dispose(): void {
