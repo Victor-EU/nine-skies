@@ -24,6 +24,7 @@ export function lookUniformDefaults(): Record<string, { value: unknown }> {
     uAmbientZenith: { value: new Color(0.45, 0.5, 0.6) },
     uAmbientGround: { value: new Color(0.2, 0.2, 0.2) },
     uMistTop: { value: 0 },
+    uMistTail: { value: 0 },
     uMistDensity: { value: 0 },
     uMistColor: { value: new Color(1, 1, 1) },
     uMistBankScale: { value: 1000 },
@@ -52,6 +53,8 @@ export interface LookValues {
   readonly ambientGround: Color;
   /** World units. */
   mistTop: number;
+  /** World units the mist thins over above its top; 0 is a hard top. */
+  mistTail: number;
   /** Per world unit. */
   mistDensity: number;
   readonly mistColor: Color;
@@ -80,6 +83,7 @@ export function createLookValues(): LookValues {
     ambientZenith: new Color(0.45, 0.5, 0.6),
     ambientGround: new Color(0.2, 0.2, 0.2),
     mistTop: 0,
+    mistTail: 0,
     mistDensity: 0,
     mistColor: new Color(1, 1, 1),
     mistBankScale: 1000,
@@ -106,6 +110,7 @@ const NAMES: readonly (keyof LookValues)[] = [
   "ambientZenith",
   "ambientGround",
   "mistTop",
+  "mistTail",
   "mistDensity",
   "mistColor",
   "mistBankScale",

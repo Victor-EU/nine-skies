@@ -93,13 +93,13 @@
     },
     {
       "id": "the-wall",
-      "km": 60,
+      "km": 128.1,
       "flightS": 60,
-      "eastM": 1740789,
-      "northM": 1389114,
-      "altitudeM": 6196,
-      "headingRad": -2.193766,
-      "groundM": 4672,
+      "eastM": 1698950,
+      "northM": 1336218,
+      "altitudeM": 7131,
+      "headingRad": -2.676483,
+      "groundM": 5875,
       "why": "scene the-wall at 60 s on its rail"
     }
   ]

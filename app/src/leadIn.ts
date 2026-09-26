@@ -293,6 +293,22 @@ export class LeadInMap {
         x = a.x - tw / 2;
         y = dy < 0 ? a.y + gap : a.y - gap - th;
       }
+      // Kept on the sheet, which is a fan narrower than its canvas: a label
+      // that left it hung over the picture. The first placement wholly on
+      // the sheet is taken, starting with the one that reads away from the
+      // jump; failing all, the canvas holds it.
+      outline();
+      const onSheet = (lx: number, ly: number) =>
+        [[lx, ly], [lx + tw, ly], [lx, ly + th], [lx + tw, ly + th]].every(([cx, cy]) => ctx.isPointInPath(cx!, cy!));
+      const placements: [number, number][] = [
+        [x, y],
+        [a.x + gap, a.y - th / 2],
+        [a.x - gap - tw, a.y - th / 2],
+        [a.x - tw / 2, a.y + gap],
+        [a.x - tw / 2, a.y - gap - th],
+      ];
+      const placed = placements.find(([lx, ly]) => onSheet(lx, ly));
+      if (placed) [x, y] = placed;
       x = Math.max(6, Math.min(width - 6 - tw, x));
       y = Math.max(6, Math.min(height - 6 - th, y));
       ctx.globalAlpha = Math.max(0, Math.min(1, (t - 0.15) / 0.35));

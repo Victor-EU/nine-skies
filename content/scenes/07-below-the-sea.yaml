@@ -12,7 +12,7 @@ month: 7
 hour: 21.2
 
 rail:
-  - { lat: 43.8000, lon: 88.3500, above_ground_m: 1500, speed: 300 }   # Bogda Peak, 5,445 m
+  - { lat: 43.8000, lon: 88.3500, above_ground_m: 2500, speed: 300 }   # Bogda Peak, 5,445 m, from well above its ridges: at 1,500 m its flank was a wall beside the title
   - { lat: 43.4000, lon: 88.8000, above_ground_m: 1200, speed: 300 }
   - { lat: 43.0000, lon: 89.1900, above_ground_m: 800, speed: 300 }   # Turpan
   - { lat: 42.6800, lon: 89.2600, above_ground_m: 500, speed: 300 }   # Ayding Lake, -154 m
@@ -38,6 +38,6 @@ look:
 captions:
   - { at: 12, text: "Bogda: {5445 m} of snow over a desert." }
   - { at: 40, text: "Ayding Lake, {154 m} below the sea. {47 °C} in July." }
-  - { at: 90, text: "The Taklamakan: go in, and you will not come out." }
+  - { at: 102, text: "The Taklamakan: go in, and you will not come out." }
 
 music: cue-07

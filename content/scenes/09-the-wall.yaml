@@ -3,6 +3,13 @@
 # From Lhatse south over Tingri to the Rongbuk glacier and over Everest's
 # summit on its 90 m hero grid (F76), then down the Nepal side for slack. The
 # film ends here; the credits run over the map.
+#
+# The plateau leg is fast and the mountain slow (26 September 2026): at one
+# speed the rail is 272 km, and at 60 km/min throughout a viewer at normal
+# speed saw 114 km of it and the film ended over Tingri with Everest a grey
+# line on the horizon. Now Lhatse to Tingri runs at 150 km/min, Rongbuk
+# arrives at about 63 s, the summit at about 92 s, and the Nepal side at 50
+# km/min keeps the rail over the 228 s a viewer at double speed needs.
 
 id: the-wall
 title: { zh: 珠穆朗玛, pinyin: Zhūmùlǎngmǎ, en: The Wall }
@@ -12,18 +19,18 @@ month: 10
 hour: 19.25
 
 rail:
-  - { lat: 29.0800, lon: 87.6300, above_ground_m: 1500, speed: 60 }   # Lhatse
-  - { lat: 28.9000, lon: 87.4000, above_ground_m: 1500, speed: 60 }
-  - { lat: 28.6500, lon: 87.1200, above_ground_m: 1500, speed: 60 }   # Tingri
-  - { lat: 28.4500, lon: 87.0000, above_ground_m: 1200, speed: 60 }
+  - { lat: 29.0800, lon: 87.6300, above_ground_m: 1500, speed: 150 }   # Lhatse
+  - { lat: 28.9000, lon: 87.4000, above_ground_m: 1500, speed: 150 }
+  - { lat: 28.6500, lon: 87.1200, above_ground_m: 1500, speed: 150 }   # Tingri
+  - { lat: 28.4500, lon: 87.0000, above_ground_m: 1200, speed: 150 }
   - { lat: 28.3000, lon: 86.9000, above_ground_m: 1000, speed: 60 }
-  - { lat: 28.1500, lon: 86.8500, above_ground_m: 1000, speed: 60 }   # Rongbuk
-  - { lat: 28.0500, lon: 86.9000, above_ground_m: 1000, speed: 60 }   # the glacier
-  - { lat: 27.9881, lon: 86.9250, above_ground_m: 1500, speed: 60 }   # Everest
-  - { lat: 27.9000, lon: 86.8500, above_ground_m: 1500, speed: 60 }
-  - { lat: 27.8000, lon: 86.7200, above_ground_m: 1200, speed: 60 }   # Namche, the other side
-  - { lat: 27.6000, lon: 86.7000, above_ground_m: 1000, speed: 60 }
-  - { lat: 27.3000, lon: 86.6000, above_ground_m: 1000, speed: 60 }
+  - { lat: 28.1500, lon: 86.8500, above_ground_m: 1000, speed: 40 }   # Rongbuk
+  - { lat: 28.0500, lon: 86.9000, above_ground_m: 1000, speed: 40 }   # the glacier
+  - { lat: 27.9881, lon: 86.9250, above_ground_m: 1500, speed: 40 }   # Everest
+  - { lat: 27.9000, lon: 86.8500, above_ground_m: 1500, speed: 50 }
+  - { lat: 27.8000, lon: 86.7200, above_ground_m: 1200, speed: 50 }   # Namche, the other side
+  - { lat: 27.6000, lon: 86.7000, above_ground_m: 1000, speed: 50 }
+  - { lat: 27.3000, lon: 86.6000, above_ground_m: 1000, speed: 50 }
   - { lat: 27.0000, lon: 86.5000, above_ground_m: 800, speed: 60 }
 
 band: { above_ground_m: [300, 3000] }
@@ -39,7 +46,7 @@ look:
   grade: cold
 
 captions:
-  - { at: 15, text: "Tingri, {4300 m}. The wall ahead is the Himalaya." }
+  - { at: 24, text: "Tingri, {4300 m}. The wall ahead is the Himalaya." }
   - { at: 60, text: "Rongbuk glacier. The summit is {3500 m} above it." }
   - { at: 95, text: "Everest. {8849 m}, and rising four millimetres a year." }
 

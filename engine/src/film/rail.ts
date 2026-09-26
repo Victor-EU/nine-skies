@@ -55,7 +55,7 @@ export const DEFAULT_RAIL: RailOptions = {
   speedMax: 2,
   speedRampS: 1.5,
   maxOffsetM: 20_000,
-  bankPerRadS: 1.2,
+  bankPerRadS: 0.9,
   bankLagS: 0.6,
 };
 
@@ -169,7 +169,9 @@ export class RailFlight {
 
     // Bank, lagged behind the heading rate so a tap does not snap the horizon.
     const rate = (this.headingOffsetRad - before) / dt;
-    const bankTarget = Math.max(-0.6, Math.min(0.6, rate * o.bankPerRadS));
+    // Held to 23 degrees: at 34 a held turn over Huangshan tipped the
+    // horizon far enough to read as a dive rather than a look aside.
+    const bankTarget = Math.max(-0.4, Math.min(0.4, rate * o.bankPerRadS));
     this.bankRad += (bankTarget - this.bankRad) * (1 - Math.exp(-dt / o.bankLagS));
 
     return this.state();

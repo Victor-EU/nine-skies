@@ -14,6 +14,6 @@ The flight is 114 s; a viewer at double speed needs twice that of rail.
 | first-bend | 199 km | 239 s | 47 % | 0 | 760–1600 m | 3141–4717 m | 0 % | 10 m | 0 % | 11 % |
 | loess | 714 km | 238 s | 0 % | 0 | 547–807 m | 935–1767 m | 0 % | 0 m | 0 % | 0 % |
 | grassland-to-heaven-lake | 915 km | 389 s | 15 % | 0 | 300–972 m | 618–2954 m | 0 % | 0 m | 0 % | 0 % |
-| below-the-sea | 1168 km | 234 s | 5 % | 0 | 306–2500 m | 508–6134 m | 0 % | 0 m | 0 % | 0 % |
+| below-the-sea | 1168 km | 234 s | 5 % | 0 | 306–2500 m | 508–7007 m | 0 % | 0 m | 0 % | 1 % |
 | the-roof | 1417 km | 236 s | 0 % | 0 | 500–2169 m | 4402–6832 m | 0 % | 0 m | 0 % | 0 % |
-| the-wall | 272 km | 272 s | 16 % | 0 | 818–3000 m | 1906–9846 m | 0 % | 0 m | 0 % | 0 % |
+| the-wall | 272 km | 241 s | 16 % | 0 | 820–3000 m | 1870–9936 m | 0 % | 0 m | 0 % | 0 % |

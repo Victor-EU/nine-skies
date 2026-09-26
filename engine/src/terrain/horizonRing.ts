@@ -40,6 +40,18 @@ import type { WorldScale } from "../sim/scale.js";
 const BASE_DROP_TAN = 0.25;
 
 /**
+ * The distance, real km, over which a band fades into the sky whatever the
+ * scene's air says: a band is a ridge line of 8 km cell maxima, flat-topped
+ * where a plateau's cells share a height, and in the plateau's thin air
+ * (2e-6 a metre, 6,000 m scale height) it stood 400 km off at 28 % haze as
+ * pale flat-topped strips over Nepal and the Kunlun. The nearest shell begins
+ * at 384 km, so nothing the terrain draws is touched: at 384 km the floor is
+ * 0.79, at 624 km 0.92, and the skyline is a silhouette in the air, not a
+ * paper cut-out.
+ */
+const FADE_KM = 250;
+
+/**
  * How much of the way to the sky the foot of a band goes. All of it: the
  * skirt hangs fourteen degrees below a ridge that may stand a degree above
  * the horizon, and in the film's clear air (the plateau, the Himalaya)
@@ -59,11 +71,13 @@ uniform vec3 uAnchorWorld;
 uniform float uHazeDensity;
 uniform float uHazeHeightFalloff;
 uniform float uBaseHaze;
+uniform float uFadeWorld;
 
 out vec3 vColor;
 out vec3 vDir;
 out float vFog;
 out float vMist;
+out float vRidgeM;
 
 ${COLOR_SPACE_GLSL}
 ${elevationRampGlsl(palette.stops)}
@@ -82,7 +96,9 @@ void main() {
   // line to a ridge climbs out of the thick air, the one to its base does not.
   float fog = aerialFog(uCameraWorld, world, uHazeDensity, uHazeHeightFalloff);
   vFog = clamp(fog + aBase * uBaseHaze * (1.0 - fog), 0.0, 1.0);
+  vFog = max(vFog, 1.0 - exp(-length(vDir) / uFadeWorld));
   vMist = mistAlong(uCameraWorld, world);
+  vRidgeM = aRidgeM;
 
   gl_Position = projectionMatrix * modelViewMatrix * vec4(world, 1.0);
 }
@@ -95,6 +111,7 @@ in vec3 vColor;
 in vec3 vDir;
 in float vFog;
 in float vMist;
+in float vRidgeM;
 
 uniform vec3 uSunColor;
 uniform float uRidgeShade;
@@ -108,6 +125,11 @@ ${NOISE_GLSL}
 ${MIST_GLSL}
 
 void main() {
+  // A band whose ridge is the sea is the world's edge or the sea itself:
+  // beyond the corridor the coarse field is zero, and its band hung below
+  // the true horizon as a pale slab the terrain never painted over (the
+  // Wall's left horizon, over Nepal). The sky is what belongs there.
+  if (vRidgeM <= 0.5) discard;
   // The response of flat sunlit ground, darkened for the mix of faces a range
   // presents. Shading it by a made-up normal is how distant mountains start
   // looking like painted scenery.
@@ -183,6 +205,7 @@ export class HorizonRing {
         uHazeDensity: { value: values.hazeDensity },
         uHazeHeightFalloff: { value: values.hazeHeightFalloff },
         uBaseHaze: { value: BASE_HAZE },
+        uFadeWorld: { value: FADE_KM * 1000 },
       },
     });
 
@@ -213,6 +236,7 @@ export class HorizonRing {
     const c = scale.horizontalCompression;
     const vex = scale.verticalExaggeration;
     const eyeY = this.profile.altitudeM * vex;
+    this.material.uniforms.uFadeWorld!.value = (FADE_KM * 1000) / c;
     const ridgeAttr = this.geometry.getAttribute("aRidgeM") as BufferAttribute;
     const ridgeM = ridgeAttr.array as Float32Array;
 

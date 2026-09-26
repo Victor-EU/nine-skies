@@ -64,6 +64,7 @@ vec3 skyAt(vec3 dir) {
  */
 export const MIST_GLSL = /* glsl */ `
 uniform float uMistTop;
+uniform float uMistTail;
 uniform float uMistDensity;
 uniform vec3 uMistColor;
 uniform float uMistBankScale;
@@ -72,7 +73,17 @@ float mistAlong(vec3 eye, vec3 target) {
   if (uMistDensity <= 0.0) return 0.0;
   float y0 = min(eye.y, target.y);
   float y1 = max(eye.y, target.y);
-  float inside = y1 <= uMistTop ? 1.0 : (y0 >= uMistTop ? 0.0 : (uMistTop - y0) / max(y1 - y0, 1e-3));
+  float span = max(y1 - y0, 1e-3);
+  // The share of the sight line in the mist: all of what lies below the
+  // top, and above it, where the slab has a tail, the mean of a density
+  // thinning as exp(-height / tail), integrated exactly. A hard top (no
+  // tail) is the slab it always was.
+  float inside = clamp((uMistTop - y0) / span, 0.0, 1.0);
+  if (uMistTail > 0.0 && y1 > uMistTop) {
+    float a = max(y0, uMistTop) - uMistTop;
+    float b = y1 - uMistTop;
+    inside += uMistTail * (exp(-a / uMistTail) - exp(-b / uMistTail)) / span;
+  }
   vec2 p = target.xz / uMistBankScale;
   float bank = 0.35 + 1.3 * (0.65 * vnoise(p) + 0.35 * vnoise(p * 2.7 + 17.0));
   return 1.0 - exp(-uMistDensity * bank * distance(eye, target) * inside);

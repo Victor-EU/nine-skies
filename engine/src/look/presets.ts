@@ -64,6 +64,13 @@ export interface MistPreset {
   readonly tint: Rgb;
   /** The size of a bank, real kilometres. */
   readonly bankKm: number;
+  /**
+   * Real metres the slab thins over above its top, or none for a hard top.
+   * A dust deck has no lid: with a hard top at 1,500 m the Loess camera at
+   * 1,560 m saw every ridge over 1,500 m as a dark cut-out standing on a
+   * flat ochre sea, sixty kilometres off and unhazed (26 September 2026).
+   */
+  readonly tailM?: number;
 }
 
 export interface CloudDeckPreset {
@@ -205,7 +212,7 @@ export const CLOUD_PRESETS: Readonly<Record<string, CloudPreset>> = {
   "coastal-haze": { mist: { topM: 120, densityPerM: 5e-5, tint: [0.96, 0.96, 0.95], bankKm: 25 }, deck: null, cirrus: null },
   "valley-mist": { mist: { topM: 230, densityPerM: 1.4e-4, tint: [0.97, 0.98, 1.0], bankKm: 12 }, deck: null, cirrus: null },
   "river-mist": { mist: { topM: 190, densityPerM: 7e-5, tint: [0.98, 0.99, 1.0], bankKm: 8 }, deck: null, cirrus: null },
-  "dust-haze": { mist: { topM: 1500, densityPerM: 5e-5, tint: [1.0, 0.9, 0.72], bankKm: 40 }, deck: null, cirrus: null },
+  "dust-haze": { mist: { topM: 1500, densityPerM: 5e-5, tint: [1.0, 0.9, 0.72], bankKm: 40, tailM: 900 }, deck: null, cirrus: null },
   "cloud-sea": { mist: null, deck: { altitudeM: 1050, coverage: 0.78, scaleKm: 5, stretch: 1.3, density: 1.0 }, cirrus: null },
   "high-cirrus": { mist: null, deck: null, cirrus: { altitudeM: 9000, coverage: 0.45, scaleKm: 60, stretch: 3, density: 0.35 } },
   "summit-plume": { mist: null, deck: null, cirrus: { altitudeM: 8800, coverage: 0.3, scaleKm: 40, stretch: 4, density: 0.3 } },

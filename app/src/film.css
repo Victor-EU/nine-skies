@@ -55,7 +55,7 @@ body.idle, body.idle #view { cursor: none; }
   background: var(--night); text-shadow: none;
   transition: opacity .9s var(--ease), visibility 0s linear .9s;
 }
-.loading.gone { opacity: 0; visibility: hidden; }
+.loading.gone { opacity: 0; visibility: hidden; transition-duration: .25s, 0s; transition-delay: 0s, .25s; }
 .loading .en { font: 400 clamp(30px, 5vw, 52px)/1.1 var(--serif); letter-spacing: .06em; }
 .loading .line { font: italic 400 clamp(15px, 1.8vw, 19px)/1.4 var(--serif); color: var(--quiet); }
 .loading .track { margin-top: 1.6em; }
@@ -253,6 +253,8 @@ body.idle, body.idle #view { cursor: none; }
 /* In flight, with nobody at the controls, the furniture steps aside. */
 #film.idle .bar { opacity: 0; transform: translateY(8px); pointer-events: none; }
 #film.idle .bar * { pointer-events: none; }
+/* A chapter's name goes with the bar: a pointer left resting on it does not keep a label over the picture. */
+#film.idle .chapters button::after { opacity: 0; }
 #film.idle .hint { opacity: 0; }
 #film.idle .flightState.calm { opacity: 0; }
 #film.idle .flightState.calm button { pointer-events: none; }

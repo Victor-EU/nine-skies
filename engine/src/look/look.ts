@@ -151,6 +151,7 @@ export class LookRig {
     // so it joins the haze, and never bluer than the sky it sits under.
     if (this.mist) {
       v.mistTop = toWorldV(this.mist.topM, this.scale);
+      v.mistTail = toWorldV(this.mist.tailM ?? 0, this.scale);
       v.mistDensity = hazeDensityPerWorldUnit(this.mist.densityPerM, this.scale);
       v.mistBankScale = toWorldH(this.mist.bankKm * 1000, this.scale);
       const white = mul([1, 1, 1], 0.8 * (0.45 + 0.55 * sun.daylight));

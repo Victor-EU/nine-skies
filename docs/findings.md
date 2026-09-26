@@ -2075,3 +2075,92 @@ where 5 pm puts it. Signed off (D77).
 - *Anything authored by eye from the screen* - a rail recorded with
   `?record=`, a caption's "ahead" - holds, being positions and not sides;
   a future caption saying "on the left" would now be true.
+
+## F101 — The film watched through: the Wall that never came, and eight things a viewer sees, 26 September 2026
+
+The film was watched end to end at 1280 × 720 as a viewer would, with no
+keys pressed, and then with them (four scenes in the browser pane, five in
+a headless Chrome after the pane went hidden and stopped the frame loop). What follows is what looked wrong on screen and
+what was done about it. Everything is in the shell, the look and the scene
+files; the world is untouched.
+
+**The Wall never arrived.** Every rail is cut to twice the flight (the
+rails report: "a viewer at double speed needs twice that of rail"), so at
+normal speed a scene flies the first half of its rail. For the Wall that
+half was Lhatse to Tingri: at 17:52, eight seconds before the end, the
+camera was still over brown hills and Everest a grey line on the horizon,
+with "Rongbuk glacier" and "Everest" captioned over the plateau. The rail
+now runs the plateau at 150 km/min and the mountain at 40: Rongbuk at about
+63 s, the summit at about 92 s, the Nepal side at 50 km/min for the slack a
+viewer at double speed needs (the gate asks 228 s; it is 242). At one speed
+the last minute is now flown among the lit peaks of the Rongbuk basin and
+over the summit into Nepal. The packs, the rails report and the stations
+were cut again; the Wall's pack lists 13 tiles and 8 sub-tiles along the
+Nepal leg without colour or relief, which `make colour` and `make relief`
+would cut.
+
+**Captions named what was not on screen.** The Roof's third caption said
+Namtso at 100 s with the camera at the Hoh Xil (Namtso is at 216 s of rail,
+a double-speed place); it now says the Hoh Xil. The Taklamakan's caption
+moved from 90 s (Korla, oases) to 102 s (the basin's edge); Heaven Lake's
+from 100 s (the cone's flank) to 106 s (the crater in view); the Wall's
+Tingri caption from 15 s to 24 s, where Tingri is.
+
+**The horizon ring, three ways.**
+- *Pale flat-topped strips over the true horizon* (the Tarim at 13:26, the
+  Wall's Nepal side at 92 s). The ring's nearest shell is 384 km out, and in
+  the plateau's air (2e-6 a metre, 6,000 m scale height) a band 400 km off
+  was 28 % hazed: a ridge line of 8 km cell maxima, flat where a plateau's
+  cells share a height, standing as paper over the terrain's own far edge.
+  The ring now fades into the sky with distance whatever the air says,
+  `1 − exp(−d / 250 km)` at least: 0.79 at the first shell, 0.92 at the
+  second (`horizonRing.ts`, `FADE_KM`). Nothing the terrain draws is
+  touched.
+- *A pale slab at the Wall's left horizon* for the whole scene. Beyond the
+  corridor the horizon field is zero, and the band a sea-level ridge hangs
+  from sat below the true horizon where no terrain painted over it. A band
+  whose ridge is the sea is discarded; the sky is what belongs there.
+- *Loess's green range on a yellow sea* (also in the committed still). Not
+  the ring: the Lüliang's forested ridges, 60 km off, standing out of the
+  dust deck. The deck (`dust-haze`) had a hard top at 1,500 m and the
+  camera flies at about 1,560 m, so everything under the lid was ochre and
+  every ridge over it a dark unhazed cut-out on a flat band. A mist may not
+  rise into the band the scene flies in (the presets test, so the camera
+  looks down through it), so the slab has a tail instead: above its top the
+  density thins as `exp(−h / tail)`, integrated exactly along the sight line
+  (`MistPreset.tailM`, `uMistTail`, `mistAlong`), 900 m for the dust deck
+  and none for every other mist, which is the hard top it always was. The
+  ridges are in dust; the near ground is as it was.
+
+**The shell.**
+- The loading card ("Nine Skies") faded over 0.9 s while the scene's title
+  faded in under it, worst on a deep link: it now steps aside in 0.25 s.
+- A chapter's name stayed over the picture after the bar had stepped
+  aside, when the pointer was left resting on it: the label goes with the
+  bar.
+- The lead-in map's jump label ran off the sheet ("3,185 km (1,979 mi)
+  west" over Turpan's sky): a label now takes the first of five placements
+  wholly on the sheet, tested against the fan's own outline.
+- Turpan's title stood over a wall: the flank of Bogda filling the left
+  third. The lead-in's camera was placed by an eased controller with the
+  clock stopped, so it kept the height read before the pack had landed. It
+  now forgets its height each lead-in frame and stands where the landed
+  ground says, which at Bogda is 2,200 m higher and the picture the rail
+  meant.
+- A held turn banked the horizon 34°, which read as a dive; the bank is
+  held to 23° (`rail.ts`).
+
+**Seen and left.** Satellite colour smeared down every exaggerated wall
+where the rock face does not take over; the northern near-ground a blur
+under the camera; Turpan's tiger-striped hills under the 21:00 sun; rivers
+as constant-width ribbons with stepped edges on the country grid, and
+Heaven Lake's plane cutting its rim in a zig-zag; cloud pixels in Changbai's
+forest at 11:01; the Himalaya's far peaks as unlit grey (the ring draws no
+normals, by design); and at the Wall's hero rim
+the curtain's tan vertical stripes, now in view at 17:00. Each is a world
+or pipeline matter, not a shell one.
+
+**Checked.** `npm run check` passes (466 tests, the gate); every scene's
+title card, the Wall at 30, 92 and 112 s, Loess at 45 and 100 s, the karst
+and the gorge mists, Turpan's title and the Tarim at 80 s were captured
+headless before and after. The stills and the cover are retaken.

@@ -835,6 +835,12 @@ function frame(now: number): void {
     // The map and the title over the first frame of the rail, which also
     // streams the ground the flight is about to need.
     const start = railAtKm(rails[current]!, 0);
+    // Placed, not eased: the clock stands still here, so an eased height
+    // never moved from its first frame, which read the ground before the
+    // pack had landed and held the title over whatever that gave - at
+    // Turpan, the flank of Bogda filling the left of the frame. Forgetting
+    // the height each frame puts the camera where the landed ground says.
+    altitude.reset();
     const alt = altitude.update(0, start.eastM, start.northM, start.headingRad, start.aboveGroundM, s.band, groundAt, s.lookAheadKm);
     placeAt(start.eastM, start.northM, alt, start.headingRad, 0, clockNow(), start.pitchDeg);
     setCurtain(1 - smooth(pos.t / DIP_IN_S));
