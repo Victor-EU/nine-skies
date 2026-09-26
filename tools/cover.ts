@@ -37,12 +37,14 @@ const FRAMES: Record<string, { at: number; aboveGroundM?: number }> = {
   // grid (F92), shows its blocks. At 8 s the camera is still 800 m up on the
   // way in, the peaks ahead over the cloud, and a face is a few pixels.
   huangshan: { at: 8 },
-  // The film's still is at 60 s, past Lhatse, with the range 60-90 km off.
-  // The card is the scene's subject: at 136 s the camera is past Rongbuk,
-  // over the glacier, with the north face ahead. A viewer reaches it at 1.2
-  // times the authored speed. Drawn at the Wall's own exaggeration of three
-  // it is a mountain; at the film's six it was a white needle (F97).
-  "the-wall": { at: 136 },
+  // The film's still is at 60 s, coming into the Rongbuk basin among its
+  // peaks. The card is the scene's subject: at 70 s the camera is over the
+  // glacier with the north face ahead and Nepal beyond it, reached at the
+  // authored speed since F101 re-timed the rail (before it, the face was at
+  // 136 s; that time is now a gorge on the Nepal side). Drawn at the Wall's
+  // own exaggeration of three it is a mountain; at the film's six it was a
+  // white needle (F97).
+  "the-wall": { at: 70 },
 };
 /** Drawn at 1920 × 1080: a card is 666 pixels wide at twice the cover's size. */
 const FRAME_W = 1920;

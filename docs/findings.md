@@ -2095,9 +2095,16 @@ now runs the plateau at 150 km/min and the mountain at 40: Rongbuk at about
 viewer at double speed needs (the gate asks 228 s; it is 242). At one speed
 the last minute is now flown among the lit peaks of the Rongbuk basin and
 over the summit into Nepal. The packs, the rails report and the stations
-were cut again; the Wall's pack lists 13 tiles and 8 sub-tiles along the
-Nepal leg without colour or relief, which `make colour` and `make relief`
-would cut.
+were cut again; the Wall's pack listed 13 tiles and 8 sub-tiles along the
+Nepal leg without colour or relief. `make colour` and `make relief` then cut
+them (690 mosaic tiles fetched, the rest of the world already cached; every
+other scene's pack came out byte for byte the same), and the Wall's pack grew
+from 73.6 MB to 81.4 MB. Its still at 60 s did not change (16 pixels on the far
+horizon). The cover's card had: `tools/cover.ts` framed the Wall at 136 s of
+flight, which on the old rail was the glacier with the north face ahead and on
+the new one is a green gorge on the Nepal side, and the F101 cover shipped that
+gorge. The card is now taken at 70 s, over the glacier with the face ahead and
+Nepal beyond it, reached at the authored speed.
 
 **Captions named what was not on screen.** The Roof's third caption said
 Namtso at 100 s with the camera at the Hoh Xil (Namtso is at 216 s of rail,
