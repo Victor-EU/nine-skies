@@ -204,6 +204,8 @@ export class LookRig {
     if (this.passes.post) {
       this.post.render(renderer, () => renderer.render(scene, camera));
     } else {
+      // Without the grade there is no pass to turn the picture the right
+      // way round (F100): this is the frame-cost capture's, never the film's.
       renderer.setRenderTarget(null);
       renderer.render(scene, camera);
     }

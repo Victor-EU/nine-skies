@@ -151,7 +151,12 @@ vec3 filmic(vec3 x) {
 }
 
 void main() {
-  vec3 c = antialiased(vUv) + texture(tBloom, vUv).rgb * uBloom;
+  // The world is laid out east, up, north - a left-handed frame - and the
+  // camera is three's right-handed one, so the scene arrives mirrored, east
+  // for west (F100). It is put the right way round here, once, for the pixel
+  // the viewer sees; everything before this pass is untouched.
+  vec2 uv = vec2(1.0 - vUv.x, vUv.y);
+  vec3 c = antialiased(uv) + texture(tBloom, uv).rgb * uBloom;
   c *= uExposure * uBalance;
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(l), c, uSaturation);

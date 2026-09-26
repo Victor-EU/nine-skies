@@ -2024,3 +2024,49 @@ summer green than the mosaic's olive.
   Wall: 86 sub-tiles along the rail and about 40 country tiles near it,
   some 17 GB at the Wall's rate. Its gold would go greener: the archive's
   months there are April to August, the mosaic's dry season's.
+
+## F100 — The picture the right way round, 26 September 2026
+
+**Why.** Watching the film, the user found the arrow keys reversed: → turned
+the view left. The binding table was right (→ is heading +, clockwise from
+above, toward the grid's east). The picture was not.
+
+**What was measured.** The camera's own axes, read from its matrix in the
+running film: facing the grid's north, the screen's right pointed west;
+facing south at Huangshan, east. And three peaks projected through a camera
+at Tingri facing south, where east is on the left:
+
+| Peak | From Tingri | On screen | |
+| --- | --- | ---: | --- |
+| Everest | 12.6 km east, 78.7 km south | +0.15 | wrong side |
+| Cho Oyu | 10.6 km west, 62.4 km south | −0.16 | wrong side |
+| Shishapangma | 89.4 km west, 18.0 km south | −5.19 | wrong side |
+
+**Why it was so.** The world is laid out x east, y up, z north
+(`Terrain.toWorld`): a left-handed frame. three's camera is right-handed,
+so every frame the film has drawn was mirrored, east for
+west. Everything inside the world agrees with itself - the sun, the
+shadows, the rails, the altitude - so nothing looked wrong until a
+direction on the screen was compared with one in the world. The lead-in map
+was always the right way round, and disagreed with the view after it.
+
+**The fix** is one line in the grade (`look/post.ts`): the composite reads
+the scene at `1 - u`. No world, rail, shader or uniform changes; the cost
+is nothing. Measured after it, holding → for 1.5 s over Turpan: heading
++49.7°, the view turns right, and the camera banks 32.5° into the turn
+(the displayed right side down). The drag and the stick follow the same
+axis. The one path left mirrored is the frame-cost capture with the grade
+switched off, which measures time and not direction (`look.ts`).
+
+**What it changes.** Every picture the film draws, and so every still
+(`docs/stills/`), the cover's frames (`docs/cover/`), the cover and the
+postcards: all of them were taken mirrored and are now the wrong way round
+beside the film. They are not taken again here; they want the user's eye
+(D77).
+
+**Next.**
+- *The stills and the cover again:* `npm run stills`, then
+  `npm run cover -- frames` and `npm run cover`, and a sign-off.
+- *Anything authored by eye from the screen* - a rail recorded with
+  `?record=`, a caption's "ahead" - holds, being positions and not sides;
+  a future caption saying "on the left" would now be true.
