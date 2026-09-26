@@ -150,7 +150,10 @@ lit by the scene's own sun and air. *Journey to the West* is the spine,
 since the novel goes west as the film does and its episodes fall where
 the rails fly: the four Dragon Kings surfacing from Huangshan's cloud sea,
 Nezha and the Monkey King at the Flaming Mountains, the pilgrims crossing
-the Tongtian River on the Roof. Non-Han grounds keep their own figures.
+the Tongtian River on the Roof; and the sky's own creatures beside them:
+cranes, the phoenix, the qilin walking on cloud, the tiger of the gorge,
+the Tongtian's turtle, the magpie of Changbai, the Peng over the steppe.
+Non-Han grounds keep their own figures.
 With the cast on, the title card also names the scene's sky from the
 *Huainanzi*'s nine fields of heaven: 苍天 the azure sky over Huangshan,
 玄天 the dark sky over the Wall, and the film's title made literal. The

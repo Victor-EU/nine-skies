@@ -68,7 +68,7 @@ describe("a cue", () => {
 
   it("refuses what the layer could not build or place", () => {
     const cases: [Record<string, unknown>, string][] = [
-      [{ ...monument, figure: "phoenix" }, "figure"],
+      [{ ...monument, figure: "erlang" }, "figure"],
       [{ ...monument, role: "extra" }, "role"],
       [{ ...monument, at: undefined }, "at"],
       [{ ...companion, offset: undefined }, "offset"],
@@ -89,7 +89,7 @@ describe("a cue", () => {
 
   it("names the figures it knows when it refuses one", () => {
     const p = problems();
-    cueFromRaw({ ...monument, figure: "qilin" }, p.add);
+    cueFromRaw({ ...monument, figure: "guanyin" }, p.add);
     expect(p.out[0]!.message).toContain(FIGURE_KINDS[0]);
   });
 

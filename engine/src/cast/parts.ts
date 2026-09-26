@@ -9,12 +9,12 @@
  * what a builder adds afterwards.
  */
 import {
-  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   CapsuleGeometry,
   CatmullRomCurve3,
   ConeGeometry,
+  CylinderGeometry,
   DataTexture,
   Group,
   Mesh,
@@ -25,6 +25,7 @@ import {
   Vector3,
   type Material,
 } from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Role, Skin } from "./skin.js";
 
 /** A height field of overlapping scales, as a tangent-space normal map. */
@@ -344,6 +345,114 @@ export function breathe(bank: Group, t: number, amount = 0.07): void {
   bank.children.forEach((p, i) => p.scale.setScalar(1 + Math.sin(t * 2 + i * 1.9) * amount));
 }
 
+// ---- Stripes, feathers and wings ------------------------------------------
+
+const stripes = new Map<string, DataTexture>();
+/** Bands across the v axis with a wave along u, made in code once per pair of colours: a tiger's, a kilt's. */
+export function stripesTexture(dark: number, light: number, size = 128): DataTexture {
+  const key = `${dark}:${light}`;
+  const had = stripes.get(key);
+  if (had) return had;
+  const data = new Uint8Array(size * size * 4);
+  const d = [(dark >> 16) & 255, (dark >> 8) & 255, dark & 255];
+  const l = [(light >> 16) & 255, (light >> 8) & 255, light & 255];
+  for (let y = 0; y < size; y++)
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const wave = Math.sin((x / size) * Math.PI * 4) * 6;
+      const band = (y + wave + size) % (size / 7);
+      const c = band < size / 7 / 3 ? d : l;
+      data[i] = c[0]!;
+      data[i + 1] = c[1]!;
+      data[i + 2] = c[2]!;
+      data[i + 3] = 255;
+    }
+  const tex = new DataTexture(data, size, size);
+  tex.wrapS = tex.wrapT = RepeatWrapping;
+  tex.colorSpace = SRGBColorSpace;
+  tex.needsUpdate = true;
+  stripes.set(key, tex);
+  return tex;
+}
+
+/** A feather: a flat tapered blade along +x, its root at the origin, 20 triangles. */
+function blade(length: number, width: number, thickness = 0.03): BufferGeometry {
+  const g = new CylinderGeometry(width * 0.15, width * 0.5, length, 5, 1);
+  g.rotateZ(-Math.PI / 2);
+  g.translate(length / 2, 0, 0);
+  g.scale(1, thickness / width, 1);
+  return g;
+}
+
+/**
+ * A fan of feathers from one root, the first along +x and the rest swept
+ * back by `spread` radians in all, each a little shorter than the one
+ * before, merged into one geometry; the outer `tipShare` of each into a
+ * second, for tips of another colour, or null when the share is nought.
+ */
+export function featherFan(count: number, length: number, width: number, spread: number, tipShare = 0.35, taper = 0.07): { shafts: BufferGeometry; tips: BufferGeometry | null } {
+  const shafts: BufferGeometry[] = [];
+  const tips: BufferGeometry[] = [];
+  for (let i = 0; i < count; i++) {
+    const a = count > 1 ? (i / (count - 1)) * spread : 0;
+    const len = length * (1 - i * taper);
+    const shaft = blade(len * (1 - tipShare), width);
+    shaft.rotateY(a);
+    // each feather a hair under the one before, so they lie over each other
+    shaft.translate(0, -i * 0.004, 0);
+    shafts.push(shaft);
+    if (tipShare > 0) {
+      const tip = blade(len * tipShare, width * 0.75);
+      tip.translate(len * (1 - tipShare) * 0.96, 0, 0);
+      tip.rotateY(a);
+      tip.translate(0, -i * 0.004, 0);
+      tips.push(tip);
+    }
+  }
+  const merged = mergeGeometries(shafts)!;
+  const mergedTips = tips.length ? mergeGeometries(tips)! : null;
+  for (const g of [...shafts, ...tips]) g.dispose();
+  return { shafts: merged, tips: mergedTips };
+}
+
+export interface Wing {
+  /** The shoulder: the whole wing turns on it. */
+  readonly pivot: Group;
+  /** The wrist: the primaries turn on it. */
+  readonly outer: Group;
+  readonly side: number;
+}
+
+/**
+ * A wing of feathers from the shoulder, built along +x and mirrored for
+ * the left side: an arm of coverts, and from the wrist a fan of primaries
+ * with tips of their own colour. Three meshes, so a flock stays cheap.
+ * `span` is the wing's reach at full stretch.
+ */
+export function wing(w: Wardrobe, o: { body: number; tip: number; span?: number; primaries?: number }, side: number, parent: Group): Wing {
+  const span = o.span ?? 2.5;
+  const arm = span * 0.42;
+  const width = span * 0.14;
+  const pivot = new Group();
+  pivot.scale.x = side;
+  parent.add(pivot);
+  const coverts = featherFan(4, arm * 1.05, width * 1.15, 0.5, 0);
+  w.part(coverts.shafts, "silk", o.body, pivot);
+  const outer = new Group();
+  outer.position.x = arm;
+  pivot.add(outer);
+  const primaries = featherFan(o.primaries ?? 6, span * 0.62, width, 0.85, 0.35);
+  w.part(primaries.shafts, "silk", o.body, outer);
+  if (primaries.tips) w.part(primaries.tips, "iron", o.tip, outer);
+  return { pivot, outer, side };
+}
+
+/** Beat a wing: `f` from -1 (down) to 1 (up); `lift` the dihedral at rest, `fold` how much the primaries trail. */
+export function flapWing(wg: Wing, f: number, lift = 0.45, fold = 0.35): void {
+  wg.pivot.rotation.z = wg.side * (f * 0.7 + lift);
+  wg.outer.rotation.z = wg.side * (f * 0.5 - fold);
+}
+
 export interface Bird {
   readonly group: Group;
   /** Flap: the inner and outer wing of each side. */
@@ -364,27 +473,17 @@ export function bird(w: Wardrobe, o: { body: number; crown: number; tip: number;
   beak.rotation.x = Math.PI / 2;
   const legs = w.part(new CapsuleGeometry(0.02, 0.7, 2, 4), "iron", o.tip, g, 0, -0.05, -0.75);
   legs.rotation.x = Math.PI / 2 + 0.1;
-  const wings: { pivot: Group; outer: Group; side: number }[] = [];
+  const wings: Wing[] = [];
   for (const side of [-1, 1]) {
-    const pivot = new Group();
-    pivot.position.set(side * 0.2, 0.1, 0.1);
-    w.part(new BoxGeometry(1.2, 0.03, 0.9), "silk", o.body, pivot, side * 0.6, 0, 0);
-    const outer = new Group();
-    outer.position.x = side * 1.2;
-    w.part(new BoxGeometry(1.0, 0.03, 0.7), "silk", o.body, outer, side * 0.5, 0, 0);
-    w.part(new BoxGeometry(0.5, 0.032, 0.7), "iron", o.tip, outer, side * 1.22, 0, 0);
-    pivot.add(outer);
-    g.add(pivot);
-    wings.push({ pivot, outer, side });
+    const wg = wing(w, { body: o.body, tip: o.tip, span: 2.5, primaries: 6 }, side, g);
+    wg.pivot.position.set(side * 0.2, 0.1, 0.1);
+    wings.push(wg);
   }
   g.scale.setScalar(o.size ?? 1);
   return {
     group: g,
     flap(f) {
-      for (const { pivot, outer, side } of wings) {
-        pivot.rotation.z = side * (f * 0.7 + 0.45);
-        outer.rotation.z = side * (f * 0.5 - 0.35);
-      }
+      for (const wg of wings) flapWing(wg, f);
     },
   };
 }

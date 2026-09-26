@@ -1131,6 +1131,8 @@ if (import.meta.env.DEV) {
         current = i;
         useSceneScale(film?.scenes[i] ?? null);
         rig.setScene(film?.scenes[i] ?? null);
+        // The cast too, when it is on: the station's own figures, at the station's second.
+        cast?.setScene(film?.scenes[i] ?? null);
         drawnAs = i;
       };
       return captureFrameCost({
@@ -1145,6 +1147,7 @@ if (import.meta.env.DEV) {
           if (!s) return placeAt(st.eastM, st.northM, st.altitudeM, st.headingRad, 0);
           asScene(i);
           const flightS = st.flightS ?? 0;
+          lastFlightS = flightS;
           placeAt(st.eastM, st.northM, st.altitudeM, st.headingRad, 0, s.hour * 60 + flightS / 60, railAtKm(rails[i]!, st.km).pitchDeg);
         },
         render: () => rig.render(),

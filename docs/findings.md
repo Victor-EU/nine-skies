@@ -2461,3 +2461,85 @@ this session's headless swiftshader); feathered wings for the birds; the
 figures the board still wants (F104); a decision on scene 9 and the
 switch's name.
 
+## F106 — Feathers, six more of the board's figures, and what the cast costs, 27 September 2026
+
+Stage E of D91: the birds' wings as feathers, the figures the casting
+board wanted that the six kinds could not give, and the stations priced
+with the cast on as far as a headless timer will price them.
+
+**Feathers** (`parts.ts`). A feather is a flat tapered blade of twenty
+triangles; `featherFan` sweeps a row of them back from one root, each a
+hair under the one before, and merges them into one geometry, with the
+outer share of each in a second for tips of another colour. `wing` is an
+arm of four coverts and, from the wrist, a fan of primaries with tips:
+three meshes a wing, built along +x and mirrored by scale for the left,
+so a flock of eleven stays at 132 draws. The cranes and the Queen
+Mother's blue birds have them now; the box wings are gone. The tiger
+stripes moved from Wukong's kilt to the parts as `stripesTexture`, one
+per pair of colours.
+
+**Six figures** (`figures/`), each on its own puff of cloud or wing:
+- the qilin (5,590 triangles): a deer in scales with a dragon's head,
+  antlers, a beard and mane, cloven hooves, flames at the shoulders and
+  hocks, an ox's tail; gold with green, as the Ming woodblocks have it;
+  it walks on cloud, as asked;
+- the phoenix (4,314): a pheasant's body in red and gold, a crest with
+  beads, feathered wings, and five tail plumes in five colours rewritten
+  along waving curves each frame, each with an eye at its end;
+- the tiger (5,860): stripes computed in code, a pale belly and muzzle,
+  the 王 on the brow, a long tail with a black tip, paws on cloud;
+- the turtle (3,904): the 鼋 of the Tongtian, a domed shell with a rim
+  and moss, a plastron, the soft-shell's tube of a nose, four paddles
+  that row the air;
+- the magpie (1,880): black and white with a blue-black tail, the red
+  fruit of the Manchu story in its beak;
+- the Peng (2,972): an eagle in gold, a hooked beak, wings of nine units
+  each with dark tips, a fan of a tail, talons tucked; it soars, the
+  wings beating slowly.
+Every kind builds under 60k and swaps its skin whole; the registry and
+the gate's list hold each other to twelve.
+
+**Where they went.** The phoenix over the karst towers; the tiger
+walking the air over the gorge named for its leap, after the cranes;
+the Peng over the steppe, and the magpie beside the camera on the
+crater's laps; the qilin and the turtle on the Roof, beside the party,
+after the cranes. Each with a line: 麒麟, 凤凰, 虎, 老鼋, 喜鹊, 鹏. The
+cast now speaks 21 lines in the nine scenes, still none of the film's.
+
+**What the captures taught.** The Peng's tail fan was swung to one side
+by a sign - a fan spreads from its first feather, so it starts a
+half-spread before straight back - and seen from behind at a low angle a
+soaring bird is a blob with a line; it is cued higher and turned
+three-quarters to the camera, so the wings show from below. A magpie of
+70 m at 700 m was a speck; 90 m reads.
+
+**What the cast costs.** `__ns.frameCost` now drives the cast at each
+station (the station's figures at the station's second), and a headless
+Chrome on the M3's own GPU priced four stations with the cast on, twice
+each. The instrument fitted only at the two stations on the country grid
+alone (r² 0.96–0.98): Below the Sea, all 4.3 and 5.0 ms against 6.2 and
+5.05 without the cast; the Roof, 4.8 against 4.9. With two figures on
+stage the cast's cost is inside the timer's noise, under half a
+millisecond. At Huangshan and the Karst, the hero stations, the fit
+failed (r² 0.45–0.75) and the numbers are not measurements; Huangshan
+with its seven figures and 450 draws is the one that wants a visible
+window: `?cast#huangshan`, then
+`__ns.frameCost(20, [1920, 1080], ["huangshan"]).then(r => console.log(__ns.frameCostTable(r)))`
+in the console, twice. The headless numbers run about twice F86's
+anchors even when they fit (`clear` alone reads 1.6–2.4 ms), so only the
+difference within a run is read, never the absolute.
+
+**Decisions taken, open to reversal.** Scene 9 keeps the crossing: the
+party high and small against the last light, nothing else over
+Chomolungma; Miyolangsangma stays unbuilt, since a lantern doll of the
+mountain's goddess would not be reverent, and silence is one cue away.
+The switch keeps its name: the cast, key J, `?cast` in a shared link.
+
+**Still waiting.** Sanduo, Guanyin, lungta and Miyolangsangma, figures
+of living faiths, which want a decision on how they are drawn before
+they are; Yao Ji, Jingwei, the carp, the Bull Demon King, the Eight
+Immortals, the elephant, the egrets, which want time.
+
+**Checked.** `npm run check` passes; captures of each new figure in
+this session's scratchpad (`castC-castE-*`).
+

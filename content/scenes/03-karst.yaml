@@ -44,7 +44,8 @@ look:
 # The cast (D91): Gao Village (ch. 18-19) is a river village like the ones
 # under these towers. The party walks the sky beside the camera, Bajie
 # among them; a flock crosses the Li ahead, the cranes standing in for the
-# river's egrets until those have a builder of their own.
+# river's egrets until those have a builder of their own; and the phoenix,
+# the Shan Hai Jing's bird of the far south, holds over the towers.
 cast:
   - figure: pilgrims
     variant: still
@@ -65,6 +66,17 @@ cast:
     facing_deg: 60
     from: 20
     until: 100
+  - figure: phoenix
+    variant: still
+    role: companion
+    offset: { ahead_m: 1500, right_m: -200, up_m: 140 }
+    size_m: 240
+    facing_deg: 60
+    from: 30
+    until: 100
+    name_zh: 凤凰
+    line: "The phoenix of the south, seen when the world is at peace."
+    line_at: 40
 
 captions:
   - { at: 15, text: "Each tower is sea floor, 300 million years old." }

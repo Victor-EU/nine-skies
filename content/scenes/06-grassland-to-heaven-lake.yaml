@@ -73,9 +73,9 @@ look:
 
 # The cast (D91): cranes with the camera over the grass, where the
 # steppe's demoiselle cranes breed; and at the crater a flock circling the
-# lake, the birds over water of Huizong's scroll. The Peng over the
-# fastest ground and the Manchu magpie with the red fruit wait for
-# builders of their own.
+# lake, the birds over water of Huizong's scroll; the Peng, wings like
+# clouds, over the fastest ground; and at the crater the Manchu magpie
+# with the red fruit in its beak, beside the camera on the laps.
 cast:
   - figure: cranes
     variant: still
@@ -94,6 +94,28 @@ cast:
     size_m: 1200
     from: 86
     until: 114
+  - figure: peng
+    variant: still
+    role: companion
+    offset: { ahead_m: 2600, right_m: -900, up_m: 820 }
+    size_m: 1400
+    facing_deg: 150
+    from: 20
+    until: 80
+    name_zh: 鹏
+    line: "The Peng, which rises ninety thousand li, bound for the southern sea."
+    line_at: 30
+  - figure: magpie
+    variant: still
+    role: companion
+    offset: { ahead_m: 700, right_m: 220, up_m: -260 }
+    size_m: 90
+    facing_deg: 200
+    from: 96
+    until: 114
+    name_zh: 喜鹊
+    line: "The magpie that dropped a red fruit for the bathing maiden."
+    line_at: 98
 
 captions:
   - { at: 8, text: "Inner Mongolia. Grass to the horizon, and the biggest sky." }

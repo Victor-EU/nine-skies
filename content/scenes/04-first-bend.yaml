@@ -82,8 +82,9 @@ look:
 # The cast (D91): the party on the road (ch. 14, the tiger whose skin is
 # Wukong's kilt), walking the sky over the gorge with Wukong ahead of
 # them; and cranes below, which winter at Lashi Lake by Lijiang, thirty
-# kilometres from the bend. Naxi ground: Sanduo on his white horse would
-# keep the mountain, when he has a builder.
+# kilometres from the bend; then the tiger itself, walking the air over
+# the gorge named for its leap. Naxi ground: Sanduo on his white horse
+# would keep the mountain, when he has a builder.
 cast:
   - figure: wukong
     variant: still
@@ -111,7 +112,18 @@ cast:
     size_m: 700
     facing_deg: 280
     from: 30
-    until: 90
+    until: 50
+  - figure: tiger
+    variant: still
+    role: companion
+    offset: { ahead_m: 1400, right_m: 380, up_m: -800 }
+    size_m: 170
+    facing_deg: 250
+    from: 52
+    until: 112
+    name_zh: 虎
+    line: "Tiger Leaping Gorge is named for a tiger that jumped it."
+    line_at: 64
 
 captions:
   - { at: 20, text: "The Jinsha, the Yangtze's upper name: the river of golden sand." }

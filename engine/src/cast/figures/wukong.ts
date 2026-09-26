@@ -8,9 +8,9 @@
  *
  * Native height 2.5 units to the crest, 3.6 to the plumes' tips.
  */
-import { CatmullRomCurve3, ConeGeometry, CylinderGeometry, DataTexture, Group, Mesh, RepeatWrapping, SphereGeometry, SRGBColorSpace, TorusGeometry, TubeGeometry, Vector3 } from "three";
+import { CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3, type DataTexture } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank, humanoid, type Humanoid } from "../parts.js";
+import { Wardrobe, breathe, cloudBank, humanoid, stripesTexture, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const FUR = 0xb9782f;
@@ -21,29 +21,6 @@ const TIGER = 0xe8922a;
 const IRON = 0x2a2320;
 const RED = 0xd8382a;
 const CLOUD = 0xffffff;
-
-/** Tiger stripes, made in code once for every Wukong. */
-let stripes: DataTexture | null = null;
-function tigerStripes(size = 128): DataTexture {
-  if (stripes) return stripes;
-  const data = new Uint8Array(size * size * 4);
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++) {
-      const i = (y * size + x) * 4;
-      const wave = Math.sin((x / size) * Math.PI * 4) * 6;
-      const band = (y + wave + size) % (size / 7);
-      const dark = band < size / 7 / 3;
-      data[i] = dark ? 31 : 232;
-      data[i + 1] = dark ? 23 : 146;
-      data[i + 2] = dark ? 18 : 42;
-      data[i + 3] = 255;
-    }
-  stripes = new DataTexture(data, size, size);
-  stripes.wrapS = stripes.wrapT = RepeatWrapping;
-  stripes.colorSpace = SRGBColorSpace;
-  stripes.needsUpdate = true;
-  return stripes;
-}
 
 class Wukong implements Figure {
   readonly group = new Group();
@@ -96,7 +73,7 @@ class Wukong implements Figure {
     const kilt = w.part(new ConeGeometry(0.6, 0.55, 12, 1, true), "matte", TIGER, B, 0, 0.55, 0);
     // The stripes are a texture the skin does not know; the kilt keeps its own map through a swap.
     const striped = (kilt.material as { clone(): typeof kilt.material }).clone() as typeof kilt.material & { map?: DataTexture | null };
-    striped.map = tigerStripes();
+    striped.map = stripesTexture(0x1f1712, TIGER);
     kilt.material = striped;
     // the staff on the left shoulder
     const staff = new Group();
