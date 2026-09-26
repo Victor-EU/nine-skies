@@ -8,6 +8,8 @@
  *
  * Native length 8 units, the horse's nose to Sha's pack; the party walks a
  * slow circle of that order round its place, or in place as a companion.
+ * The `monk` variant is the departure (ch. 12-13): the monk and the horse
+ * alone, in place, 3.6 units long, before the road gave him his company.
  */
 import { BoxGeometry, CapsuleGeometry, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3 } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
@@ -142,14 +144,14 @@ function sha(w: Wardrobe, parent: Group): Humanoid {
 
 class Pilgrims implements Figure {
   readonly group = new Group();
-  readonly nativeSize = 8;
+  readonly nativeSize: number;
   readonly triangles: number;
   private readonly w: Wardrobe;
   private readonly party = new Group();
   private readonly horseParts: ReturnType<typeof horse>;
   private readonly monk: Humanoid;
-  private readonly bajie: Humanoid;
-  private readonly sha: Humanoid;
+  private readonly bajie: Humanoid | null = null;
+  private readonly sha: Humanoid | null = null;
   private readonly bajieG = new Group();
   private readonly shaG = new Group();
   private readonly road: Group;
@@ -157,7 +159,9 @@ class Pilgrims implements Figure {
 
   constructor(ctx: BuildContext) {
     const w = (this.w = new Wardrobe(ctx.skin));
-    this.circuit = ctx.variant === "still" ? 0 : 10;
+    const alone = ctx.variant === "monk";
+    this.circuit = ctx.variant === "still" || alone ? 0 : 10;
+    this.nativeSize = alone ? 3.6 : 8;
     this.group.add(this.party);
     const horseG = new Group();
     this.horseParts = horse(w, horseG);
@@ -166,13 +170,16 @@ class Pilgrims implements Figure {
     monkG.scale.setScalar(0.72);
     this.monk = monk(w, monkG);
     horseG.add(monkG);
-    this.bajieG.position.set(0, 0, -2.6);
-    this.bajie = bajie(w, this.bajieG);
-    this.shaG.position.set(0, 0, -4.6);
-    this.sha = sha(w, this.shaG);
-    this.party.add(horseG, this.bajieG, this.shaG);
+    this.party.add(horseG);
+    if (!alone) {
+      this.bajieG.position.set(0, 0, -2.6);
+      this.bajie = bajie(w, this.bajieG);
+      this.shaG.position.set(0, 0, -4.6);
+      this.sha = sha(w, this.shaG);
+      this.party.add(this.bajieG, this.shaG);
+    }
     const puffs: [number, number, number, number][] = [];
-    for (let i = 0; i < 16; i++) puffs.push([Math.sin(i * 2.1) * 0.5, -0.35 - Math.abs(Math.sin(i * 1.3)) * 0.15, 1.5 - i * 0.55, 0.42 + Math.sin(i * 1.7) * 0.12]);
+    for (let i = 0; i < (alone ? 7 : 16); i++) puffs.push([Math.sin(i * 2.1) * 0.5, -0.35 - Math.abs(Math.sin(i * 1.3)) * 0.15, 1.5 - i * 0.55, 0.42 + Math.sin(i * 1.7) * 0.12]);
     this.road = cloudBank(w, CLOUD, puffs, this.party);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
@@ -206,19 +213,23 @@ class Pilgrims implements Figure {
     ml!.shoulder.rotation.set(-0.3, 0, -0.5);
     ml!.elbow.rotation.set(-0.9, 0, 0);
     for (const leg of this.monk.legs) leg.hip.rotation.x = -1.3;
-    walk(t, this.bajie, 5);
-    const [bl] = this.bajie.arms;
-    bl!.shoulder.rotation.set(0.5, 0, -0.7);
-    bl!.elbow.rotation.set(-1.8, 0, 0);
-    this.bajieG.rotation.z = Math.sin(t * 5) * 0.04;
-    this.bajieG.position.y = Math.abs(Math.sin(t * 5)) * 0.06;
-    walk(t, this.sha, 5);
-    const [sl, sr] = this.sha.arms;
-    sl!.shoulder.rotation.set(-0.3, 0, -0.9);
-    sl!.elbow.rotation.set(-2.2, 0, 0);
-    sr!.shoulder.rotation.set(0.4 + Math.sin(t * 5) * 0.2, 0, 0.3);
-    sr!.elbow.rotation.set(-0.5, 0, 0);
-    this.shaG.position.y = Math.abs(Math.sin(t * 5 + 1)) * 0.06;
+    if (this.bajie) {
+      walk(t, this.bajie, 5);
+      const [bl] = this.bajie.arms;
+      bl!.shoulder.rotation.set(0.5, 0, -0.7);
+      bl!.elbow.rotation.set(-1.8, 0, 0);
+      this.bajieG.rotation.z = Math.sin(t * 5) * 0.04;
+      this.bajieG.position.y = Math.abs(Math.sin(t * 5)) * 0.06;
+    }
+    if (this.sha) {
+      walk(t, this.sha, 5);
+      const [sl, sr] = this.sha.arms;
+      sl!.shoulder.rotation.set(-0.3, 0, -0.9);
+      sl!.elbow.rotation.set(-2.2, 0, 0);
+      sr!.shoulder.rotation.set(0.4 + Math.sin(t * 5) * 0.2, 0, 0.3);
+      sr!.elbow.rotation.set(-0.5, 0, 0);
+      this.shaG.position.y = Math.abs(Math.sin(t * 5 + 1)) * 0.06;
+    }
     breathe(this.road, t, 0.05);
   }
 

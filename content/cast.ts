@@ -9,6 +9,7 @@
  * - a companion behind the camera, since nothing there is seen;
  * - a cue outside the flight, or one that ends before it starts;
  * - a size the world's scale would make invisible or absurd;
+ * - a facing that is not a number of degrees;
  * - a line over the budget, since the layer's lines are lines.
  */
 import type { CastCue } from "../engine/src/film/scene.js";
@@ -70,6 +71,12 @@ export function cueFromRaw(raw: unknown, add: Add): CastCue | null {
   const sizeM = isNum(raw.size_m) ? raw.size_m : NaN;
   if (!(sizeM >= SIZE_RANGE_M[0] && sizeM <= SIZE_RANGE_M[1])) fail("size_m", `the figure's longest extent, real metres, ${SIZE_RANGE_M[0]} to ${SIZE_RANGE_M[1]}`);
 
+  let facingDeg = 0;
+  if (raw.facing_deg !== undefined) {
+    if (isNum(raw.facing_deg)) facingDeg = raw.facing_deg;
+    else fail("facing_deg", "degrees: a companion's from the way the camera flies, a monument's a bearing");
+  }
+
   const fromS = isNum(raw.from) ? raw.from : 0;
   const untilS = isNum(raw.until) ? raw.until : FLIGHT_S;
   if (raw.from !== undefined && !isNum(raw.from)) fail("from", "seconds into the flight");
@@ -84,7 +91,7 @@ export function cueFromRaw(raw: unknown, add: Add): CastCue | null {
     else fail("line", "a line, or absent");
   }
   if (!ok) return null;
-  return { figure, variant, role: role!, at, offset, sizeM, fromS, untilS, line };
+  return { figure, variant, role: role!, at, offset, sizeM, facingDeg, fromS, untilS, line };
 }
 
 /** Read a scene's `cast:` block: a list of cues, or nothing. */

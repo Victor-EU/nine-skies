@@ -506,8 +506,29 @@ function startScene(i: number): void {
   el("titlePinyin").textContent = s.title.pinyin;
   el("titleEn").textContent = s.title.en;
   el("titleLine").textContent = s.line;
+  showSky(s);
   showCaption("");
   document.title = `Nine Skies — ${s.title.en}`;
+}
+
+/** The sky's name on the card (D91): only while the cast is on, and only for a scene that has one. */
+function showSky(s: Scene | null): void {
+  const e = el("titleSky");
+  const h = cast && s?.heaven;
+  e.hidden = !h;
+  e.replaceChildren();
+  if (!h) return;
+  for (const [cls, lang, text] of [
+    ["zh", "zh-Hans", h.zh],
+    ["pinyin", "zh-Latn-pinyin", h.pinyin],
+    ["en", "", h.en],
+  ] as const) {
+    const span = document.createElement("span");
+    span.className = cls;
+    if (lang) span.lang = lang;
+    span.textContent = text;
+    e.appendChild(span);
+  }
 }
 
 function captionAt(s: Scene, flightS: number): string {
@@ -631,7 +652,9 @@ const castSwitch = new CastSwitch({
   layerOptions: () => ({ scene, terrain, scale }),
   onChange: (layer) => {
     cast = layer;
-    cast?.setScene(film?.scenes[Math.max(0, current)] ?? null);
+    const s = film?.scenes[Math.max(0, current)] ?? null;
+    cast?.setScene(s);
+    showSky(s);
   },
 });
 

@@ -8,6 +8,8 @@
 
 id: three-gorges
 title: { zh: 三峡, pinyin: Sānxiá, en: The Three Gorges }
+# The sky's name in the Huainanzi's nine fields, the south-east (D91); on the card when the cast is on.
+heaven: { zh: 阳天, pinyin: Yángtiān, en: the sunlit sky }
 line: "One river, three gorges, {190 km} of walls."
 hero: three-gorges
 month: 5
@@ -101,6 +103,19 @@ look:
   palette: limestone-green
   cloud: valley-mist
   grade: clear
+
+# The cast (D91): Eagle Grief Stream (ch. 15). The West King's third son,
+# the White Dragon, rises from the gorge water and swims the river's air
+# below the camera; at 90 km a minute he rides with it.
+cast:
+  - figure: dragon
+    variant: white
+    role: companion
+    offset: { ahead_m: 2000, right_m: 0, up_m: -700 }
+    size_m: 1000
+    facing_deg: 210
+    from: 10
+    until: 112
 
 captions:
   - { at: 18, text: "The camera is below the rim." }

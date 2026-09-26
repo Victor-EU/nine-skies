@@ -6,6 +6,8 @@
 
 id: the-roof
 title: { zh: 青藏高原, pinyin: Qīng-Zàng gāoyuán, en: The Roof }
+# The sky's name in the Huainanzi's nine fields, the north-west (D91); on the card when the cast is on.
+heaven: { zh: 幽天, pinyin: Yōutiān, en: the dim sky }
 line: "Flat ground at {4500 m} for the whole scene."
 # hero: none; the country grid alone
 month: 9
@@ -36,13 +38,26 @@ look:
   cloud: none
   grade: clear
 
-# The cast (D91): the pilgrims crossing the Tongtian River beside the camera.
+# The cast (D91): the pilgrims crossing the Tongtian River (ch. 47-49)
+# beside the camera, the upper Yangtze from Tuotuohe, a key on this rail;
+# and black-necked cranes, the plateau's own, over the first leg from
+# Qinghai Lake. The turtle, the qilin and the Tibetan sky's lungta wait
+# for builders.
 cast:
+  - figure: cranes
+    variant: still
+    role: companion
+    offset: { ahead_m: 1300, right_m: -460, up_m: -220 }
+    size_m: 600
+    facing_deg: 60
+    from: 6
+    until: 56
   - figure: pilgrims
     variant: still
     role: companion
     offset: { ahead_m: 760, right_m: 240, up_m: -40 }
     size_m: 200
+    facing_deg: 215
     from: 8
     until: 110
 

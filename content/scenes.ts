@@ -27,6 +27,7 @@ import {
   type Film,
   type RailKey,
   type Scene,
+  type SceneTitle,
 } from "../engine/src/film/scene.js";
 import { DEFAULT_LOOK_AHEAD_KM } from "../engine/src/film/altitude.js";
 import { DEFAULT_SCALE, DRAMA_CANDIDATES, apparentExaggeration } from "../engine/src/sim/scale.js";
@@ -98,6 +99,22 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
       else add(`title.${k}`, "required");
     }
     if (title.zh && !/[㐀-鿿]/.test(title.zh)) add("title.zh", "the characters, not a transliteration");
+  }
+
+  // The sky's name (D91), read as the title is; a scene may have none.
+  let heaven: SceneTitle | null = null;
+  if (raw.heaven !== undefined && raw.heaven !== null) {
+    const h = raw.heaven;
+    if (!isRecord(h)) add("heaven", "the sky's name: zh, pinyin and en");
+    else {
+      const name = { zh: "", pinyin: "", en: "" };
+      for (const k of ["zh", "pinyin", "en"] as const) {
+        if (isStr(h[k])) name[k] = (h[k] as string).trim();
+        else add(`heaven.${k}`, "required");
+      }
+      if (name.zh && !/[㐀-鿿]/.test(name.zh)) add("heaven.zh", "the characters, not a transliteration");
+      if (name.zh && name.pinyin && name.en) heaven = name;
+    }
   }
 
   const rawLine = isStr(raw.line) ? raw.line.trim() : "";
@@ -210,6 +227,7 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
   const scene: Scene = {
     id: isStr(id) ? id : name,
     title,
+    heaven,
     line,
     hero,
     month,

@@ -13,6 +13,8 @@
 
 id: the-wall
 title: { zh: 珠穆朗玛, pinyin: Zhūmùlǎngmǎ, en: The Wall }
+# The sky's name in the Huainanzi's nine fields, the north (D91); on the card when the cast is on.
+heaven: { zh: 玄天, pinyin: Xuántiān, en: the dark sky }
 line: "The plateau ends in a wall, and the wall is {8000 m}."
 hero: everest
 month: 10
@@ -44,6 +46,22 @@ look:
   palette: snow-rock
   cloud: summit-plume
   grade: cold
+
+# The cast (D91): the crossing (ch. 98). From Rongbuk the party goes over
+# the wall ahead of the camera, high and small against the last light, on
+# the way to the Western Heaven: the film crosses into Nepal, the novel
+# into India. Silhouettes only, and nothing else over Chomolungma. The
+# mountain's own goddess, Miyolangsangma on her tigress, is the
+# alternative if wanted, or silence.
+cast:
+  - figure: pilgrims
+    variant: still
+    role: companion
+    offset: { ahead_m: 2400, right_m: 380, up_m: 320 }
+    size_m: 260
+    facing_deg: 200
+    from: 60
+    until: 114
 
 captions:
   - { at: 24, text: "Tingri, {4300 m}. The wall ahead is the Himalaya." }

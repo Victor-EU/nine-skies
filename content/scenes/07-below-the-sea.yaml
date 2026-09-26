@@ -6,6 +6,8 @@
 
 id: below-the-sea
 title: { zh: 吐鲁番, pinyin: Tǔlǔfān, en: Below the Sea }
+# The sky's name in the Huainanzi's nine fields, the west (D91); on the card when the cast is on.
+heaven: { zh: 颢天, pinyin: Hàotiān, en: the white sky }
 line: "Snow, then a bowl below sea level, then dunes."
 hero: taklamakan
 month: 7
@@ -36,23 +38,52 @@ look:
   grade: warm
 
 # The cast (D91): at 300 km a minute a figure standing in the world is
-# passed in seconds, so both ride with the camera: the Queen Mother from
-# Bogda's Jade Pool over the first leg, Nezha from the Flaming Mountains
-# (ch. 61) over the depression.
+# passed in seconds, so the company rides with the camera: the Queen
+# Mother from Bogda's Jade Pool over the first leg, with her blue birds;
+# Wukong and Nezha over the Flaming Mountains (ch. 59-61); the party over
+# the Flowing Sands (ch. 22), where Sha is taken on. The Uyghur story's
+# slain dragon lies along the red range itself, a monument twenty
+# kilometres long, seen for the seconds the rail passes Turpan.
 cast:
   - figure: xiwangmu
     role: companion
     offset: { ahead_m: 1600, right_m: 500, up_m: 20 }
     size_m: 320
+    facing_deg: 200
     from: 6
     until: 40
+  - figure: dragon
+    variant: lantern
+    role: monument
+    at: { lat: 42.93, lon: 89.55, above_ground_m: 1500 }
+    size_m: 20000
+    facing_deg: 100
+    from: 4
+    until: 40
+  - figure: wukong
+    variant: still
+    role: companion
+    offset: { ahead_m: 1200, right_m: -720, up_m: -60 }
+    size_m: 150
+    facing_deg: 200
+    from: 22
+    until: 62
   - figure: nezha
     variant: still
     role: companion
     offset: { ahead_m: 1100, right_m: -420, up_m: 30 }
-    size_m: 170
+    size_m: 140
+    facing_deg: 150
     from: 24
     until: 96
+  - figure: pilgrims
+    variant: still
+    role: companion
+    offset: { ahead_m: 1000, right_m: 360, up_m: -300 }
+    size_m: 200
+    facing_deg: 225
+    from: 62
+    until: 114
 
 captions:
   - { at: 12, text: "Bogda: {5445 m} of snow over a desert." }

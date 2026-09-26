@@ -25,9 +25,14 @@ const FINS = Math.floor((SEGMENTS - 8) / 2);
 const VARIANTS: Readonly<Record<string, { body: number; belly: number; mane: number }>> = {
   "east-king": { body: 0x2f7a5a, belly: 0xe9d9a0, mane: 0xe0a030 },
   "south-king": { body: 0xc93b2a, belly: 0xf2c58a, mane: 0xf0a030 },
-  "west-king": { body: 0xe8e2d4, belly: 0xf6f0e0, mane: 0xd8c8a0 },
+  /** Silver rather than white: white was lost against the cloud sea. */
+  "west-king": { body: 0xbfc9d1, belly: 0xeef2f5, mane: 0x9fb0bc },
   "north-king": { body: 0x2b2f3a, belly: 0x8a8f9a, mane: 0x6a6f7a },
   lantern: { body: 0xd9452c, belly: 0xf2c58a, mane: 0xf0a030 },
+  /** The West King's third son, the White Dragon of Eagle Grief Stream (ch. 15), before he is the horse. */
+  white: { body: 0xf3f1ea, belly: 0xfaf7ef, mane: 0xd9cdb0 },
+  /** The Jing River's king (ch. 9-10), in the loess's own dust. */
+  dust: { body: 0xb8894a, belly: 0xe9d6a4, mane: 0x8a6430 },
 };
 
 /** Neck thick just behind the head, a long body, a tapered tail. */
@@ -150,9 +155,10 @@ class Dragon implements Figure {
     this.group.add(this.tuft);
 
     // The loop the head follows, in the figure's units around its anchor:
-    // a long lazy ellipse with a rise and a dive.
+    // a long lazy ellipse with a rise and a dive of a third of the length,
+    // so that seen from the side it is a dragon surfacing, not a line.
     this.loop = new CatmullRomCurve3(
-      [new Vector3(-14, -1.5, -6), new Vector3(-6, 1.5, 2), new Vector3(3, 0.5, 8), new Vector3(12, -1.5, 2), new Vector3(11, -4, -10), new Vector3(2, -3, -18), new Vector3(-8, 0.5, -16)],
+      [new Vector3(-14, -2, -6), new Vector3(-6, 3, 2), new Vector3(3, 6, 8), new Vector3(12, 1, 2), new Vector3(11, -5, -10), new Vector3(2, -7, -18), new Vector3(-8, -1, -16)],
       true,
       "catmullrom",
       0.6,

@@ -12,6 +12,8 @@
 
 id: huangshan
 title: { zh: 黄山, pinyin: Huángshān, en: Huangshan }
+# The sky's name in the Huainanzi's nine fields, the east (D91); on the card when the cast is on.
+heaven: { zh: 苍天, pinyin: Cāngtiān, en: the azure sky }
 line: "Granite peaks above a sea of cloud."
 hero: huangshan
 month: 11
@@ -54,22 +56,52 @@ look:
   cloud: cloud-sea
   grade: warm
 
-# The cast (D91), when the viewer has it on: the East Sea's dragon king
-# surfacing from the cloud sea north of Lotus Peak, where the rail's second
-# pass looks across at him.
+# The cast (D91), when the viewer has it on: Havoc in Heaven (ch. 3-7).
+# The cloud sea is the East Sea, and the four Dragon Kings surface from it
+# round the massif, each where a pass of the loop looks across at him:
+# the East King north of Lotus Peak, the South King off the start, the
+# West King off the west flank, the North King over the north. Wukong
+# rides beside the camera with the cranes, looking back; Nezha comes
+# after him from half way, the chase of ch. 4.
 cast:
   - figure: dragon
     variant: east-king
     role: monument
     at: { lat: 30.165, lon: 118.205, above_ground_m: 700 }
     size_m: 1500
+    facing_deg: 250
     from: 6
     until: 108
+  - figure: dragon
+    variant: south-king
+    role: monument
+    at: { lat: 30.095, lon: 118.205, above_ground_m: 700 }
+    size_m: 1800
+    facing_deg: 300
+    from: 4
+    until: 110
+  - figure: dragon
+    variant: west-king
+    role: monument
+    at: { lat: 30.135, lon: 118.115, above_ground_m: 800 }
+    size_m: 1800
+    facing_deg: 120
+    from: 4
+    until: 110
+  - figure: dragon
+    variant: north-king
+    role: monument
+    at: { lat: 30.215, lon: 118.175, above_ground_m: 1000 }
+    size_m: 1800
+    facing_deg: 180
+    from: 4
+    until: 110
   - figure: cranes
     variant: still
     role: companion
     offset: { ahead_m: 700, right_m: 240, up_m: -30 }
     size_m: 260
+    facing_deg: 45
     from: 6
     until: 108
   - figure: wukong
@@ -77,8 +109,17 @@ cast:
     role: companion
     offset: { ahead_m: 600, right_m: -170, up_m: -10 }
     size_m: 70
+    facing_deg: 150
     from: 12
     until: 100
+  - figure: nezha
+    variant: still
+    role: companion
+    offset: { ahead_m: 900, right_m: -380, up_m: 40 }
+    size_m: 60
+    facing_deg: 120
+    from: 40
+    until: 104
 
 captions:
   - { at: 8, text: "Huangshan. Granite, pines, and cloud filling every valley below." }

@@ -6,6 +6,8 @@
 
 id: loess
 title: { zh: 黄土高原, pinyin: Huángtǔ gāoyuán, en: Loess }
+# The sky's name in the Huainanzi's nine fields, the centre (D91); on the card when the cast is on.
+heaven: { zh: 钧天, pinyin: Jūntiān, en: the central sky }
 line: "Ochre ground gullied everywhere, and a yellow river cut into it."
 # hero: none; the country grid alone
 month: 10
@@ -88,6 +90,28 @@ look:
   palette: loess-ochre
   cloud: dust-haze
   grade: warm
+
+# The cast (D91): the Journey begins at the film's midpoint. The monk
+# rides out of Chang'an alone on the white horse (ch. 12-13), beside the
+# camera; the Jing River's dragon king (ch. 9-10), who altered the rain
+# and lost his head for it, swims the river's air below, in dust.
+cast:
+  - figure: pilgrims
+    variant: monk
+    role: companion
+    offset: { ahead_m: 1000, right_m: 300, up_m: -380 }
+    size_m: 120
+    facing_deg: 215
+    from: 8
+    until: 114
+  - figure: dragon
+    variant: dust
+    role: companion
+    offset: { ahead_m: 2200, right_m: -700, up_m: -850 }
+    size_m: 1200
+    facing_deg: 160
+    from: 30
+    until: 104
 
 captions:
   - { at: 15, text: "The Yellow River, south through the loess plateau." }

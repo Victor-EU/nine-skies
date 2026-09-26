@@ -86,6 +86,17 @@ export function companionTarget(eye: Vector3, headingRad: number, offset: NonNul
   return out.copy(eye).addScaledVector(fwd, toWorldH(offset.aheadM, scale)).addScaledVector(right, toWorldH(offset.rightM, scale)).add(new Vector3(0, toWorldH(offset.upM, scale), 0));
 }
 
+/**
+ * The way a figure turns, radians about up: a companion's facing is from
+ * the way the camera flies, a monument's a bearing. Zero faces the flight
+ * or north; the doll is built facing +z, which `rotation.y` turns to the
+ * bearing directly, since the world's +z is north and +x east.
+ */
+export function figureYaw(cue: Pick<CastCue, "role" | "facingDeg">, headingRad: number): number {
+  const facing = (cue.facingDeg * Math.PI) / 180;
+  return cue.role === "companion" ? headingRad + facing : facing;
+}
+
 export class CastLayer {
   readonly group = new Group();
   readonly sun = new DirectionalLight(0xffffff, 2);
@@ -163,6 +174,7 @@ export class CastLayer {
         const ground = this.options.terrain.groundElevationM(p.grid.eastM, p.grid.northM);
         const altitudeM = (ground ?? f.altitudeM - (p.cue.at?.aboveGroundM ?? 0)) + (p.cue.at?.aboveGroundM ?? 0);
         g.position.copy(this.options.terrain.toWorld(p.grid.eastM, p.grid.northM, altitudeM));
+        g.rotation.set(0, figureYaw(p.cue, f.headingRad), 0);
       } else if (p.cue.offset) {
         const target = companionTarget(f.eye, f.headingRad, p.cue.offset, this.scale);
         if (!p.settled) {
@@ -170,7 +182,7 @@ export class CastLayer {
           p.settled = true;
         } else p.eased.lerp(target, Math.min(1, COMPANION_EASE * dt));
         g.position.copy(p.eased);
-        g.rotation.set(0, f.headingRad, 0);
+        g.rotation.set(0, figureYaw(p.cue, f.headingRad), 0);
       }
       const frame: CastFrame = { timeS: f.timeS, flightS: f.flightS, eye: f.eye, headingRad: f.headingRad, group: g };
       p.figure.update(frame);

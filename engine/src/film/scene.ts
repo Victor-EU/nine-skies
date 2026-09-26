@@ -66,6 +66,12 @@ export interface CastCue {
   readonly offset: { readonly aheadM: number; readonly rightM: number; readonly upM: number } | null;
   /** The figure's longest extent, real metres. */
   readonly sizeM: number;
+  /**
+   * Which way the figure faces, degrees: a companion's from the way the
+   * camera flies (90 its right, 180 the camera), a monument's a bearing
+   * (0 north, 90 east). The doll is built facing the way it is turned.
+   */
+  readonly facingDeg: number;
   /** Seconds into the flight it is in play. */
   readonly fromS: number;
   readonly untilS: number;
@@ -76,6 +82,12 @@ export interface CastCue {
 export interface Scene {
   readonly id: string;
   readonly title: SceneTitle;
+  /**
+   * The scene's sky in the Huainanzi's nine fields of heaven (D91): a
+   * name in characters, pinyin and English, on the card when the cast is
+   * on, or null for a scene that has not taken one.
+   */
+  readonly heaven: SceneTitle | null;
   /** The one line under the title. */
   readonly line: string;
   /** The hero grid to draw over this scene, or null for the country grid alone. */

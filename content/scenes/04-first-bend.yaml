@@ -6,6 +6,8 @@
 
 id: first-bend
 title: { zh: 长江第一湾, pinyin: Chángjiāng dì-yī wān, en: The First Bend }
+# The sky's name in the Huainanzi's nine fields, the south-west (D91); on the card when the cast is on.
+heaven: { zh: 朱天, pinyin: Zhūtiān, en: the vermilion sky }
 line: "The Jinsha turns back on itself and cuts the deepest gorge."
 hero: tiger-leaping-gorge
 month: 6
@@ -76,6 +78,37 @@ look:
   palette: snow-and-scree
   cloud: none
   grade: clear
+
+# The cast (D91): the party on the road (ch. 14, the tiger whose skin is
+# Wukong's kilt), walking the sky over the gorge with Wukong ahead of
+# them; and cranes below, which winter at Lashi Lake by Lijiang, thirty
+# kilometres from the bend. Naxi ground: Sanduo on his white horse would
+# keep the mountain, when he has a builder.
+cast:
+  - figure: wukong
+    variant: still
+    role: companion
+    offset: { ahead_m: 1900, right_m: -120, up_m: -620 }
+    size_m: 120
+    facing_deg: 190
+    from: 10
+    until: 112
+  - figure: pilgrims
+    variant: still
+    role: companion
+    offset: { ahead_m: 1500, right_m: -360, up_m: -720 }
+    size_m: 280
+    facing_deg: 215
+    from: 10
+    until: 112
+  - figure: cranes
+    variant: still
+    role: companion
+    offset: { ahead_m: 1800, right_m: 600, up_m: -1050 }
+    size_m: 700
+    facing_deg: 280
+    from: 30
+    until: 90
 
 captions:
   - { at: 20, text: "The Jinsha, the Yangtze's upper name: the river of golden sand." }

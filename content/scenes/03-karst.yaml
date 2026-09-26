@@ -7,6 +7,8 @@
 
 id: karst
 title: { zh: 漓江, pinyin: Lí Jiāng, en: Karst }
+# The sky's name in the Huainanzi's nine fields, the south (D91); on the card when the cast is on.
+heaven: { zh: 炎天, pinyin: Yántiān, en: the blazing sky }
 line: "Limestone towers at eye level, and a river threading between them."
 hero: guilin
 month: 4
@@ -38,6 +40,28 @@ look:
   palette: jade-limestone
   cloud: river-mist
   grade: cool
+
+# The cast (D91): Gao Village (ch. 18-19) is a river village like the ones
+# under these towers. The party walks the sky beside the camera, Bajie
+# among them; a flock crosses the Li ahead, the cranes standing in for the
+# river's egrets until those have a builder of their own.
+cast:
+  - figure: pilgrims
+    variant: still
+    role: companion
+    offset: { ahead_m: 900, right_m: 320, up_m: -420 }
+    size_m: 220
+    facing_deg: 235
+    from: 10
+    until: 114
+  - figure: cranes
+    variant: still
+    role: companion
+    offset: { ahead_m: 1200, right_m: -420, up_m: -360 }
+    size_m: 480
+    facing_deg: 60
+    from: 20
+    until: 100
 
 captions:
   - { at: 15, text: "Each tower is sea floor, 300 million years old." }

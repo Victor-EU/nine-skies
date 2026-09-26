@@ -2331,3 +2331,92 @@ carries no figure code.
 `facing` for companions, the sky's name on the card; the blue birds and
 crane wings as shaped feathers rather than boxes; the stations priced with
 the cast on.
+
+## F104 — The cast in nine skies: every scene cued, a facing, and the sky's name on the card, 26 September 2026
+
+Stage C of D91. The casting board's plan is in the scene files, as far as
+the six built figures carry it; a cue can say which way its figure turns;
+and with the cast on, the title card names the scene's sky from the
+*Huainanzi*'s nine fields of heaven.
+
+**The nine skies** (`heaven:` in each scene file, read like the title, on
+the card under the line, only while the cast is on). The board's
+assignment: Huangshan 苍天 the azure sky (east); the Three Gorges 阳天 the
+sunlit sky (south-east); the Karst 炎天 the blazing sky (south); the First
+Bend 朱天 the vermilion sky (south-west); the Loess 钧天 the central sky;
+Grassland to Heaven Lake 变天 the changing sky (north-east); Below the Sea
+颢天 the white sky (west); the Roof 幽天 the dim sky (north-west); the
+Wall 玄天 the dark sky (north). The gate holds a scene to a whole name or
+none, and the cast test to nine different names from the nine.
+
+**A facing** (`facing_deg` on a cue). A companion's is from the way the
+camera flies - 90 its right, 180 the camera; a monument's is a bearing.
+The doll is built facing +z and the world's +z is north, so the yaw is
+the bearing itself (`figureYaw`). With it the party, Wukong, Nezha and the
+Queen Mother turn three-quarters to the viewer instead of showing their
+backs (F103).
+
+**The company, per scene.** Huangshan: the four Dragon Kings surfacing
+from the cloud sea round the massif, each where a pass of the loop looks
+at him, Wukong and the cranes beside the camera, Nezha after him from
+half way. The Gorges: the West King's third son, the White Dragon of
+Eagle Grief Stream, in the slot below the camera (a `white` livery). The
+Karst: the party with Bajie walking the sky beside the river, a flock
+crossing ahead. The First Bend: the party over the gorge with Wukong
+ahead, cranes below, which winter at Lashi Lake by Lijiang. The Loess:
+the monk alone on the white horse riding out of Chang'an at the film's
+midpoint (a `monk` variant of the pilgrims: horse and rider, a shorter
+road), and the Jing River's king in dust (a `dust` livery). Grassland to
+Heaven Lake: cranes with the camera over the grass, and a flock circling
+the lake in the crater. Below the Sea: the Queen Mother off Bogda, the
+Uyghur story's slain dragon lying along the Flaming Mountains as a
+monument twenty kilometres long, Wukong and Nezha over the depression,
+the party over the Flowing Sands. The Roof: the party crossing the
+Tongtian beside the camera, black-necked cranes off Qinghai Lake. The
+Wall: the party high and small against the last light from Rongbuk on,
+the crossing; nothing else over Chomolungma. Twenty-five cues; every
+scene has at least one.
+
+**What the captures taught** (all nine scenes headless, twice or three
+times each, with the cast on):
+- A monument in the cloud sea must be cued to clear the deck: the North
+  King at 600 m over a valley floor of 300 m was under the 1,050 m cloud
+  and invisible; at 1,000 m he surfaces.
+- White is lost on white. The West King in ivory was not to be seen
+  against the cloud sea; he is silver now.
+- The dragon's loop was nearly flat, so seen from the side a king was a
+  line; the loop now rises and dives a third of the length, and a dragon
+  seen from afar coils.
+- A flock has to be big to read: at 300 m across it is a white scribble;
+  480 m and up, it is birds. Seen from the rear quarter (a facing of 45
+  to 60) it is a V; side-on, the flapping wings are edge-on and it is a
+  scribble again.
+- Two companions on one azimuth overlap: Wukong sat on the Queen
+  Mother's cloud, then under Nezha. Cues on a fast scene want their own
+  bearings.
+- The crater: from outside, at six times relief, the rim stands 24
+  degrees above the camera and anything over the lake is above the frame
+  or behind the rim. The flock over the lake is cued below the rim and
+  appears when the camera crosses in, at about 110 s at 1x, and for every
+  lap at 2x.
+- The grade mirrors the picture (F100), so the probe's NDC x is the
+  picture's mirror; a cue's `right_m` still lands on the picture's right,
+  because the world's right vector is mirrored too.
+
+**Waiting for builders** (the board's figures the six kinds cannot
+give): the tiger and Sanduo at the bend; the phoenix, Guanyin, the
+elephant and the Li's egrets at the karst; the carp at the Dragon Gate
+and Jingwei on the Loess; the Peng and the Manchu magpie with the red
+fruit on the steppe and at the lake; the Bull Demon King, Sha alone out
+of the Flowing Sands and the Eight Immortals at Turpan; the turtle, the
+qilin and lungta on the Roof; Yao Ji on Goddess Peak; Miyolangsangma at
+the Wall, if she is chosen over the crossing. The blue birds and cranes
+still have box wings.
+
+**Checked.** `npm run check` passes; the gate reports every scene's
+company and its sky. Captures in this session's scratchpad, `castC-*`.
+
+**Next.** Stage D, the layer's own lines (`line` on a cue is read and
+budgeted, and the shell does not show it yet); the stations priced with
+the cast on; feathered wings; the figures above, as the film wants them.
+

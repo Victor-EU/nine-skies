@@ -13,7 +13,7 @@ import { figureBuilder, registeredFigures } from "../../engine/src/cast/figure.j
 import "../../engine/src/cast/figures/index.js";
 import { dragonMaterials, DRAGON_LENGTH } from "../../engine/src/cast/figures/dragon.js";
 import { lanternSkin, SKINS } from "../../engine/src/cast/skin.js";
-import { companionTarget, cueFade, FADE_S } from "../../engine/src/cast/cast.js";
+import { companionTarget, cueFade, FADE_S, figureYaw } from "../../engine/src/cast/cast.js";
 import { FLIGHT_S } from "../../engine/src/film/timeline.js";
 import { DEFAULT_SCALE, toWorldH } from "../../engine/src/sim/scale.js";
 import { wantedAtStart } from "../../app/src/cast.ts";
@@ -38,6 +38,8 @@ describe("a cue", () => {
     expect(c.fromS).toBe(0);
     expect(c.untilS).toBe(FLIGHT_S);
     expect(c.variant).toBeNull();
+    expect(c.facingDeg).toBe(0);
+    expect(cueFromRaw({ ...companion, facing_deg: 180 }, p.add)?.facingDeg).toBe(180);
   });
 
   it("refuses what the layer could not build or place", () => {
@@ -52,6 +54,7 @@ describe("a cue", () => {
       [{ ...monument, from: 50, until: 40 }, "until"],
       [{ ...monument, until: FLIGHT_S + 1 }, "until"],
       [{ ...monument, line: 42 }, "line"],
+      [{ ...companion, facing_deg: "camera" }, "facing_deg"],
     ];
     for (const [raw, field] of cases) {
       const p = problems();
@@ -108,10 +111,31 @@ describe("a scene with a cast", () => {
     expect(validateScene(long.scene!).map((p) => p.field)).toContain("cast[0].line");
   });
 
+  it("names its sky, whole or not at all", () => {
+    expect(sceneFromRaw(good(undefined), "gorges").scene?.heaven).toBeNull();
+    const named = sceneFromRaw({ ...good(undefined), heaven: { zh: "阳天", pinyin: "Yángtiān", en: "the sunlit sky" } }, "gorges");
+    expect(named.problems).toEqual([]);
+    expect(named.scene?.heaven?.en).toBe("the sunlit sky");
+    const partial = sceneFromRaw({ ...good(undefined), heaven: { zh: "阳天", pinyin: "Yángtiān" } }, "gorges");
+    expect(partial.problems.map((p) => p.field)).toContain("heaven.en");
+    expect(partial.scene?.heaven).toBeNull();
+    const romanised = sceneFromRaw({ ...good(undefined), heaven: { zh: "Yangtian", pinyin: "Yángtiān", en: "the sunlit sky" } }, "gorges");
+    expect(romanised.problems.map((p) => p.field)).toContain("heaven.zh");
+  });
+
   it("is in every committed scene that has one", () => {
     const { film, problems: ps } = loadFilm();
     expect(ps).toEqual([]);
     for (const s of film.scenes) for (const c of s.cast) expect(figureBuilder(c.figure)).not.toBeNull();
+  });
+
+  it("is cast in all nine scenes, each under one of the Huainanzi's nine skies", () => {
+    const { film } = loadFilm();
+    expect(film.scenes).toHaveLength(9);
+    const skies = film.scenes.map((s) => s.heaven?.zh);
+    expect(new Set(skies).size).toBe(9);
+    for (const zh of skies) expect(["钧天", "苍天", "变天", "玄天", "幽天", "颢天", "朱天", "炎天", "阳天"]).toContain(zh);
+    for (const s of film.scenes) expect(s.cast.length, s.id).toBeGreaterThan(0);
   });
 });
 
@@ -133,6 +157,14 @@ describe("the figures", () => {
     const dragon = figureBuilder("dragon")!({ skin, variant: "north-king", scale: DEFAULT_SCALE });
     expect(dragon.nativeSize).toBe(DRAGON_LENGTH);
     expect(dragon.group.children.length).toBeGreaterThan(5);
+    // The departure: the monk and the horse alone, a shorter figure of fewer parts.
+    const party = figureBuilder("pilgrims")!({ skin, variant: "still", scale: DEFAULT_SCALE });
+    const monk = figureBuilder("pilgrims")!({ skin, variant: "monk", scale: DEFAULT_SCALE });
+    expect(monk.nativeSize).toBeLessThan(party.nativeSize);
+    expect(monk.triangles).toBeLessThan(party.triangles * 0.6);
+    monk.update({ timeS: 2, flightS: 2, eye: new Vector3(), headingRad: 0, group: monk.group });
+    party.dispose();
+    monk.dispose();
     skin.dispose();
   });
 
@@ -171,6 +203,18 @@ describe("the layer", () => {
     const q = companionTarget(eye, east, { aheadM: 800, rightM: 0, upM: 0 }, DEFAULT_SCALE);
     expect(q.x - eye.x).toBeCloseTo(toWorldH(800, DEFAULT_SCALE));
     expect(q.z - eye.z).toBeCloseTo(0);
+  });
+
+  it("turns a companion from the flight and a monument from north", () => {
+    const heading = 0.7;
+    expect(figureYaw({ role: "companion", facingDeg: 0 }, heading)).toBeCloseTo(heading);
+    expect(figureYaw({ role: "companion", facingDeg: 180 }, heading)).toBeCloseTo(heading + Math.PI);
+    expect(figureYaw({ role: "monument", facingDeg: 90 }, heading)).toBeCloseTo(Math.PI / 2);
+    // A companion turned to its right faces where the offset's right axis points.
+    const eye = new Vector3();
+    const right = companionTarget(eye, heading, { aheadM: 0.0001, rightM: 100, upM: 0 }, DEFAULT_SCALE);
+    const yaw = figureYaw({ role: "companion", facingDeg: 90 }, heading);
+    expect(Math.atan2(right.x, right.z)).toBeCloseTo(Math.atan2(Math.sin(yaw), Math.cos(yaw)), 3);
   });
 });
 

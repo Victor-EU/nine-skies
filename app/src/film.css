@@ -103,6 +103,16 @@ body.idle, body.idle #view { cursor: none; }
   color: var(--quiet); margin-top: .5em; max-width: 34em; text-wrap: balance;
 }
 
+/* The sky's name, with the cast on: characters, pinyin, and what they say. */
+.card .sky {
+  display: flex; align-items: baseline; gap: .9em; margin-top: 1.1em;
+  font: 400 clamp(12px, min(1.5vw, 2.3vh), 16px)/1.4 var(--sans);
+  letter-spacing: .16em; color: var(--quiet);
+}
+.card .sky .zh { font: 400 1.7em/1 var(--song); letter-spacing: .3em; margin-right: -.3em; }
+.card .sky .pinyin { font: inherit; letter-spacing: .3em; margin-right: -.3em; text-transform: none; }
+.card .sky .en { font: italic 400 1.05em/1.4 var(--serif); letter-spacing: .04em; margin-top: 0; }
+
 /* Waiting for the ground: the clock holds on the title until it lands. */
 .buffer {
   display: flex; flex-direction: column; align-items: center; gap: .6em;

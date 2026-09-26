@@ -12,6 +12,8 @@
 
 id: grassland-to-heaven-lake
 title: { zh: 草原到天池, pinyin: Cǎoyuán dào Tiānchí, en: Grassland to Heaven Lake }
+# The sky's name in the Huainanzi's nine fields, the north-east (D91); on the card when the cast is on.
+heaven: { zh: 变天, pinyin: Biàntiān, en: the changing sky }
 line: "Grass to the horizon, then a volcano with a lake in it."
 hero: changbai
 month: 8
@@ -68,6 +70,27 @@ look:
   palette: grassland-volcano
   cloud: high-cirrus
   grade: warm
+
+# The cast (D91): cranes with the camera over the grass, where the
+# steppe's demoiselle cranes breed; and at the crater a flock circling the
+# lake, the birds over water of Huizong's scroll. The Peng over the
+# fastest ground and the Manchu magpie with the red fruit wait for
+# builders of their own.
+cast:
+  - figure: cranes
+    variant: still
+    role: companion
+    offset: { ahead_m: 1400, right_m: 380, up_m: -260 }
+    size_m: 380
+    facing_deg: 30
+    from: 6
+    until: 84
+  - figure: cranes
+    role: monument
+    at: { lat: 42.006, lon: 128.055, above_ground_m: 300 }
+    size_m: 1200
+    from: 86
+    until: 114
 
 captions:
   - { at: 8, text: "Inner Mongolia. Grass to the horizon, and the biggest sky." }
