@@ -2060,13 +2060,18 @@ switched off, which measures time and not direction (`look.ts`).
 
 **What it changes.** Every picture the film draws, and so every still
 (`docs/stills/`), the cover's frames (`docs/cover/`), the cover and the
-postcards: all of them were taken mirrored and are now the wrong way round
-beside the film. They are not taken again here; they want the user's eye
-(D77).
+postcards: all of them were taken mirrored.
+
+**The stills, again** (`npm run stills`, headless, all nine settled). Each
+is its old still turned round and nothing else: against the old one
+mirrored, at most 0.4 % of pixels differ by more than 8 levels (Huangshan's
+clouds, which move), against the old one as it was, 57 to 95 %. The
+cover's two frames (`npm run cover -- frames`) are the same, 0.3 % and 0.0 %,
+and the cover and the postcards are drawn again from them; every card's
+crop still holds its subject. The Wall's late sun is in the west now,
+where 5 pm puts it. Signed off (D77).
 
 **Next.**
-- *The stills and the cover again:* `npm run stills`, then
-  `npm run cover -- frames` and `npm run cover`, and a sign-off.
 - *Anything authored by eye from the screen* - a rail recorded with
   `?record=`, a caption's "ahead" - holds, being positions and not sides;
   a future caption saying "on the left" would now be true.
