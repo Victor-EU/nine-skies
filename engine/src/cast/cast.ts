@@ -18,7 +18,7 @@
 import { DirectionalLight, Fog, Group, HemisphereLight, Vector3, type Color, type Scene as ThreeScene } from "three";
 import type { CastCue, Scene } from "../film/scene.js";
 import { projectAlbers } from "../terrain/worldGrid.js";
-import { toWorldH, toWorldV, type WorldScale } from "../sim/scale.js";
+import { toWorldH, type WorldScale } from "../sim/scale.js";
 import { figureBuilder, type CastFrame, type Figure } from "./figure.js";
 import { DEFAULT_SKIN, SKINS, type Skin } from "./skin.js";
 
@@ -73,11 +73,17 @@ export function cueFade(cue: CastCue, flightS: number): number {
   return Math.min(1, (flightS - cue.fromS) / FADE_S, (cue.untilS - flightS) / FADE_S);
 }
 
-/** Where a companion wants to be, world units, from the camera's frame and the cue's real metres. */
+/**
+ * Where a companion wants to be, world units, from the camera's frame. All
+ * three of the cue's metres go through the horizontal scale, the one a
+ * size goes through: the vertical is drawn six times the horizontal, and a
+ * figure "70 m up" converted as an altitude would stand 30 degrees over
+ * the lens. In the picture's own terms, up is as far as ahead is.
+ */
 export function companionTarget(eye: Vector3, headingRad: number, offset: NonNullable<CastCue["offset"]>, scale: WorldScale, out = new Vector3()): Vector3 {
   const fwd = new Vector3(Math.sin(headingRad), 0, Math.cos(headingRad));
   const right = new Vector3(fwd.z, 0, -fwd.x);
-  return out.copy(eye).addScaledVector(fwd, toWorldH(offset.aheadM, scale)).addScaledVector(right, toWorldH(offset.rightM, scale)).add(new Vector3(0, toWorldV(offset.upM, scale), 0));
+  return out.copy(eye).addScaledVector(fwd, toWorldH(offset.aheadM, scale)).addScaledVector(right, toWorldH(offset.rightM, scale)).add(new Vector3(0, toWorldH(offset.upM, scale), 0));
 }
 
 export class CastLayer {

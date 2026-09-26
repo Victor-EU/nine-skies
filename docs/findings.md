@@ -2263,3 +2263,71 @@ name on the card; stage D, the layer's lines in their own register; the
 fog matched to the look's exponential haze in the figures' own shader
 once there are enough figures to justify one; the stations priced with
 the cast on.
+
+## F103 — The cast's company: six figures on one doll, 26 September 2026
+
+Stage B of D91: the study's figures as builders. Every human figure of
+the cast is now the same doll dressed differently, and the layer places
+each by its cue in the film's light.
+
+**The figurine** (`engine/src/cast/parts.ts`). A `Wardrobe` dresses a
+mesh by role and colour from the skin and remembers it, so a swap redresses
+everything and the budget counts everything. `humanoid()` builds the doll
+- a head a third of its height, a torso, arms with an elbow, legs with a
+hip, shoes - 2.3 units tall; `walk()` swings the limbs against each other;
+`cloudBank()` and `breathe()` make the silk puffs a figure rides;
+`bird()` makes a crane, and at a smaller size and other colours one of the
+Queen Mother's blue birds. A character is what a builder adds to the doll.
+
+**The figures** (`figures/`). Nezha (8,104 triangles): buns and ties, the
+bib, the lotus-leaf skirt, the ring on the wrist, the flame-tipped spear,
+the sash rewritten along a waving curve each frame, two wind-fire wheels
+spinning; he circles his place leaning into the turn, or hovers as the
+`still` variant. Wukong (9,916): the doll in fur with a pale face, the
+phoenix-wing cap with two plumes, gold mail with red collar and belt, the
+tiger kilt in stripes computed in code, the banded staff on his shoulder,
+one hand at his brow, a tail, and the somersault cloud under him; a
+figure-of-eight and a somersault every seven seconds, or hovering as
+`still`. The pilgrims (20,032): the horse with walking legs and a swinging
+tail, saddle and bridle; the monk in the five-leaf crown and the patched
+kasaya with the ringed staff, seated; Bajie with snout, ears, belly and the
+nine-tooth rake; Sha with red hair and beard, nine skulls, the crescent
+staff and the luggage pole; on a road of sixteen cloud puffs, walking a
+slow circle or in place. Xiwangmu (8,900): the robe to the ground, wide
+gold sleeves, a jade belt, the coiffure with the 胜 bar and discs, a peach
+in her hand, on a cloud bank, with three blue birds circling her. The
+cranes (7,744): eleven in a loose V, each flapping at its own rate, banked
+so a wing shows, flying a loop or holding formation.
+
+**What the first placement taught.**
+- At 300 km a minute a monument is passed in seconds: the Queen Mother
+  set at Bogda's Jade Pool was behind the camera by eight seconds, and
+  Nezha over the Flaming Mountains, in front at 12 s, was 64 km off and
+  six pixels wide. On the fast scenes figures ride with the camera. The
+  probe's NDC z over one means *behind the camera* (the far plane is
+  3,200 km), which the probe now says outright.
+- A companion's "up" went through the vertical scale, which the film
+  draws six times the horizontal: 70 m up stood 30 degrees over the lens,
+  and the cranes and Wukong sat under the frame. Offsets are now metres
+  of the picture, all three axes through the horizontal scale, the scale
+  a size goes through; a place and a height over the ground stay real.
+- Companions face the way the camera flies, so the viewer sees their
+  backs: right for the pilgrims on the road, and for Nezha's sash; for a
+  figure that should turn to the viewer a cue will want a `facing`
+  (stage C).
+
+**Cues now** (to see each builder once; the casting for the nine scenes
+is stage C): Huangshan, the East King's dragon over the cloud sea, a
+flock of cranes and Wukong riding beside the camera; Turpan, the Queen
+Mother for the first leg and Nezha over the depression; the Roof, the
+pilgrims at 760 m ahead and to the right. Captured headless at 25, 30 and
+40 s with the cast on; all in frame and lit.
+
+**Checked.** `npm run check` passes; the cast tests build every listed
+kind under 60k triangles and swap its skin whole. The entry bundle still
+carries no figure code.
+
+**Next.** Stage C: the casting board's cues across the nine scenes, a
+`facing` for companions, the sky's name on the card; the blue birds and
+crane wings as shaped feathers rather than boxes; the stations priced with
+the cast on.

@@ -4,9 +4,28 @@
  * body of any length swimming along a curve with its belly kept down.
  *
  * Everything here runs without a canvas or a GL context, so a figure can be
- * built and measured in a test.
+ * built and measured in a test. The second half is the figurine: every
+ * human figure of the cast starts from the same doll, and a character is
+ * what a builder adds afterwards.
  */
-import { BufferAttribute, BufferGeometry, CatmullRomCurve3, DataTexture, NoColorSpace, RepeatWrapping, SRGBColorSpace, Vector3 } from "three";
+import {
+  BoxGeometry,
+  BufferAttribute,
+  BufferGeometry,
+  CapsuleGeometry,
+  CatmullRomCurve3,
+  ConeGeometry,
+  DataTexture,
+  Group,
+  Mesh,
+  NoColorSpace,
+  RepeatWrapping,
+  SphereGeometry,
+  SRGBColorSpace,
+  Vector3,
+  type Material,
+} from "three";
+import type { Role, Skin } from "./skin.js";
 
 /** A height field of overlapping scales, as a tangent-space normal map. */
 export function scaleNormalTexture(size = 256, cols = 8, rows = 6): DataTexture {
@@ -188,4 +207,184 @@ export class SpineTube {
 export function triangleCount(geometry: BufferGeometry): number {
   const index = geometry.getIndex();
   return Math.floor((index ? index.count : geometry.getAttribute("position")?.count ?? 0) / 3);
+}
+
+// ---- The figurine ----------------------------------------------------------
+//
+// Every human figure of the cast starts from the same doll: a head a third
+// of its height, a torso, two arms with an elbow, two legs with a hip, and
+// a walk. The character is what a builder adds afterwards - a crown, a
+// snout, a rake - so the cast reads as one company, and a new figure is a
+// costume, not a body.
+
+
+export interface Dressed {
+  readonly mesh: Mesh;
+  readonly role: Role;
+  readonly colour: number;
+}
+
+/** The parts a figure has dressed, so a skin swap and the budget can find them all. */
+export class Wardrobe {
+  readonly parts: Dressed[] = [];
+  constructor(private skin: Skin) {}
+
+  dress(mesh: Mesh, role: Role, colour: number): Mesh {
+    mesh.material = this.skin.material(role, colour);
+    this.parts.push({ mesh, role, colour });
+    return mesh;
+  }
+
+  /** A dressed part at a place, added to a parent. */
+  part(geometry: Mesh["geometry"], role: Role, colour: number, parent: Group, x = 0, y = 0, z = 0): Mesh {
+    const mesh = this.dress(new Mesh(geometry), role, colour);
+    mesh.position.set(x, y, z);
+    parent.add(mesh);
+    return mesh;
+  }
+
+  redress(skin: Skin): void {
+    this.skin = skin;
+    for (const p of this.parts) p.mesh.material = skin.material(p.role, p.colour);
+  }
+
+  get triangles(): number {
+    return this.parts.reduce((n, p) => n + triangleCount(p.mesh.geometry), 0);
+  }
+
+  materials(): Material[] {
+    return this.parts.map((p) => p.mesh.material as Material);
+  }
+
+  dispose(): void {
+    for (const p of this.parts) p.mesh.geometry.dispose();
+  }
+}
+
+export interface Arm {
+  readonly shoulder: Group;
+  readonly elbow: Group;
+  readonly hand: Mesh;
+  readonly side: number;
+}
+export interface Leg {
+  readonly hip: Group;
+  readonly side: number;
+}
+export interface Humanoid {
+  readonly head: Mesh;
+  readonly arms: readonly Arm[];
+  readonly legs: readonly Leg[];
+}
+
+export interface HumanoidOptions {
+  /** Colours by part; the roles are fixed: skin for the face and hands, silk for the clothes. */
+  readonly face: number;
+  readonly torso: number;
+  readonly legs: number;
+  readonly shoe: number;
+  /** A lotus-leaf skirt over the legs, or none. */
+  readonly skirt?: number;
+  readonly headR?: number;
+}
+
+/** The doll, standing on y = 0, 2.3 units tall to the crown of the head. */
+export function humanoid(w: Wardrobe, o: HumanoidOptions, parent: Group): Humanoid {
+  const head = w.part(new SphereGeometry(o.headR ?? 0.5, 24, 18), "skin", o.face, parent, 0, 1.8, 0);
+  w.part(new CapsuleGeometry(0.34, 0.5, 6, 14), "silk", o.torso, parent, 0, 1.05, 0);
+  if (o.skirt !== undefined) w.part(new ConeGeometry(0.62, 0.55, 12, 1, true), "silk", o.skirt, parent, 0, 0.6, 0);
+  const arms: Arm[] = [];
+  for (const side of [-1, 1]) {
+    const shoulder = new Group();
+    shoulder.position.set(side * 0.4, 1.32, 0);
+    parent.add(shoulder);
+    w.part(new CapsuleGeometry(0.11, 0.42, 4, 10), "silk", o.torso, shoulder, 0, -0.26, 0);
+    const elbow = new Group();
+    elbow.position.y = -0.52;
+    shoulder.add(elbow);
+    w.part(new CapsuleGeometry(0.1, 0.38, 4, 10), "silk", o.torso, elbow, 0, -0.24, 0);
+    const hand = w.part(new SphereGeometry(0.12, 10, 8), "skin", o.face, elbow, 0, -0.5, 0);
+    arms.push({ shoulder, elbow, hand, side });
+  }
+  const legs: Leg[] = [];
+  for (const side of [-1, 1]) {
+    const hip = new Group();
+    hip.position.set(side * 0.2, 0.5, 0);
+    parent.add(hip);
+    w.part(new CapsuleGeometry(0.12, 0.35, 4, 10), "silk", o.legs, hip, 0, -0.25, 0);
+    const shoe = w.part(new SphereGeometry(0.15, 10, 8), "iron", o.shoe, hip, 0, -0.48, 0.06);
+    shoe.scale.set(1, 0.6, 1.5);
+    legs.push({ hip, side });
+  }
+  return { head, arms, legs };
+}
+
+/** The walk: legs and arms swinging against each other. */
+export function walk(t: number, h: Humanoid, rate = 5): void {
+  for (const l of h.legs) l.hip.rotation.x = Math.sin(t * rate + (l.side > 0 ? 0 : Math.PI)) * 0.45;
+  for (const a of h.arms) {
+    a.shoulder.rotation.x = Math.sin(t * rate + (a.side > 0 ? Math.PI : 0)) * 0.35;
+    a.shoulder.rotation.z = a.side * 0.15;
+    a.elbow.rotation.x = -0.4;
+  }
+}
+
+/** A bank of silk puffs: `[x, y, z, r]` each; they breathe in `breathe`. */
+export function cloudBank(w: Wardrobe, colour: number, puffs: readonly (readonly [number, number, number, number])[], parent: Group): Group {
+  const g = new Group();
+  parent.add(g);
+  for (const [x, y, z, r] of puffs) {
+    const p = w.part(new SphereGeometry(r, 14, 10), "cloud", colour, g, x, y, z);
+    p.userData.r = r;
+  }
+  return g;
+}
+
+export function breathe(bank: Group, t: number, amount = 0.07): void {
+  bank.children.forEach((p, i) => p.scale.setScalar(1 + Math.sin(t * 2 + i * 1.9) * amount));
+}
+
+export interface Bird {
+  readonly group: Group;
+  /** Flap: the inner and outer wing of each side. */
+  flap(f: number): void;
+}
+
+/** A bird with a red crown and black wingtips at `size` 1: a crane; smaller and blue, one of the Queen Mother's. */
+export function bird(w: Wardrobe, o: { body: number; crown: number; tip: number; beak: number; size?: number }, parent: Group): Bird {
+  const g = new Group();
+  parent.add(g);
+  const body = w.part(new SphereGeometry(0.28, 12, 10), "silk", o.body, g);
+  body.scale.set(1, 0.8, 2.2);
+  const neck = w.part(new CapsuleGeometry(0.06, 1.1, 4, 8), "silk", o.body, g, 0, 0.25, 0.95);
+  neck.rotation.x = Math.PI / 2 - 0.35;
+  w.part(new SphereGeometry(0.11, 10, 8), "silk", o.body, g, 0, 0.48, 1.5);
+  w.part(new SphereGeometry(0.06, 8, 6), "silk", o.crown, g, 0, 0.56, 1.52);
+  const beak = w.part(new ConeGeometry(0.035, 0.35, 6), "iron", o.beak, g, 0, 0.46, 1.75);
+  beak.rotation.x = Math.PI / 2;
+  const legs = w.part(new CapsuleGeometry(0.02, 0.7, 2, 4), "iron", o.tip, g, 0, -0.05, -0.75);
+  legs.rotation.x = Math.PI / 2 + 0.1;
+  const wings: { pivot: Group; outer: Group; side: number }[] = [];
+  for (const side of [-1, 1]) {
+    const pivot = new Group();
+    pivot.position.set(side * 0.2, 0.1, 0.1);
+    w.part(new BoxGeometry(1.2, 0.03, 0.9), "silk", o.body, pivot, side * 0.6, 0, 0);
+    const outer = new Group();
+    outer.position.x = side * 1.2;
+    w.part(new BoxGeometry(1.0, 0.03, 0.7), "silk", o.body, outer, side * 0.5, 0, 0);
+    w.part(new BoxGeometry(0.5, 0.032, 0.7), "iron", o.tip, outer, side * 1.22, 0, 0);
+    pivot.add(outer);
+    g.add(pivot);
+    wings.push({ pivot, outer, side });
+  }
+  g.scale.setScalar(o.size ?? 1);
+  return {
+    group: g,
+    flap(f) {
+      for (const { pivot, outer, side } of wings) {
+        pivot.rotation.z = side * (f * 0.7 + 0.45);
+        outer.rotation.z = side * (f * 0.5 - 0.35);
+      }
+    },
+  };
 }

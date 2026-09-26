@@ -36,6 +36,16 @@ look:
   cloud: none
   grade: clear
 
+# The cast (D91): the pilgrims crossing the Tongtian River beside the camera.
+cast:
+  - figure: pilgrims
+    variant: still
+    role: companion
+    offset: { ahead_m: 760, right_m: 240, up_m: -40 }
+    size_m: 200
+    from: 8
+    until: 110
+
 captions:
   - { at: 12, text: "Qinghai Lake. From here the ground stays above {4000 m}." }
   - { at: 60, text: "Thin air, hard light, no trees. A plateau the size of Europe." }

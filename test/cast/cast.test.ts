@@ -15,7 +15,7 @@ import { dragonMaterials, DRAGON_LENGTH } from "../../engine/src/cast/figures/dr
 import { lanternSkin, SKINS } from "../../engine/src/cast/skin.js";
 import { companionTarget, cueFade, FADE_S } from "../../engine/src/cast/cast.js";
 import { FLIGHT_S } from "../../engine/src/film/timeline.js";
-import { DEFAULT_SCALE, toWorldH, toWorldV } from "../../engine/src/sim/scale.js";
+import { DEFAULT_SCALE, toWorldH } from "../../engine/src/sim/scale.js";
 import { wantedAtStart } from "../../app/src/cast.ts";
 import { loadFilm } from "../../tools/film.ts";
 
@@ -160,13 +160,13 @@ describe("the layer", () => {
     expect(cueFade(cue, 41)).toBe(0);
   });
 
-  it("puts a companion ahead, to the right and up in the camera's frame, in world units", () => {
+  it("puts a companion ahead, to the right and up in the camera's frame, all in the picture's metres", () => {
     const eye = new Vector3(100, 50, -200);
     const north = 0;
     const p = companionTarget(eye, north, { aheadM: 800, rightM: 160, upM: 40 }, DEFAULT_SCALE);
     expect(p.z - eye.z).toBeCloseTo(toWorldH(800, DEFAULT_SCALE));
     expect(p.x - eye.x).toBeCloseTo(toWorldH(160, DEFAULT_SCALE));
-    expect(p.y - eye.y).toBeCloseTo(toWorldV(40, DEFAULT_SCALE));
+    expect(p.y - eye.y).toBeCloseTo(toWorldH(40, DEFAULT_SCALE));
     const east = Math.PI / 2;
     const q = companionTarget(eye, east, { aheadM: 800, rightM: 0, upM: 0 }, DEFAULT_SCALE);
     expect(q.x - eye.x).toBeCloseTo(toWorldH(800, DEFAULT_SCALE));

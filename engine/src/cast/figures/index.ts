@@ -5,3 +5,8 @@
  * `FIGURE_KINDS` and the registry to each other.
  */
 import "./dragon.js";
+import "./nezha.js";
+import "./wukong.js";
+import "./pilgrims.js";
+import "./xiwangmu.js";
+import "./cranes.js";

@@ -5,7 +5,7 @@
  * here has a builder in `figures/`, and the cast tests hold the two lists
  * to each other.
  */
-export const FIGURE_KINDS = ["dragon"] as const;
+export const FIGURE_KINDS = ["dragon", "nezha", "wukong", "pilgrims", "xiwangmu", "cranes"] as const;
 
 export type FigureKind = (typeof FIGURE_KINDS)[number];
 

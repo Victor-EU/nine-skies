@@ -35,6 +35,25 @@ look:
   cloud: none
   grade: warm
 
+# The cast (D91): at 300 km a minute a figure standing in the world is
+# passed in seconds, so both ride with the camera: the Queen Mother from
+# Bogda's Jade Pool over the first leg, Nezha from the Flaming Mountains
+# (ch. 61) over the depression.
+cast:
+  - figure: xiwangmu
+    role: companion
+    offset: { ahead_m: 1600, right_m: 500, up_m: 20 }
+    size_m: 320
+    from: 6
+    until: 40
+  - figure: nezha
+    variant: still
+    role: companion
+    offset: { ahead_m: 1100, right_m: -420, up_m: 30 }
+    size_m: 170
+    from: 24
+    until: 96
+
 captions:
   - { at: 12, text: "Bogda: {5445 m} of snow over a desert." }
   - { at: 40, text: "Ayding Lake, {154 m} below the sea. {47 °C} in July." }

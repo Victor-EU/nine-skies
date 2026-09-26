@@ -65,6 +65,20 @@ cast:
     size_m: 1500
     from: 6
     until: 108
+  - figure: cranes
+    variant: still
+    role: companion
+    offset: { ahead_m: 700, right_m: 240, up_m: -30 }
+    size_m: 260
+    from: 6
+    until: 108
+  - figure: wukong
+    variant: still
+    role: companion
+    offset: { ahead_m: 600, right_m: -170, up_m: -10 }
+    size_m: 70
+    from: 12
+    until: 100
 
 captions:
   - { at: 8, text: "Huangshan. Granite, pines, and cloud filling every valley below." }

@@ -10,11 +10,11 @@
  * costs a dozen materials, and a skin swap touches every part through the
  * figure's own `setSkin`.
  */
-import { Color, MeshBasicMaterial, MeshPhysicalMaterial, Vector2, type DataTexture, type Material } from "three";
+import { Color, DoubleSide, MeshBasicMaterial, MeshPhysicalMaterial, Vector2, type DataTexture, type Material } from "three";
 import { scaleNormalTexture, silkRibTexture } from "./parts.js";
 
 /** What a part is, so a skin can dress it: scales, silk, a horn, a mane, a cloud... */
-export type Role = "scale" | "belly" | "silk" | "skin" | "horn" | "mane" | "cloud" | "flame" | "eye" | "iron" | "gold";
+export type Role = "scale" | "belly" | "silk" | "skin" | "horn" | "mane" | "cloud" | "flame" | "eye" | "iron" | "gold" | "hair" | "matte";
 
 export interface Skin {
   readonly name: string;
@@ -49,6 +49,10 @@ export function lanternSkin(): Skin {
         return new MeshBasicMaterial({ color: colour, transparent: true, opacity: 0.85 });
       case "iron":
         return new MeshPhysicalMaterial({ color: colour, roughness: 0.5 });
+      case "hair":
+        return new MeshPhysicalMaterial({ color: colour, roughness: 0.75 });
+      case "matte":
+        return new MeshPhysicalMaterial({ color: colour, ...glow(colour, 0.25), roughness: 0.85, side: DoubleSide });
       case "eye":
         return new MeshPhysicalMaterial({ color: colour, roughness: 0.1, clearcoat: 1 });
     }
