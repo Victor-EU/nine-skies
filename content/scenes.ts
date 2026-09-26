@@ -17,7 +17,8 @@
  *   exist, because the look is the film and a typo there is a dull scene;
  * - a metric figure in the text without its braces (`{1800 m}`), because
  *   the film shows every figure in feet, miles or Fahrenheit as well
- *   (`content/units.ts`), and one left bare would be metric alone.
+ *   (`content/units.ts`), and one left bare would be metric alone;
+ * - a cast cue the layer could not place or build (`content/cast.ts`, D91).
  */
 import {
   buildRail,
@@ -34,6 +35,7 @@ import { FLIGHT_S } from "../engine/src/film/timeline.js";
 import { dayOfYear, sunPosition } from "../engine/src/gfx/solar.js";
 import { lookProblems } from "../engine/src/look/presets.js";
 import { bareFigures, figuresAsWords, showUnits } from "./units.ts";
+import { castFromRaw } from "./cast.ts";
 
 /** The whole film says fewer than this many lines. */
 export const TEXT_LINE_BUDGET = 40;
@@ -199,6 +201,12 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     else add("music", "a cue name, or absent");
   }
 
+  // The cast's own lines are shown as the film's are, figures in both systems.
+  const cast = castFromRaw(raw.cast, add).map((c) => {
+    if (c.line) bare("cast", c.line);
+    return c.line ? { ...c, line: showUnits(c.line) } : c;
+  });
+
   const scene: Scene = {
     id: isStr(id) ? id : name,
     title,
@@ -215,6 +223,7 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     look,
     captions,
     music,
+    cast,
   };
   return { scene, problems };
 }
@@ -247,6 +256,10 @@ export function validateScene(scene: Scene, options: ValidateOptions = {}): Prob
         add(`rail[${i}].above_ground_m`, `${k.aboveGroundM} is outside the band ${scene.band.minM}–${scene.band.maxM}`);
     });
   }
+
+  scene.cast.forEach((c, i) => {
+    if (c.line && wordCount(c.line) > WORDS_PER_LINE) add(`cast[${i}].line`, `${wordCount(c.line)} words; the budget is ${WORDS_PER_LINE}`);
+  });
 
   if (scene.captions.length > CAPTIONS_PER_SCENE) add("captions", `${scene.captions.length}; the budget is ${CAPTIONS_PER_SCENE}`);
   const sorted = [...scene.captions].sort((a, b) => a.at - b.at);

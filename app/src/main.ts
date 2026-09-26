@@ -53,6 +53,8 @@ import { NO_SOUND, type Sound } from "../../content/sound.ts";
 import { createProbe } from "./probe.js";
 import { chooseWorld } from "./worldChoice.js";
 import { LeadInMap } from "./leadIn.js";
+import { CastSwitch } from "./cast.js";
+import type { CastLayer } from "../../engine/src/cast/cast.js";
 
 /** Seconds a caption stays on screen. */
 const CAPTION_SHOW_S = 6;
@@ -339,10 +341,14 @@ const ICON = {
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9h3.8L12 5v14l-4.7-4H3.5z"/><path d="M15.5 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   full:
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  // A lantern: the cast's skin, and what the button turns on.
+  cast:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v2H9zM8 19h8v2H8z"/><path d="M12 5c4 0 6 2.6 6 7s-2 7-6 7-6-2.6-6-7 2-7 6-7z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 5v14M8.2 8.5h7.6M8.2 15.5h7.6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>',
   window:
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 el("sound").innerHTML = ICON.sound;
+el("cast").innerHTML = ICON.cast;
 
 const fullButton = el("full");
 const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void; webkitFullscreenEnabled?: boolean };
@@ -452,13 +458,14 @@ filmEl.addEventListener("click", (e) => {
   if (b && e.detail > 0) b.blur();
 });
 // The player's own keys, beside the four flight inputs and never among them:
-// P pauses, F fills the screen, M mutes, and 1 to 9 go to a chapter.
+// P pauses, F fills the screen, M mutes, J shows the cast, and 1 to 9 go to a chapter.
 addEventListener("keydown", (e) => {
   if (recorder || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (k === "p") togglePlay();
   else if (k === "f" && canFull) toggleFullScreen();
   else if (k === "m") toggleMute();
+  else if (k === "j" && castSwitch) castSwitch.toggle();
   else if (/^[1-9]$/.test(k) && Number(k) <= (film?.scenes.length ?? 0)) playChapter(Number(k) - 1);
   else return;
   e.preventDefault();
@@ -479,6 +486,7 @@ function useSceneScale(s: Scene | null): void {
   terrain.setScale(scale);
   ring.rebuild(scale);
   rig.setScale(scale);
+  cast?.setScale(scale);
 }
 
 function startScene(i: number): void {
@@ -492,6 +500,7 @@ function startScene(i: number): void {
   lastFlightS = null;
   useSceneScale(s);
   rig.setScene(s);
+  cast?.setScene(s);
   if (packed) packs.play(i);
   el("titleZh").textContent = s.title.zh;
   el("titlePinyin").textContent = s.title.pinyin;
@@ -596,7 +605,35 @@ function placeAt(
     month: film?.scenes[Math.max(0, current)]?.month ?? 6,
     timeS: performance.now() / 1000,
   });
+  if (cast) {
+    cast.visible = rig.passes.cast;
+    cast.frame({
+      timeS: performance.now() / 1000,
+      flightS: lastFlightS ?? 0,
+      eye,
+      headingRad,
+      eastM,
+      northM,
+      altitudeM,
+      light: { ...rig.values, hazeDensity: rig.air.hazeDensity, daylight: rig.sun?.daylight ?? 1 },
+    });
+  }
 }
+
+// ---- The cast (D91) ---------------------------------------------------------
+//
+// Off unless the viewer asks. The switch fetches the layer's code only then,
+// hands the layer the scene and the world, and the frame above lights it.
+let cast: CastLayer | null = null;
+const castSwitch = new CastSwitch({
+  button: el("cast") as HTMLButtonElement,
+  hasCast: (film?.scenes ?? []).some((s) => s.cast.length > 0),
+  layerOptions: () => ({ scene, terrain, scale }),
+  onChange: (layer) => {
+    cast = layer;
+    cast?.setScene(film?.scenes[Math.max(0, current)] ?? null);
+  },
+});
 
 /**
  * The film's clock, Beijing time: the scene's hour plus the flight so far at
@@ -1079,6 +1116,10 @@ if (import.meta.env.DEV) {
       });
     },
     frameCostTable,
+    /** The cast layer while the viewer has it on (D91): `__ns.cast?.figures`. */
+    get cast() {
+      return cast;
+    },
     /** The scene packs: `__ns.packs.stats.misses` is tiles fetched outside them. */
     packs,
     /** The ground's colour (F87): `__ns.colour.stats`, `__ns.colour.decodes`. */

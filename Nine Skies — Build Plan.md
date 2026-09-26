@@ -108,6 +108,16 @@ Everything else in the repository served the version-1 game and goes.
   are, and at six two thirds of it is drawn past 60 degrees and a third past
   75: needles. At three, under a ninth is past 75, the share F14 called
   spikes. The camera flies in real metres, so nothing it does changes (F97).
+- **D91** The film may carry a cast: figures of Chinese myth in the sky,
+  as an optional layer, off unless the viewer asks, and absent from the
+  film when off — no code fetched, no draw made (decided 26 September
+  2026). The figures are made in code, never cut from pictures, and dressed
+  by a skin; the first skin is the festival lantern. A scene names its cast
+  in its file and the gate holds the cues as it holds captions. The layer
+  meets the film at one seam (`Scene.cast`, `CastLayer`), so it can be
+  swapped or dropped without the film noticing. *Journey to the West* is
+  its spine: the novel goes west as the film does, and its episodes land on
+  the rails (F102).
 
 
 ## What each part of the repository becomes

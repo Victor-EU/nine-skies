@@ -141,6 +141,19 @@ distance written on it (*1,900 km west*), and the title card. Then the cut
 into flight. The map is where the geography is stated, and it costs six
 seconds a scene.
 
+## The cast
+
+Off, the film is the film. On — a lantern in the bar, the key J, or `?cast`
+in a shared link — the sky is peopled: figures of Chinese myth, made in
+code in the manner of festival lanterns, placed by each scene's file and
+lit by the scene's own sun and air. *Journey to the West* is the spine,
+since the novel goes west as the film does and its episodes fall where
+the rails fly: the four Dragon Kings surfacing from Huangshan's cloud sea,
+Nezha and the Monkey King at the Flaming Mountains, the pilgrims crossing
+the Tongtian River on the Roof. Non-Han grounds keep their own figures.
+Nothing about the ground changes; the viewer who never asks never sees it
+(D91).
+
 ## Text
 
 A title card per scene: the place in characters, in pinyin and in English,

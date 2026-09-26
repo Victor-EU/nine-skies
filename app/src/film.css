@@ -200,6 +200,7 @@ body.idle, body.idle #view { cursor: none; }
 #film button.icon:hover { background: rgba(242,237,228,.12); }
 .icon svg { width: 20px; height: 20px; fill: currentColor; filter: drop-shadow(0 0 2px rgba(6,10,16,.9)); }
 #sound.off svg { opacity: .5; }
+#cast.off svg { opacity: .5; }
 
 .chapters { display: flex; flex: 1; gap: 3px; min-width: 0; }
 #film .chapters button {

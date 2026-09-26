@@ -54,6 +54,18 @@ look:
   cloud: cloud-sea
   grade: warm
 
+# The cast (D91), when the viewer has it on: the East Sea's dragon king
+# surfacing from the cloud sea north of Lotus Peak, where the rail's second
+# pass looks across at him.
+cast:
+  - figure: dragon
+    variant: east-king
+    role: monument
+    at: { lat: 30.165, lon: 118.205, above_ground_m: 700 }
+    size_m: 1500
+    from: 6
+    until: 108
+
 captions:
   - { at: 8, text: "Huangshan. Granite, pines, and cloud filling every valley below." }
   - { at: 50, text: "The peaks stand at {1800 m}; the cloud lies at {1200 m}." }

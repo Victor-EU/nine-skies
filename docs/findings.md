@@ -2171,3 +2171,95 @@ or pipeline matter, not a shell one.
 title card, the Wall at 30, 92 and 112 s, Loess at 45 and 100 s, the karst
 and the gorge mists, Turpan's title and the Tarim at 80 s were captured
 headless before and after. The stills and the cover are retaken.
+
+## F102 — The cast: figures in the sky, off unless asked, one seam (D91), 26 September 2026
+
+**Asked.** Chinese myth figures in the film's sky — the Monkey King, Nezha,
+the four dragons, the Queen Mother of the West and her blue birds, the
+pilgrims — as a layer the viewer can switch on, off by default, built so it
+can be swapped or dropped later. Research and two mockups came first (the
+cut-out casting board and the 3D study, both private artifacts); the user
+chose figures made in code over anything copied, and the lantern skin over
+ink and lacquer.
+
+**What was built.** An optional layer with three plug axes and a single
+seam.
+
+- *Content.* A scene file may carry a `cast:` block (`content/cast.ts`;
+  `Scene.cast`, empty when absent): each cue names a registered figure, a
+  variant, a role — a *monument* at a place and a height over the ground,
+  or a *companion* so many metres ahead, right and up in the camera's
+  frame — a size in real metres, the seconds of the flight it is in play,
+  and a line of its own. The gate refuses an unknown figure (naming the
+  list), a monument without a place, a companion without an offset or
+  behind the camera, a cue outside the flight or ending before it starts,
+  a size outside 10 m–30 km, a bare figure or a line over twelve words.
+  `content:validate` counts the cast per scene.
+- *Figures.* `engine/src/cast/figure.ts` holds the `Figure` and
+  `FigureBuilder` interfaces and a registry; `kinds.ts` is the list the
+  gate knows, so the gate carries no geometry, and a test holds the two to
+  each other. A figure is built once at a native size in its own units and
+  scaled to the cue's metres by the layer; each frame it moves itself and
+  the layer places it. `parts.ts` has what figures share: a scale relief
+  and a silk-and-rib texture computed in code (no canvas, so a figure
+  builds in a test), and `SpineTube`, a body of any length along a curve
+  with its belly kept down and two index groups so a skin dresses back and
+  belly apart. The first figure is the dragon (`figures/dragon.ts`): the
+  study's, ported — 9,380 triangles, four claws, no wings, variants for the
+  four kings in the Four Symbols' colours.
+- *Skin.* A figure never picks a material: it asks its skin by role and
+  colour (`skin.ts`), and a skin caches per pair, so a dragon of a hundred
+  parts wears eleven materials. The lantern is the first skin: silk over
+  bamboo with an inner glow. A swap redresses every part (tested).
+- *The layer.* `cast.ts`'s `CastLayer` owns the scene's figures, a sun and
+  a hemisphere light it sets each frame from the look's values (direction,
+  colour, ambient, daylight), and a fog in the horizon's colour whose reach
+  is set from the look's haze (linear against the look's exponential; they
+  cross two thirds of the way to the horizon, near enough for figures that
+  should fade where the ground does). The terrain's shaders ignore
+  `scene.fog`, so the world is untouched. Monuments are placed every frame
+  in world units, since the terrain rebases; companions are eased toward
+  their spot. A cue fades in and out over 1.5 s. `Passes.cast` prices the
+  layer by absence like the others; `LookRig.air` exposes the haze it
+  computed.
+- *The switch.* `app/src/cast.ts`: a lantern button in the bar (shown only
+  when the film has a cast), the key J, `?cast` in the address so a link
+  carries it (`?cast=off` to refuse it), the choice remembered per browser.
+  On, the layer's code arrives as its own chunks (`cast-*.js`, the figures,
+  `parts-*.js`: 12 kB gzipped between them) and the current scene's figures
+  are built; off, they are freed and the fog removed. The entry bundle
+  carries none of the figure code (checked in the build: `main-*.js`
+  mentions no variant, the figures chunk does).
+- *The seam.* `Scene.cast`; the parser; `Passes.cast` and `LookRig.air`;
+  in the shell, `cast?.setScene` at a scene's start, `cast?.setScale` with
+  the exaggeration, `cast?.frame` after the look's frame, the button, the
+  key, and `__ns.cast` for probing. Nothing else in the core knows the
+  layer exists.
+
+**First cue.** Huangshan: the East Sea's king, 1,500 m, 700 m over the
+ground north of Lotus Peak, from 6 to 108 s. Captured headless with the
+cast on (scratch `castshot.mjs`, `tools/stills.ts`'s driver with
+`Page.captureScreenshot`, and `PROBE=10,20,…` to project the figure into
+the frame at each second): in frame and lit at 10–25 s, upper right over
+the cloud sea, hazed with the peaks; behind the camera from 30 s on the
+rail's second pass. Small at 850 world units. Both are content matters for
+the cues (stage C), not the layer's.
+
+**Cost.** Not yet priced at the stations (the pane was hidden and the
+frame loop with it); the dragon rewrites 1,533 vertices and 32 instance
+matrices a frame and draws under 10k triangles in a dozen materials.
+
+**Checked.** `npm run check`: typecheck, 479 tests (13 new in
+`test/cast/`), `content:validate` with Huangshan showing one in the cast.
+In the pane: a fresh page comes up off with only the switch's own module
+loaded; the button fetches the layer's modules and builds one figure; the
+second click frees it and removes the group and the fog; the address flag
+and the stored choice behave as the tests say.
+
+**Next.** Stage B, the study's other figures as builders (Nezha, Wukong,
+the pilgrims on a shared figurine, Xiwangmu and the birds, the cranes);
+stage C, cues for the nine scenes from the casting board, and the sky's
+name on the card; stage D, the layer's lines in their own register; the
+fog matched to the look's exponential haze in the figures' own shader
+once there are enough figures to justify one; the stations priced with
+the cast on.

@@ -162,7 +162,7 @@ export interface FrameCostOptions {
    */
   readonly render?: (() => void) | undefined;
   /** The look's pass switches, priced one at a time when given. */
-  readonly passes?: { sky: boolean; shadow: boolean; clouds: boolean; post: boolean } | undefined;
+  readonly passes?: { sky: boolean; shadow: boolean; clouds: boolean; post: boolean; cast: boolean } | undefined;
   /**
    * Stop the host's own animation loop for the duration, returning the
    * function that starts it again.
@@ -479,7 +479,7 @@ async function capture(
     // one costs is the difference (stage 3's budget lines).
     const passes = options.passes;
     if (passes) {
-      for (const name of ["sky", "shadow", "clouds", "post"] as const) {
+      for (const name of ["sky", "shadow", "clouds", "post", "cast"] as const) {
         if (!passes[name]) continue;
         passes[name] = false;
         ms[`all.no-${name}`] = await timeVariant(`all.no-${name}`);

@@ -46,6 +46,33 @@ export interface SceneLook {
   readonly grade: string;
 }
 
+/**
+ * One figure of the cast in a scene's sky (D91): what appears, where it is
+ * held, and for which seconds of the flight. A monument is anchored in the
+ * world at a place and a height over the ground; a companion rides in the
+ * camera's own frame, so many metres ahead, to the right and up. Sizes and
+ * offsets are real metres, converted by the world's scale where they are
+ * used, so a cue reads the way a rail key does.
+ */
+export interface CastCue {
+  /** A registered figure kind (`engine/src/cast/kinds.ts`). */
+  readonly figure: string;
+  /** A variant the builder understands, or null for its default. */
+  readonly variant: string | null;
+  readonly role: "monument" | "companion";
+  /** Where a monument stands. */
+  readonly at: { readonly lat: number; readonly lon: number; readonly aboveGroundM: number } | null;
+  /** Where a companion rides, in the camera's frame. */
+  readonly offset: { readonly aheadM: number; readonly rightM: number; readonly upM: number } | null;
+  /** The figure's longest extent, real metres. */
+  readonly sizeM: number;
+  /** Seconds into the flight it is in play. */
+  readonly fromS: number;
+  readonly untilS: number;
+  /** The layer's own line for the moment it appears, or null. */
+  readonly line: string | null;
+}
+
 export interface Scene {
   readonly id: string;
   readonly title: SceneTitle;
@@ -84,6 +111,8 @@ export interface Scene {
   readonly look: SceneLook;
   readonly captions: readonly Caption[];
   readonly music: string | null;
+  /** The figures in this scene's sky when the viewer has the cast on; empty for none (D91). */
+  readonly cast: readonly CastCue[];
 }
 
 export interface Film {

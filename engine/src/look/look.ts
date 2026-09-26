@@ -59,6 +59,8 @@ export interface Passes {
   shadow: boolean;
   clouds: boolean;
   post: boolean;
+  /** The cast (D91), when the viewer has it on; priced by absence like the rest. */
+  cast: boolean;
 }
 
 /** The shadow map's side, world units, from the camera's height over the ground. */
@@ -73,9 +75,11 @@ export class LookRig {
   readonly cirrus = new CloudLayer();
   readonly post: PostPipeline;
   readonly values = createLookValues();
-  readonly passes: Passes = { sky: true, shadow: true, clouds: true, post: true };
+  readonly passes: Passes = { sky: true, shadow: true, clouds: true, post: true, cast: true };
   /** The sun as last computed, for anyone who wants to know where it is. */
   sun: SunState | null = null;
+  /** The air as last computed, per world unit: what the cast fades into (D91). */
+  readonly air = { hazeDensity: 0, hazeFalloff: 0 };
   private look: ResolvedLook = resolveLook({ sky: "default", palette: "default", cloud: "none", grade: "none" });
   private mist: MistPreset | null = null;
   private readonly forward = new Vector3();
@@ -142,6 +146,8 @@ export class LookRig {
     // The air, in world units.
     const hazeDensity = hazeDensityPerWorldUnit(preset.hazeDensityPerM, this.scale);
     const hazeFalloff = hazeFalloffPerWorldUnit(preset.scaleHeightM, this.scale);
+    this.air.hazeDensity = hazeDensity;
+    this.air.hazeFalloff = hazeFalloff;
     for (const m of [...this.options.terrain.lookMaterials, this.options.ring.material]) {
       m.uniforms.uHazeDensity!.value = hazeDensity;
       m.uniforms.uHazeHeightFalloff!.value = hazeFalloff;
