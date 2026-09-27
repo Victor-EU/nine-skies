@@ -7,13 +7,15 @@
  * face. A white horse saddled in white and gold, walking the air with no
  * rider, and a white spear upright at the saddle with a white pennant
  * streaming from it. In place as `still`, or a slow circle. No part of
- * him is skin (`LIVING_FAITHS`).
+ * him is skin (`LIVING_FAITHS`). Baked into one skinned mesh per material
+ * (F112), all but the tail and the pennant, rebuilt each frame; the cloud
+ * holds still.
  *
  * Native height 3.9 units, to the spear's blade.
  */
 import { BoxGeometry, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, TubeGeometry, Vector3 } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank, horse, horseWalk, type Horse } from "../parts.js";
+import { Wardrobe, cloudBank, horse, horseWalk, type Horse } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const WHITE = 0xf7f5f0;
@@ -35,7 +37,6 @@ class Sanduo implements Figure {
   private readonly pennant: Mesh;
   private readonly pennantPts: Vector3[] = [];
   private readonly pennantCurve: CatmullRomCurve3;
-  private readonly cloud: Group;
   private readonly circuit: number;
 
   constructor(ctx: BuildContext) {
@@ -55,7 +56,7 @@ class Sanduo implements Figure {
     this.pennantCurve = new CatmullRomCurve3(this.pennantPts);
     this.pennant = w.dress(new Mesh(new TubeGeometry(this.pennantCurve, 24, 0.045, 5, false)), "silk", 0xffffff);
     spear.add(this.pennant);
-    this.cloud = cloudBank(
+    cloudBank(
       w,
       CLOUD,
       [
@@ -69,6 +70,7 @@ class Sanduo implements Figure {
       ],
       B,
     );
+    w.bake(B, [this.horse.tail, this.pennant]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
@@ -93,7 +95,6 @@ class Sanduo implements Figure {
     }
     this.pennant.geometry.dispose();
     this.pennant.geometry = new TubeGeometry(this.pennantCurve, 24, 0.045, 5, false);
-    breathe(this.cloud, t, 0.05);
   }
 
   dispose(): void {

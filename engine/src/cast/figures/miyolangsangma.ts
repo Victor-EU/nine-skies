@@ -55,6 +55,8 @@ class Miyolangsangma implements Figure {
       w.part(new SphereGeometry(0.09, 8, 6), "matte", FOOD, B, Math.cos(a) * 0.12, 2.06 + (i === 0 ? 0.06 : 0), -0.05 + Math.sin(a) * 0.12);
     }
     w.part(new ConeGeometry(0.07, 0.22, 6), "flame", JEWEL, B, 0, 2.24, -0.05);
+    // one skinned mesh per material, the tiger's way (F112)
+    w.bake(B, [this.b.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }

@@ -9,10 +9,14 @@
  * or a slow circle.
  *
  * Native length 6.5 units, muzzle to tail.
+ * Baked into one skinned mesh per material (F112), all but the tail,
+ * rebuilt each frame: the head, legs and wheel move by their groups, each
+ * flame flickers and the tuft follows the tail on a pivot of its own, and
+ * the cloud holds still.
  */
 import { CapsuleGeometry, CatmullRomCurve3, ConeGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3 } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank } from "../parts.js";
+import { Wardrobe, cloudBank } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const WHITE = 0xf3f1ec;
@@ -38,13 +42,12 @@ class NiuMoWang implements Figure {
   private readonly body = new Group();
   private readonly head = new Group();
   private readonly wheel = new Group();
-  private readonly flames: Mesh[] = [];
+  private readonly flames: Group[] = [];
   private readonly legs: Leg[] = [];
   private readonly tail: Mesh;
-  private readonly tuft: Mesh;
+  private readonly tuft = new Group();
   private readonly tailPts: Vector3[] = [];
   private readonly tailCurve: CatmullRomCurve3;
-  private readonly cloud: Group;
   private readonly circuit: number;
 
   constructor(ctx: BuildContext) {
@@ -79,8 +82,12 @@ class NiuMoWang implements Figure {
     w.part(new TorusGeometry(0.5, 0.06, 8, 28), "gold", GOLD, W).rotation.x = Math.PI / 2;
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      const fl = w.part(new ConeGeometry(0.1, 0.4, 5), "flame", FLAME, W, Math.cos(a) * 0.6, 0, Math.sin(a) * 0.6);
+      // each flame flickers on a pivot of its own, so the bake gives it a bone
+      const fl = new Group();
+      fl.position.set(Math.cos(a) * 0.6, 0, Math.sin(a) * 0.6);
       fl.rotation.set(0, -a, Math.PI / 2);
+      W.add(fl);
+      w.part(new ConeGeometry(0.1, 0.4, 5), "flame", FLAME, fl);
       this.flames.push(fl);
     }
     // four legs on hips, with a knee and a hoof
@@ -105,8 +112,9 @@ class NiuMoWang implements Figure {
     this.tailCurve = new CatmullRomCurve3(this.tailPts);
     this.tail = w.dress(new Mesh(new TubeGeometry(this.tailCurve, 14, 0.06, 6, false)), "silk", WHITE);
     B.add(this.tail);
-    this.tuft = w.part(new ConeGeometry(0.12, 0.4, 6), "mane", PALE, B);
-    this.cloud = cloudBank(
+    B.add(this.tuft);
+    w.part(new ConeGeometry(0.12, 0.4, 6), "mane", PALE, this.tuft);
+    cloudBank(
       w,
       CLOUD,
       [
@@ -119,6 +127,7 @@ class NiuMoWang implements Figure {
       ],
       B,
     );
+    w.bake(B, [this.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
@@ -156,7 +165,6 @@ class NiuMoWang implements Figure {
     this.tail.geometry = new TubeGeometry(this.tailCurve, 14, 0.06, 6, false);
     this.tuft.position.copy(this.tailPts[6]!);
     this.tuft.rotation.x = Math.PI * 0.85;
-    breathe(this.cloud, t, 0.05);
   }
 
   dispose(): void {

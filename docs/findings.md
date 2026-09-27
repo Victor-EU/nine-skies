@@ -2870,3 +2870,50 @@ tuft rides the end of the tail.
 Of the unbaked figures, the Bull Demon King (44), the goddess's tigress
 (42), Sanduo's horse (37), the tiger (36) and the phoenix (31) are the
 heaviest.
+
+## F112 — The Bull Demon King, the tigress, Sanduo's mount and the tiger baked, 27 September 2026
+
+The four heaviest figures left after F111, none of them on a station at
+60 s but each on stage for a good part of its scene.
+
+**What had to change first.** The bull's six wheel flames flickered by
+scaling themselves and its tuft followed the tail's end by moving
+itself; the tiger's dark tail tip did the same. Each is now a pivot group
+with the same transform, which the bake gives a bone. The tiger's body
+is shared by the goddess's tigress (`tigerBody`), so the tip's pivot
+serves both. What is rebuilt each frame stays out: every tail, and
+Sanduo's pennant. The tiger's and the tigress's striped coat and head
+wear their own stripes, so they stay out too, three draws each. The
+clouds hold still.
+
+| figure | draws before | after | bones |
+|---|---|---|---|
+| the Bull Demon King | 44 | 11 | 19 |
+| the tigress | 42 | 14 | 12 |
+| Sanduo's mount | 37 | 11 | 7 |
+| the tiger | 36 | 10 | 12 |
+
+| frame | draws before | after | without the cast |
+|---|---|---|---|
+| Below the Sea at 46 s (Wukong, Nezha, the bull) | 82 | 49 | 16 |
+| the Wall at 40 s (the tigress) | 65 | 37 | 23 |
+| the Bend at 95 s (Wukong, the party, the tiger, Sanduo's mount) | 126 | 74 | 22 |
+
+The triangles in each frame are the same before and after.
+
+**Checked.** Every test passes (489) and `validateFilm` says the film is
+ok; the figures' test holds each of the four to its count with every
+triangle kept, and the living-faith test still finds no part of skin on
+Sanduo's mount or the tigress. `npm run check` as a whole stops at the
+type check, on one error in `content/cast.ts`: a peer session sharing
+the checkout has added fields to `CastCue` for D92 and has not finished
+the parser. Nothing here touches either file, and the four figures
+typechecked clean before that edit landed. Captured headless at Turpan
+46 s, the Wall 40 s and the Bend 95 s (`castC-N-*`), each with a second
+frame 250 ms later: the bull's wheel has turned on its horn and its legs
+have moved; the tigress and the tiger have changed stride with the tail
+tip on the tail's end; Sanduo's spear stands at the saddle.
+
+**Where the cast stands.** Thirteen of the twenty-three figures are
+baked. The heaviest left are the phoenix (31), Yao Ji (31) and the
+elephant (28).

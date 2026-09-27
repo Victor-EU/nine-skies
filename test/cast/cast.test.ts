@@ -327,8 +327,8 @@ describe("the figures", () => {
 
   it("draw the heaviest figures as a handful of meshes, every triangle kept", () => {
     const skin = lanternSkin();
-    const most: Record<string, number> = { baxian: 40, pilgrims: 25, cranes: 3, egrets: 5, dragon: 8, wukong: 12, nezha: 10, xiwangmu: 14, qilin: 10 };
-    const least: Record<string, number> = { baxian: 30_000, pilgrims: 15_000, cranes: 10_000, egrets: 10_000, dragon: 9_000, wukong: 9_000, nezha: 8_000, xiwangmu: 10_000, qilin: 5_000 };
+    const most: Record<string, number> = { baxian: 40, pilgrims: 25, cranes: 3, egrets: 5, dragon: 8, wukong: 12, nezha: 10, xiwangmu: 14, qilin: 10, niumowang: 11, miyolangsangma: 14, sanduo: 11, tiger: 10 };
+    const least: Record<string, number> = { baxian: 30_000, pilgrims: 15_000, cranes: 10_000, egrets: 10_000, dragon: 9_000, wukong: 9_000, nezha: 8_000, xiwangmu: 10_000, qilin: 5_000, niumowang: 6_000, miyolangsangma: 6_000, sanduo: 4_000, tiger: 5_000 };
     for (const [kind, limit] of Object.entries(most)) {
       const f = figureBuilder(kind)!({ skin, variant: "still", scale: DEFAULT_SCALE });
       // the meshes drawn: a part hidden (the Queen Mother's legs, under her robe) is never drawn

@@ -8,13 +8,16 @@
  *
  * The body is shared: `tigerBody` builds it in any livery, with or without
  * the mark, and `prowl` walks it; the goddess's tigress is the same body
- * in gold.
+ * in gold. Both are baked into one skinned mesh per material (F112), all
+ * but the tail, rebuilt each frame, and the striped coat, which wears its
+ * own stripes; the tail's tip rides a pivot of its own, and the cloud
+ * holds still.
  *
  * Native length 4.2 units, nose to tail tip.
  */
 import { BoxGeometry, CapsuleGeometry, CatmullRomCurve3, ConeGeometry, Group, Mesh, SphereGeometry, TubeGeometry, Vector3, type DataTexture, type Material } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank, stripesTexture } from "../parts.js";
+import { Wardrobe, cloudBank, stripesTexture } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const ORANGE = 0xe8922a;
@@ -44,10 +47,10 @@ export interface TigerBody {
   readonly head: Group;
   readonly legs: readonly Leg[];
   readonly tail: Mesh;
-  readonly tip: Mesh;
+  /** The tail's dark tip, on a pivot that follows the tail's end. */
+  readonly tip: Group;
   readonly tailPts: Vector3[];
   readonly tailCurve: CatmullRomCurve3;
-  readonly cloud: Group;
 }
 
 /** The tiger's body on `B`, standing on its cloud, 4.2 units nose to tail tip. */
@@ -104,8 +107,10 @@ export function tigerBody(w: Wardrobe, B: Group, o: TigerLivery): TigerBody {
   const tailCurve = new CatmullRomCurve3(tailPts);
   const tail = striped(w.dress(new Mesh(new TubeGeometry(tailCurve, 16, 0.07, 6, false)), "matte", o.coat));
   B.add(tail);
-  const tip = w.part(new ConeGeometry(0.08, 0.3, 6), "iron", o.stripe, B);
-  const cloud = cloudBank(
+  const tip = new Group();
+  B.add(tip);
+  w.part(new ConeGeometry(0.08, 0.3, 6), "iron", o.stripe, tip);
+  cloudBank(
     w,
     CLOUD,
     [
@@ -117,10 +122,10 @@ export function tigerBody(w: Wardrobe, B: Group, o: TigerLivery): TigerBody {
     ],
     B,
   );
-  return { head, legs, tail, tip, tailPts, tailCurve, cloud };
+  return { head, legs, tail, tip, tailPts, tailCurve };
 }
 
-/** The walk: legs, a look about, the tail along its curve, the cloud breathing. Returns the body's sway. */
+/** The walk: legs, a look about, the tail along its curve. Returns the body's sway. */
 export function prowl(b: TigerBody, t: number, rate = 3.4): number {
   for (const l of b.legs) {
     l.hip.rotation.x = Math.sin(t * rate + l.phase) * 0.5;
@@ -135,7 +140,6 @@ export function prowl(b: TigerBody, t: number, rate = 3.4): number {
   b.tail.geometry = new TubeGeometry(b.tailCurve, 16, 0.07, 6, false);
   b.tip.position.copy(b.tailPts[7]!);
   b.tip.rotation.x = -Math.PI / 2;
-  breathe(b.cloud, t, 0.05);
   return Math.sin(t * rate) * 0.04;
 }
 
@@ -153,6 +157,7 @@ class Tiger implements Figure {
     this.circuit = ctx.variant === "still" ? 0 : 8;
     this.group.add(this.body);
     this.b = tigerBody(w, this.body, { coat: ORANGE, stripe: BLACK, pale: CREAM, nose: PINK, eye: GOLD, mark: true });
+    w.bake(this.body, [this.b.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
