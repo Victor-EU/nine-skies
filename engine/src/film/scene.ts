@@ -81,6 +81,14 @@ export interface CastCue {
   readonly nameZh: string | null;
   /** Seconds into the flight the line shows: the cue's `fromS` unless it says. */
   readonly lineAtS: number;
+  /**
+   * The ways it may move (D92), named in `engine/src/cast/moves.ts`; null
+   * for its figure's own temperament. The director draws each visit's from
+   * these, so a viewing never knows where it will come from.
+   */
+  readonly motions: readonly string[] | null;
+  /** How often it is cast at all, 0 to 1: under 1, some viewings never see it. */
+  readonly chance: number;
 }
 
 /** Seconds a line of the cast stays, as a caption does. */

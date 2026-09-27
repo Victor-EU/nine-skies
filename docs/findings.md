@@ -2917,3 +2917,141 @@ tip on the tail's end; Sanduo's spear stands at the saddle.
 **Where the cast stands.** Thirteen of the twenty-three figures are
 baked. The heaviest left are the phoenix (31), Yao Ji (31) and the
 elephant (28).
+
+## F113 — The cast moves on its own: visits drawn from a seed, and a fourth plug axis (D92), 27 September 2026
+
+**Asked.** The figures follow the camera, which is boring; make their
+movement random so that they surprise, and keep to the cast's plug-and-play
+architecture.
+
+**What was wrong.** Thirty-five of the forty-one cues were companions: a
+fixed spot in the camera's frame, held for 40 to 110 s, faded in on the
+spot and faded out on it, turned the way the cue said while riding along
+at the camera's speed. Up to five were on screen at once (the Karst). A
+figure with no motion of its own relative to the lens reads as a sticker
+on the glass; the eye has placed it in three seconds and stops looking.
+Measured playing (scratch `motionprobe.mjs`, which plays a scene headless
+and projects every figure twice a second), two things were worse than dull:
+
+- The ease toward a companion's spot ran in world units, so a companion
+  trailed its spot by the camera's speed over the ease's rate: 60–240 m at
+  Huangshan's 22 km/min, but 1.9 km at the Roof's 360, where every
+  companion sat *behind* the lens for nearly every sample.
+- The eased position survived the terrain's rebase of the world origin
+  (every 4,000 world units, every 5.3 s at the Roof), so each rebase threw
+  the companions 4 to 24 km ahead, from where they rushed back through the
+  middle of the picture and behind the camera again. At the Roof and the
+  grassland the cast was flashes, not figures.
+
+Holds hid both: `__ns.hold` pins the camera, so every still the cues were
+tuned by showed the spot exactly.
+
+**What was built: motion, the cast's fourth plug axis** (beside the figure,
+the skin and the cue; the layer's one seam with the film is unchanged but
+for a `view` in the frame input and `lineAt`).
+
+- *The list the gate knows* (`cast/moves.ts`): `anchor` (a monument's),
+  `hold` (the F103 companion, kept for a cue that asks for it), and seven
+  that pass through the picture: `cross`, `overtake` (from behind the
+  lens), `oncoming` (out of the distance, face-on, past the lens), `rise`
+  (up from under the frame and down again), `stoop` (down from over it),
+  `circle` (round the camera), `blink` (Wukong's somersault: a pause, gone
+  in half a second up and over, a pause somewhere else); and `chase`, which
+  only the director casts.
+- *Motions* (`cast/motion.ts`, `cast/motions/*.ts`, one file each,
+  registered by being imported, as figures are): a motion is built for one
+  visit and returns a pose for any second of it. Most are a `KeyPath`: a
+  cubic Hermite through timed keys laid out in the picture's own terms (the
+  frame's -1..1 and metres from the lens, with a pad of the figure's own
+  half-size past an edge), read back into metres through the live view
+  each frame, so a path that enters off the edge of a 16:9 frame also
+  enters off the edge of a phone held upright. A figure faces the way it is
+  seen to go (side-on crossing, face-on coming on, from behind when it
+  overtakes), pitches with its climb and banks into its turns, within its
+  temperament's limits; the prayer flags, a thing on the wind, keep their
+  cue's facing so they are never a stick seen end-on.
+- *Temperaments* (`cast/temperament.ts`): each figure's repertoire and
+  weights, pace, height band in the picture, pitch, gaps between visits,
+  and whom it chases — a table of character apart from the builders, so
+  a figure's file knows its body and nothing of how it is cast; a figure
+  with no entry moves generically. Play is Wukong's (the somersault) and
+  Nezha's (he chases Wukong, as in ch. 4, wherever both are cast); the
+  living faiths and the Queen Mother are `stately`: slow, never drawn near.
+- *The director* (`cast/director.ts`): when a scene starts it draws the
+  scene's plan from the viewing's seed. A companion now *visits*: in from
+  off the picture, through it or pausing in it, and out, with empty sky
+  between. What it keeps, whatever the dice: a figure with a line has
+  arrived and is paused at its author's spot, turned as its author turned
+  it, for every second of its line, and comes and goes on its author's side
+  of the picture; no more than two companions are in the picture at once,
+  lines aside; a figure's visits stay inside its cue and three seconds
+  apart; a monument stands for its whole cue. The dice choose the motion,
+  the side, the height, the distance (mostly the author's, one visit in
+  seven near and big, one in seven far and small; never near for the
+  stately), whether a visit pauses, the gaps, and — for a cue with a
+  `chance:` — whether the figure comes at all.
+- *The seed* (`cast/random.ts`, `app/src/cast.ts`): a new one each time
+  the page opens; `?castseed=N` plays a viewing again. A plan is a function
+  of the seed, the scene and the cue alone, and a pose of the flight's
+  second alone, so a seek, a hold, a probe or a shared link shows the same
+  thing in any browser at any frame rate. Nothing in the cast calls
+  `Math.random` but the shell's one draw.
+- *Content* (`content/cast.ts`): a cue may name `motion:` (one or a list,
+  of its role's motions) and `chance:` (0 to 1]; neither is used yet, so
+  every cue moves by its figure's temperament.
+- *The layer*: companions are placed from the camera's position every
+  frame through a frame whose heading follows the camera's with a 0.8 s
+  lag, so a figure is where its motion says at any speed and across a
+  rebase, and swings a little when the rail turns. A figure skimming ground
+  is lifted by up to half its size; one that goes behind a peak is hidden
+  by it (lifting it clear pushed Wukong out of the top of the picture among
+  Huangshan's spires, by up to 1,100 m). The line on screen comes from the
+  layer, so a figure the dice left out says nothing.
+
+**What it does.** Over 200 seeds:
+
+| scene | visits a viewing | cue-seconds on stage | seconds with no companion |
+|---|---|---|---|
+| Huangshan | 10.9 | 41% | 43 of 114 |
+| the Three Gorges | 6.2 | 46% | 54 |
+| the Karst | 11.7 | 40% | 17 |
+| the First Bend | 12.6 | 42% | 26 |
+| the Loess | 10.5 | 42% | 34 |
+| Grassland to Heaven Lake | 6.9 | 48% | 51 |
+| Below the Sea | 8.3 | 40% | 36 |
+| the Roof | 11.1 | 47% | 26 |
+| the Wall | 3.2 | 51% | 67 |
+
+Crossings are 44% of visits, then oncoming 19%, overtaking 10%, rising 9%,
+the somersault 7%, stooping 6%, chasing 2%, circling 2%. Played headless
+with seed 7: at Huangshan the cranes overtake from behind the lens at 9 s
+and are gone by 17; Wukong drops in over a peak at 14 s and is in three
+places before 23; the sky is empty until 29, when he crosses for his line;
+from 48 s Nezha is a second behind him through every hop. At the Roof the
+pilgrims walk across the picture at 13–22 s at 360 km/min, the cranes come
+out of the distance and hold for their line, and the flags blow in for
+theirs — where before the fix all three were behind the camera.
+
+**Checked.** `npm run check`: typecheck, 507 tests (18 new in
+`test/cast/motion.test.ts`: the dice; the motion list against the registry;
+every passing motion entering and leaving off the picture or behind the
+lens in a 16:9 and a 9:19.5 view for three sizes and twelve seeds, never
+jumping; facing by motion; a named pause at the author's spot and facing;
+the flags' fixed facing; the temperaments' rules; for every committed scene
+and forty seeds, the plan's determinism, every line covered in the
+picture, visits inside their cues and apart, the crowd held; Nezha after
+Wukong; `chance` and a cue's own motions; the gate; the seed; and the layer
+holding a companion to its pose at the Roof's speed through a rebase), and
+`validateFilm` ok. The tests found two faults before any viewer did: the
+Bull Demon King, put near the left edge, drifted off it during his line
+(a pause's drift is now kept inside the picture) and left by swinging
+across the lens (a named visit now keeps to its author's side); and
+`?cast` alone parsed as seed 0, which would have played every viewing the
+same.
+
+**Not done.** Monuments still stand still for their cue; the Huangshan
+kings could surface and sink on their own timing. A figure does not yet
+turn its head to the lens as it passes. Nothing announces an arrival
+(cranes scattering before a dragon breaks the cloud, a sound). No cue uses
+`chance:` yet, so every figure comes every viewing. The rise does not know
+where the cloud sea or the river is, only the bottom of the frame.

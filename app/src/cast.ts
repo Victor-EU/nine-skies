@@ -21,6 +21,17 @@ export interface CastSwitchOptions {
   readonly onChange: (layer: CastLayer | null) => void;
 }
 
+/**
+ * The viewing's seed (D92): `?castseed=` in the address plays a viewing
+ * again, a still or a probe the same way twice; otherwise a new one each
+ * time the page opens, so the cast is never quite where it was.
+ */
+export function seedAtStart(search: string, draw: () => number = () => Math.floor(Math.random() * 4294967296)): number {
+  const given = new URLSearchParams(search).get("castseed");
+  const v = given === null || given.trim() === "" ? NaN : Number(given);
+  return Number.isInteger(v) && v >= 0 ? v >>> 0 : draw() >>> 0;
+}
+
 /** The viewer's choice as the page opened: the address first, then this browser's memory. */
 export function wantedAtStart(search: string, stored: string | null): boolean {
   const params = new URLSearchParams(search);
@@ -30,6 +41,8 @@ export function wantedAtStart(search: string, stored: string | null): boolean {
 
 export class CastSwitch {
   current: CastLayer | null = null;
+  /** One seed for the page: switching the cast off and on again plays the same viewing. */
+  readonly seed = seedAtStart(location.search);
   private wanted = false;
   private loading: Promise<void> | null = null;
 
@@ -66,11 +79,11 @@ export class CastSwitch {
     if (on) {
       if (this.loading) return;
       this.loading = (async () => {
-        // The layer and its figures, only now (vite splits them into their own chunk).
-        const [{ CastLayer }] = await Promise.all([import("../../engine/src/cast/cast.js"), import("../../engine/src/cast/figures/index.js")]);
+        // The layer, its figures and their motions, only now (vite splits them into their own chunks).
+        const [{ CastLayer }] = await Promise.all([import("../../engine/src/cast/cast.js"), import("../../engine/src/cast/figures/index.js"), import("../../engine/src/cast/motions/index.js")]);
         this.loading = null;
         if (!this.wanted) return;
-        this.current = new CastLayer(this.options.layerOptions());
+        this.current = new CastLayer({ ...this.options.layerOptions(), seed: this.seed });
         this.options.onChange(this.current);
       })();
       await this.loading;

@@ -42,7 +42,7 @@ import {
   type WorldScale,
 } from "../../engine/src/sim/scale.js";
 import { LEAD_IN_S, SCENE_S, Timeline, type TimelinePosition } from "../../engine/src/film/timeline.js";
-import { FILM_VERSION, buildRail, castLineAt, railAtKm, type BuiltRail, type CastCue, type Film, type Scene } from "../../engine/src/film/scene.js";
+import { FILM_VERSION, buildRail, railAtKm, type BuiltRail, type CastCue, type Film, type Scene } from "../../engine/src/film/scene.js";
 import { RailFlight, type RailState } from "../../engine/src/film/rail.js";
 import { AltitudeController } from "../../engine/src/film/altitude.js";
 import { captureFrameCost, frameCostTable, quietFrame, BUDGET_FOV_DEG } from "./frameCost.js";
@@ -657,6 +657,7 @@ function placeAt(
       northM,
       altitudeM,
       light: { ...rig.values, hazeDensity: rig.air.hazeDensity, daylight: rig.sun?.daylight ?? 1 },
+      view: { tanHalfY: Math.tan((camera.fov * Math.PI) / 360), tanHalfX: Math.tan((camera.fov * Math.PI) / 360) * camera.aspect, pitchRad: pitch },
     });
   }
 }
@@ -953,7 +954,7 @@ function frame(now: number): void {
     const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt, s.lookAheadKm);
     placeAt(state.eastM, state.northM, alt, state.headingRad, state.bankRad, clockNow(), state.pitchDeg);
     showCaption(captionAt(s, pos.flightS));
-    showCastLine(cast ? castLineAt(s, pos.flightS) : null);
+    showCastLine(cast?.lineAt(pos.flightS) ?? null);
     el("auto").classList.toggle("on", state.auto);
     // The speed, while the viewer is changing it and for a moment after; the
     // badge is quiet while the rail flies itself.

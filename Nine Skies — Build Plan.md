@@ -122,6 +122,16 @@ Everything else in the repository served the version-1 game and goes.
   cast speaks in its own register, outside the film's forty lines (F105).
   Figures of living faiths are drawn without a body, by mount, seat,
   standard or the faith's own object (decided 27 September 2026, F107).
+- **D92** The cast moves on its own, and differently each viewing (decided
+  27 September 2026, F113). A companion visits rather than rides beside
+  the lens: it comes into the picture from off it, passes or pauses, and
+  goes, and the sky is empty between. How it moves is the cast's fourth
+  plug axis beside the figure, the skin and the cue: motions registered by
+  name, a temperament per figure, and a director that draws each scene's
+  plan from one seed a page, so a viewing is fixed once drawn and
+  `?castseed=` plays it again. The author's cue bounds the dice: a figure
+  is paused at its author's spot for every second of its line, and no more
+  than two companions share the picture outside a line.
 
 
 ## What each part of the repository becomes

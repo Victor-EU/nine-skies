@@ -12,11 +12,15 @@
  * - a facing that is not a number of degrees;
  * - a line over the budget, since the layer's lines are lines;
  * - a name in anything but characters, a name or a time with no line, or a
- *   time for the line outside the cue's own seconds.
+ *   time for the line outside the cue's own seconds;
+ * - a motion the film does not know, or one of the other role's: a monument
+ *   stands in the world, a companion moves in the picture (D92);
+ * - a chance that is not a share of viewings, above nothing and at most all.
  */
 import type { CastCue } from "../engine/src/film/scene.js";
 import { FLIGHT_S } from "../engine/src/film/timeline.js";
 import { FIGURE_KINDS, isFigureKind } from "../engine/src/cast/kinds.js";
+import { CUE_MOTIONS, isMotionKind, motionSuits } from "../engine/src/cast/moves.js";
 
 /** The figure's longest extent, real metres: a crane to a Peng. */
 export const SIZE_RANGE_M = [10, 30_000] as const;
@@ -105,8 +109,25 @@ export function cueFromRaw(raw: unknown, add: Add): CastCue | null {
     else if (raw.line_at < fromS || raw.line_at >= untilS) fail("line_at", `${raw.line_at} s is outside the cue's ${fromS}–${untilS}`);
     else lineAtS = raw.line_at;
   }
+  let motions: string[] | null = null;
+  if (raw.motion !== undefined) {
+    const list = typeof raw.motion === "string" ? [raw.motion] : raw.motion;
+    if (!Array.isArray(list) || list.length === 0 || !list.every(isStr)) fail("motion", `a motion or a list of them; one of ${CUE_MOTIONS.join(", ")}`);
+    else {
+      motions = list.map((m) => m.trim());
+      for (const m of motions) {
+        if (!isMotionKind(m) || !CUE_MOTIONS.includes(m)) fail("motion", `"${m}" is not a motion a cue may name; one of ${CUE_MOTIONS.join(", ")}`);
+        else if (role && !motionSuits(m, role)) fail("motion", `"${m}" is not a ${role}'s motion`);
+      }
+    }
+  }
+  let chance = 1;
+  if (raw.chance !== undefined) {
+    if (!isNum(raw.chance) || raw.chance <= 0 || raw.chance > 1) fail("chance", "the share of viewings that see it, above 0 and at most 1");
+    else chance = raw.chance;
+  }
   if (!ok) return null;
-  return { figure, variant, role: role!, at, offset, sizeM, facingDeg, fromS, untilS, line, nameZh, lineAtS };
+  return { figure, variant, role: role!, at, offset, sizeM, facingDeg, fromS, untilS, line, nameZh, lineAtS, motions, chance };
 }
 
 /** Read a scene's `cast:` block: a list of cues, or nothing. */
