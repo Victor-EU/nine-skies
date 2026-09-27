@@ -17,6 +17,7 @@
  */
 import type { CastCue } from "../film/scene.js";
 import { isMotionKind, type MotionKind } from "./moves.js";
+import type { Reaction } from "./omens.js";
 import { Rng } from "./random.js";
 import type { Temperament } from "./temperament.js";
 
@@ -89,7 +90,8 @@ export function inPicture(f: FramePoint, v: View, margin = 0): boolean {
 export interface Pose {
   space: "frame" | "world";
   readonly at: FramePoint;
-  world: { lat: number; lon: number; aboveGroundM: number } | null;
+  /** A world pose's place; `eastM` and `northM` are real metres it has swum from it. */
+  world: { lat: number; lon: number; aboveGroundM: number; eastM?: number; northM?: number } | null;
   yaw: number;
   /** Nose up, radians. */
   pitch: number;
@@ -97,10 +99,37 @@ export interface Pose {
   bank: number;
   /** 0 to 1: how far into the picture it has come, for the layer's fade. */
   presence: number;
+  /**
+   * Where its heads look (D93), in the frame (the lens is the origin), and
+   * how far they turn there: 0 leaves them as the figure holds them, 1
+   * turns them as far as they go. The layer clears it before each pose.
+   */
+  readonly gaze: { readonly at: FramePoint; weight: number };
+  /** 0 to 1: how frightened it is (D93), for a flock to break its formation; the layer clears it before each pose. */
+  alarm: number;
 }
 
 export function newPose(): Pose {
-  return { space: "frame", at: { ahead: 0, right: 0, up: 0 }, world: null, yaw: 0, pitch: 0, bank: 0, presence: 1 };
+  return { space: "frame", at: { ahead: 0, right: 0, up: 0 }, world: null, yaw: 0, pitch: 0, bank: 0, presence: 1, gaze: { at: { ahead: 0, right: 0, up: 0 }, weight: 0 }, alarm: 0 };
+}
+
+/** Seconds a head takes to turn to the lens and back, for a glance. */
+export const GLANCE_TURN_S = 0.5;
+
+/** How far into a window of seconds it is, 0 outside to 1 inside, turning over `turnS` at each end. */
+export function windowWeight(flightS: number, window: readonly [number, number] | null, turnS: number): number {
+  if (!window) return 0;
+  return smooth(Math.min((flightS - window[0]) / turnS, (window[1] - flightS) / turnS));
+}
+
+/** Its heads to the lens while it is named or glancing, as the visit says. */
+export function glanceAt(flightS: number, visit: Visit, out: Pose): void {
+  const w = Math.max(visit.named ? windowWeight(flightS, visit.dwell ?? [visit.fromS, visit.untilS], 1.2) : 0, windowWeight(flightS, visit.glance, GLANCE_TURN_S));
+  if (w <= out.gaze.weight) return;
+  out.gaze.at.ahead = 0;
+  out.gaze.at.right = 0;
+  out.gaze.at.up = 0;
+  out.gaze.weight = w;
 }
 
 /**
@@ -122,6 +151,10 @@ export interface Visit {
   readonly leader: number | null;
   readonly lagS: number;
   readonly seed: number;
+  /** Seconds it turns its head to the lens as it goes (D93), or null. */
+  readonly glance: readonly [number, number] | null;
+  /** What it does when another figure's arrival is near (D93): an omen, or null. */
+  readonly reaction: Reaction | null;
 }
 
 /** Another figure's pose at a second, for a motion that follows it; false when it is off stage then. */
@@ -189,6 +222,8 @@ export interface PathOptions {
   readonly phase: number;
   /** Seconds at each end over which it fades, in case an end is not quite off the picture. */
   readonly edgeS?: number;
+  /** Seconds it glances at the lens, or null. */
+  readonly glanceS?: readonly [number, number] | null;
 }
 
 /**
@@ -303,6 +338,14 @@ export class KeyPath implements Motion {
     out.bank = clamp(angleTo(pathYaw, nextYaw) * 1.6, o.maxBankRad);
     const edge = o.edgeS ?? 0.35;
     out.presence = smooth(Math.min((flightS - this.fromS) / edge, (this.untilS - flightS) / edge));
+    // The head: to the lens while it is named, and for a glance.
+    const look = Math.max(windowWeight(flightS, o.namedS, o.turnS ?? 1.2), windowWeight(flightS, o.glanceS ?? null, GLANCE_TURN_S));
+    if (look > out.gaze.weight) {
+      out.gaze.at.ahead = 0;
+      out.gaze.at.right = 0;
+      out.gaze.at.up = 0;
+      out.gaze.weight = look;
+    }
     return true;
   }
 }

@@ -11,8 +11,8 @@
  * bird and wing move by their groups; the cloud holds still.
  */
 import { ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, bird, cloudBank, humanoid, type Bird, type Humanoid } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, bird, cloudBank, humanHead, humanoid, type Bird, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const FACE = 0xf7e3d2;
@@ -30,6 +30,7 @@ class Xiwangmu implements Figure {
   readonly group = new Group();
   readonly nativeSize = 2.7;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly h: Humanoid;
   private readonly birds: { bird: Bird; phase: number }[] = [];
@@ -72,6 +73,8 @@ class Xiwangmu implements Figure {
       B,
     );
     for (let i = 0; i < 3; i++) this.birds.push({ bird: bird(w, { body: BLUE, crown: RED, tip: HAIR, beak: GOLD, size: 0.28 }, this.group), phase: i * 2.1 });
+    // her head, coiffure and 胜 on a pivot at the neck, and each bird's own (D93)
+    this.heads = [humanHead(this.h, B), ...this.birds.map((b) => b.bird.head)];
     w.bake(this.group);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });

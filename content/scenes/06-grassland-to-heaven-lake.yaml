@@ -75,7 +75,9 @@ look:
 # steppe's demoiselle cranes breed; and at the crater a flock circling the
 # lake, the birds over water of Huizong's scroll; the Peng, wings like
 # clouds, over the fastest ground; and at the crater the Manchu magpie
-# with the red fruit in its beak, beside the camera on the laps.
+# with the red fruit in its beak, beside the camera on the laps. The
+# Peng rises on the sixth month's wind and not every day: three viewings
+# in five (D93).
 cast:
   - figure: cranes
     variant: still
@@ -105,6 +107,7 @@ cast:
     name_zh: 鹏
     line: "The Peng, which rises ninety thousand li, bound for the southern sea."
     line_at: 30
+    chance: 0.6
   - figure: magpie
     variant: still
     role: companion

@@ -4,7 +4,7 @@
  * says, fading in and out at the ends.
  */
 import { FADE_S } from "../fade.js";
-import { registerMotion } from "../motion.js";
+import { glanceAt, registerMotion } from "../motion.js";
 
 registerMotion("hold", (ctx) => {
   const { cue, visit } = ctx;
@@ -21,6 +21,7 @@ registerMotion("hold", (ctx) => {
       out.pitch = 0;
       out.bank = 0;
       out.presence = Math.min(1, (flightS - visit.fromS) / FADE_S, (visit.untilS - flightS) / FADE_S);
+      glanceAt(flightS, visit, out);
       return true;
     },
   };

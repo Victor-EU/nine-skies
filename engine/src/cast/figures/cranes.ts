@@ -8,7 +8,7 @@
  * Native size is the loop's reach, 30 units; the birds are 2.7 across.
  */
 import { Group, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
 import { Wardrobe, bird, type Bird } from "../parts.js";
 import type { Skin } from "../skin.js";
 
@@ -20,10 +20,12 @@ class Cranes implements Figure {
   readonly group = new Group();
   readonly nativeSize = 30;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly flock = new Group();
-  private readonly birds: { bird: Bird; phase: number; rate: number; row: number; side: number }[] = [];
+  private readonly birds: { bird: Bird; phase: number; rate: number; row: number; side: number; beat: number; scatter: Vector3 }[] = [];
   private readonly loop: number;
+  private last = 0;
 
   constructor(ctx: BuildContext) {
     const w = (this.w = new Wardrobe(ctx.skin));
@@ -31,8 +33,12 @@ class Cranes implements Figure {
     this.group.add(this.flock);
     for (let i = 0; i < 11; i++) {
       const b = bird(w, { body: WHITE, crown: CROWN, tip: BLACK, beak: BLACK }, this.flock);
-      this.birds.push({ bird: b, phase: (i * 2.399) % 6.28, rate: 4.2 + ((i * 0.37) % 1.2), row: Math.ceil(i / 2), side: i % 2 ? 1 : -1 });
+      // where each breaks to when the flock takes fright (D93): outward from the V, up or down, fore or aft
+      const scatter = new Vector3((i % 2 ? 1 : -1) * (1 + ((i * 0.61) % 1)), Math.sin(i * 2.3) * 1.4, Math.cos(i * 1.7) * 1.2);
+      this.birds.push({ bird: b, phase: (i * 2.399) % 6.28, rate: 4.2 + ((i * 0.37) % 1.2), row: Math.ceil(i / 2), side: i % 2 ? 1 : -1, beat: 0, scatter });
     }
+    // every bird looks on its own (D93); bird() made each head's pivot, so the bake gives it a bone
+    this.heads = this.birds.map((b) => b.bird.head);
     // One mesh per material for the eleven, a bone at each bird and each joint of each wing (F109).
     w.bake(this.flock);
     this.triangles = w.triangles;
@@ -53,11 +59,17 @@ class Cranes implements Figure {
     } else {
       this.flock.position.set(0, Math.sin(t * 0.7) * 0.6, 0);
     }
+    // Frightened, the V breaks and every bird beats harder.
+    const alarm = f.alarm ?? 0;
+    const dt = Math.min(0.1, Math.max(0, t - this.last));
+    this.last = t;
     for (const b of this.birds) {
       const g = b.bird.group;
       g.position.set(b.side * b.row * 1.3 + Math.sin(t * 0.7 + b.row) * 0.3, -b.row * 0.3 + Math.sin(t * 0.9 + b.phase) * 0.25, -b.row * 1.6);
-      g.rotation.set(-0.1, 0, b.side * 0.35 + Math.sin(t * 0.5 + b.phase) * 0.12);
-      b.bird.flap(Math.sin(t * b.rate + b.phase));
+      g.position.addScaledVector(b.scatter, 2.2 * alarm);
+      g.rotation.set(-0.1, 0, b.side * (0.35 + 0.3 * alarm) + Math.sin(t * 0.5 + b.phase) * 0.12);
+      b.beat += dt * b.rate * (1 + 1.4 * alarm);
+      b.bird.flap(Math.sin(b.beat + b.phase));
     }
   }
 

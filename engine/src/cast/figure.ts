@@ -27,6 +27,20 @@ export interface CastFrame {
   readonly headingRad: number;
   /** The figure's group, so it may be placed. */
   readonly group: Group;
+  /** 0 to 1: how frightened it is, when an omen has scattered it (D93); a flock breaks its formation. */
+  readonly alarm?: number;
+}
+
+/**
+ * A head the layer may turn toward something (D93): a pivot of the
+ * figure's own that its animation never touches, facing +z at rest in its
+ * parent, and how far it turns either way. The layer turns it after the
+ * figure's `update`, so a head the figure tosses still tosses, and looks.
+ */
+export interface Head {
+  readonly pivot: Object3D;
+  readonly maxYawRad: number;
+  readonly maxPitchRad: number;
 }
 
 export interface Figure {
@@ -36,6 +50,8 @@ export interface Figure {
   /** Triangles drawn, for the budget it is held to. */
   readonly triangles: number;
   update(f: CastFrame): void;
+  /** Its heads, for a glance at the lens or at what is coming; absent for a figure with none to turn. */
+  readonly heads?: readonly Head[];
   /** Dress every part again from a skin, for a swap. */
   setSkin(skin: Skin): void;
   dispose(): void;

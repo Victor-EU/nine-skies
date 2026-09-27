@@ -14,8 +14,8 @@
  * Native height 3.9 units, to the spear's blade.
  */
 import { BoxGeometry, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, TubeGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, cloudBank, horse, horseWalk, type Horse } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, cloudBank, horse, horseHead, horseWalk, type Horse } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const WHITE = 0xf7f5f0;
@@ -32,6 +32,7 @@ class Sanduo implements Figure {
   readonly triangles: number;
   /** Open, so the cast tests can hold him to the rule: nothing here is skin. */
   readonly wardrobe: Wardrobe;
+  readonly heads: readonly Head[];
   private readonly body = new Group();
   private readonly horse: Horse;
   private readonly pennant: Mesh;
@@ -45,6 +46,8 @@ class Sanduo implements Figure {
     const B = this.body;
     this.group.add(B);
     this.horse = horse(w, { coat: WHITE, mane: MANE, hoof: HOOF, saddle: SADDLE, tack: GOLD }, B);
+    // the horse's head on a pivot at the poll (D93); the god has none
+    this.heads = [horseHead(B)];
     w.part(new BoxGeometry(0.66, 0.05, 0.76), "gold", GOLD, B, 0, 1.47, -0.05);
     // the standard: a white spear upright at the saddle, its pennant along a curve rewritten each frame
     const spear = new Group();

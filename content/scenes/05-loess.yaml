@@ -98,7 +98,8 @@ look:
 # carp leaps beside the camera, since the Dragon Gate at Longmen lies 240
 # km past the flight's end at one speed; and Jingwei, the Shan Hai
 # Jing's bird from Fajiu Mountain across the river, carries her twig to
-# the sea.
+# the sea, a small bird on a long errand, glimpsed in three viewings of
+# five (D93).
 cast:
   - figure: pilgrims
     variant: monk
@@ -144,6 +145,7 @@ cast:
     name_zh: 精卫
     line: "Jingwei, drowned in the Eastern Sea, filling it with pebbles ever since."
     line_at: 78
+    chance: 0.6
 
 captions:
   - { at: 15, text: "The Yellow River, south through the loess plateau." }

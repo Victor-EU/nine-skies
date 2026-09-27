@@ -3055,3 +3055,144 @@ turn its head to the lens as it passes. Nothing announces an arrival
 (cranes scattering before a dragon breaks the cloud, a sound). No cue uses
 `chance:` yet, so every figure comes every viewing. The rise does not know
 where the cloud sea or the river is, only the bottom of the frame.
+
+## F114 — The cast surprises: monuments surface, omens foretell, heads turn, some figures are rare (D93), 27 September 2026
+
+**Asked.** The four things F113 left: monuments still stand still for
+their cue; nothing signals an arrival; no figure turns its head to the
+camera as it passes; no figure is rare. Keep to the plug-and-play
+architecture.
+
+**What was built.**
+
+- *A motion that surfaces* (`cast/motions/surface.ts`, a row in
+  `cast/moves.ts`). `moves.ts` is now a table of each motion's traits: its
+  space (world or frame), whether it comes and goes, whether a cue may name
+  it, its natural length, and when it is first seen. The director reads
+  that table and names no motion itself. `surface` is a monument's that
+  comes and goes. From under its place (its height over the ground and a
+  third of its length more) it swims up along its bearing, nose high,
+  stands at the place a while, then noses over and dives a little further
+  on. Seen from the side it is a porpoise's arc, and the cloud deck and the
+  rock hide it on the way down by being drawn over it. A world pose may now
+  carry metres swum from its place. The dragon's temperament has it, so the
+  four Dragon Kings surface over Huangshan's cloud sea. The Turpan dragon
+  is dead and lies still: its cue says `motion: anchor`.
+- *The sight* (`cast/sight.ts`): where a place shows in the picture at a
+  second of the flight, flying the rail on auto at its authored speed
+  through the film's usual view. The director times a monument's rising by
+  it. Each king is in view for only one or two stretches of the loop (the
+  East King 0–30 s, the South King 58–84 s, the West King 0–14 s and the
+  last seconds, the North King 0–40 s). Drawn blind, a third of risings
+  came up in view. So, more often than not (85%), a monument waits for a
+  moment the flight is looking its way, within a minute of the first time
+  it fits, and lets the time go by if none comes. Monuments take a rising
+  each in turn, so each has one before any has two, and no more than three
+  are up at once, bar a line. The named East King stands through his line
+  in every viewing.
+- *Omens, the cast's fifth plug axis* (`cast/omens.ts`, `cast/omens/*.ts`).
+  An omen is a witness's reaction a moment before an arrival.
+  - Temperaments say what a figure's coming brings: the dragon, the Peng,
+    the tiger and the Bull Demon King make the birds `scatter`; the holy and
+    the rare (the Bodhisattva, the phoenix, the qilin, the Queen Mother,
+    Sanduo, Miyolangsangma) make everyone `look`.
+  - Temperaments also say who answers: the skittish (cranes, egrets,
+    magpie, Jingwei, the carp) flee, and the curious turn.
+  - `omens.ts` holds each omen's traits: who witnesses, how long before the
+    arrival, whether the witness leaves, and whether one may be brought on.
+  - The director writes the reaction on the witness's visit, and at play
+    the omen's module wraps the witness's own motion.
+  - A scattering witness must be well in the picture when it takes fright
+    (in a pause, or the middle of its way). Otherwise its flight is only its
+    leaving come early, which was what the first playthrough showed.
+  - Where none is on stage, a flock is brought on to hover a few seconds
+    first. A monument's coming is foretold before the companions take up
+    their seconds, so the herald has room.
+  - `scatter`: the bird flinches for 0.3 s with its head snapped round to
+    the danger, then bolts away from it, across the picture and up. It
+    accelerates enough to be out of the picture in 2.6 s, before the
+    arrival is fully in. The flight is laid out in the picture's own
+    terms. In frame metres, a flock below eye level that came any nearer
+    dropped out of the bottom of the picture. The danger's height counts
+    for half, since birds burst across and up.
+  - The pose now carries an `alarm`, which the layer hands the figure in
+    its frame (`CastFrame.alarm`, optional). Cranes and egrets break
+    formation and beat faster, so a flock bursts apart rather than
+    sliding off as one block.
+  - `look`: heads only. The witness turns toward where it is coming from,
+    stays on it as it comes, and holds for four seconds after.
+  - Never a figure mid-line.
+- *Heads* (`Figure.heads`, `cast/gaze.ts`, helpers in `cast/parts.ts`).
+  A head is a pivot of the figure's own that its animation never touches,
+  facing +z at rest, with its limits. The layer turns it after the figure
+  has moved itself, toward the point the pose names:
+  - the lens, while the figure's line is on;
+  - the lens, in a glance on its way, as often as the figure is curious
+    (Wukong 0.65; the flags, the empty lotus and the carp never);
+  - the danger, in an omen.
+
+  Past its reach behind it, a head lets go rather than whip round the other
+  way. Twenty figures have 106 heads between them: every bird of a flock,
+  each of the Eight Immortals, the horse and the donkey, the elephant with
+  its trunk. `humanHead` takes the doll's head and everything a builder
+  hung above the collar; beards are attached by hand.
+- *Rarity* (content only, `chance:`), each for the lore's reason:
+  - the phoenix, seen when the world is at peace, one viewing in two;
+  - the Peng, which rises on the sixth month's wind, three in five;
+  - Jingwei, a small bird on a long errand, three in five;
+  - the qilin, three in four, since it was asked for.
+
+  Every scene keeps a figure that always comes.
+
+**Seen playing** (seed 7 at Huangshan, seed 1 at the Karst, scratch
+`motionprobe.mjs`):
+- At Huangshan the cranes come in over the ridge at 10 s and hover at
+  13 s. At 14.8 s their heads snap round to the right, and the V bursts
+  and scatters left. The East King comes up behind the peaks and is in
+  the sky above them for his line at 20 s.
+- At 57.5 s the cranes drift over the open cloud sea and scatter at 58.2
+  s. At 59.8 s the red South King breaks the cloud at the lower right and
+  swims up out of it, as Nezha comes in for his line.
+- At the Karst the pilgrims glance at the lens, then turn their heads to
+  the phoenix a second before it comes in from the left, and hold on it
+  until they leave; it glances at the lens as it passes.
+- No exceptions.
+
+**What it does.** Over 200 seeds:
+
+| scene | glances a viewing | scatters | looks | risings |
+|---|---|---|---|---|
+| Huangshan | 5.3 | 0.98 | 0.00 | 4.0 (84% where the flight looks) |
+| the Three Gorges | 2.0 | 0 | 0.06 | — |
+| the Karst | 1.6 | 0 | 0.97 | — |
+| the First Bend | 4.5 | 0 | 0.90 | — |
+| the Loess | 1.8 | 0.06 | 0.07 | — |
+| Grassland to Heaven Lake | 0.9 | 0.02 | 0 | — |
+| Below the Sea | 1.6 | 0 | 0 | — |
+| the Roof | 1.5 | 0 | 0.17 | — |
+| the Wall | 0.4 | 0 | 0 | — |
+
+**Checked.** `npm run check`, with 13 new tests in
+`test/cast/surprise.test.ts`:
+- the surfacing path: under, up, standing, under, never jumping, nose up
+  rising and down diving, along its bearing;
+- the sight: ahead, not behind, none without a rail;
+- the kings up where the flight looks: over 70% against a blind plan's
+  third, and each king in most viewings;
+- the named king standing through his line for sixty seeds;
+- glances inside their visits, never while named, at the figure's
+  curiosity;
+- a head turned to the lens during a line and back at rest after, played
+  through the layer;
+- every figure with a head has a pivot of its own;
+- the omen list against its registry;
+- every reaction in the film for thirty seeds before its arrival, from a
+  witness that answers to it, never cutting a line, the cranes scattering
+  before a king in a third or more of Huangshan viewings;
+- the scatter keeping its own way until it reacts, leaving the picture
+  away from the danger with its head round to it first;
+- the look taking only the head;
+- rarity and a figure that always comes.
+
+The helper that fitted the heads checked each one turns about its pivot
+with +z as its rest forward.

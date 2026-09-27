@@ -10,8 +10,8 @@
  * Native size 20 units, the wingspan.
  */
 import { CapsuleGeometry, ConeGeometry, CylinderGeometry, Group, SphereGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, featherFan, flapWing, wing, type Wing } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, featherFan, flapWing, neck, partsNear, wing, type Wing } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const GOLD = 0xd9a441;
@@ -23,6 +23,7 @@ class Peng implements Figure {
   readonly group = new Group();
   readonly nativeSize = 20;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly wings: Wing[] = [];
@@ -43,6 +44,8 @@ class Peng implements Figure {
       w.part(new SphereGeometry(0.07, 8, 6), "eye", 0x111111, B, s * 0.3, 0.46, 2.82);
       w.part(new CapsuleGeometry(0.06, 0.4, 3, 6), "silk", DARK, B, s * 0.3, 0.62, 2.7).rotation.set(0, 0, s * 1.2);
     }
+    // the skull, beak, eyes and brows on a pivot at the back of the skull (D93)
+    this.heads = [neck(B, [0, 0.3, 2.0], partsNear(B, [0, 0.3, 2.8], 0.9), 1.5, 0.6)];
     for (const side of [-1, 1]) {
       const wg = wing(w, { body: GOLD, tip: DARK, span: 9, primaries: 8 }, side, B);
       wg.pivot.position.set(side * 0.7, 0.3, 0.6);

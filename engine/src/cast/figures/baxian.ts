@@ -18,9 +18,9 @@
  *
  * Native length 15 units, the line.
  */
-import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, cloudBank, horse, horseWalk, humanoid, type Horse, type Humanoid } from "../parts.js";
+import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry, Vector3, type Mesh } from "three";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, cloudBank, horse, horseHead, horseWalk, humanHead, humanoid, partsNear, type Horse, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const FACE = 0xf6dcc4;
@@ -37,13 +37,22 @@ function eyes(w: Wardrobe, g: Group): void {
   for (const s of [-1, 1]) w.part(new SphereGeometry(0.045, 8, 6), "eye", 0x111111, g, s * 0.16, 1.84, 0.46);
 }
 
-function beard(w: Wardrobe, g: Group, colour: number, length = 0.5): void {
-  w.part(new ConeGeometry(0.15, length, 8), "hair", colour, g, 0, 1.75 - length / 2, 0.36).rotation.x = Math.PI + 0.2;
+function beard(w: Wardrobe, g: Group, colour: number, length = 0.5): Mesh {
+  const b = w.part(new ConeGeometry(0.15, length, 8), "hair", colour, g, 0, 1.75 - length / 2, 0.36);
+  b.rotation.x = Math.PI + 0.2;
+  return b;
 }
 
 function knot(w: Wardrobe, g: Group): void {
   w.part(new SphereGeometry(0.52, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), "hair", HAIR, g, 0, 1.82, 0);
   w.part(new SphereGeometry(0.16, 10, 8), "hair", HAIR, g, 0, 2.35, -0.05);
+}
+
+/** The head on a pivot at the neck (D93), and the beard with it, which hangs below the doll's chin. */
+function look(h: Humanoid, g: Group, heads: Head[], hung?: Mesh): void {
+  const head = humanHead(h, g);
+  if (hung) head.pivot.attach(hung);
+  heads.push(head);
 }
 
 /** Arms held: the left and the right, each a shoulder's forward and outward turn and the elbow's bend. */
@@ -55,9 +64,9 @@ function hold(h: Humanoid, left: Pose, right: Pose): void {
   r!.elbow.rotation.set(right[2], 0, 0);
 }
 
-function li(w: Wardrobe, g: Group): void {
+function li(w: Wardrobe, g: Group, heads: Head[]): void {
   const h = humanoid(w, { face: FACE, torso: 0x6e4b2a, legs: 0x5a3e24, shoe: IRON }, g);
-  beard(w, g, HAIR);
+  const b = beard(w, g, HAIR);
   eyes(w, g);
   const crutch = new Group();
   crutch.position.y = -0.5;
@@ -68,13 +77,14 @@ function li(w: Wardrobe, g: Group): void {
   w.part(new SphereGeometry(0.2, 12, 10), "matte", 0xd9862a, g, 0, 1.0, -0.42);
   w.part(new SphereGeometry(0.14, 10, 8), "matte", 0xd9862a, g, 0, 1.3, -0.42);
   hold(h, [0.3, 0.3, -0.6], [-0.2, 0.3, -0.3]);
+  look(h, g, heads, b);
 }
 
-function zhongli(w: Wardrobe, g: Group): void {
+function zhongli(w: Wardrobe, g: Group, heads: Head[]): void {
   const h = humanoid(w, { face: FACE, torso: 0x3d7d55, legs: 0x3d7d55, shoe: IRON }, g);
   w.part(new SphereGeometry(0.34, 14, 10), "skin", FACE, g, 0, 1.02, 0.22).scale.set(1, 0.9, 0.7);
   for (const s of [-1, 1]) w.part(new SphereGeometry(0.14, 10, 8), "hair", HAIR, g, s * 0.28, 2.3, -0.05);
-  beard(w, g, HAIR, 0.6);
+  const b = beard(w, g, HAIR, 0.6);
   eyes(w, g);
   const fan = new Group();
   fan.position.y = -0.5;
@@ -82,12 +92,13 @@ function zhongli(w: Wardrobe, g: Group): void {
   w.part(new SphereGeometry(0.32, 12, 8), "matte", 0xf0e6c8, fan, 0, 0.75, 0).scale.set(1, 1.2, 0.08);
   h.arms[1]!.elbow.add(fan);
   hold(h, [0.2, 0.2, -0.4], [-1.4, 0.5, -0.8]);
+  look(h, g, heads, b);
 }
 
-function lu(w: Wardrobe, g: Group): void {
+function lu(w: Wardrobe, g: Group, heads: Head[]): void {
   const h = humanoid(w, { face: FACE, torso: 0x2f4f8f, legs: 0x2f4f8f, shoe: IRON }, g);
   w.part(new BoxGeometry(0.5, 0.25, 0.45), "hair", HAIR, g, 0, 2.2, 0);
-  beard(w, g, HAIR, 0.45);
+  const b = beard(w, g, HAIR, 0.45);
   eyes(w, g);
   const sword = new Group();
   sword.position.set(0.15, 1.15, -0.4);
@@ -97,9 +108,10 @@ function lu(w: Wardrobe, g: Group): void {
   w.part(new BoxGeometry(0.3, 0.05, 0.08), "gold", GOLD, sword, 0, -0.45, 0);
   w.part(new SphereGeometry(0.05, 8, 6), "gold", GOLD, sword, 0, -0.7, 0);
   hold(h, [-0.6, 0.2, -1.4], [-0.6, 0.2, -1.4]);
+  look(h, g, heads, b);
 }
 
-function zhang(w: Wardrobe, g: Group): Horse {
+function zhang(w: Wardrobe, g: Group, heads: Head[]): Horse {
   const donkeyG = new Group();
   donkeyG.scale.setScalar(0.7);
   g.add(donkeyG);
@@ -112,7 +124,7 @@ function zhang(w: Wardrobe, g: Group): Horse {
   rider.scale.setScalar(0.8);
   g.add(rider);
   const h = humanoid(w, { face: FACE, torso: 0x8a8f96, legs: 0x8a8f96, shoe: IRON }, rider);
-  beard(w, rider, WHITE, 0.7);
+  const b = beard(w, rider, WHITE, 0.7);
   w.part(new BoxGeometry(0.44, 0.2, 0.44), "hair", HAIR, rider, 0, 2.15, 0);
   eyes(w, rider);
   const drum = w.part(new CylinderGeometry(0.09, 0.09, 0.9, 8), "matte", TAN, rider, 0.05, 1.1, -0.4);
@@ -120,10 +132,15 @@ function zhang(w: Wardrobe, g: Group): Horse {
   for (const s of [-1, 1]) w.part(new CylinderGeometry(0.015, 0.015, 0.6, 5), "iron", IRON, rider, s * 0.08, 1.35, -0.42).rotation.z = 0.3 + s * 0.1;
   for (const leg of h.legs) leg.hip.rotation.x = -1.3;
   hold(h, [-0.5, 0.4, -0.9], [-0.5, 0.4, -0.9]);
+  look(h, rider, heads, b);
+  // the donkey's, and its long ears, which stand clear of the horse's head
+  const mount = horseHead(donkeyG);
+  for (const ear of partsNear(donkeyG, [0, 2.4, 1.15], 0.2)) mount.pivot.attach(ear);
+  heads.push(mount);
   return donkey;
 }
 
-function he(w: Wardrobe, g: Group): void {
+function he(w: Wardrobe, g: Group, heads: Head[]): void {
   const h = humanoid(w, { face: FACE, torso: 0xf0b8c0, legs: 0xf9e0e6, shoe: IRON, skirt: 0xf9e0e6 }, g);
   knot(w, g);
   eyes(w, g);
@@ -137,9 +154,10 @@ function he(w: Wardrobe, g: Group): void {
   w.part(new SphereGeometry(0.06, 8, 6), "gold", GOLD, lotus, 0, 1.22, 0);
   h.arms[1]!.elbow.add(lotus);
   hold(h, [0.2, 0.2, -0.5], [-1.2, 0.3, -0.9]);
+  look(h, g, heads);
 }
 
-function lan(w: Wardrobe, g: Group): void {
+function lan(w: Wardrobe, g: Group, heads: Head[]): void {
   const h = humanoid(w, { face: FACE, torso: 0x6aa8d8, legs: 0x6aa8d8, shoe: IRON }, g);
   w.part(new SphereGeometry(0.52, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.55), "hair", HAIR, g, 0, 1.8, 0);
   eyes(w, g);
@@ -150,33 +168,37 @@ function lan(w: Wardrobe, g: Group): void {
   [0xd8382a, 0xf1c24c, 0xf6f6f2, 0xf3a3b5].forEach((c, i) => w.part(new SphereGeometry(0.07, 8, 6), "matte", c, basket, Math.cos(i * 1.6) * 0.12, 0.16, Math.sin(i * 1.6) * 0.12));
   h.arms[0]!.elbow.add(basket);
   hold(h, [-0.6, 0.4, -1.2], [0.2, 0.2, -0.4]);
+  look(h, g, heads);
 }
 
-function han(w: Wardrobe, g: Group): void {
+function han(w: Wardrobe, g: Group, heads: Head[]): void {
   const h = humanoid(w, { face: FACE, torso: 0x7fb069, legs: 0x7fb069, shoe: IRON }, g);
   knot(w, g);
   eyes(w, g);
   const flute = w.part(new CylinderGeometry(0.025, 0.025, 0.9, 6), "matte", TAN, h.arms[1]!.elbow, -0.15, -0.5, 0.1);
   flute.rotation.z = 1.25;
   hold(h, [-1.5, 0.35, -1.6], [-1.5, 0.35, -1.6]);
+  look(h, g, heads);
 }
 
-function cao(w: Wardrobe, g: Group): void {
+function cao(w: Wardrobe, g: Group, heads: Head[]): void {
   const h = humanoid(w, { face: FACE, torso: 0xb0302c, legs: 0xb0302c, shoe: IRON }, g);
   w.part(new BoxGeometry(0.42, 0.3, 0.4), "hair", HAIR, g, 0, 2.15, 0);
   for (const s of [-1, 1]) w.part(new BoxGeometry(0.35, 0.05, 0.12), "hair", HAIR, g, s * 0.45, 2.2, 0);
-  beard(w, g, HAIR, 0.4);
+  const b = beard(w, g, HAIR, 0.4);
   eyes(w, g);
   for (const a of h.arms) w.part(new BoxGeometry(0.12, 0.35, 0.03), "horn", 0xeaf5ef, a.elbow, a.side * -0.04, -0.6, 0.1);
   hold(h, [-0.8, 0.25, -1.3], [-0.8, 0.25, -1.3]);
+  look(h, g, heads, b);
 }
 
-const BUILDERS: readonly ((w: Wardrobe, g: Group) => Horse | void)[] = [li, zhongli, lu, zhang, he, lan, han, cao];
+const BUILDERS: readonly ((w: Wardrobe, g: Group, heads: Head[]) => Horse | void)[] = [li, zhongli, lu, zhang, he, lan, han, cao];
 
 class BaXian implements Figure {
   readonly group = new Group();
   readonly nativeSize = 15;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly line = new Group();
   private readonly riders: { g: Group; phase: number }[] = [];
@@ -188,13 +210,14 @@ class BaXian implements Figure {
     this.loop = ctx.variant === "still" ? 0 : 14;
     this.group.add(this.line);
     let donkey: Horse | null = null;
+    const heads: Head[] = [];
     for (const [i, build] of BUILDERS.entries()) {
       // a loose line abreast
       const g = new Group();
       g.position.set((i - 3.5) * 1.9, 0, i % 2 ? 0.9 : -0.9);
       this.line.add(g);
       this.riders.push({ g, phase: i * 0.8 });
-      const d = build(w, g);
+      const d = build(w, g, heads);
       if (d) donkey = d;
       cloudBank(
         w,
@@ -209,6 +232,7 @@ class BaXian implements Figure {
     }
     if (!donkey) throw new Error("Zhang Guolao has no donkey");
     this.donkey = donkey;
+    this.heads = heads;
     // One mesh per material, a bone at each immortal and each moving joint; the tail is rebuilt each frame.
     w.bake(this.line, [donkey.tail]);
     this.triangles = w.triangles;

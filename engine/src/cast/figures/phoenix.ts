@@ -9,8 +9,8 @@
  * Native length 7 units, beak to the plumes' ends.
  */
 import { CapsuleGeometry, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TubeGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, flapWing, wing, type Wing } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, flapWing, neck, partsNear, wing, type Wing } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const RED = 0xc8342a;
@@ -33,6 +33,7 @@ class Phoenix implements Figure {
   readonly group = new Group();
   readonly nativeSize = 7;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly wings: Wing[] = [];
@@ -56,6 +57,8 @@ class Phoenix implements Figure {
       c.rotation.set(-0.6 - i * 0.12, 0, (i - 1) * 0.35);
       w.part(new SphereGeometry(0.05, 8, 6), "gold", BLUE, B, (i - 1) * 0.22, 1.62 + (i === 1 ? 0.06 : 0), 1.02);
     }
+    // the skull, eyes, beak and crest on a pivot at the base of the skull (D93)
+    this.heads = [neck(B, [0, 1.0, 1.25], partsNear(B, [0, 1.3, 1.35], 0.6), 1.5, 0.6)];
     for (const side of [-1, 1]) {
       const wg = wing(w, { body: RED, tip: GOLD, span: 3.4, primaries: 7 }, side, B);
       wg.pivot.position.set(side * 0.3, 0.2, 0.35);

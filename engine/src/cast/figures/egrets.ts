@@ -9,8 +9,8 @@
  * Native size is the loop's reach, 26 units; the birds are 2.2 across.
  */
 import { CapsuleGeometry, CatmullRomCurve3, ConeGeometry, Group, Mesh, SphereGeometry, TubeGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, flapWing, wing, type Wing } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, flapWing, neck, partsNear, wing, type Wing } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const WHITE = 0xf8f8f4;
@@ -23,15 +23,18 @@ interface Egret {
   readonly phase: number;
   readonly rate: number;
   readonly slot: number;
+  /** Where it breaks to when the line takes fright (D93). */
+  readonly scatter: Vector3;
+  beat: number;
 }
 
-function egret(w: Wardrobe, parent: Group): { group: Group; wings: Wing[] } {
+function egret(w: Wardrobe, parent: Group): { group: Group; wings: Wing[]; head: Head } {
   const g = new Group();
   parent.add(g);
   w.part(new SphereGeometry(0.26, 12, 10), "silk", WHITE, g).scale.set(1, 0.8, 2);
   // the neck drawn in, an S along a fixed curve
-  const neck = new CatmullRomCurve3([new Vector3(0, 0.05, 0.4), new Vector3(0, 0.3, 0.55), new Vector3(0, 0.36, 0.85), new Vector3(0, 0.28, 1.05)]);
-  const n = w.dress(new Mesh(new TubeGeometry(neck, 8, 0.055, 6, false)), "silk", WHITE);
+  const throat = new CatmullRomCurve3([new Vector3(0, 0.05, 0.4), new Vector3(0, 0.3, 0.55), new Vector3(0, 0.36, 0.85), new Vector3(0, 0.28, 1.05)]);
+  const n = w.dress(new Mesh(new TubeGeometry(throat, 8, 0.055, 6, false)), "silk", WHITE);
   g.add(n);
   w.part(new SphereGeometry(0.1, 10, 8), "silk", WHITE, g, 0, 0.3, 1.1);
   w.part(new ConeGeometry(0.025, 0.42, 6), "iron", BLACK, g, 0, 0.28, 1.4).rotation.x = Math.PI / 2;
@@ -48,26 +51,34 @@ function egret(w: Wardrobe, parent: Group): { group: Group; wings: Wing[] } {
     wg.pivot.position.set(side * 0.17, 0.08, 0.1);
     wings.push(wg);
   }
-  return { group: g, wings };
+  // the skull, eyes, bill and nape plumes on a pivot at the back of the skull (D93)
+  const head = neck(g, [0, 0.28, 1.02], partsNear(g, [0, 0.3, 1.15], 0.3), 1.5, 0.6);
+  return { group: g, wings, head };
 }
 
 class Egrets implements Figure {
   readonly group = new Group();
   readonly nativeSize = 26;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly line = new Group();
   private readonly birds: Egret[] = [];
   private readonly loop: number;
+  private last = 0;
 
   constructor(ctx: BuildContext) {
     const w = (this.w = new Wardrobe(ctx.skin));
     this.loop = ctx.variant === "still" ? 0 : 10;
     this.group.add(this.line);
+    const heads: Head[] = [];
     for (let i = 0; i < 9; i++) {
       const b = egret(w, this.line);
-      this.birds.push({ group: b.group, wings: b.wings, phase: (i * 2.399) % 6.28, rate: 3.6 + ((i * 0.41) % 1.1), slot: i - 4 });
+      const scatter = new Vector3(Math.sign(i - 4 || 1) * (0.8 + ((i * 0.61) % 1)), Math.sin(i * 2.3) * 1.3, Math.cos(i * 1.7) * 1.1);
+      this.birds.push({ group: b.group, wings: b.wings, phase: (i * 2.399) % 6.28, rate: 3.6 + ((i * 0.41) % 1.1), slot: i - 4, scatter, beat: 0 });
+      heads.push(b.head);
     }
+    this.heads = heads;
     // One mesh per material for the nine, a bone at each bird and each joint of each wing (F109).
     w.bake(this.line);
     this.triangles = w.triangles;
@@ -85,12 +96,18 @@ class Egrets implements Figure {
       this.line.position.set(Math.cos(a) * this.loop, Math.sin(a * 2) * 1.2, Math.sin(a) * this.loop);
       this.line.rotation.y = -a;
     } else this.line.position.set(0, Math.sin(t * 0.6) * 0.5, 0);
+    // Frightened, the line breaks and every bird beats harder.
+    const alarm = f.alarm ?? 0;
+    const dt = Math.min(0.1, Math.max(0, t - this.last));
+    this.last = t;
     for (const b of this.birds) {
       const g = b.group;
       // a loose line, each a little behind and below the one before, drifting
       g.position.set(b.slot * 1.5 + Math.sin(t * 0.6 + b.phase) * 0.3, -Math.abs(b.slot) * 0.15 + Math.sin(t * 0.8 + b.phase) * 0.3, -Math.abs(b.slot) * 0.9 + Math.cos(t * 0.5 + b.phase) * 0.3);
-      g.rotation.set(-0.08, 0, Math.sign(b.slot || 1) * 0.3 + Math.sin(t * 0.5 + b.phase) * 0.12);
-      const flap = Math.sin(t * b.rate + b.phase);
+      g.position.addScaledVector(b.scatter, 2 * alarm);
+      g.rotation.set(-0.08, 0, Math.sign(b.slot || 1) * (0.3 + 0.3 * alarm) + Math.sin(t * 0.5 + b.phase) * 0.12);
+      b.beat += dt * b.rate * (1 + 1.4 * alarm);
+      const flap = Math.sin(b.beat + b.phase);
       for (const wg of b.wings) flapWing(wg, flap, 0.4, 0.3);
     }
   }

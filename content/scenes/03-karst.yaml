@@ -49,7 +49,8 @@ look:
 # Li's egrets crosses ahead; the phoenix, the Shan Hai Jing's bird of the
 # far south, holds over the towers; and at the end Guanyin of the South
 # Sea, by her empty lotus, her willow vase and her white parrot, the way a
-# living faith is drawn here (F107).
+# living faith is drawn here (F107). The phoenix shows itself only when
+# the world is at peace, so one viewing in two (D93).
 cast:
   - figure: elephant
     variant: still
@@ -95,6 +96,7 @@ cast:
     name_zh: 凤凰
     line: "The phoenix of the south, seen when the world is at peace."
     line_at: 40
+    chance: 0.5
   - figure: guanyin
     variant: still
     role: companion

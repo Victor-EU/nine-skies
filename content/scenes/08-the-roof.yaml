@@ -45,7 +45,8 @@ look:
 # the old turtle of the Tongtian swimming it beside the party. The
 # Tibetan sky's own figure is the wind horse, drawn as a living faith's
 # is drawn here (F107): the prayer flags themselves, a line of them
-# between two clouds on the left over the first leg.
+# between two clouds on the left over the first leg. The qilin is the
+# rarest of the good omens; it misses one viewing in four (D93).
 cast:
   - figure: cranes
     variant: still
@@ -91,6 +92,7 @@ cast:
     name_zh: 麒麟
     line: "A qilin, which walks on air and treads on nothing living."
     line_at: 76
+    chance: 0.75
   - figure: turtle
     variant: still
     role: companion

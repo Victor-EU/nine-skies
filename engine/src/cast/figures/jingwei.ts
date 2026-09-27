@@ -10,8 +10,8 @@
  * Native length 2 units, bill to tail.
  */
 import { ConeGeometry, CylinderGeometry, Group, SphereGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, featherFan, flapWing, wing, type Wing } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, featherFan, flapWing, neck, partsNear, wing, type Wing } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const BLACK = 0x1e1e26;
@@ -25,6 +25,7 @@ class Jingwei implements Figure {
   readonly group = new Group();
   readonly nativeSize = 2;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly wings: Wing[] = [];
@@ -63,6 +64,8 @@ class Jingwei implements Figure {
     w.part(new CylinderGeometry(0.018, 0.018, 0.7, 5), "iron", TWIG, B, 0, 0.07, 0.86).rotation.z = Math.PI / 2;
     w.part(new CylinderGeometry(0.012, 0.012, 0.25, 4), "iron", TWIG, B, 0.22, 0.14, 0.88).rotation.z = 0.6;
     w.part(new CylinderGeometry(0.012, 0.012, 0.2, 4), "iron", TWIG, B, -0.18, 0.13, 0.84).rotation.z = -0.8;
+    // the patterned head, bill, eyes and the twig in it on a pivot at the back of the skull (D93)
+    this.heads = [neck(B, [0, 0.1, 0.38], partsNear(B, [0, 0.14, 0.65], 0.4), 1.5, 0.6)];
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }

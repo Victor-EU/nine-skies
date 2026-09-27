@@ -15,8 +15,8 @@
  * the cloud holds still.
  */
 import { CapsuleGeometry, CatmullRomCurve3, ConeGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, cloudBank } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, cloudBank, neckWithin } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const WHITE = 0xf3f1ec;
@@ -38,6 +38,7 @@ class NiuMoWang implements Figure {
   readonly group = new Group();
   readonly nativeSize = 6.5;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly head = new Group();
@@ -127,6 +128,8 @@ class NiuMoWang implements Figure {
       ],
       B,
     );
+    // the head, horns and the wheel on them on a pivot inside the one he tosses (D93)
+    this.heads = [neckWithin(H, 0.8, 0.35)];
     w.bake(B, [this.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });

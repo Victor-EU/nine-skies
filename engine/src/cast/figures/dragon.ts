@@ -15,8 +15,8 @@
  * the bake gives a bone.
  */
 import { CatmullRomCurve3, CapsuleGeometry, ConeGeometry, Group, InstancedMesh, Matrix4, Mesh, Quaternion, SphereGeometry, TubeGeometry, Vector3, type Material } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { SpineTube, Wardrobe, triangleCount } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { SpineTube, Wardrobe, neckWithin, triangleCount } from "../parts.js";
 import type { Role, Skin } from "../skin.js";
 
 const SEGMENTS = 72;
@@ -47,6 +47,7 @@ class Dragon implements Figure {
   readonly group = new Group();
   readonly nativeSize = DRAGON_LENGTH;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly tube: SpineTube;
   private readonly body: Mesh;
   private readonly fins: InstancedMesh;
@@ -171,6 +172,8 @@ class Dragon implements Figure {
       0.6,
     );
 
+    // the whole head, jaw, whiskers and mane with it, on a pivot inside the head the swim steers (D93)
+    this.heads = [neckWithin(this.head, 1.0, 0.5)];
     // The body and the fins are not the wardrobe's; everything else is baked.
     w.bake(this.group);
     this.triangles = triangleCount(this.tube.geometry) + triangleCount(this.fins.geometry) * FINS + w.triangles;

@@ -14,8 +14,8 @@
  * cloud holds still.
  */
 import { CapsuleGeometry, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TubeGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, cloudBank } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, cloudBank, neckWithin } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const COAT = 0xe0a63a;
@@ -36,6 +36,7 @@ class Qilin implements Figure {
   readonly group = new Group();
   readonly nativeSize = 4.6;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly head = new Group();
@@ -125,6 +126,8 @@ class Qilin implements Figure {
       ],
       B,
     );
+    // the head on a pivot inside the one the walk nods (D93)
+    this.heads = [neckWithin(this.head, 0.8, 0.35)];
     w.bake(this.body, [this.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });

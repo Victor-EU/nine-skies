@@ -9,8 +9,8 @@
  * Native length 2.4 units, beak to tail.
  */
 import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, SphereGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, flapWing, wing, type Wing } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, flapWing, neck, partsNear, wing, type Wing } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const BLACK = 0x1b1b24;
@@ -23,6 +23,7 @@ class Magpie implements Figure {
   readonly group = new Group();
   readonly nativeSize = 2.4;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly wings: Wing[] = [];
@@ -49,6 +50,8 @@ class Magpie implements Figure {
     // the red fruit, and a leaf on it
     w.part(new SphereGeometry(0.09, 10, 8), "matte", RED, B, 0, 0.1, 0.95);
     w.part(new ConeGeometry(0.035, 0.12, 4), "matte", LEAF, B, 0.04, 0.19, 0.95).rotation.z = -0.6;
+    // the head, eyes, beak and the fruit in it on a pivot at the back of the skull (D93)
+    this.heads = [neck(B, [0, 0.1, 0.45], partsNear(B, [0, 0.15, 0.72], 0.35), 1.5, 0.6)];
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }

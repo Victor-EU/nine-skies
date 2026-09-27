@@ -18,6 +18,12 @@
  * its heading a moment late, so a figure keeps its place in the picture at
  * any speed and swings a little when the rail turns. It is kept off ground
  * it skims, and hidden by a peak it passes behind.
+ *
+ * The plan is drawn with the scene's sight (D93), so a monument that
+ * surfaces comes up where the flight looks; a visit an omen reacts in is
+ * built by the omen's module around the figure's own motion; and a figure
+ * with a head turns it where its pose says to look, after it has moved
+ * itself.
  */
 import { DirectionalLight, Fog, Group, HemisphereLight, Vector3, type Color, type Scene as ThreeScene } from "three";
 import { castLineAt, type CastCue, type Scene } from "../film/scene.js";
@@ -26,8 +32,11 @@ import { toWorldH, type WorldScale } from "../sim/scale.js";
 import { planScene, type Plan } from "./director.js";
 import { FADE_S } from "./fade.js";
 import { figureBuilder, type CastFrame, type Figure } from "./figure.js";
-import { angleTo, DEFAULT_VIEW, motionBuilder, newPose, type Motion, type Pose, type View, type Visit } from "./motion.js";
+import { restHeads, turnHead } from "./gaze.js";
+import { angleTo, DEFAULT_VIEW, motionBuilder, newPose, type Motion, type MotionContext, type Pose, type View, type Visit } from "./motion.js";
+import { omenWrap } from "./omens.js";
 import { hashSeed, Rng } from "./random.js";
+import { sightOf } from "./sight.js";
 import { DEFAULT_SKIN, SKINS, type Skin } from "./skin.js";
 import { temperamentOf } from "./temperament.js";
 
@@ -82,6 +91,8 @@ interface Placed {
   grid: { eastM: number; northM: number } | null;
   /** How far it has been lifted over the ground, world units; below zero while it is off stage. */
   lift: number;
+  /** Whether its heads are turned, so they are set back when the pose lets them go. */
+  looking: boolean;
 }
 
 /** The fade a cue is at: 0 before and after, 1 while it is in play. */
@@ -128,6 +139,12 @@ export class CastLayer {
   private readonly pose: Pose = newPose();
   private readonly fwd = new Vector3();
   private readonly right = new Vector3();
+  /** The frame's eye and the camera's altitude, for a pose read in the middle of placing. */
+  private readonly eye = new Vector3();
+  private altitudeM = 0;
+  private readonly at = new Vector3();
+  /** How deep a pose is being read for another figure's omen. */
+  private asking = 0;
   /** This viewing's seed (D92). */
   readonly seed: number;
   /** The current scene's plan, for probing. */
@@ -153,7 +170,7 @@ export class CastLayer {
   setScene(scene: Scene | null): void {
     this.clear();
     this.frameHeading = null;
-    this.plan = scene ? planScene(scene, this.seed) : null;
+    this.plan = scene ? planScene(scene, this.seed, temperamentOf, sightOf(scene)) : null;
     scene?.cast.forEach((cue, index) => {
       const plan = this.plan!.cues[index]!;
       const build = figureBuilder(cue.figure);
@@ -161,15 +178,23 @@ export class CastLayer {
       const temperament = temperamentOf(cue.figure);
       const visits = plan.visits.flatMap((visit) => {
         const make = motionBuilder(visit.motion);
+        if (!make) return [];
         const leader = visit.leader;
-        const motion = make?.({ cue, visit, temperament, rng: new Rng(visit.seed), leader: leader === null ? null : (t, view, out) => this.poseOf(leader, t, view, out) });
+        const context = (v: Visit): MotionContext => ({ cue, visit: v, temperament, rng: new Rng(v.seed), leader: leader === null ? null : (t, view, out) => this.poseOf(leader, t, view, out) });
+        // A visit an omen reacts in: the omen's module lays the figure's own motion and takes over from it.
+        const r = visit.reaction;
+        const wrap = r ? omenWrap(r.omen) : null;
+        const motion =
+          r && wrap
+            ? wrap({ reaction: r, cue, visit, temperament, rng: new Rng(hashSeed(visit.seed, "omen")), threat: (t, view, out) => this.poseInFrame(r.arrival, t, view, out), build: (v) => make(context(v)) })
+            : make(context(visit));
         return motion ? [{ visit, motion }] : [];
       });
       const figure = build({ skin: this.skin, variant: cue.variant, scale: this.scale });
       figure.group.visible = false;
       figure.group.rotation.order = "YXZ";
       this.group.add(figure.group);
-      this.placed.push({ index, cue, figure, visits, grid: null, lift: -1 });
+      this.placed.push({ index, cue, figure, visits, grid: null, lift: -1, looking: false });
     });
   }
 
@@ -182,7 +207,45 @@ export class CastLayer {
   private poseOf(index: number, flightS: number, view: View, out: Pose): boolean {
     const p = this.placed.find((q) => q.index === index);
     const v = p?.visits.find(({ visit }) => flightS >= visit.fromS && flightS <= visit.untilS);
+    out.gaze.weight = 0;
     return v ? v.motion.pose(flightS, view, out) : false;
+  }
+
+  /**
+   * The pose of cue `index` at a second in the companions' frame as it is
+   * this frame, a monument's too: where a witness sees it coming from.
+   */
+  private poseInFrame(index: number, flightS: number, view: View, out: Pose): boolean {
+    // Two figures that each foretell the other would ask after each other for ever.
+    if (this.asking > 1) return false;
+    this.asking++;
+    try {
+      if (!this.poseOf(index, flightS, view, out)) return false;
+    } finally {
+      this.asking--;
+    }
+    const p = this.placed.find((q) => q.index === index)!;
+    if (out.space !== "world" || !out.world) return true;
+    const d = this.worldPlace(p, out.world, this.at).sub(this.eye);
+    const k = toWorldH(1, this.scale);
+    out.at.ahead = d.dot(this.fwd) / k;
+    out.at.right = d.dot(this.right) / k;
+    out.at.up = d.y / k;
+    out.space = "frame";
+    out.world = null;
+    return true;
+  }
+
+  /**
+   * Where a world pose stands, world units: over the ground at its place,
+   * or over the camera's own altitude until the ground has arrived, and as
+   * far as it has swum from there.
+   */
+  private worldPlace(p: Placed, w: NonNullable<Pose["world"]>, out: Vector3): Vector3 {
+    p.grid ??= projectAlbers(w.lat, w.lon);
+    const ground = this.options.terrain.groundElevationM(p.grid.eastM, p.grid.northM);
+    const altitude = (ground ?? this.altitudeM - w.aboveGroundM) + w.aboveGroundM;
+    return out.copy(this.options.terrain.toWorld(p.grid.eastM + (w.eastM ?? 0), p.grid.northM + (w.northM ?? 0), altitude));
   }
 
   setScale(scale: WorldScale): void {
@@ -215,11 +278,15 @@ export class CastLayer {
     const h = this.frameHeading;
     this.fwd.set(Math.sin(h), 0, Math.cos(h));
     this.right.set(this.fwd.z, 0, -this.fwd.x);
+    this.eye.copy(f.eye);
+    this.altitudeM = f.altitudeM;
     const view = f.view ?? DEFAULT_VIEW;
     const pose = this.pose;
     for (const p of this.placed) {
       const g = p.figure.group;
       const on = p.visits.find(({ visit }) => f.flightS >= visit.fromS && f.flightS <= visit.untilS);
+      pose.gaze.weight = 0;
+      pose.alarm = 0;
       if (!on || !on.motion.pose(f.flightS, view, pose) || pose.presence <= 0) {
         g.visible = false;
         p.lift = -1;
@@ -229,10 +296,7 @@ export class CastLayer {
       const sizeWorld = toWorldH(p.cue.sizeM, this.scale);
       g.scale.setScalar((sizeWorld / p.figure.nativeSize) * (0.6 + 0.4 * pose.presence));
       if (pose.space === "world" && pose.world) {
-        p.grid ??= projectAlbers(pose.world.lat, pose.world.lon);
-        const above = pose.world.aboveGroundM;
-        const ground = this.options.terrain.groundElevationM(p.grid.eastM, p.grid.northM);
-        g.position.copy(this.options.terrain.toWorld(p.grid.eastM, p.grid.northM, (ground ?? f.altitudeM - above) + above));
+        this.worldPlace(p, pose.world, g.position);
         g.rotation.set(-pose.pitch, pose.yaw, pose.bank);
       } else {
         const a = pose.at;
@@ -253,9 +317,29 @@ export class CastLayer {
         g.position.y += p.lift;
         g.rotation.set(-pose.pitch, h + pose.yaw, pose.bank);
       }
-      const frame: CastFrame = { timeS: f.timeS, flightS: f.flightS, eye: f.eye, headingRad: f.headingRad, group: g };
+      const frame: CastFrame = { timeS: f.timeS, flightS: f.flightS, eye: f.eye, headingRad: f.headingRad, group: g, alarm: pose.alarm };
       p.figure.update(frame);
+      this.look(p, pose);
     }
+  }
+
+  /** Its heads where its pose looks, or back to rest once it has stopped looking. */
+  private look(p: Placed, pose: Pose): void {
+    const heads = p.figure.heads;
+    if (!heads || heads.length === 0) return;
+    const w = pose.gaze.weight;
+    if (w <= 0) {
+      if (p.looking) restHeads(heads);
+      p.looking = false;
+      return;
+    }
+    const a = pose.gaze.at;
+    const k = toWorldH(1, this.scale);
+    this.at.copy(this.eye).addScaledVector(this.fwd, a.ahead * k).addScaledVector(this.right, a.right * k);
+    this.at.y += a.up * k;
+    p.figure.group.updateMatrixWorld(true);
+    for (const h of heads) turnHead(h, this.at, w);
+    p.looking = true;
   }
 
   /** Dress every figure again from another skin. */

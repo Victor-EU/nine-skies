@@ -12,8 +12,8 @@
  * rebuilt each frame; the wheels spin and the flame flickers by groups.
  */
 import { BoxGeometry, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, humanoid, type Humanoid } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, humanHead, humanoid, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const RED = 0xd8382a;
@@ -27,6 +27,7 @@ class Nezha implements Figure {
   readonly group = new Group();
   readonly nativeSize = 2.3;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly h: Humanoid;
@@ -92,6 +93,8 @@ class Nezha implements Figure {
     this.sashCurve = new CatmullRomCurve3(this.sashPts);
     this.sash = w.dress(new Mesh(new TubeGeometry(this.sashCurve, 40, 0.06, 6, false)), "silk", RED);
     B.add(this.sash);
+    // the head, hair, buns and ties on a pivot at the neck (D93)
+    this.heads = [humanHead(this.h, B)];
     // A capsule for the legs' silk was the doll's; Nezha's legs are bare.
     w.bake(this.body, [this.sash]);
     this.triangles = w.triangles;

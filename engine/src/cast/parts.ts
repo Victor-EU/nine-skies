@@ -38,6 +38,7 @@ import {
   type Object3D,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import type { Head } from "./figure.js";
 import type { Role, Skin } from "./skin.js";
 
 /** A height field of overlapping scales, as a tangent-space normal map. */
@@ -531,6 +532,66 @@ export function walk(t: number, h: Humanoid, rate = 5): void {
   }
 }
 
+// ---- Heads (D93) -----------------------------------------------------------
+//
+// A figure that can look carries its head on a pivot nothing else moves, so
+// the layer can turn it toward the lens, or toward what is coming, after
+// the figure has moved itself. The pivot is made before the bake, which
+// gives it a bone like any group that carries parts.
+
+/** Put `parts` on a pivot of their own at `at` in `parent`, staying where they are. */
+export function neck(parent: Group, at: readonly [number, number, number], parts: readonly Object3D[], maxYawRad = 1.1, maxPitchRad = 0.45): Head {
+  const pivot = new Group();
+  pivot.name = "neck";
+  pivot.position.set(at[0], at[1], at[2]);
+  pivot.rotation.order = "YXZ";
+  parent.add(pivot);
+  for (const p of parts) pivot.attach(p);
+  return { pivot, maxYawRad, maxPitchRad };
+}
+
+/** A head built as a group of its own, which the figure moves: what it carries goes onto a pivot inside it. */
+export function neckWithin(head: Group, maxYawRad = 1.1, maxPitchRad = 0.45): Head {
+  const pivot = new Group();
+  pivot.name = "neck";
+  pivot.rotation.order = "YXZ";
+  for (const c of [...head.children]) pivot.add(c);
+  head.add(pivot);
+  return { pivot, maxYawRad, maxPitchRad };
+}
+
+/** The parts `parent` carries directly whose bounds, in the parent's frame, pass `test`. */
+export function partsWhere(parent: Group, test: (bounds: Box3) => boolean, except: readonly Object3D[] = []): Object3D[] {
+  parent.updateMatrixWorld(true);
+  const toParent = new Matrix4().copy(parent.matrixWorld).invert();
+  const box = new Box3();
+  return parent.children.filter((c) => {
+    if (except.includes(c) || c.name === "neck") return false;
+    box.setFromObject(c).applyMatrix4(toParent);
+    return !box.isEmpty() && test(box);
+  });
+}
+
+/** The parts `parent` carries directly whose bounds are centred within `reach` of a point: a beast's head, a bird's. */
+export function partsNear(parent: Group, centre: readonly [number, number, number], reach: number, except: readonly Object3D[] = []): Object3D[] {
+  const c = new Vector3(centre[0], centre[1], centre[2]);
+  const at = new Vector3();
+  return partsWhere(parent, (b) => b.getCenter(at).distanceTo(c) <= reach, except);
+}
+
+/**
+ * The doll's head and everything a builder hung on it - face, hair, ears,
+ * crown, the plumes of a cap - on a pivot at the neck: the head itself, and
+ * each part the parent carries directly whose bounds are centred over the
+ * collar and reach no lower than the chin. A beard hangs below the chin, so
+ * its builder attaches it. Called once the costume is on, before the bake.
+ */
+export function humanHead(h: Humanoid, parent: Group, maxYawRad = 1.1, maxPitchRad = 0.4): Head {
+  const except = [h.head, ...h.arms.map((a) => a.shoulder), ...h.legs.map((l) => l.hip)];
+  const parts = partsWhere(parent, (b) => b.min.y >= 1.2 && (b.min.y + b.max.y) / 2 >= 1.55, except);
+  return neck(parent, [0, 1.45, 0], [h.head, ...parts], maxYawRad, maxPitchRad);
+}
+
 /** A bank of silk puffs: `[x, y, z, r]` each; they breathe in `breathe`. */
 export function cloudBank(w: Wardrobe, colour: number, puffs: readonly (readonly [number, number, number, number])[], parent: Group): Group {
   const g = new Group();
@@ -609,6 +670,11 @@ export function horse(w: Wardrobe, o: HorseOptions, parent: Group): Horse {
   w.part(new TorusGeometry(0.44, 0.03, 6, 20), "gold", o.tack, parent, 0, 1.12, -0.05).rotation.y = Math.PI / 2;
   w.part(new TorusGeometry(0.28, 0.025, 6, 20), "gold", o.tack, parent, 0, 1.95, 1.4).rotation.x = Math.PI / 2;
   return { legs, tail, tailPts, tailCurve, head };
+}
+
+/** The horse's head, ears, eyes and bridle, and anything a builder put there, on a pivot at the poll. */
+export function horseHead(parent: Group, maxYawRad = 0.7, maxPitchRad = 0.35): Head {
+  return neck(parent, [0, 1.85, 1.15], partsNear(parent, [0, 2.0, 1.35], 0.45), maxYawRad, maxPitchRad);
 }
 
 /** The walk: legs swinging against each other, the tail rewritten along its curve. */
@@ -732,6 +798,8 @@ export function flapWing(wg: Wing, f: number, lift = 0.45, fold = 0.35): void {
 
 export interface Bird {
   readonly group: Group;
+  /** Its head, on a pivot of its own (D93). */
+  readonly head: Head;
   /** Flap: the inner and outer wing of each side. */
   flap(f: number): void;
 }
@@ -742,12 +810,14 @@ export function bird(w: Wardrobe, o: { body: number; crown: number; tip: number;
   parent.add(g);
   const body = w.part(new SphereGeometry(0.28, 12, 10), "silk", o.body, g);
   body.scale.set(1, 0.8, 2.2);
-  const neck = w.part(new CapsuleGeometry(0.06, 1.1, 4, 8), "silk", o.body, g, 0, 0.25, 0.95);
-  neck.rotation.x = Math.PI / 2 - 0.35;
-  w.part(new SphereGeometry(0.11, 10, 8), "silk", o.body, g, 0, 0.48, 1.5);
-  w.part(new SphereGeometry(0.06, 8, 6), "silk", o.crown, g, 0, 0.56, 1.52);
+  const throat = w.part(new CapsuleGeometry(0.06, 1.1, 4, 8), "silk", o.body, g, 0, 0.25, 0.95);
+  throat.rotation.x = Math.PI / 2 - 0.35;
+  const skull = w.part(new SphereGeometry(0.11, 10, 8), "silk", o.body, g, 0, 0.48, 1.5);
+  const crown = w.part(new SphereGeometry(0.06, 8, 6), "silk", o.crown, g, 0, 0.56, 1.52);
   const beak = w.part(new ConeGeometry(0.035, 0.35, 6), "iron", o.beak, g, 0, 0.46, 1.75);
   beak.rotation.x = Math.PI / 2;
+  // a bird turns its head further than a beast can
+  const head = neck(g, [0, 0.45, 1.42], [skull, crown, beak], 1.5, 0.6);
   const legs = w.part(new CapsuleGeometry(0.02, 0.7, 2, 4), "iron", o.tip, g, 0, -0.05, -0.75);
   legs.rotation.x = Math.PI / 2 + 0.1;
   const wings: Wing[] = [];
@@ -759,6 +829,7 @@ export function bird(w: Wardrobe, o: { body: number; crown: number; tip: number;
   g.scale.setScalar(o.size ?? 1);
   return {
     group: g,
+    head,
     flap(f) {
       for (const wg of wings) flapWing(wg, f);
     },

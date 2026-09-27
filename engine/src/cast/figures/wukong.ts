@@ -11,8 +11,8 @@
  * Native height 2.5 units to the crest, 3.6 to the plumes' tips.
  */
 import { CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3, type DataTexture } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, cloudBank, humanoid, stripesTexture, type Humanoid } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, cloudBank, humanHead, humanoid, stripesTexture, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const FUR = 0xb9782f;
@@ -28,6 +28,7 @@ class Wukong implements Figure {
   readonly group = new Group();
   readonly nativeSize = 2.5;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly rider = new Group();
@@ -110,6 +111,8 @@ class Wukong implements Figure {
       ],
       this.body,
     );
+    // the face, ears, cap and the plumes' pivots on a pivot at the neck (D93)
+    this.heads = [humanHead(this.h, B)];
     w.bake(this.body, [this.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });

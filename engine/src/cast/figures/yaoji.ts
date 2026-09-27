@@ -11,8 +11,8 @@
  * Native height 3 units to the hair.
  */
 import { CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank, humanoid, type Humanoid } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, breathe, cloudBank, humanHead, humanoid, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const FACE = 0xf7e3d2;
@@ -35,6 +35,7 @@ class YaoJi implements Figure {
   readonly group = new Group();
   readonly nativeSize = 3;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly h: Humanoid;
@@ -57,6 +58,8 @@ class YaoJi implements Figure {
       w.part(new SphereGeometry(0.045, 8, 6), "eye", 0x111111, B, s * 0.15, 1.84, 0.42);
     }
     w.part(new CylinderGeometry(0.02, 0.02, 0.9, 6), "gold", GOLD, B, 0, 2.28, -0.1).rotation.z = Math.PI / 2 + 0.15;
+    // the head, hair, loops and pin on a pivot at the neck (D93)
+    this.heads = [humanHead(this.h, B)];
     // two ribbons from the shoulders, along curves rewritten each frame
     for (const side of [-1, 1]) {
       const pts: Vector3[] = [];

@@ -9,13 +9,14 @@ import { describe, expect, it } from "vitest";
 import { Color, Scene as ThreeScene, Vector3 } from "three";
 import { cueFromRaw } from "../../content/cast.ts";
 import { FIGURE_KINDS, LIVING_FAITHS } from "../../engine/src/cast/kinds.js";
-import { CUE_MOTIONS, MOTION_KINDS, TRANSIT_MOTIONS, motionSuits, type MotionKind } from "../../engine/src/cast/moves.js";
+import { CUE_MOTIONS, MOTION_KINDS, TRANSIT_MOTIONS, WORLD_TRANSIT_MOTIONS, motionSuits, type MotionKind } from "../../engine/src/cast/moves.js";
 import { DEFAULT_VIEW, frameToPicture, inPicture, motionBuilder, newPose, pictureToFrame, registeredMotions, type MotionContext, type View, type Visit } from "../../engine/src/cast/motion.js";
 import "../../engine/src/cast/motions/index.js";
 import "../../engine/src/cast/figures/index.js";
 import { hashSeed, Rng } from "../../engine/src/cast/random.js";
 import { GENERIC, TEMPERAMENTS, temperamentOf } from "../../engine/src/cast/temperament.js";
-import { CROWD, planScene } from "../../engine/src/cast/director.js";
+import { CROWD, RISEN, planScene, repertoire } from "../../engine/src/cast/director.js";
+import { sightOf } from "../../engine/src/cast/sight.js";
 import { CastLayer } from "../../engine/src/cast/cast.js";
 import { CAST_LINE_SHOW_S, type CastCue, type Scene } from "../../engine/src/film/scene.js";
 import { DEFAULT_SCALE, toWorldH } from "../../engine/src/sim/scale.js";
@@ -79,7 +80,7 @@ describe("the motions", () => {
     expect(frameToPicture({ ahead: 1000, right: 0, up: 0 }, DEFAULT_VIEW).y).toBeGreaterThan(0);
   });
 
-  const visitOf = (motion: MotionKind, seed: number, over: Partial<Visit> = {}): Visit => ({ motion, fromS: 20, untilS: 30, dwell: null, named: false, side: new Rng(seed).sign(), leader: null, lagS: 0, seed, ...over });
+  const visitOf = (motion: MotionKind, seed: number, over: Partial<Visit> = {}): Visit => ({ motion, fromS: 20, untilS: 30, dwell: null, named: false, side: new Rng(seed).sign(), leader: null, lagS: 0, seed, glance: null, reaction: null, ...over });
   const contextOf = (c: CastCue, visit: Visit): MotionContext => ({ cue: c, visit, temperament: temperamentOf(c.figure), rng: new Rng(visit.seed), leader: null });
 
   it("come into the picture and leave it off an edge or behind the lens, wide or tall, and never jump", () => {
@@ -164,7 +165,7 @@ describe("the temperaments", () => {
   it("name only motions that exist, figures that exist, and keep play to the monkey and his pursuer", () => {
     for (const [kind, t] of Object.entries(TEMPERAMENTS)) {
       expect(FIGURE_KINDS as readonly string[]).toContain(kind);
-      for (const m of Object.keys(t!.moves)) expect(TRANSIT_MOTIONS as readonly string[], `${kind} ${m}`).toContain(m);
+      for (const m of Object.keys(t!.moves)) expect([...TRANSIT_MOTIONS, ...WORLD_TRANSIT_MOTIONS] as readonly string[], `${kind} ${m}`).toContain(m);
       if (t!.chases) expect(FIGURE_KINDS as readonly string[]).toContain(t!.chases);
       if (kind !== "wukong") expect(t!.moves.blink ?? 0, kind).toBe(0);
       expect(t!.band[0]).toBeLessThan(t!.band[1]);
@@ -213,12 +214,26 @@ describe("the director", () => {
   it("keeps each figure's visits inside its cue and apart, and the picture uncrowded", () => {
     for (const s of film.scenes) {
       for (const seed of SEEDS) {
-        const plan = planScene(s, seed);
+        const plan = planScene(s, seed, temperamentOf, sightOf(s));
         const passing: Visit[] = [];
+        const risings: Visit[] = [];
         s.cast.forEach((c, i) => {
           const vs = plan.cues[i]!.visits;
           if (!plan.cues[i]!.cast) return expect(vs).toEqual([]);
-          if (c.role === "monument") return expect(vs.map((v) => [v.motion, v.fromS, v.untilS])).toEqual([["anchor", c.fromS, c.untilS]]);
+          if (c.role === "monument" && !repertoire(c, temperamentOf(c.figure)).surface) return expect(vs.map((v) => [v.motion, v.fromS, v.untilS])).toEqual([["anchor", c.fromS, c.untilS]]);
+          if (c.role === "monument") {
+            // A monument that surfaces: up and under inside its cue, standing between, and a while apart.
+            vs.forEach((v, k) => {
+              expect(v.motion).toBe("surface");
+              expect(v.fromS).toBeGreaterThanOrEqual(c.fromS);
+              expect(v.untilS).toBeLessThanOrEqual(c.untilS);
+              expect(v.dwell![0]).toBeGreaterThan(v.fromS);
+              expect(v.dwell![1]).toBeLessThan(v.untilS);
+              if (k > 0) expect(v.fromS, `${s.id} ${c.variant} seed ${seed}`).toBeGreaterThanOrEqual(vs[k - 1]!.untilS + temperamentOf(c.figure).gapS[0] - 1e-9);
+            });
+            risings.push(...vs);
+            return;
+          }
           vs.forEach((v, k) => {
             expect(v.fromS, `${s.id} ${c.figure}`).toBeGreaterThanOrEqual(c.fromS);
             expect(v.untilS, `${s.id} ${c.figure}`).toBeLessThanOrEqual(c.untilS);
@@ -230,6 +245,8 @@ describe("the director", () => {
         for (let t = 0; t < 114; t += 0.25) {
           const on = passing.filter((v) => v.fromS <= t && v.untilS > t);
           if (on.some((v) => !v.named)) expect(on.length, `${s.id} seed ${seed} at ${t}`).toBeLessThanOrEqual(CROWD + on.filter((v) => v.named).length);
+          const up = risings.filter((v) => v.fromS <= t && v.untilS > t);
+          if (up.some((v) => !v.named)) expect(up.length, `${s.id} seed ${seed} at ${t}`).toBeLessThanOrEqual(RISEN + up.filter((v) => v.named).length);
         }
       }
     }

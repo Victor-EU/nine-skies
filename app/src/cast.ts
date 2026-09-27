@@ -79,8 +79,13 @@ export class CastSwitch {
     if (on) {
       if (this.loading) return;
       this.loading = (async () => {
-        // The layer, its figures and their motions, only now (vite splits them into their own chunks).
-        const [{ CastLayer }] = await Promise.all([import("../../engine/src/cast/cast.js"), import("../../engine/src/cast/figures/index.js"), import("../../engine/src/cast/motions/index.js")]);
+        // The layer, its figures, their motions and their omens, only now (vite splits them into their own chunks).
+        const [{ CastLayer }] = await Promise.all([
+          import("../../engine/src/cast/cast.js"),
+          import("../../engine/src/cast/figures/index.js"),
+          import("../../engine/src/cast/motions/index.js"),
+          import("../../engine/src/cast/omens/index.js"),
+        ]);
         this.loading = null;
         if (!this.wanted) return;
         this.current = new CastLayer({ ...this.options.layerOptions(), seed: this.seed });

@@ -10,8 +10,8 @@
  * Native length 4 units, nose to tail.
  */
 import { CapsuleGeometry, ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, neckWithin } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const SHELL = 0x3b5a48;
@@ -24,6 +24,7 @@ class Turtle implements Figure {
   readonly group = new Group();
   readonly nativeSize = 4;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly neck = new Group();
@@ -51,6 +52,8 @@ class Turtle implements Figure {
     w.part(new SphereGeometry(0.28, 14, 10), "skin", HIDE, N, 0, 0.25, 0.8).scale.set(0.9, 0.8, 1.2);
     w.part(new CylinderGeometry(0.06, 0.09, 0.28, 8), "skin", HIDE, N, 0, 0.3, 1.15).rotation.x = Math.PI / 2;
     for (const s of [-1, 1]) w.part(new SphereGeometry(0.05, 8, 6), "eye", 0x111111, N, s * 0.16, 0.36, 0.95);
+    // the neck and head swing from the shell on a pivot inside the one the swim sways (D93)
+    this.heads = [neckWithin(N, 0.8, 0.35)];
     // four paddles that row
     for (const [x, z] of [
       [-1.0, 0.7],

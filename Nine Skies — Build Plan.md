@@ -132,6 +132,17 @@ Everything else in the repository served the version-1 game and goes.
   `?castseed=` plays it again. The author's cue bounds the dice: a figure
   is paused at its author's spot for every second of its line, and no more
   than two companions share the picture outside a line.
+- **D93** The cast surprises (decided 27 September 2026, F114). A monument
+  of a creature that lives in the cloud or the water surfaces instead of
+  standing: it comes up, stands a while and goes under on its own timing,
+  mostly when the flight is looking its way, by the rail flown at its
+  authored speed. An arrival may be foretold by an omen, the fifth plug
+  axis: a figure's temperament says what its coming brings, and a witness
+  on stage reacts a moment before it — the birds scatter, or everyone turns
+  to look — or is brought on to. Figures that have a head turn it: to the
+  lens while their line is on, in a glance on their way as often as they
+  are curious, and toward what is coming. A few figures are rare, by the
+  lore that makes them so, and every scene keeps one that always comes.
 
 
 ## What each part of the repository becomes

@@ -12,10 +12,17 @@
  * - playfulness is Wukong's and Nezha's alone: the somersault and the chase;
  * - figures of living faiths and the Queen Mother move slowly and are never
  *   drawn close (`stately`): they approach, cross and descend;
- * - birds and dragons may pitch with their path; walkers stay nearly level.
+ * - birds and dragons may pitch with their path; walkers stay nearly level;
+ * - a dragon surfaces where its cue stands it (D93): up out of the cloud
+ *   sea, a while, and under again;
+ * - what is big and hungry sends the birds flying before it comes, and
+ *   what is holy makes everything turn to look (D93, the omens): the
+ *   birds scatter, and the rest are curious;
+ * - a figure with no head, or with none it should turn, is not curious.
  */
 import type { FigureKind } from "./kinds.js";
 import type { MotionKind } from "./moves.js";
+import type { OmenKind } from "./omens.js";
 
 export interface Temperament {
   /** Motions to draw a visit from, by weight. */
@@ -38,6 +45,12 @@ export interface Temperament {
    * string of flags crossing the picture is a stick seen end-on.
    */
   readonly facesPath: boolean;
+  /** How often a visit of its turns its head to the lens on the way, 0 to 1 (D93). */
+  readonly curiosity: number;
+  /** It takes fright at an arrival that scatters the birds. */
+  readonly skittish: boolean;
+  /** What its own arrival brings, by weight: the omens the director may draw before it comes. */
+  readonly omens: Readonly<Partial<Record<OmenKind, number>>>;
 }
 
 const base: Temperament = {
@@ -49,6 +62,9 @@ const base: Temperament = {
   stately: false,
   chases: null,
   facesPath: true,
+  curiosity: 0.35,
+  skittish: false,
+  omens: {},
 };
 
 const t = (over: Partial<Temperament>): Temperament => ({ ...base, ...over });
@@ -57,37 +73,41 @@ const t = (over: Partial<Temperament>): Temperament => ({ ...base, ...over });
 export const GENERIC: Temperament = base;
 
 export const TEMPERAMENTS: Readonly<Partial<Record<FigureKind, Temperament>>> = {
-  // Serpents of the cloud: they break the surface below, arc and go under.
-  dragon: t({ moves: { rise: 3, cross: 2, oncoming: 1 }, band: [-0.6, 0.3], pace: 1.2, maxPitchDeg: 35 }),
+  // Serpents of the cloud: they break the surface below, arc and go under;
+  // standing, they come up out of the cloud sea and go down into it again.
+  dragon: t({ moves: { rise: 3, cross: 2, oncoming: 1, surface: 1 }, band: [-0.6, 0.3], pace: 1.2, maxPitchDeg: 35, curiosity: 0.5, omens: { scatter: 3, look: 1 } }),
   // Sent to bring the monkey in (ch. 4): after him wherever he goes.
-  nezha: t({ moves: { overtake: 2, cross: 2, stoop: 1 }, band: [-0.3, 0.5], pace: 0.8, maxPitchDeg: 20, chases: "wukong" }),
+  nezha: t({ moves: { overtake: 2, cross: 2, stoop: 1 }, band: [-0.3, 0.5], pace: 0.8, maxPitchDeg: 20, chases: "wukong", curiosity: 0.4 }),
   // A somersault is 108,000 li: he is never where he was.
-  wukong: t({ moves: { blink: 3, circle: 1, cross: 1 }, band: [-0.4, 0.5], pace: 0.9, gapS: [4, 14] }),
-  pilgrims: t({ moves: { cross: 3, oncoming: 2 }, band: [-0.7, 0], pace: 1.5, maxPitchDeg: 4 }),
-  xiwangmu: t({ moves: { cross: 2, oncoming: 1, stoop: 1 }, band: [-0.2, 0.5], pace: 1.4, maxPitchDeg: 8, stately: true }),
-  cranes: t({ moves: { cross: 3, overtake: 2, oncoming: 1 }, band: [-0.5, 0.4], maxPitchDeg: 20 }),
-  qilin: t({ moves: { cross: 2, oncoming: 2 }, band: [-0.5, 0.1], pace: 1.1, maxPitchDeg: 10 }),
-  phoenix: t({ moves: { stoop: 2, cross: 2, overtake: 1 }, band: [-0.2, 0.6], maxPitchDeg: 30 }),
+  // He looks at you. He always looks at you.
+  wukong: t({ moves: { blink: 3, circle: 1, cross: 1 }, band: [-0.4, 0.5], pace: 0.9, gapS: [4, 14], curiosity: 0.65 }),
+  pilgrims: t({ moves: { cross: 3, oncoming: 2 }, band: [-0.7, 0], pace: 1.5, maxPitchDeg: 4, curiosity: 0.3 }),
+  xiwangmu: t({ moves: { cross: 2, oncoming: 1, stoop: 1 }, band: [-0.2, 0.5], pace: 1.4, maxPitchDeg: 8, stately: true, curiosity: 0.25, omens: { look: 1 } }),
+  cranes: t({ moves: { cross: 3, overtake: 2, oncoming: 1 }, band: [-0.5, 0.4], maxPitchDeg: 20, curiosity: 0.3, skittish: true }),
+  // Seen once in an age, and everything stops to see it.
+  qilin: t({ moves: { cross: 2, oncoming: 2 }, band: [-0.5, 0.1], pace: 1.1, maxPitchDeg: 10, curiosity: 0.4, omens: { look: 2 } }),
+  // A hundred birds turn to the phoenix (百鸟朝凤).
+  phoenix: t({ moves: { stoop: 2, cross: 2, overtake: 1 }, band: [-0.2, 0.6], maxPitchDeg: 30, curiosity: 0.3, omens: { look: 2 } }),
   // Tiger Leaping Gorge is on the rail: it leaps.
-  tiger: t({ moves: { cross: 3, rise: 1 }, band: [-0.6, 0], pace: 0.7, maxPitchDeg: 20 }),
-  turtle: t({ moves: { oncoming: 2, cross: 2 }, band: [-0.6, 0], pace: 1.6, maxPitchDeg: 5 }),
-  magpie: t({ moves: { circle: 2, cross: 2, stoop: 1 }, band: [-0.4, 0.4], pace: 0.8, maxPitchDeg: 25 }),
+  tiger: t({ moves: { cross: 3, rise: 1 }, band: [-0.6, 0], pace: 0.7, maxPitchDeg: 20, curiosity: 0.5, omens: { scatter: 2, look: 1 } }),
+  turtle: t({ moves: { oncoming: 2, cross: 2 }, band: [-0.6, 0], pace: 1.6, maxPitchDeg: 5, curiosity: 0.3 }),
+  magpie: t({ moves: { circle: 2, cross: 2, stoop: 1 }, band: [-0.4, 0.4], pace: 0.8, maxPitchDeg: 25, curiosity: 0.5, skittish: true }),
   // Its wings like clouds hung from the sky: it passes over.
-  peng: t({ moves: { overtake: 3, stoop: 1 }, band: [0, 0.7], pace: 1.3, maxPitchDeg: 20 }),
+  peng: t({ moves: { overtake: 3, stoop: 1 }, band: [0, 0.7], pace: 1.3, maxPitchDeg: 20, curiosity: 0.3, omens: { scatter: 3 } }),
   yaoji: t({ moves: { cross: 2, oncoming: 1, stoop: 1 }, band: [-0.2, 0.5], pace: 1.3, maxPitchDeg: 10 }),
-  jingwei: t({ moves: { stoop: 2, cross: 2, overtake: 1 }, band: [-0.3, 0.5], pace: 0.8, maxPitchDeg: 30 }),
+  jingwei: t({ moves: { stoop: 2, cross: 2, overtake: 1 }, band: [-0.3, 0.5], pace: 0.8, maxPitchDeg: 30, curiosity: 0.4, skittish: true }),
   // Leaping at the Dragon Gate.
-  carp: t({ moves: { rise: 4, cross: 1 }, band: [-0.7, 0.1], pace: 0.8, maxPitchDeg: 45 }),
-  niumowang: t({ moves: { oncoming: 2, cross: 2 }, band: [-0.6, 0], pace: 1.2, maxPitchDeg: 8 }),
+  carp: t({ moves: { rise: 4, cross: 1 }, band: [-0.7, 0.1], pace: 0.8, maxPitchDeg: 45, curiosity: 0, skittish: true }),
+  niumowang: t({ moves: { oncoming: 2, cross: 2 }, band: [-0.6, 0], pace: 1.2, maxPitchDeg: 8, curiosity: 0.4, omens: { scatter: 2 } }),
   // Crossing the sea, each by his own power.
   baxian: t({ moves: { cross: 3, oncoming: 1 }, band: [-0.5, 0.2], pace: 1.5, maxPitchDeg: 5 }),
   elephant: t({ moves: { cross: 2, oncoming: 1 }, band: [-0.7, -0.1], pace: 1.6, maxPitchDeg: 5 }),
-  egrets: t({ moves: { cross: 3, overtake: 1, rise: 1 }, band: [-0.6, 0.2], maxPitchDeg: 20 }),
-  sanduo: t({ moves: { cross: 2, oncoming: 2 }, band: [-0.4, 0.2], pace: 1.2, maxPitchDeg: 8, stately: true }),
-  guanyin: t({ moves: { oncoming: 2, stoop: 1, cross: 1 }, band: [-0.1, 0.5], pace: 1.6, maxPitchDeg: 5, stately: true }),
+  egrets: t({ moves: { cross: 3, overtake: 1, rise: 1 }, band: [-0.6, 0.2], maxPitchDeg: 20, curiosity: 0.25, skittish: true }),
+  sanduo: t({ moves: { cross: 2, oncoming: 2 }, band: [-0.4, 0.2], pace: 1.2, maxPitchDeg: 8, stately: true, curiosity: 0.2, omens: { look: 1 } }),
+  guanyin: t({ moves: { oncoming: 2, stoop: 1, cross: 1 }, band: [-0.1, 0.5], pace: 1.6, maxPitchDeg: 5, stately: true, curiosity: 0, omens: { look: 2 } }),
   // The flags go where the wind takes them.
-  lungta: t({ moves: { cross: 3, overtake: 1 }, band: [-0.1, 0.6], maxPitchDeg: 10, stately: true, facesPath: false }),
-  miyolangsangma: t({ moves: { cross: 2, oncoming: 1 }, band: [-0.5, 0.1], pace: 1.3, maxPitchDeg: 8, stately: true }),
+  lungta: t({ moves: { cross: 3, overtake: 1 }, band: [-0.1, 0.6], maxPitchDeg: 10, stately: true, facesPath: false, curiosity: 0 }),
+  miyolangsangma: t({ moves: { cross: 2, oncoming: 1 }, band: [-0.5, 0.1], pace: 1.3, maxPitchDeg: 8, stately: true, curiosity: 0.2, omens: { look: 1 } }),
 };
 
 export function temperamentOf(kind: string): Temperament {

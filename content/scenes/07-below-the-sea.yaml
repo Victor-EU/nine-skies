@@ -47,7 +47,7 @@ look:
 # Immortals crossing the sea over Ayding Lake, the one ground below it.
 # The Uyghur story's slain dragon lies along the red range itself, a
 # monument twenty kilometres long, seen for the seconds the rail passes
-# Turpan.
+# Turpan. It is dead, so it lies still; the living dragons surface (D93).
 cast:
   - figure: xiwangmu
     role: companion
@@ -67,6 +67,7 @@ cast:
     facing_deg: 100
     from: 4
     until: 40
+    motion: anchor
   - figure: wukong
     variant: still
     role: companion

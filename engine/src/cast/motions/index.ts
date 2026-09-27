@@ -1,5 +1,5 @@
 /**
- * Every motion, registered by being imported (D92). The shell imports this
+ * Every motion, registered by being imported (D92, D93). The shell imports this
  * module with the figures, only when the viewer switches the cast on; the
  * cast tests import it to hold `MOTION_KINDS` and the registry to each other.
  */
@@ -13,3 +13,4 @@ import "./stoop.js";
 import "./circle.js";
 import "./blink.js";
 import "./chase.js";
+import "./surface.js";

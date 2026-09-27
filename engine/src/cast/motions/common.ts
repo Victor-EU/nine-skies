@@ -54,6 +54,7 @@ export function pathOptions(ctx: MotionContext): PathOptions {
     maxBankRad: temperament.maxPitchDeg > 12 ? 0.45 : 0.1,
     bob: 0.01,
     phase: rng.range(0, Math.PI * 2),
+    glanceS: visit.glance,
   };
 }
 

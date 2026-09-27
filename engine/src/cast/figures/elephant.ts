@@ -11,8 +11,8 @@
  * Native length 5 units, trunk to tail.
  */
 import { BoxGeometry, CatmullRomCurve3, CylinderGeometry, Group, Mesh, SphereGeometry, TubeGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, breathe, cloudBank, neckWithin } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const GREY = 0xd8d4cc;
@@ -26,6 +26,7 @@ class Elephant implements Figure {
   readonly group = new Group();
   readonly nativeSize = 5;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly head = new Group();
@@ -68,6 +69,8 @@ class Elephant implements Figure {
     this.trunkCurve = new CatmullRomCurve3(this.trunkPts);
     this.trunk = w.dress(new Mesh(new TubeGeometry(this.trunkCurve, 24, 0.17, 8, false)), "silk", SHADE);
     H.add(this.trunk);
+    // the skull, ears, tusks and trunk on a pivot inside the head (D93): the trunk's curve is in the head's own frame, so it turns with it
+    this.heads = [neckWithin(H, 0.8, 0.35)];
     // four legs, round feet
     for (const [x, z] of [
       [-0.55, 0.65],

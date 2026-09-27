@@ -12,8 +12,8 @@
  * alone, in place, 3.6 units long, before the road gave him his company.
  */
 import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, cloudBank, horse, horseWalk, humanoid, walk, type Horse, type Humanoid } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, cloudBank, horse, horseHead, horseWalk, humanHead, humanoid, walk, type Horse, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const COAT = 0xf7f4ee;
@@ -35,7 +35,7 @@ const BONE = 0xf2ecdc;
 const PACK = 0x8f6b3e;
 const CLOUD = 0xffffff;
 
-function monk(w: Wardrobe, parent: Group): Humanoid {
+function monk(w: Wardrobe, parent: Group, heads: Head[]): Humanoid {
   const h = humanoid(w, { face: FACE, torso: ROBE, legs: ROBE, shoe: IRON }, parent);
   for (let i = 0; i < 6; i++) w.part(new BoxGeometry(0.28, 0.22, 0.08), i % 2 ? "silk" : "gold", i % 2 ? KASAYA : GOLD, parent, -0.3 + i * 0.11, 1.4 - i * 0.16, 0.34).rotation.z = -0.55;
   w.part(new TorusGeometry(0.45, 0.06, 8, 24), "gold", GOLD, parent, 0, 2.05, 0).rotation.x = Math.PI / 2;
@@ -53,10 +53,11 @@ function monk(w: Wardrobe, parent: Group): Humanoid {
   w.part(new TorusGeometry(0.2, 0.025, 6, 20), "gold", GOLD, staff, 0, 2.0, 0);
   for (let i = 0; i < 6; i++) w.part(new TorusGeometry(0.06, 0.012, 6, 12), "gold", GOLD, staff, Math.cos(i) * 0.2, 2.0 + Math.sin(i) * 0.2 - 0.02, 0.02);
   h.arms[1]!.elbow.add(staff);
+  heads.push(humanHead(h, parent));
   return h;
 }
 
-function bajie(w: Wardrobe, parent: Group): Humanoid {
+function bajie(w: Wardrobe, parent: Group, heads: Head[]): Humanoid {
   const h = humanoid(w, { face: PINK, torso: JACKET, legs: JACKET, shoe: IRON, headR: 0.55 }, parent);
   w.part(new SphereGeometry(0.4, 16, 12), "skin", BELLY, parent, 0, 1.0, 0.18).scale.set(1, 0.9, 0.8);
   w.part(new CylinderGeometry(0.2, 0.24, 0.3, 14), "skin", PINK, parent, 0, 1.68, 0.55).rotation.x = Math.PI / 2;
@@ -72,13 +73,15 @@ function bajie(w: Wardrobe, parent: Group): Humanoid {
   w.part(new BoxGeometry(0.9, 0.08, 0.08), "gold", GOLD, rake, 0, 1.95, 0);
   for (let i = 0; i < 9; i++) w.part(new ConeGeometry(0.03, 0.28, 5), "iron", IRON, rake, -0.4 + i * 0.1, 2.12, 0);
   h.arms[0]!.elbow.add(rake);
+  heads.push(humanHead(h, parent));
   return h;
 }
 
-function sha(w: Wardrobe, parent: Group): Humanoid {
+function sha(w: Wardrobe, parent: Group, heads: Head[]): Humanoid {
   const h = humanoid(w, { face: TAN, torso: DRAB, legs: DRAB, shoe: IRON, skirt: DRAB }, parent);
   w.part(new SphereGeometry(0.53, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), "hair", RUST, parent, 0, 1.82, 0);
-  w.part(new ConeGeometry(0.3, 0.7, 10), "hair", RUST, parent, 0, 1.35, 0.3).rotation.x = Math.PI + 0.3;
+  const beard = w.part(new ConeGeometry(0.3, 0.7, 10), "hair", RUST, parent, 0, 1.35, 0.3);
+  beard.rotation.x = Math.PI + 0.3;
   for (const s of [-1, 1]) {
     w.part(new SphereGeometry(0.05, 8, 6), "eye", 0x111111, parent, s * 0.17, 1.84, 0.46);
     w.part(new BoxGeometry(0.18, 0.04, 0.05), "hair", RUST, parent, s * 0.18, 1.98, 0.47).rotation.z = s * 0.4;
@@ -102,6 +105,10 @@ function sha(w: Wardrobe, parent: Group): Humanoid {
     w.part(new CylinderGeometry(0.01, 0.01, 0.3, 4), "iron", IRON, pole, 0, e * 1.05, 0.12).rotation.x = Math.PI / 2;
   }
   h.arms[0]!.elbow.add(pole);
+  // the beard hangs below the doll's chin, so it joins the head by hand
+  const head = humanHead(h, parent);
+  head.pivot.attach(beard);
+  heads.push(head);
   return h;
 }
 
@@ -109,6 +116,7 @@ class Pilgrims implements Figure {
   readonly group = new Group();
   readonly nativeSize: number;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly party = new Group();
   private readonly horse: Horse;
@@ -127,19 +135,23 @@ class Pilgrims implements Figure {
     this.group.add(this.party);
     const horseG = new Group();
     this.horse = horse(w, { coat: COAT, mane: MANE, hoof: HOOF, saddle: SADDLE, tack: GOLD }, horseG);
+    // each of them looks on a pivot of their own, the horse too (D93)
+    const heads: Head[] = [];
     const monkG = new Group();
     monkG.position.set(0, 1.45, -0.05);
     monkG.scale.setScalar(0.72);
-    this.monk = monk(w, monkG);
+    this.monk = monk(w, monkG, heads);
     horseG.add(monkG);
     this.party.add(horseG);
     if (!alone) {
       this.bajieG.position.set(0, 0, -2.6);
-      this.bajie = bajie(w, this.bajieG);
+      this.bajie = bajie(w, this.bajieG, heads);
       this.shaG.position.set(0, 0, -4.6);
-      this.sha = sha(w, this.shaG);
+      this.sha = sha(w, this.shaG, heads);
       this.party.add(this.bajieG, this.shaG);
     }
+    heads.push(horseHead(horseG));
+    this.heads = heads;
     const puffs: [number, number, number, number][] = [];
     for (let i = 0; i < (alone ? 7 : 16); i++) puffs.push([Math.sin(i * 2.1) * 0.5, -0.35 - Math.abs(Math.sin(i * 1.3)) * 0.15, 1.5 - i * 0.55, 0.42 + Math.sin(i * 1.7) * 0.12]);
     cloudBank(w, CLOUD, puffs, this.party);

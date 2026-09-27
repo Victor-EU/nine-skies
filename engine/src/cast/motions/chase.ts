@@ -4,7 +4,7 @@
  * monkey (ch. 4). The director casts it when a figure's temperament names
  * a leader who is in the same scene.
  */
-import { newPose, registerMotion } from "../motion.js";
+import { glanceAt, newPose, registerMotion } from "../motion.js";
 
 registerMotion("chase", (ctx) => {
   const { visit, leader, rng } = ctx;
@@ -24,6 +24,7 @@ registerMotion("chase", (ctx) => {
       out.pitch = lead.pitch;
       out.bank = lead.bank;
       out.presence = lead.presence;
+      glanceAt(flightS, visit, out);
       return true;
     },
   };

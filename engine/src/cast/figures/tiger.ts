@@ -16,8 +16,8 @@
  * Native length 4.2 units, nose to tail tip.
  */
 import { BoxGeometry, CapsuleGeometry, CatmullRomCurve3, ConeGeometry, Group, Mesh, SphereGeometry, TubeGeometry, Vector3, type DataTexture, type Material } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, cloudBank, stripesTexture } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, cloudBank, neckWithin, stripesTexture } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const ORANGE = 0xe8922a;
@@ -147,6 +147,7 @@ class Tiger implements Figure {
   readonly group = new Group();
   readonly nativeSize = 4.2;
   readonly triangles: number;
+  readonly heads: readonly Head[];
   private readonly w: Wardrobe;
   private readonly body = new Group();
   private readonly b: TigerBody;
@@ -157,6 +158,8 @@ class Tiger implements Figure {
     this.circuit = ctx.variant === "still" ? 0 : 8;
     this.group.add(this.body);
     this.b = tigerBody(w, this.body, { coat: ORANGE, stripe: BLACK, pale: CREAM, nose: PINK, eye: GOLD, mark: true });
+    // the head on a pivot inside the one the prowl turns (D93)
+    this.heads = [neckWithin(this.b.head, 0.8, 0.35)];
     w.bake(this.body, [this.b.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
