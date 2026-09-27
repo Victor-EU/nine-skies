@@ -7,10 +7,12 @@
  * asked to.
  *
  * Native height 2.7 units to the headdress; the birds circle at 2.2.
+ * Baked into one skinned mesh per material (F111): the arms and each
+ * bird and wing move by their groups; the cloud holds still.
  */
 import { ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry, Vector3 } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, bird, breathe, cloudBank, humanoid, type Bird, type Humanoid } from "../parts.js";
+import { Wardrobe, bird, cloudBank, humanoid, type Bird, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const FACE = 0xf7e3d2;
@@ -30,7 +32,6 @@ class Xiwangmu implements Figure {
   readonly triangles: number;
   private readonly w: Wardrobe;
   private readonly h: Humanoid;
-  private readonly cloud: Group;
   private readonly birds: { bird: Bird; phase: number }[] = [];
 
   constructor(ctx: BuildContext) {
@@ -55,7 +56,7 @@ class Xiwangmu implements Figure {
     // the peach in the right hand
     w.part(new SphereGeometry(0.13, 12, 10), "matte", PEACH, this.h.arms[1]!.elbow, 0, -0.55, 0.1);
     w.part(new ConeGeometry(0.05, 0.16, 4), "matte", JADE, this.h.arms[1]!.elbow, 0.06, -0.42, 0.1);
-    this.cloud = cloudBank(
+    cloudBank(
       w,
       CLOUD,
       [
@@ -71,6 +72,7 @@ class Xiwangmu implements Figure {
       B,
     );
     for (let i = 0; i < 3; i++) this.birds.push({ bird: bird(w, { body: BLUE, crown: RED, tip: HAIR, beak: GOLD, size: 0.28 }, this.group), phase: i * 2.1 });
+    w.bake(this.group);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
@@ -86,7 +88,6 @@ class Xiwangmu implements Figure {
     r!.elbow.rotation.set(-1.1, 0, 0);
     l!.shoulder.rotation.set(-0.5, 0, -0.45);
     l!.elbow.rotation.set(-1.2, 0, 0);
-    breathe(this.cloud, t);
     this.birds.forEach(({ bird, phase }, i) => {
       const a = t * 1.1 + phase;
       const g = bird.group;

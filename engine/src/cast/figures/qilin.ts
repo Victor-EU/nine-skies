@@ -8,10 +8,14 @@
  * place as a companion.
  *
  * Native length 4.6 units, nose to tail.
+ * Baked into one skinned mesh per material (F111), all but the tail,
+ * rebuilt each frame: the legs and head move by their groups, each flame
+ * flickers and the tuft follows the tail on a pivot of its own, and the
+ * cloud holds still.
  */
 import { CapsuleGeometry, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TubeGeometry, Vector3 } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank } from "../parts.js";
+import { Wardrobe, cloudBank } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const COAT = 0xe0a63a;
@@ -36,12 +40,11 @@ class Qilin implements Figure {
   private readonly body = new Group();
   private readonly head = new Group();
   private readonly legs: Leg[] = [];
-  private readonly flames: Mesh[] = [];
+  private readonly flames: Group[] = [];
   private readonly tail: Mesh;
-  private readonly tuft: Mesh;
+  private readonly tuft = new Group();
   private readonly tailPts: Vector3[] = [];
   private readonly tailCurve: CatmullRomCurve3;
-  private readonly cloud: Group;
   private readonly circuit: number;
 
   constructor(ctx: BuildContext) {
@@ -77,8 +80,12 @@ class Qilin implements Figure {
       [0.5, 1.3, -0.7],
     ] as const)
       for (let i = 0; i < 3; i++) {
-        const fl = w.part(new ConeGeometry(0.07, 0.42, 5), "flame", FIRE, B, x + Math.sign(x) * i * 0.08, y + i * 0.05, z - i * 0.12);
+        // each flame flickers on a pivot of its own, so the bake gives it a bone
+        const fl = new Group();
+        fl.position.set(x + Math.sign(x) * i * 0.08, y + i * 0.05, z - i * 0.12);
         fl.rotation.set(0.5 + i * 0.25, 0, Math.sign(x) * 0.5);
+        B.add(fl);
+        w.part(new ConeGeometry(0.07, 0.42, 5), "flame", FIRE, fl);
         this.flames.push(fl);
       }
     // four legs on hips, each with a knee and a cloven hoof
@@ -104,8 +111,9 @@ class Qilin implements Figure {
     this.tailCurve = new CatmullRomCurve3(this.tailPts);
     this.tail = w.dress(new Mesh(new TubeGeometry(this.tailCurve, 14, 0.05, 6, false)), "scale", COAT);
     B.add(this.tail);
-    this.tuft = w.part(new ConeGeometry(0.12, 0.42, 6), "mane", MANE, B);
-    this.cloud = cloudBank(
+    B.add(this.tuft);
+    w.part(new ConeGeometry(0.12, 0.42, 6), "mane", MANE, this.tuft);
+    cloudBank(
       w,
       CLOUD,
       [
@@ -117,6 +125,7 @@ class Qilin implements Figure {
       ],
       B,
     );
+    w.bake(this.body, [this.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
@@ -149,7 +158,6 @@ class Qilin implements Figure {
     this.tail.geometry = new TubeGeometry(this.tailCurve, 14, 0.05, 6, false);
     this.tuft.position.copy(this.tailPts[6]!);
     this.tuft.rotation.x = Math.PI * 0.8;
-    breathe(this.cloud, t, 0.05);
   }
 
   dispose(): void {

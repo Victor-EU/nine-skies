@@ -2827,3 +2827,46 @@ they were before the bake, and Wukong turns his somersault.
 **Next.** The heaviest unbaked figures are now the Queen Mother (71),
 the qilin (58), the Bull Demon King (44) and the goddess's tigress (42).
 None of them is on a station at 60 s.
+
+## F111 — The Queen Mother and the qilin baked, 27 September 2026
+
+The two heaviest figures left after F110: the Queen Mother with her three
+blue birds (71 meshes) over Turpan's first leg, and the qilin (58) on the
+Roof, which walks through the Roof's station at 60 s.
+
+**What had to change first.** Nothing in the Queen Mother turns itself:
+her arms and each bird and wing move by groups. The qilin's twelve
+flames at shoulder and hock flickered by scaling themselves, and its
+tuft followed the tail's end by moving itself; each is now a pivot group
+with the same transform, which the bake gives a bone. The qilin's tail
+is rebuilt each frame and stays out of the bake. Both figures' clouds
+hold still now, as every baked cloud does.
+
+| figure | draws before | after | bones |
+|---|---|---|---|
+| the Queen Mother | 67 | 14 | 21 |
+| the qilin | 58 | 10 | 24 |
+
+The Queen Mother has 71 meshes, but four of them are her legs, hidden
+under the robe and never drawn; the bake leaves hidden parts alone, so
+they are still there, still hidden. The figures' test now counts only
+the meshes drawn.
+
+| frame | draws before | after | without the cast |
+|---|---|---|---|
+| Below the Sea at 20 s (the Queen Mother, the Turpan dragon) | 92 | 39 | 16 |
+| the Roof's station at 60 s (the party, the qilin) | 93 | 45 | 16 |
+
+The triangles in both frames are the same before and after.
+
+**Checked.** `npm run check` passes; the figures' test holds the Queen
+Mother to 14 drawn meshes and the qilin to 10 with every triangle kept.
+Captured headless at Turpan 15 s and the Roof 80 s (`castC-M-*`), each
+with a second frame 250 ms later: the blue birds have moved round her
+and beaten their wings, the qilin's legs have changed stride, and its
+tuft rides the end of the tail.
+
+**Where the cast stands.** Every figure on a station at 60 s is baked.
+Of the unbaked figures, the Bull Demon King (44), the goddess's tigress
+(42), Sanduo's horse (37), the tiger (36) and the phoenix (31) are the
+heaviest.
