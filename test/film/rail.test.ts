@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_RAIL, RailFlight } from "../../engine/src/film/rail.js";
 import { pathFrom } from "../../engine/src/film/path.js";
-import type { BuiltRail } from "../../engine/src/film/scene.js";
+import { TURN_S, railAtKm, type BuiltRail } from "../../engine/src/film/scene.js";
 
 /** 100 km due east at 60 km/min, which is a kilometre a second. */
 function eastward(): BuiltRail {
@@ -17,7 +17,47 @@ function eastward(): BuiltRail {
   return { path: pathFrom(keys), keys };
 }
 
+/** 50 km east, then 50 km north, at 60 km/min: a right angle at the 50th second. */
+function corner(): BuiltRail {
+  const keys = [
+    { eastM: 0, northM: 0, aboveGroundM: 300, kmPerMin: 60, pitchDeg: 6 },
+    { eastM: 50_000, northM: 0, aboveGroundM: 300, kmPerMin: 60, pitchDeg: 6 },
+    { eastM: 50_000, northM: 50_000, aboveGroundM: 300, kmPerMin: 60, pitchDeg: 6 },
+  ];
+  return { path: pathFrom(keys), keys };
+}
+
 const idle = { speed: 0, heading: 0, auto: false };
+
+describe("the rail's heading", () => {
+  it("is the line's own on a straight", () => {
+    const rail = corner();
+    expect(railAtKm(rail, 0).headingRad).toBeCloseTo(Math.PI / 2, 9);
+    expect(railAtKm(rail, 50 - TURN_S / 2 - 0.1).headingRad).toBeCloseTo(Math.PI / 2, 9);
+    expect(railAtKm(rail, 50 + TURN_S / 2 + 0.1).headingRad).toBeCloseTo(0, 9);
+    expect(railAtKm(rail, 100).headingRad).toBeCloseTo(0, 9);
+  });
+
+  it("turns through a corner over the turn's seconds, never in one frame", () => {
+    const rail = corner();
+    // Halfway round at the key itself.
+    expect(railAtKm(rail, 50).headingRad).toBeCloseTo(Math.PI / 4, 9);
+    // A frame at 60 fps is 1/60 km here; no frame turns more than a degree.
+    let before = railAtKm(rail, 40).headingRad;
+    for (let km = 40; km <= 60; km += 1 / 60) {
+      const h = railAtKm(rail, km).headingRad;
+      expect(Math.abs(h - before)).toBeLessThan(Math.PI / 180);
+      before = h;
+    }
+  });
+
+  it("keeps the camera on the line: only the heading turns", () => {
+    const rail = corner();
+    const at = railAtKm(rail, 49.5);
+    expect(at.eastM).toBeCloseTo(49_500, 6);
+    expect(at.northM).toBeCloseTo(0, 6);
+  });
+});
 
 function run(flight: RailFlight, input: typeof idle, seconds: number, step = 1 / 60) {
   let state = flight.state();

@@ -3196,3 +3196,91 @@ architecture.
 
 The helper that fitted the heads checked each one turns about its pivot
 with +z as its rest forward.
+
+## F115 — The film watched as a viewer: the rail's corners turned, a chapter played again from its start, 27 September 2026
+
+**Asked.** Use the film in the browser as a viewer would, and watch for
+defects and bugs.
+
+**How it was watched.** The dev server in the desktop app's browser pane,
+1027 × 774. The whole film end to end with the cast on (seed 2357475547),
+the end card, the credits page, the keys, the chapter bar, the address's
+chapters, a phone held upright and on its side (375 × 812, 740 × 360,
+touch). An in-page logger read the clock, the caption, the cast's line,
+the camera's heading and its height over the ground, and every figure's
+place in the picture, five to ten times a second; a second one read a
+single figure every frame.
+
+**Fixed.**
+
+- *The rail turned its corners in one frame.* A rail is straight lines
+  between its keys, and the camera's heading was the heading of the line
+  it was on, so at every key the picture swung through the whole corner
+  between two frames: 74° over Huangshan's cloud sea at 50.2 s (the empty
+  sea, then the sun and a new range of peaks), 81° in the Three Gorges at
+  14.3 s, 104° into Tiger Leaping Gorge at 81.3 s, 42° over the Karst at
+  77.1 s, and 30 corners of 5° or more in the Loess's first two minutes.
+  Found by the cast: Guanyin, held in the picture through her line, slid
+  out of it and back in 0.4 s, because the camera had turned 42° in a
+  frame and the cast's frame follows it 0.8 s late. `railAtKm` now takes
+  the heading from the rail's chord across `TURN_S` = 5 s of authored
+  flight, half behind and half ahead: the line's own heading on a straight,
+  and through a corner a turn that starts 2.5 s before the key and ends
+  2.5 s after. The camera stays on the line; only where it looks turns.
+  Flown at 60 fps, no frame now turns more than 0.49° (the First Bend and
+  the Loess) and no second more than 29°; 4 s turned the First Bend's
+  corner at 36° a second, 6 s left the Loess looking more than 15° off
+  its line for 16 s. The rails report is no worse for it: ground ahead at
+  Huangshan 2 → 1% (worst 161 → 143 m), the Gorges' worst 275 → 228 m,
+  the First Bend's 10 → 0 m. The stations were cut again: at 60 s
+  Huangshan's heading moved 12.7°, the Loess's 6.1°, the Gorges' 4.6°.
+  The two stills taken at a moved heading were taken again (`npm run
+  stills three-gorges loess`, then `npm run cover`): the Gorges pans a
+  few degrees left, and the Loess about six and some 60 m higher, since
+  the altitude controller looks ahead along the new heading, so its dust
+  reads a little thicker. The Huangshan still (20 s) moves 0.6° and its
+  card (8 s) 0.9°, and are left.
+- *A chapter played again flew on from where it was.* The frame starts a
+  scene only when the clock crosses into another, so the chapter already
+  on screen, asked for again by its segment, its number or the end card's
+  list, got its title card back and a clock at nought while the camera
+  flew on: pressed at 48 s into Huangshan it was at km 72 of 89; the Wall
+  chosen from the end card came back on the Nepal side, km 168 of 272,
+  lost its `#the-wall`, and the cast of the second it left stood over the
+  title card. `goToChapter` starts the scene again when it is the one on
+  screen; the chapter keys, the bar, the end card, Watch again and
+  `__ns.jumpTo` all go through it.
+
+**Seen and left.**
+
+- The credits page says both "No sound is licensed yet" and, from
+  `NOTICE.md`'s *Music and sound*, "Nine cues, one a scene, and a bed of
+  wind, each licensed or commissioned". The notice is written for the
+  launch; until the sound comes it contradicts the page above it.
+- The cast's lines, warm italic over a halo, are faint on pale ground:
+  the Loess's haze, the Taklamakan, the Roof's tan, the Wall's snow. The
+  captions hold up better. The keys' labels at the top left are grey on a
+  pale sky.
+- Speed changes at a key in one frame, as the heading did: the Grassland
+  550 → 300 → 140 → 60 → 30 → 25 km/min from 78.6 to 109.3 s, the Wall
+  150 → 60 → 40 → 50. These are authored slowings; easing them would move
+  every caption, line and cue timed at the authored speed.
+- One of the kings' risings in this viewing was behind the camera the
+  whole time (the one in six D93 lets go by).
+- `__ns.hold` twice leaves the clock at the lead-in (its `advance` is
+  ignored once the first hold has paused it). The held frame is right;
+  P after it plays the scene from its title. Dev only.
+- Checked and sound: every title card (one that looked missing was a
+  screenshot taken late), Heaven Lake in the frame from 108 s, every cast
+  line with its figure in the picture, the scatter before the South King,
+  the portrait prompt, the landscape phone card beside its map, the touch
+  buttons, the address's chapters, the credits page's way back.
+
+**Checked.** `npm run check`: 523 tests, three new in
+`test/film/rail.test.ts` (the heading is the line's own on a straight,
+turns through a corner with no frame over a degree and halfway round at
+the key, and the camera stays on the line). Played again in the pane: the
+Gorges' first 20 s turn −25° → −75° → −25° → −103° with no frame over
+half a degree; Huangshan pressed again at 21 s starts at km 0 and is at
+km 1.10 three seconds into the flight (1.10 by the clock); the Wall from
+the end card starts at km 0 under `#the-wall`.

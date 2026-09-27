@@ -391,11 +391,23 @@ let flight: RailFlight | null = null;
 const altitude = new AltitudeController();
 let lastState: RailState | null = null;
 
+/**
+ * Chapter `i` from its lead-in. The chapter already on screen starts over
+ * as well: the frame only starts a scene when the clock crosses into
+ * another, so without this its camera flew on from wherever it had got to
+ * (the end card's last chapter, say) under a clock back at nought.
+ */
+function goToChapter(i: number): TimelinePosition {
+  pinned = null;
+  const pos = timeline.jumpTo(i);
+  if (pos.scene === current) startScene(pos.scene);
+  return pos;
+}
+
 /** Go to chapter `i`, from its lead-in, and play. */
 function playChapter(i: number): void {
-  timeline.jumpTo(i);
+  goToChapter(i);
   timeline.paused = false;
-  pinned = null;
 }
 
 const chapters = el("chapters");
@@ -432,10 +444,7 @@ function togglePlay(): void {
   pinned = null;
 }
 el("play").addEventListener("click", togglePlay);
-el("again").addEventListener("click", () => {
-  timeline.restart();
-  timeline.paused = false;
-});
+el("again").addEventListener("click", () => playChapter(0));
 // A browser starts sound only for something the viewer does.
 for (const type of ["pointerdown", "keydown"] as const) addEventListener(type, () => soundTrack.wake());
 function toggleMute(): void {
@@ -1006,10 +1015,7 @@ if (import.meta.env.DEV) {
     state: () => lastState,
     pinned: () => pinned,
     altitude,
-    jumpTo: (i: number) => {
-      pinned = null;
-      return timeline.jumpTo(i);
-    },
+    jumpTo: goToChapter,
     rig,
     /**
      * Place the camera by hand for a still: latitude, longitude, metres

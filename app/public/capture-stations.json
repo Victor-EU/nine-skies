@@ -9,8 +9,8 @@
       "flightS": 60,
       "eastM": 4712412,
       "northM": 1482896,
-      "altitudeM": 1258,
-      "headingRad": 2.887621,
+      "altitudeM": 1242,
+      "headingRad": 2.666055,
       "groundM": 431,
       "why": "scene huangshan at 60 s on its rail"
     },
@@ -20,8 +20,8 @@
       "flightS": 60,
       "eastM": 3970861,
       "northM": 1509258,
-      "altitudeM": 814,
-      "headingRad": -1.614808,
+      "altitudeM": 785,
+      "headingRad": -1.534533,
       "groundM": 293,
       "why": "scene three-gorges at 60 s on its rail"
     },
@@ -43,7 +43,7 @@
       "eastM": 2956753,
       "northM": 1061334,
       "altitudeM": 3542,
-      "headingRad": 2.568153,
+      "headingRad": 2.578546,
       "groundM": 1942,
       "why": "scene first-bend at 60 s on its rail"
     },
@@ -53,8 +53,8 @@
       "flightS": 60,
       "eastM": 3965805,
       "northM": 2399352,
-      "altitudeM": 1529,
-      "headingRad": 3.067964,
+      "altitudeM": 1588,
+      "headingRad": -3.108648,
       "groundM": 929,
       "why": "scene loess at 60 s on its rail"
     },

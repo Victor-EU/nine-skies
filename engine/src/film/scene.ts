@@ -189,14 +189,52 @@ export interface RailFix {
   readonly pitchDeg: number;
 }
 
+/**
+ * Seconds of flight at the authored speed that a key's corner is turned
+ * through, half before the key and half after. The rail is straight lines
+ * between its keys, and a heading taken from the line it is on turned the
+ * camera through a whole corner in one frame: 74 degrees over Huangshan's
+ * cloud sea, 104 into Tiger Leaping Gorge.
+ */
+export const TURN_S = 5;
+
+/** Where the rail is `seconds` of authored flight on from `km`, or back when negative; held to its ends. */
+function kmAfter(rail: BuiltRail, km: number, seconds: number): number {
+  const { cumM } = rail.path;
+  const last = cumM.length - 1;
+  if (last < 1) return 0;
+  let m = Math.max(0, Math.min(km * 1000, cumM[last]!));
+  let i = 0;
+  while (i + 1 < last && m > cumM[i + 1]!) i++;
+  let left = Math.abs(seconds);
+  while (left > 0) {
+    const ms = ((rail.keys[i]?.kmPerMin ?? 0) * 1000) / 60;
+    if (ms <= 0) break;
+    const room = seconds > 0 ? cumM[i + 1]! - m : m - cumM[i]!;
+    const go = Math.min(room, left * ms);
+    m += seconds > 0 ? go : -go;
+    left -= go / ms;
+    if (left <= 1e-9) break;
+    if (seconds > 0 ? i + 1 >= last : i <= 0) break;
+    i += seconds > 0 ? 1 : -1;
+  }
+  return m / 1000;
+}
+
 export function railAtKm(rail: BuiltRail, km: number): RailFix {
   const at = pointAtKm(rail.path, km);
   const a = rail.keys[at.segment] ?? rail.keys[0]!;
   const b = rail.keys[at.segment + 1] ?? a;
+  // The heading is the rail's chord across the turn, from half of it
+  // behind to half ahead: the line's own on a straight, and through a
+  // corner a turn that begins before the key and ends after it.
+  const from = pointAtKm(rail.path, kmAfter(rail, km, -TURN_S / 2));
+  const to = pointAtKm(rail.path, kmAfter(rail, km, TURN_S / 2));
+  const chord = Math.hypot(to.eastM - from.eastM, to.northM - from.northM) > 1;
   return {
     eastM: at.eastM,
     northM: at.northM,
-    headingRad: at.headingRad,
+    headingRad: chord ? Math.atan2(to.eastM - from.eastM, to.northM - from.northM) : at.headingRad,
     aboveGroundM: a.aboveGroundM + at.t * (b.aboveGroundM - a.aboveGroundM),
     kmPerMin: a.kmPerMin,
     pitchDeg: a.pitchDeg + at.t * (b.pitchDeg - a.pitchDeg),
