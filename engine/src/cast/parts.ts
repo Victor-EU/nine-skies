@@ -18,6 +18,7 @@ import {
   CylinderGeometry,
   DataTexture,
   Group,
+  Matrix4,
   Mesh,
   NoColorSpace,
   RepeatWrapping,
@@ -27,6 +28,7 @@ import {
   TubeGeometry,
   Vector3,
   type Material,
+  type Object3D,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Role, Skin } from "./skin.js";
@@ -260,9 +262,108 @@ export class Wardrobe {
     return this.parts.map((p) => p.mesh.material as Material);
   }
 
+  /**
+   * Merge every part under `root` that never moves against it into one
+   * mesh per material, so a figure of two hundred parts draws as a few
+   * dozen (F108). `keep` names the subtrees that move on their own - a
+   * leg, a tail rewritten each frame - and they stay as they are; so does
+   * a part hidden, or dressed in a material of its own (stripes, a print).
+   * The triangles are the same and the skin still dresses the result;
+   * only the draws go down. Groups left empty are taken out.
+   */
+  bake(root: Group, keep: readonly Object3D[] = []): void {
+    root.updateMatrixWorld(true);
+    const toRoot = new Matrix4().copy(root.matrixWorld).invert();
+    const kept = new Set<Object3D>();
+    for (const k of keep) k.traverse((o) => kept.add(o));
+    // Under the root and drawn: every ancestor up to it visible.
+    const bakeable = (mesh: Mesh): boolean => {
+      for (let o: Object3D | null = mesh; o; o = o.parent) {
+        if (o === root) return true;
+        if (!o.visible || kept.has(o)) return false;
+      }
+      return false;
+    };
+    const batches = new Map<Material, { role: Role; colour: number; geometries: BufferGeometry[] }>();
+    const baked = new Set<Mesh>();
+    const m = new Matrix4();
+    for (const p of this.parts) {
+      const material = this.skin.material(p.role, p.colour);
+      if (p.mesh.material !== material || !bakeable(p.mesh)) continue;
+      m.multiplyMatrices(toRoot, p.mesh.matrixWorld);
+      const g = p.mesh.geometry.clone().applyMatrix4(m);
+      // A part mirrored by a negative scale is wound the other way round.
+      if (m.determinant() < 0) flipWinding(g);
+      let batch = batches.get(material);
+      if (!batch) batches.set(material, (batch = { role: p.role, colour: p.colour, geometries: [] }));
+      batch.geometries.push(g);
+      baked.add(p.mesh);
+    }
+    if (!baked.size) return;
+    const rest = this.parts.filter((p) => !baked.has(p.mesh));
+    this.parts.length = 0;
+    this.parts.push(...rest);
+    for (const mesh of baked) {
+      mesh.removeFromParent();
+      mesh.geometry.dispose();
+    }
+    for (const { role, colour, geometries } of batches.values()) {
+      const merged = mergeGeometries(mergeable(geometries));
+      for (const g of geometries) g.dispose();
+      if (!merged) throw new Error(`bake: the ${role} parts in ${colour.toString(16)} would not merge`);
+      this.part(merged, role, colour, root).name = `baked:${role}:${colour.toString(16)}`;
+    }
+    const prune = (o: Object3D): void => {
+      for (const c of [...o.children]) {
+        prune(c);
+        if ((c as Group).isGroup && c.children.length === 0 && !kept.has(c)) c.removeFromParent();
+      }
+    };
+    prune(root);
+  }
+
   dispose(): void {
     for (const p of this.parts) p.mesh.geometry.dispose();
   }
+}
+
+/** Reverse every triangle's winding, for a part mirrored by a negative scale. */
+function flipWinding(g: BufferGeometry): void {
+  const index = g.getIndex();
+  if (index) {
+    const a = index.array;
+    for (let i = 0; i + 2 < a.length; i += 3) {
+      const t = a[i + 1]!;
+      a[i + 1] = a[i + 2]!;
+      a[i + 2] = t;
+    }
+    index.needsUpdate = true;
+    return;
+  }
+  for (const attr of Object.values(g.attributes) as BufferAttribute[]) {
+    const n = attr.itemSize;
+    const a = attr.array;
+    for (let v = 0; v + 2 < attr.count; v += 3)
+      for (let k = 0; k < n; k++) {
+        const t = a[(v + 1) * n + k]!;
+        a[(v + 1) * n + k] = a[(v + 2) * n + k]!;
+        a[(v + 2) * n + k] = t;
+      }
+    attr.needsUpdate = true;
+  }
+}
+
+/** Geometries the merge will take: the same three attributes, all indexed or none, no groups. */
+function mergeable(geometries: BufferGeometry[]): BufferGeometry[] {
+  const indexed = geometries.every((g) => g.getIndex());
+  return geometries.map((g) => {
+    const h = indexed || !g.getIndex() ? g : g.toNonIndexed();
+    for (const name of Object.keys(h.attributes)) if (name !== "position" && name !== "normal" && name !== "uv") h.deleteAttribute(name);
+    if (!h.getAttribute("uv")) h.setAttribute("uv", new BufferAttribute(new Float32Array(h.getAttribute("position").count * 2), 2));
+    h.morphAttributes = {};
+    h.clearGroups();
+    return h;
+  });
 }
 
 export interface Arm {

@@ -2635,3 +2635,59 @@ name, which is the goddess's.
 **Next.** A visible-window price at Turpan (46–54 s: Wukong, Nezha, the
 bull and the Eight Immortals, about 345 draws) and at Huangshan; the
 immortals could share fewer meshes if it costs. The board is built.
+
+## F108 — The Eight Immortals baked: 211 draws to 42, 27 September 2026
+
+The heaviest figure of the cast was the Eight Immortals, 211 parts and so
+211 draw calls, on stage at Turpan with Wukong and Nezha. A figure is
+made of many small parts because it is built like a doll, but most of
+them never move against each other: once the eight are posed, only the
+donkey's legs and tail move on their own.
+
+**The bake.** `Wardrobe.bake(root, keep)` in `parts.ts` merges every
+part under `root` into one mesh per material, each carried into the
+root's frame, and takes out the groups it leaves empty. What moves on
+its own is named in `keep` and stays as it was; so does a part that is
+hidden, or dressed in a material of its own (a stripe, a print), which
+the skin would not give back on a swap. A part mirrored by a negative
+scale, as every left wing is, is wound again, or its faces would turn
+inside out. The result is dressed by the skin like any part, so a skin
+swap still reaches it, and the triangles are the same.
+
+**What it changed.** Counted from the renderer (`renderer.info`, both of
+the frame's render calls summed) at Turpan's station, 60 s, headless on
+the M3's GPU, with the cast shown and hidden:
+
+| | before | after |
+|---|---|---|
+| the Eight Immortals' meshes | 211 | 42 |
+| draw calls in the frame, cast shown | 317 | 148 |
+| of which the cast | 301 | 132 |
+| triangles in the frame | 784k | 784k |
+
+The 42 are 33 materials and the donkey's four legs and tail. The frame
+without the cast draws 16 calls, so the cast was 95% of the station's
+draws and is now 89%, and two thirds of what is left is Wukong and
+Nezha.
+
+**What it cost.** The eight no longer bob and sway each on their own:
+the line moves as one, and each immortal is set at a fixed small height
+and turn so it does not read as a plank. Their clouds no longer breathe;
+at 520 m across, a puff's breath was under a metre.
+
+**The GPU timer could not see any of this.** Priced headless at the same
+station (`pricecast.mjs`), the run with the cast switched off entirely
+read 0.7 ms between "all" and "all without the cast", which is the
+timer's noise at this station; the cast's own cost is under it. Draw
+calls are the measure that moves, and the scratchpad's `drawcount.mjs
+<scene> <second> <label>` counts them.
+
+**Checked.** `npm run check` passes; a test builds a small tree and holds
+the bake to it (two parts of one material in one mesh, a mirrored part's
+faces turned the way its normals say, a kept, a hidden and a printed
+part left alone, triangles kept), and one holds the Eight Immortals under
+fifty meshes. The frame at Turpan 60 s looks as it did (`castC-J-*`).
+
+**Next.** The pilgrims are next at 147 meshes and walk in six scenes;
+the egrets (153) and cranes (132) flap every wing, so a flock would
+gain less. The bake applies to any of them with its moving parts named.

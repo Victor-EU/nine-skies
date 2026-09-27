@@ -5,7 +5,7 @@
  * companion where the cue says.
  */
 import { describe, expect, it } from "vitest";
-import { Vector3 } from "three";
+import { Group, Mesh, PlaneGeometry, SphereGeometry, Vector3, type BufferGeometry, type Material } from "three";
 import { castFromRaw, cueFromRaw, SIZE_RANGE_M } from "../../content/cast.ts";
 import { sceneFromRaw, textLines, validateScene } from "../../content/scenes.ts";
 import { FIGURE_KINDS, LIVING_FAITHS } from "../../engine/src/cast/kinds.js";
@@ -13,7 +13,7 @@ import { figureBuilder, registeredFigures } from "../../engine/src/cast/figure.j
 import "../../engine/src/cast/figures/index.js";
 import { dragonMaterials, DRAGON_LENGTH } from "../../engine/src/cast/figures/dragon.js";
 import { lanternSkin, SKINS } from "../../engine/src/cast/skin.js";
-import type { Wardrobe } from "../../engine/src/cast/parts.js";
+import { Wardrobe, triangleCount } from "../../engine/src/cast/parts.js";
 import { companionTarget, cueFade, FADE_S, figureYaw } from "../../engine/src/cast/cast.js";
 import { FLIGHT_S } from "../../engine/src/film/timeline.js";
 import { castLineAt, CAST_LINE_SHOW_S } from "../../engine/src/film/scene.js";
@@ -219,6 +219,75 @@ describe("the figures", () => {
       expect(parts!.filter((p) => p.role === "skin"), kind).toEqual([]);
       f.dispose();
     }
+    skin.dispose();
+  });
+
+  it("bake what never moves into one mesh per material, and leave alone what moves, hides or dresses itself", () => {
+    const skin = lanternSkin();
+    const w = new Wardrobe(skin);
+    const root = new Group();
+    const SILK = 0xc8342a;
+    const IRON = 0x3a2f2a;
+    w.part(new PlaneGeometry(1, 1), "silk", SILK, root, 2, 0, 0);
+    const mirror = new Group();
+    mirror.scale.x = -1;
+    mirror.position.x = -2;
+    root.add(mirror);
+    w.part(new PlaneGeometry(1, 1), "silk", SILK, mirror);
+    w.part(new SphereGeometry(0.5, 8, 6), "iron", IRON, root, 0, 1, 0);
+    const moving = new Group();
+    root.add(moving);
+    const leg = w.part(new SphereGeometry(0.3, 8, 6), "silk", SILK, moving);
+    const hidden = new Group();
+    hidden.visible = false;
+    root.add(hidden);
+    const ghost = w.part(new SphereGeometry(0.3, 8, 6), "iron", IRON, hidden);
+    const printed = w.part(new SphereGeometry(0.3, 8, 6), "matte", SILK, root);
+    printed.material = (printed.material as Material).clone();
+    const before = w.triangles;
+    w.bake(root, [moving]);
+    const meshes: Mesh[] = [];
+    root.traverse((o) => {
+      if ((o as Mesh).isMesh) meshes.push(o as Mesh);
+    });
+    // the two planes in one, the sphere alone, and the leg, the ghost and the print as they were
+    expect(meshes).toHaveLength(5);
+    expect(w.triangles).toBe(before);
+    expect(w.parts).toHaveLength(5);
+    expect(leg.parent).toBe(moving);
+    expect(ghost.parent).toBe(hidden);
+    expect(printed.parent).toBe(root);
+    const silk = meshes.find((m) => m.material === skin.material("silk", SILK) && m !== leg)!;
+    expect(triangleCount(silk.geometry)).toBe(4);
+    // The mirrored plane is wound again, so every face still turns the way its normals say.
+    const g = silk.geometry as BufferGeometry;
+    const pos = g.getAttribute("position");
+    const nor = g.getAttribute("normal");
+    const index = g.getIndex()!;
+    const v = (i: number) => new Vector3().fromBufferAttribute(pos, index.getX(i));
+    for (let t = 0; t < index.count; t += 3) {
+      const face = v(t + 1).sub(v(t)).cross(v(t + 2).sub(v(t)));
+      expect(face.dot(new Vector3().fromBufferAttribute(nor, index.getX(t)))).toBeGreaterThan(0);
+    }
+    // and the plane that was at x = -2 is still there
+    g.computeBoundingBox();
+    expect(g.boundingBox!.min.x).toBeCloseTo(-2.5);
+    expect(g.boundingBox!.max.x).toBeCloseTo(2.5);
+    w.dispose();
+    skin.dispose();
+  });
+
+  it("draw the Eight Immortals as a few dozen meshes, not two hundred, with every triangle kept", () => {
+    const skin = lanternSkin();
+    const f = figureBuilder("baxian")!({ skin, variant: "still", scale: DEFAULT_SCALE });
+    let meshes = 0;
+    f.group.traverse((o) => {
+      if ((o as Mesh).isMesh) meshes++;
+    });
+    expect(meshes).toBeLessThan(50);
+    expect(f.triangles).toBeGreaterThan(30_000);
+    f.update({ timeS: 4, flightS: 4, eye: new Vector3(), headingRad: 0, group: f.group });
+    f.dispose();
     skin.dispose();
   });
 
