@@ -2691,3 +2691,72 @@ fifty meshes. The frame at Turpan 60 s looks as it did (`castC-J-*`).
 **Next.** The pilgrims are next at 147 meshes and walk in six scenes;
 the egrets (153) and cranes (132) flap every wing, so a flock would
 gain less. The bake applies to any of them with its moving parts named.
+
+## F109 — The bake skinned: the pilgrims, egrets and cranes, and the immortals bob again, 27 September 2026
+
+F108's bake merged only what never moves. The flocks would have gained
+little from it, since every wing of every bird moves on its own: the
+cranes would have gone from 132 meshes to 99. So the bake is skinned now.
+
+**The skinned bake.** `Wardrobe.bake(root, keep)` still merges every
+part under the root into one mesh per material, and each part is now
+bound to a bone at the group that carries it: a bird, a wing's shoulder,
+its wrist, a leg's hip, an arm. The groups move as they always did, and
+the bones follow them, so the figure's own code is unchanged: a wing
+flaps because `flapWing` turns its pivot, whether or not the feathers
+are baked. What a group carries is fixed at the bake, so two things stay
+out of it: a part whose geometry is rewritten each frame (a tail, a
+sash), named in `keep`; and a part whose own transform changes. The
+second was the clouds' breath, a scale on each puff: baked, a bank now
+holds still, and `breathe` leaves alone what is no longer a mesh. At a
+figure's size the breath was under a metre.
+
+**One material, one program.** three.js keeps one shader program per
+material, and a material drawn both skinned and not switches programs at
+every draw. The skin now gives a baked part its own instance of each
+material (`skin.material(role, colour, true)`), and a skin swap keeps it
+there.
+
+**What it changed** (meshes per figure, and draw calls per frame at four
+stations at 60 s, counted from the renderer headless on the M3's GPU
+before and after; the triangles in every frame the same to the one):
+
+| figure | meshes before | after | bones |
+|---|---|---|---|
+| pilgrims | 147 | 19 | 31 |
+| the monk alone | 72 | 11 | 14 |
+| cranes | 132 | 3 | 55 |
+| egrets | 153 | 5 | 45 |
+| the Eight Immortals | 42 | 34 | 74 |
+
+| station | draws before | after | without the cast |
+|---|---|---|---|
+| Huangshan | 316 | 187 | 25 |
+| Karst | 383 | 107 | 24 |
+| Below the Sea | 148 | 140 | 16 |
+| the Roof | 221 | 93 | 16 |
+
+Huangshan's remaining draws are the four Dragon Kings (68 each), Wukong
+and Nezha, none of them baked.
+
+**The immortals bob again.** F108 gave up each immortal's own bob and
+sway so their parts could merge; with a bone at each of them it is back,
+and the donkey's legs are bones instead of meshes of their own. Only its
+tail draws apart.
+
+**Checked.** `npm run check` passes. A test turns a group after the bake
+and finds the part it carries turned with it while the root's part stays;
+another holds the four figures to their counts with every triangle kept,
+and the earlier test still holds mirrored parts' winding and the parts
+the bake must leave alone. Captured headless in seven scenes
+(`castC-K-*`), with a second frame 180 ms later at the Bend, the Karst
+and Huangshan: the cranes' wings are up in one and down in the other,
+the pilgrims' legs and arms have moved, and nothing is out of place.
+The cast's own update per frame is the same within noise at each
+station, from 0.2 ms on the Roof to 1.0 ms at Huangshan.
+
+**Next.** The heaviest figures left are the Dragon Kings (68 each, four
+at Huangshan), the Queen Mother (71) and the immortals' neighbours at
+Turpan, Wukong and Nezha (45 each); each would bake with its rewritten
+parts (the dragons' spines, Nezha's sash, Wukong's tail and plumes)
+kept.

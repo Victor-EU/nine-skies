@@ -68,6 +68,8 @@ class Egrets implements Figure {
       const b = egret(w, this.line);
       this.birds.push({ group: b.group, wings: b.wings, phase: (i * 2.399) % 6.28, rate: 3.6 + ((i * 0.41) % 1.1), slot: i - 4 });
     }
+    // One mesh per material for the nine, a bone at each bird and each joint of each wing (F109).
+    w.bake(this.line);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }

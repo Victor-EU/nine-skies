@@ -5,7 +5,7 @@
  * companion where the cue says.
  */
 import { describe, expect, it } from "vitest";
-import { Group, Mesh, PlaneGeometry, SphereGeometry, Vector3, type BufferGeometry, type Material } from "three";
+import { Group, Mesh, PlaneGeometry, SkinnedMesh, SphereGeometry, Vector3, type BufferGeometry, type Material } from "three";
 import { castFromRaw, cueFromRaw, SIZE_RANGE_M } from "../../content/cast.ts";
 import { sceneFromRaw, textLines, validateScene } from "../../content/scenes.ts";
 import { FIGURE_KINDS, LIVING_FAITHS } from "../../engine/src/cast/kinds.js";
@@ -257,7 +257,11 @@ describe("the figures", () => {
     expect(leg.parent).toBe(moving);
     expect(ghost.parent).toBe(hidden);
     expect(printed.parent).toBe(root);
-    const silk = meshes.find((m) => m.material === skin.material("silk", SILK) && m !== leg)!;
+    const silk = meshes.find((m) => m.material === skin.material("silk", SILK, true))!;
+    // A baked part is skinned, in the skin's skinned instance of its material: never the same one as an unbaked part's.
+    expect((silk as SkinnedMesh).isSkinnedMesh).toBe(true);
+    expect(leg.material).toBe(skin.material("silk", SILK));
+    expect(silk.material).not.toBe(leg.material);
     expect(triangleCount(silk.geometry)).toBe(4);
     // The mirrored plane is wound again, so every face still turns the way its normals say.
     const g = silk.geometry as BufferGeometry;
@@ -277,17 +281,57 @@ describe("the figures", () => {
     skin.dispose();
   });
 
-  it("draw the Eight Immortals as a few dozen meshes, not two hundred, with every triangle kept", () => {
+  it("still move what a moving group carries, once baked", () => {
     const skin = lanternSkin();
-    const f = figureBuilder("baxian")!({ skin, variant: "still", scale: DEFAULT_SCALE });
-    let meshes = 0;
-    f.group.traverse((o) => {
-      if ((o as Mesh).isMesh) meshes++;
-    });
-    expect(meshes).toBeLessThan(50);
-    expect(f.triangles).toBeGreaterThan(30_000);
-    f.update({ timeS: 4, flightS: 4, eye: new Vector3(), headingRad: 0, group: f.group });
-    f.dispose();
+    const w = new Wardrobe(skin);
+    const root = new Group();
+    const wingG = new Group();
+    wingG.position.x = 1;
+    root.add(wingG);
+    w.part(new PlaneGeometry(1, 1), "silk", 0xf4f4f0, wingG, 0.5, 0, 0);
+    w.part(new SphereGeometry(0.2, 8, 6), "silk", 0xf4f4f0, root);
+    w.bake(root);
+    const baked = root.children.find((o) => (o as SkinnedMesh).isSkinnedMesh) as SkinnedMesh;
+    expect(baked).toBeDefined();
+    // The plane's far corner, at (2, 0.5) from the root before the group turns.
+    const pos = baked.geometry.getAttribute("position");
+    let corner = -1;
+    for (let i = 0; i < pos.count; i++) if (Math.abs(pos.getX(i) - 2) < 1e-6 && Math.abs(pos.getY(i) - 0.5) < 1e-6) corner = i;
+    expect(corner).toBeGreaterThanOrEqual(0);
+    // Turn the group a quarter about z at its origin: the corner swings to (0.5, 1.0); the sphere at the root stays.
+    wingG.rotation.z = Math.PI / 2;
+    root.updateMatrixWorld(true);
+    const at = baked.applyBoneTransform(corner, new Vector3().fromBufferAttribute(pos, corner));
+    expect(at.x).toBeCloseTo(0.5);
+    expect(at.y).toBeCloseTo(1.0);
+    let still = -1;
+    for (let i = 0; i < pos.count; i++) if (Math.abs(pos.getX(i)) < 1e-6 && Math.abs(pos.getY(i) - 0.2) < 1e-6) still = i;
+    const top = baked.applyBoneTransform(still, new Vector3().fromBufferAttribute(pos, still));
+    expect(top.y).toBeCloseTo(0.2);
+    // A skin swap keeps a baked part in the skinned instance of its material.
+    const other = lanternSkin();
+    w.redress(other);
+    expect(baked.material).toBe(other.material("silk", 0xf4f4f0, true));
+    w.dispose();
+    skin.dispose();
+    other.dispose();
+  });
+
+  it("draw the heaviest figures as a handful of meshes, every triangle kept", () => {
+    const skin = lanternSkin();
+    const most: Record<string, number> = { baxian: 40, pilgrims: 25, cranes: 3, egrets: 5 };
+    const least: Record<string, number> = { baxian: 30_000, pilgrims: 15_000, cranes: 10_000, egrets: 10_000 };
+    for (const [kind, limit] of Object.entries(most)) {
+      const f = figureBuilder(kind)!({ skin, variant: "still", scale: DEFAULT_SCALE });
+      let meshes = 0;
+      f.group.traverse((o) => {
+        if ((o as Mesh).isMesh) meshes++;
+      });
+      expect(meshes, kind).toBeLessThanOrEqual(limit);
+      expect(f.triangles, kind).toBeGreaterThan(least[kind]!);
+      f.update({ timeS: 4, flightS: 4, eye: new Vector3(), headingRad: 0, group: f.group });
+      f.dispose();
+    }
     skin.dispose();
   });
 

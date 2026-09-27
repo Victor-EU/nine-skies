@@ -33,6 +33,8 @@ class Cranes implements Figure {
       const b = bird(w, { body: WHITE, crown: CROWN, tip: BLACK, beak: BLACK }, this.flock);
       this.birds.push({ bird: b, phase: (i * 2.399) % 6.28, rate: 4.2 + ((i * 0.37) % 1.2), row: Math.ceil(i / 2), side: i % 2 ? 1 : -1 });
     }
+    // One mesh per material for the eleven, a bone at each bird and each joint of each wing (F109).
+    w.bake(this.flock);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }

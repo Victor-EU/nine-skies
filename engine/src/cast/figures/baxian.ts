@@ -11,9 +11,10 @@
  * abreast; in place as `still`, or drifting round a wide circle.
  *
  * Built, they were 211 parts and 211 draws, the heaviest figure of the
- * cast. Nothing in the line moves against it but the donkey's legs and
- * tail, so everything else is baked into one mesh per material (F108) and
- * the line bobs and sways as one.
+ * cast. They are baked into one mesh per material, with a bone at every
+ * group that moves (F108, F109): each immortal still bobs and sways on
+ * their own, and the donkey walks; only its tail, rebuilt each frame,
+ * draws apart.
  *
  * Native length 15 units, the line.
  */
@@ -178,6 +179,7 @@ class BaXian implements Figure {
   readonly triangles: number;
   private readonly w: Wardrobe;
   private readonly line = new Group();
+  private readonly riders: { g: Group; phase: number }[] = [];
   private readonly donkey: Horse;
   private readonly loop: number;
 
@@ -187,11 +189,11 @@ class BaXian implements Figure {
     this.group.add(this.line);
     let donkey: Horse | null = null;
     for (const [i, build] of BUILDERS.entries()) {
-      // a loose line abreast, each a little higher or lower and turned a little
+      // a loose line abreast
       const g = new Group();
-      g.position.set((i - 3.5) * 1.9, Math.sin(i * 2.3) * 0.12, i % 2 ? 0.9 : -0.9);
-      g.rotation.y = Math.sin(i * 1.7) * 0.08;
+      g.position.set((i - 3.5) * 1.9, 0, i % 2 ? 0.9 : -0.9);
       this.line.add(g);
+      this.riders.push({ g, phase: i * 0.8 });
       const d = build(w, g);
       if (d) donkey = d;
       cloudBank(
@@ -207,8 +209,8 @@ class BaXian implements Figure {
     }
     if (!donkey) throw new Error("Zhang Guolao has no donkey");
     this.donkey = donkey;
-    // Everything but the donkey's legs and tail is still against the line: one mesh per material.
-    w.bake(this.line, [...donkey.legs.map((l) => l.hip), donkey.tail]);
+    // One mesh per material, a bone at each immortal and each moving joint; the tail is rebuilt each frame.
+    w.bake(this.line, [donkey.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
@@ -222,10 +224,11 @@ class BaXian implements Figure {
     if (this.loop > 0) {
       const a = t * 0.05;
       this.line.position.set(Math.cos(a) * this.loop, Math.sin(a * 2) * 0.8, Math.sin(a) * this.loop);
-      this.line.rotation.set(0, -a, Math.sin(t * 0.4) * 0.02);
-    } else {
-      this.line.position.set(0, Math.sin(t * 0.5) * 0.2, 0);
-      this.line.rotation.set(0, Math.sin(t * 0.3) * 0.03, Math.sin(t * 0.4) * 0.02);
+      this.line.rotation.y = -a;
+    } else this.line.position.set(0, Math.sin(t * 0.5) * 0.2, 0);
+    for (const r of this.riders) {
+      r.g.position.y = Math.sin(t * 0.9 + r.phase) * 0.12;
+      r.g.rotation.set(0, Math.sin(t * 0.3 + r.phase) * 0.08, Math.sin(t * 0.6 + r.phase) * 0.03);
     }
     horseWalk(this.donkey, t, 4);
   }

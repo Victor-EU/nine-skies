@@ -13,7 +13,7 @@
  */
 import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry, Vector3 } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank, horse, horseWalk, humanoid, walk, type Horse, type Humanoid } from "../parts.js";
+import { Wardrobe, cloudBank, horse, horseWalk, humanoid, walk, type Horse, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const COAT = 0xf7f4ee;
@@ -117,7 +117,6 @@ class Pilgrims implements Figure {
   private readonly sha: Humanoid | null = null;
   private readonly bajieG = new Group();
   private readonly shaG = new Group();
-  private readonly road: Group;
   private readonly circuit: number;
 
   constructor(ctx: BuildContext) {
@@ -143,7 +142,9 @@ class Pilgrims implements Figure {
     }
     const puffs: [number, number, number, number][] = [];
     for (let i = 0; i < (alone ? 7 : 16); i++) puffs.push([Math.sin(i * 2.1) * 0.5, -0.35 - Math.abs(Math.sin(i * 1.3)) * 0.15, 1.5 - i * 0.55, 0.42 + Math.sin(i * 1.7) * 0.12]);
-    this.road = cloudBank(w, CLOUD, puffs, this.party);
+    cloudBank(w, CLOUD, puffs, this.party);
+    // One mesh per material, a bone at every group that walks; the horse's tail is rebuilt each frame (F109).
+    w.bake(this.party, [this.horse.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
@@ -187,7 +188,6 @@ class Pilgrims implements Figure {
       sr!.elbow.rotation.set(-0.5, 0, 0);
       this.shaG.position.y = Math.abs(Math.sin(t * 5 + 1)) * 0.06;
     }
-    breathe(this.road, t, 0.05);
   }
 
   dispose(): void {

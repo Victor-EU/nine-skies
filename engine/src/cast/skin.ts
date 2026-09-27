@@ -18,7 +18,12 @@ export type Role = "scale" | "belly" | "silk" | "skin" | "horn" | "mane" | "clou
 
 export interface Skin {
   readonly name: string;
-  material(role: Role, colour: number): Material;
+  /**
+   * The material for a part. A baked part is skinned (F109) and gets its
+   * own instance: three.js keeps one program per material, and a material
+   * drawn both skinned and not would switch programs at every draw.
+   */
+  material(role: Role, colour: number, skinned?: boolean): Material;
   dispose(): void;
 }
 
@@ -59,8 +64,8 @@ export function lanternSkin(): Skin {
   };
   return {
     name: "lantern",
-    material(role, colour) {
-      const key = `${role}:${colour}`;
+    material(role, colour, skinned = false) {
+      const key = `${role}:${colour}${skinned ? ":skinned" : ""}`;
       let m = cache.get(key);
       if (!m) {
         m = make(role, colour);

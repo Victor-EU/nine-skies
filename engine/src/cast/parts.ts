@@ -9,6 +9,7 @@
  * what a builder adds afterwards.
  */
 import {
+  Bone,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
@@ -17,15 +18,19 @@ import {
   ConeGeometry,
   CylinderGeometry,
   DataTexture,
+  Float32BufferAttribute,
   Group,
   Matrix4,
   Mesh,
   NoColorSpace,
   RepeatWrapping,
+  Skeleton,
+  SkinnedMesh,
   SphereGeometry,
   SRGBColorSpace,
   TorusGeometry,
   TubeGeometry,
+  Uint16BufferAttribute,
   Vector3,
   type Material,
   type Object3D,
@@ -228,16 +233,19 @@ export interface Dressed {
   readonly mesh: Mesh;
   readonly role: Role;
   readonly colour: number;
+  /** Baked into a skinned mesh, so dressed in the skin's skinned material. */
+  readonly skinned?: boolean;
 }
 
 /** The parts a figure has dressed, so a skin swap and the budget can find them all. */
 export class Wardrobe {
   readonly parts: Dressed[] = [];
+  private readonly skeletons: Skeleton[] = [];
   constructor(private skin: Skin) {}
 
-  dress(mesh: Mesh, role: Role, colour: number): Mesh {
-    mesh.material = this.skin.material(role, colour);
-    this.parts.push({ mesh, role, colour });
+  dress(mesh: Mesh, role: Role, colour: number, skinned = false): Mesh {
+    mesh.material = this.skin.material(role, colour, skinned);
+    this.parts.push({ mesh, role, colour, skinned });
     return mesh;
   }
 
@@ -251,7 +259,7 @@ export class Wardrobe {
 
   redress(skin: Skin): void {
     this.skin = skin;
-    for (const p of this.parts) p.mesh.material = skin.material(p.role, p.colour);
+    for (const p of this.parts) p.mesh.material = skin.material(p.role, p.colour, p.skinned);
   }
 
   get triangles(): number {
@@ -263,43 +271,83 @@ export class Wardrobe {
   }
 
   /**
-   * Merge every part under `root` that never moves against it into one
-   * mesh per material, so a figure of two hundred parts draws as a few
-   * dozen (F108). `keep` names the subtrees that move on their own - a
-   * leg, a tail rewritten each frame - and they stay as they are; so does
-   * a part hidden, or dressed in a material of its own (stripes, a print).
-   * The triangles are the same and the skin still dresses the result;
-   * only the draws go down. Groups left empty are taken out.
+   * Draw a figure as one mesh per material instead of one per part
+   * (F108, F109). Every part under `root` is merged by material into a
+   * skinned mesh, and bound to a bone at the group that carries it, so a
+   * group that moves - a wing, a leg, a bird in its flock - still moves
+   * what it carries; a flock of eleven cranes draws as three meshes and
+   * flaps every wing.
+   *
+   * What a group carries is fixed at the bake: a part's own transform, and
+   * its geometry, are baked in. So `keep` names what the figure rewrites
+   * each frame - a tail rebuilt along its curve, a sash - which stays as it
+   * was; and so does a part hidden, or dressed in a material of its own (a
+   * stripe, a print), which the skin would not give back on a swap. A part
+   * mirrored by a negative scale is wound again. The triangles are the
+   * same, and the skin still dresses the result.
    */
   bake(root: Group, keep: readonly Object3D[] = []): void {
     root.updateMatrixWorld(true);
     const toRoot = new Matrix4().copy(root.matrixWorld).invert();
     const kept = new Set<Object3D>();
     for (const k of keep) k.traverse((o) => kept.add(o));
-    // Under the root and drawn: every ancestor up to it visible.
-    const bakeable = (mesh: Mesh): boolean => {
+    // The object a part hangs from, if the part is under the root, drawn and not kept.
+    const carrierOf = (mesh: Mesh): Object3D | null => {
+      let carrier: Object3D | null = null;
       for (let o: Object3D | null = mesh; o; o = o.parent) {
-        if (o === root) return true;
-        if (!o.visible || kept.has(o)) return false;
+        if (!o.visible || kept.has(o)) return null;
+        if (!carrier && o !== mesh && !(o as Mesh).isMesh) carrier = o;
+        if (o === root) return carrier;
       }
-      return false;
+      return null;
     };
-    const batches = new Map<Material, { role: Role; colour: number; geometries: BufferGeometry[] }>();
-    const baked = new Set<Mesh>();
-    const m = new Matrix4();
+    const chosen: { p: Dressed; carrier: Object3D }[] = [];
     for (const p of this.parts) {
-      const material = this.skin.material(p.role, p.colour);
-      if (p.mesh.material !== material || !bakeable(p.mesh)) continue;
+      if (p.skinned || p.mesh.material !== this.skin.material(p.role, p.colour)) continue;
+      const carrier = carrierOf(p.mesh);
+      if (carrier) chosen.push({ p, carrier });
+    }
+    if (!chosen.length) return;
+    // A bone at each carrier, at its origin, so the bone moves as the carrier does.
+    const bones: Bone[] = [];
+    const boneOf = new Map<Object3D, number>();
+    for (const { carrier } of chosen) {
+      if (boneOf.has(carrier)) continue;
+      const bone = new Bone();
+      bone.name = `bone:${carrier.name || bones.length}`;
+      carrier.add(bone);
+      boneOf.set(carrier, bones.length);
+      bones.push(bone);
+    }
+    root.updateMatrixWorld(true);
+    const skeleton = new Skeleton(
+      bones,
+      bones.map((b) => new Matrix4().copy(b.matrixWorld).invert()),
+    );
+    this.skeletons.push(skeleton);
+    const batches = new Map<string, { role: Role; colour: number; geometries: BufferGeometry[] }>();
+    const m = new Matrix4();
+    for (const { p, carrier } of chosen) {
       m.multiplyMatrices(toRoot, p.mesh.matrixWorld);
       const g = p.mesh.geometry.clone().applyMatrix4(m);
       // A part mirrored by a negative scale is wound the other way round.
       if (m.determinant() < 0) flipWinding(g);
-      let batch = batches.get(material);
-      if (!batch) batches.set(material, (batch = { role: p.role, colour: p.colour, geometries: [] }));
+      const n = g.getAttribute("position").count;
+      const index = new Uint16Array(n * 4);
+      const weight = new Float32Array(n * 4);
+      const b = boneOf.get(carrier)!;
+      for (let v = 0; v < n; v++) {
+        index[v * 4] = b;
+        weight[v * 4] = 1;
+      }
+      g.setAttribute("skinIndex", new Uint16BufferAttribute(index, 4));
+      g.setAttribute("skinWeight", new Float32BufferAttribute(weight, 4));
+      const key = `${p.role}:${p.colour}`;
+      let batch = batches.get(key);
+      if (!batch) batches.set(key, (batch = { role: p.role, colour: p.colour, geometries: [] }));
       batch.geometries.push(g);
-      baked.add(p.mesh);
     }
-    if (!baked.size) return;
+    const baked = new Set(chosen.map((c) => c.p.mesh));
     const rest = this.parts.filter((p) => !baked.has(p.mesh));
     this.parts.length = 0;
     this.parts.push(...rest);
@@ -307,12 +355,20 @@ export class Wardrobe {
       mesh.removeFromParent();
       mesh.geometry.dispose();
     }
+    const bind = root.matrixWorld.clone();
     for (const { role, colour, geometries } of batches.values()) {
       const merged = mergeGeometries(mergeable(geometries));
       for (const g of geometries) g.dispose();
       if (!merged) throw new Error(`bake: the ${role} parts in ${colour.toString(16)} would not merge`);
-      this.part(merged, role, colour, root).name = `baked:${role}:${colour.toString(16)}`;
+      const mesh = new SkinnedMesh(merged);
+      mesh.name = `baked:${role}:${colour.toString(16)}`;
+      // Its bounds move with its bones; the figures are cued into view.
+      mesh.frustumCulled = false;
+      root.add(mesh);
+      mesh.bind(skeleton, bind);
+      this.dress(mesh, role, colour, true);
     }
+    // Groups left with nothing to carry are taken out.
     const prune = (o: Object3D): void => {
       for (const c of [...o.children]) {
         prune(c);
@@ -324,6 +380,7 @@ export class Wardrobe {
 
   dispose(): void {
     for (const p of this.parts) p.mesh.geometry.dispose();
+    for (const s of this.skeletons) s.dispose();
   }
 }
 
@@ -353,12 +410,14 @@ function flipWinding(g: BufferGeometry): void {
   }
 }
 
-/** Geometries the merge will take: the same three attributes, all indexed or none, no groups. */
+const MERGED = ["position", "normal", "uv", "skinIndex", "skinWeight"];
+
+/** Geometries the merge will take: the same attributes, all indexed or none, no groups. */
 function mergeable(geometries: BufferGeometry[]): BufferGeometry[] {
   const indexed = geometries.every((g) => g.getIndex());
   return geometries.map((g) => {
     const h = indexed || !g.getIndex() ? g : g.toNonIndexed();
-    for (const name of Object.keys(h.attributes)) if (name !== "position" && name !== "normal" && name !== "uv") h.deleteAttribute(name);
+    for (const name of Object.keys(h.attributes)) if (!MERGED.includes(name)) h.deleteAttribute(name);
     if (!h.getAttribute("uv")) h.setAttribute("uv", new BufferAttribute(new Float32Array(h.getAttribute("position").count * 2), 2));
     h.morphAttributes = {};
     h.clearGroups();
@@ -445,8 +504,11 @@ export function cloudBank(w: Wardrobe, colour: number, puffs: readonly (readonly
   return g;
 }
 
+/** Each puff swells and eases on its own; a bank that has been baked (F109) holds still. */
 export function breathe(bank: Group, t: number, amount = 0.07): void {
-  bank.children.forEach((p, i) => p.scale.setScalar(1 + Math.sin(t * 2 + i * 1.9) * amount));
+  bank.children.forEach((p, i) => {
+    if ((p as Mesh).isMesh) p.scale.setScalar(1 + Math.sin(t * 2 + i * 1.9) * amount);
+  });
 }
 
 // ---- The horse -------------------------------------------------------------
