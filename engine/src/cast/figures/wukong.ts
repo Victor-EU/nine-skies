@@ -4,13 +4,15 @@
  * kilt, the 藕丝步云履, the banded staff on his shoulder, and one hand to
  * his brow, scouting. The cloud is a lump of silk puffs with a trailing
  * swirl. He rides a figure-of-eight and turns a somersault every seven
- * seconds; a `still` variant hovers, for a companion.
+ * seconds; a `still` variant hovers, for a companion. Baked into one
+ * skinned mesh per material (F110), all but the tail, rebuilt each frame,
+ * and the kilt, which wears its own stripes.
  *
  * Native height 2.5 units to the crest, 3.6 to the plumes' tips.
  */
 import { CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3, type DataTexture } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank, humanoid, stripesTexture, type Humanoid } from "../parts.js";
+import { Wardrobe, cloudBank, humanoid, stripesTexture, type Humanoid } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const FUR = 0xb9782f;
@@ -30,11 +32,10 @@ class Wukong implements Figure {
   private readonly body = new Group();
   private readonly rider = new Group();
   private readonly h: Humanoid;
-  private readonly cloud: Group;
   private readonly tail: Mesh;
   private readonly tailPts: Vector3[] = [];
   private readonly tailCurve: CatmullRomCurve3;
-  private readonly plumes: Mesh[] = [];
+  private readonly plumes: Group[] = [];
   private readonly roams: boolean;
 
   constructor(ctx: BuildContext) {
@@ -61,8 +62,11 @@ class Wukong implements Figure {
         "gold",
         GOLD,
       );
-      B.add(plume);
-      this.plumes.push(plume);
+      // the plume sways on a pivot of its own, so the bake gives it a bone
+      const pivot = new Group();
+      pivot.add(plume);
+      B.add(pivot);
+      this.plumes.push(pivot);
     }
     // the cap, its rim and crest; the collar and belt; the kilt in stripes
     w.part(new SphereGeometry(0.5, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42), "silk", PURPLE, B, 0, 1.9, 0);
@@ -90,7 +94,7 @@ class Wukong implements Figure {
     this.tail = w.dress(new Mesh(new TubeGeometry(this.tailCurve, 20, 0.06, 6, false)), "skin", FUR);
     B.add(this.tail);
     // the cloud under his feet
-    this.cloud = cloudBank(
+    cloudBank(
       w,
       CLOUD,
       [
@@ -106,6 +110,7 @@ class Wukong implements Figure {
       ],
       this.body,
     );
+    w.bake(this.body, [this.tail]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
@@ -140,7 +145,6 @@ class Wukong implements Figure {
     this.tail.geometry.dispose();
     this.tail.geometry = new TubeGeometry(this.tailCurve, 20, 0.06, 6, false);
     for (const p of this.plumes) p.rotation.z = Math.sin(t * 2.2) * 0.06;
-    breathe(this.cloud, t, 0.08);
   }
 
   dispose(): void {

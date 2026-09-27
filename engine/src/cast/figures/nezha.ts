@@ -8,6 +8,8 @@
  * Flaming Mountains (ch. 61).
  *
  * Native height 2.3 units; the sash and the circuit are in the same units.
+ * Baked into one skinned mesh per material (F110), all but the sash,
+ * rebuilt each frame; the wheels spin and the flame flickers by groups.
  */
 import { BoxGeometry, CatmullRomCurve3, ConeGeometry, CylinderGeometry, Group, Mesh, SphereGeometry, TorusGeometry, TubeGeometry, Vector3 } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
@@ -29,7 +31,7 @@ class Nezha implements Figure {
   private readonly body = new Group();
   private readonly h: Humanoid;
   private readonly wheels: Group[] = [];
-  private readonly fire: Mesh;
+  private readonly fire = new Group();
   private readonly sash: Mesh;
   private readonly sashPts: Vector3[] = [];
   private readonly sashCurve: CatmullRomCurve3;
@@ -78,7 +80,10 @@ class Nezha implements Figure {
     const spear = new Group();
     w.part(new CylinderGeometry(0.035, 0.035, 3.2, 8), "silk", RED, spear);
     w.part(new ConeGeometry(0.09, 0.5, 6), "gold", GOLD, spear, 0, 1.8, 0);
-    this.fire = w.part(new ConeGeometry(0.16, 0.6, 6), "flame", FLAME, spear, 0, 2.25, 0);
+    // the flame flickers on a pivot of its own
+    this.fire.position.y = 2.25;
+    spear.add(this.fire);
+    w.part(new ConeGeometry(0.16, 0.6, 6), "flame", FLAME, this.fire);
     spear.position.y = -0.5;
     spear.rotation.z = 0.35;
     this.h.arms[0]!.elbow.add(spear);
@@ -88,6 +93,7 @@ class Nezha implements Figure {
     this.sash = w.dress(new Mesh(new TubeGeometry(this.sashCurve, 40, 0.06, 6, false)), "silk", RED);
     B.add(this.sash);
     // A capsule for the legs' silk was the doll's; Nezha's legs are bare.
+    w.bake(this.body, [this.sash]);
     this.triangles = w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }

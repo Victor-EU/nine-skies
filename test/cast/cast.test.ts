@@ -308,6 +308,14 @@ describe("the figures", () => {
     for (let i = 0; i < pos.count; i++) if (Math.abs(pos.getX(i)) < 1e-6 && Math.abs(pos.getY(i) - 0.2) < 1e-6) still = i;
     const top = baked.applyBoneTransform(still, new Vector3().fromBufferAttribute(pos, still));
     expect(top.y).toBeCloseTo(0.2);
+    // Its bounds follow the bones, so three.js culls it where it is now: the swung corner is inside, and the sphere is not the world.
+    const bounds = baked.boundingSphere!;
+    expect(bounds.containsPoint(at)).toBe(true);
+    expect(bounds.containsPoint(top)).toBe(true);
+    expect(bounds.radius).toBeLessThan(4);
+    wingG.position.x = 30;
+    root.updateMatrixWorld(true);
+    expect(baked.boundingSphere!.center.x).toBeGreaterThan(10);
     // A skin swap keeps a baked part in the skinned instance of its material.
     const other = lanternSkin();
     w.redress(other);
@@ -319,8 +327,8 @@ describe("the figures", () => {
 
   it("draw the heaviest figures as a handful of meshes, every triangle kept", () => {
     const skin = lanternSkin();
-    const most: Record<string, number> = { baxian: 40, pilgrims: 25, cranes: 3, egrets: 5 };
-    const least: Record<string, number> = { baxian: 30_000, pilgrims: 15_000, cranes: 10_000, egrets: 10_000 };
+    const most: Record<string, number> = { baxian: 40, pilgrims: 25, cranes: 3, egrets: 5, dragon: 8, wukong: 12, nezha: 10 };
+    const least: Record<string, number> = { baxian: 30_000, pilgrims: 15_000, cranes: 10_000, egrets: 10_000, dragon: 9_000, wukong: 9_000, nezha: 8_000 };
     for (const [kind, limit] of Object.entries(most)) {
       const f = figureBuilder(kind)!({ skin, variant: "still", scale: DEFAULT_SCALE });
       let meshes = 0;

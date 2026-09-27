@@ -2760,3 +2760,70 @@ at Huangshan), the Queen Mother (71) and the immortals' neighbours at
 Turpan, Wukong and Nezha (45 each); each would bake with its rewritten
 parts (the dragons' spines, Nezha's sash, Wukong's tail and plumes)
 kept.
+
+## F110 — The Dragon Kings, Wukong and Nezha baked, and baked figures culled again, 27 September 2026
+
+The last of the heavy figures on the stations: the dragon (68 meshes,
+drawn 69 times since the body's back and belly are two), four of them at
+Huangshan and one each in the Gorges, on the Loess and at Turpan; and
+Wukong and Nezha, 45 each, at Huangshan and Turpan.
+
+**What had to change first.** The bake binds a part to the group that
+carries it, so a part that turns itself would be frozen. The dragon's
+jaw, its two whiskers and the seventeen blades of its mane each turned
+themselves; Wukong's two cap plumes swayed themselves; Nezha's spear
+flame scaled itself. Each is now wrapped in a group of its own that does
+the turning, with the same transform as before, and the bake gives that
+group a bone. The dragon also dressed its parts itself; it now uses the
+wardrobe like every other figure. What stays out of the bake is what is
+rewritten each frame: the dragon's spine tube and its instanced fins,
+Wukong's tail, Nezha's sash; and Wukong's kilt, which wears its own
+stripes.
+
+| figure | draws before | after | bones |
+|---|---|---|---|
+| a dragon | 69 | 9 | 34 |
+| Wukong | 45 | 12 | 11 |
+| Nezha | 45 | 10 | 11 |
+
+**A fault in F109, found here.** F109 switched frustum culling off for
+baked meshes, since three.js computes a skinned mesh's bounds once, from
+the pose at the bake, and a flock or a dragon moves far from it. At
+Huangshan three of the four kings are behind the camera at 60 s: their
+bodies were culled and their baked heads and legs were not, 9 draws and
+18,540 triangles for nothing. A baked mesh now carries bounds read from
+its own bones each time three.js asks (`followBounds` in `parts.ts`):
+each bone where it stands, plus the reach of what it carries as measured
+at the bake, half again for a bone's scale. With it, every station's
+frame has exactly the triangles it had before any bake, so culling is as
+good as it was part by part.
+
+**The stations** (draw calls per frame at 60 s, headless on the M3's GPU;
+before is F109's code, after is this one; the triangles are the same as
+before any bake at every station):
+
+| station | before | after | without the cast |
+|---|---|---|---|
+| Huangshan | 187 | 59 | 25 |
+| the Gorges | 93 | 33 | 24 |
+| Karst | 107 | 107 | 24 |
+| Loess | 117 | 57 | 16 |
+| Below the Sea | 140 | 72 | 16 |
+| the Roof | 93 | 93 | 16 |
+
+Since F107 Huangshan has gone from 316 draws to 59 and Turpan from 317 to
+72. The cast's own update per frame is unchanged within noise, 0.3 to
+1.0 ms.
+
+**Checked.** `npm run check` passes. The bake test now also holds a baked
+mesh's bounds to where its bones are after they move; the figures' test
+holds the dragon to 8 meshes, Wukong to 12 and Nezha to 10, with every
+triangle kept; the skin-swap test still passes on the dragon.
+Captured headless at Huangshan, the Gorges, Turpan and the Loess
+(`castC-L-*`), with second frames 250 ms later: the dragons' legs, tails
+and tufts have moved, their heads carry antlers, mane and whiskers where
+they were before the bake, and Wukong turns his somersault.
+
+**Next.** The heaviest unbaked figures are now the Queen Mother (71),
+the qilin (58), the Bull Demon King (44) and the goddess's tigress (42).
+None of them is on a station at 60 s.

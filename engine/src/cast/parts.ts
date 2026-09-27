@@ -10,6 +10,7 @@
  */
 import {
   Bone,
+  Box3,
   BoxGeometry,
   BufferAttribute,
   BufferGeometry,
@@ -26,6 +27,7 @@ import {
   RepeatWrapping,
   Skeleton,
   SkinnedMesh,
+  Sphere,
   SphereGeometry,
   SRGBColorSpace,
   TorusGeometry,
@@ -325,26 +327,33 @@ export class Wardrobe {
       bones.map((b) => new Matrix4().copy(b.matrixWorld).invert()),
     );
     this.skeletons.push(skeleton);
-    const batches = new Map<string, { role: Role; colour: number; geometries: BufferGeometry[] }>();
+    // Where each bone stands at the bake, in the root's frame, to measure the reach of what it carries.
+    const bindAt = bones.map((b) => new Vector3().setFromMatrixPosition(b.matrixWorld).applyMatrix4(toRoot));
+    const batches = new Map<string, { role: Role; colour: number; geometries: BufferGeometry[]; reach: Map<number, number> }>();
     const m = new Matrix4();
+    const v = new Vector3();
     for (const { p, carrier } of chosen) {
       m.multiplyMatrices(toRoot, p.mesh.matrixWorld);
       const g = p.mesh.geometry.clone().applyMatrix4(m);
       // A part mirrored by a negative scale is wound the other way round.
       if (m.determinant() < 0) flipWinding(g);
-      const n = g.getAttribute("position").count;
+      const key = `${p.role}:${p.colour}`;
+      let batch = batches.get(key);
+      if (!batch) batches.set(key, (batch = { role: p.role, colour: p.colour, geometries: [], reach: new Map() }));
+      const position = g.getAttribute("position");
+      const n = position.count;
       const index = new Uint16Array(n * 4);
       const weight = new Float32Array(n * 4);
       const b = boneOf.get(carrier)!;
-      for (let v = 0; v < n; v++) {
-        index[v * 4] = b;
-        weight[v * 4] = 1;
+      let reach = batch.reach.get(b) ?? 0;
+      for (let k = 0; k < n; k++) {
+        index[k * 4] = b;
+        weight[k * 4] = 1;
+        reach = Math.max(reach, v.fromBufferAttribute(position, k).distanceTo(bindAt[b]!));
       }
+      batch.reach.set(b, reach);
       g.setAttribute("skinIndex", new Uint16BufferAttribute(index, 4));
       g.setAttribute("skinWeight", new Float32BufferAttribute(weight, 4));
-      const key = `${p.role}:${p.colour}`;
-      let batch = batches.get(key);
-      if (!batch) batches.set(key, (batch = { role: p.role, colour: p.colour, geometries: [] }));
       batch.geometries.push(g);
     }
     const baked = new Set(chosen.map((c) => c.p.mesh));
@@ -356,14 +365,13 @@ export class Wardrobe {
       mesh.geometry.dispose();
     }
     const bind = root.matrixWorld.clone();
-    for (const { role, colour, geometries } of batches.values()) {
+    for (const { role, colour, geometries, reach } of batches.values()) {
       const merged = mergeGeometries(mergeable(geometries));
       for (const g of geometries) g.dispose();
       if (!merged) throw new Error(`bake: the ${role} parts in ${colour.toString(16)} would not merge`);
       const mesh = new SkinnedMesh(merged);
       mesh.name = `baked:${role}:${colour.toString(16)}`;
-      // Its bounds move with its bones; the figures are cued into view.
-      mesh.frustumCulled = false;
+      followBounds(mesh, bones, reach);
       root.add(mesh);
       mesh.bind(skeleton, bind);
       this.dress(mesh, role, colour, true);
@@ -382,6 +390,36 @@ export class Wardrobe {
     for (const p of this.parts) p.mesh.geometry.dispose();
     for (const s of this.skeletons) s.dispose();
   }
+}
+
+/**
+ * A skinned mesh's bounds, read from its bones as they stand: each bone's
+ * place, and the reach of the parts it carries as the bake measured it,
+ * half again for what a bone's scale may add (a flame's flicker). three.js
+ * culls and sorts a skinned mesh by this sphere and would otherwise
+ * compute it once, from the pose at the bake; this one is computed each
+ * time it is read, from the few bones the mesh uses.
+ */
+function followBounds(mesh: SkinnedMesh, bones: readonly Bone[], reach: ReadonlyMap<number, number>): void {
+  const used = [...reach.entries()].map(([b, r]) => ({ bone: bones[b]!, r: r * 1.5, at: new Vector3() }));
+  const sphere = new Sphere();
+  const box = new Box3();
+  const toMesh = new Matrix4();
+  const corner = new Vector3();
+  const read = (): Sphere => {
+    toMesh.copy(mesh.matrixWorld).invert();
+    box.makeEmpty();
+    for (const u of used) {
+      u.at.setFromMatrixPosition(u.bone.matrixWorld).applyMatrix4(toMesh);
+      box.expandByPoint(corner.copy(u.at).subScalar(u.r));
+      box.expandByPoint(corner.copy(u.at).addScalar(u.r));
+    }
+    box.getCenter(sphere.center);
+    sphere.radius = 0;
+    for (const u of used) sphere.radius = Math.max(sphere.radius, sphere.center.distanceTo(u.at) + u.r);
+    return sphere;
+  };
+  Object.defineProperty(mesh, "boundingSphere", { get: read, set: () => {}, configurable: true });
 }
 
 /** Reverse every triangle's winding, for a part mirrored by a negative scale. */

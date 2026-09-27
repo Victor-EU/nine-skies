@@ -9,11 +9,14 @@
  * to the cue's metres. The body is a `SpineTube` rewritten each frame from
  * a loop the head follows; the fins are one instanced blade; nothing else
  * is rebuilt per frame, so the frame cost is the tube's vertices and a
- * handful of transforms.
+ * handful of transforms. The head, the legs and the tuft are baked into
+ * one skinned mesh per material (F110): what moves - the jaw, each
+ * whisker, each blade of the mane - moves by a group of its own, which
+ * the bake gives a bone.
  */
 import { CatmullRomCurve3, CapsuleGeometry, ConeGeometry, Group, InstancedMesh, Matrix4, Mesh, Quaternion, SphereGeometry, TubeGeometry, Vector3, type Material } from "three";
 import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { SpineTube, triangleCount } from "../parts.js";
+import { SpineTube, Wardrobe, triangleCount } from "../parts.js";
 import type { Role, Skin } from "../skin.js";
 
 const SEGMENTS = 72;
@@ -48,12 +51,12 @@ class Dragon implements Figure {
   private readonly body: Mesh;
   private readonly fins: InstancedMesh;
   private readonly head = new Group();
-  private readonly jaw: Mesh;
-  private readonly whiskers: Mesh[] = [];
-  private readonly mane: Mesh[] = [];
+  private readonly jaw = new Group();
+  private readonly whiskers: Group[] = [];
+  private readonly mane: Group[] = [];
   private readonly legs: { leg: Group; knee: Group; side: number; at: number }[] = [];
   private readonly tuft = new Group();
-  private readonly parts: { mesh: Mesh; role: Role; colour: number }[] = [];
+  private readonly w: Wardrobe;
   private readonly loop: CatmullRomCurve3;
   private readonly colours: { body: number; belly: number; mane: number };
   private readonly tmp = { T: new Vector3(), N: new Vector3(), B: new Vector3(), P: new Vector3(), m: new Matrix4(), q: new Quaternion(), s: new Vector3(), up: new Vector3(0, 1, 0), yAxis: new Vector3(0, 1, 0) };
@@ -61,11 +64,8 @@ class Dragon implements Figure {
   constructor(ctx: BuildContext) {
     this.colours = VARIANTS[ctx.variant ?? "east-king"] ?? VARIANTS["east-king"]!;
     const c = this.colours;
-    const dress = (mesh: Mesh, role: Role, colour: number): Mesh => {
-      this.parts.push({ mesh, role, colour });
-      mesh.material = ctx.skin.material(role, colour);
-      return mesh;
-    };
+    const w = (this.w = new Wardrobe(ctx.skin));
+    const dress = (mesh: Mesh, role: Role, colour: number): Mesh => w.dress(mesh, role, colour);
     this.tube = new SpineTube(SEGMENTS, RADIAL, dragonRadius);
     this.body = new Mesh(this.tube.geometry, [ctx.skin.material("scale", c.body), ctx.skin.material("belly", c.belly)]);
     this.group.add(this.body);
@@ -103,9 +103,11 @@ class Dragon implements Figure {
     const snout = dress(new Mesh(new SphereGeometry(0.62, 20, 14)), "scale", c.body);
     snout.scale.set(1, 0.62, 1.6);
     snout.position.set(0, -0.15, 1.35);
-    this.jaw = dress(new Mesh(new SphereGeometry(0.5, 16, 12)), "belly", c.belly);
-    this.jaw.scale.set(0.9, 0.35, 1.5);
+    // the jaw opens on a hinge of its own
+    const jaw = dress(new Mesh(new SphereGeometry(0.5, 16, 12)), "belly", c.belly);
+    jaw.scale.set(0.9, 0.35, 1.5);
     this.jaw.position.set(0, -0.62, 1.2);
+    this.jaw.add(jaw);
     const nose = dress(new Mesh(new SphereGeometry(0.2, 10, 8)), "scale", c.body);
     nose.position.set(0, 0.25, 2.2);
     this.head.add(skull, snout, this.jaw, nose);
@@ -128,7 +130,8 @@ class Dragon implements Figure {
       ear.rotation.set(-0.4, 0, s * -1.2);
       const pts: Vector3[] = [];
       for (let i = 0; i <= 10; i++) pts.push(new Vector3(s * (0.35 + i * 0.32), -0.1 - i * i * 0.02, 1.9 - i * 0.12));
-      const whisker = dress(new Mesh(new TubeGeometry(new CatmullRomCurve3(pts), 30, 0.035, 6, false)), "horn", 0xf3d9a0);
+      const whisker = new Group();
+      whisker.add(dress(new Mesh(new TubeGeometry(new CatmullRomCurve3(pts), 30, 0.035, 6, false)), "horn", 0xf3d9a0));
       whisker.userData.side = s;
       this.whiskers.push(whisker);
       this.head.add(brow, eye, glint, antler, tine, ear, whisker);
@@ -136,10 +139,14 @@ class Dragon implements Figure {
     for (let i = 0; i < 18; i++) {
       const a = (i / 18) * Math.PI * 2;
       if (Math.abs(Math.sin(a)) < 0.25 && Math.cos(a) < 0) continue;
-      const blade = dress(new Mesh(new ConeGeometry(0.22, 1.6 + 0.6 * ((i * 7) % 5) / 5, 4)), "mane", c.mane);
+      // each blade lifts on a pivot of its own; the blade's turn about the neck is fixed within it
+      const blade = new Group();
       blade.position.set(Math.sin(a) * 0.95, Math.cos(a) * 0.85 - 0.1, -0.9);
-      blade.rotation.set(Math.PI * 0.62, 0, -a);
+      blade.rotation.x = Math.PI * 0.62;
       blade.userData.phase = i * 1.3;
+      const cone = dress(new Mesh(new ConeGeometry(0.22, 1.6 + 0.6 * ((i * 7) % 5) / 5, 4)), "mane", c.mane);
+      cone.rotation.z = -a;
+      blade.add(cone);
       this.mane.push(blade);
       this.head.add(blade);
     }
@@ -164,9 +171,9 @@ class Dragon implements Figure {
       0.6,
     );
 
-    let tris = triangleCount(this.tube.geometry) + triangleCount(this.fins.geometry) * FINS;
-    for (const p of this.parts) tris += triangleCount(p.mesh.geometry);
-    this.triangles = tris;
+    // The body and the fins are not the wardrobe's; everything else is baked.
+    w.bake(this.group);
+    this.triangles = triangleCount(this.tube.geometry) + triangleCount(this.fins.geometry) * FINS + w.triangles;
     this.update({ timeS: 0, flightS: 0, eye: new Vector3(), headingRad: 0, group: this.group });
   }
 
@@ -174,7 +181,7 @@ class Dragon implements Figure {
     const c = this.colours;
     this.body.material = [skin.material("scale", c.body), skin.material("belly", c.belly)];
     this.fins.material = skin.material("mane", c.mane);
-    for (const p of this.parts) p.mesh.material = skin.material(p.role, p.colour);
+    this.w.redress(skin);
   }
 
   update(f: CastFrame): void {
@@ -240,7 +247,7 @@ class Dragon implements Figure {
   dispose(): void {
     this.tube.dispose();
     this.fins.geometry.dispose();
-    for (const p of this.parts) p.mesh.geometry.dispose();
+    this.w.dispose();
   }
 }
 
