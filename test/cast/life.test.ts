@@ -257,6 +257,23 @@ describe("wings", () => {
     expect(out[2 * at(1, 500, 0)]).toBeCloseTo(0, 6);
   });
 
+  it("may be drawn in front for a far wing painted over something beside the bird, reaching no less far than painted", () => {
+    const over = { ...far, top: 1, bottom: 1.3, front: true };
+    expect(lifeModule("flap")!.layers!(flap({ ...rig, far: over }))[1]!.behind).toBe(false);
+    expect(() => lifeModule("flap")!.check(flap({ ...rig, far: { ...over, top: 0.8 } }), 1000, 600)).toThrow(/no less far/);
+    const body = layered();
+    const life = lifeModule("flap")!.build(body, flap({ ...rig, far: over }), 0);
+    const n = body.layers[0]!.count;
+    const tip = 2 * n + nearest(grid(1000, 600, 20, 12), 500, 600);
+    const hinge = 2 * n + nearest(grid(1000, 600, 20, 12), 500, 400);
+    // Its tip only ever goes further from its hinge than painted: down, the far side of it.
+    for (let f = 0; f < 40; f++) {
+      const out = new Float32Array(body.rest.length);
+      life.move(stride(1, 0.05), out);
+      expect(out[2 * tip + 1]! - out[2 * hinge + 1]!).toBeGreaterThanOrEqual(-1e-6);
+    }
+  });
+
   it("glide when the bird dives, beat when it climbs, and rest between bursts", () => {
     const moves = (climb: number, seconds: number, r = rig) => {
       const body = layered();
@@ -319,7 +336,7 @@ describe("legs", () => {
   }
 
   it("stride in a walk's order, each foot back while it bears the body and forward, lifted, while it does not", () => {
-    expect(Object.entries(BEAT).sort((a, b) => a[1] - b[1]).map(([f]) => f)).toEqual(["near-hind", "near-fore", "far-hind", "far-fore"]);
+    expect(Object.entries(BEAT).filter(([f]) => f.includes("-")).sort((a, b) => a[1] - b[1]).map(([f]) => f)).toEqual(["near-hind", "near-fore", "far-hind", "far-fore"]);
     expect(strideAt(0)).toBeCloseTo(1, 9);
     expect(strideAt(DUTY / 2)).toBeCloseTo(0, 9);
     expect(strideAt(DUTY)).toBeCloseTo(-1, 9);
@@ -384,11 +401,55 @@ describe("legs", () => {
     right.forEach((x, k) => expect(left[k]).toBeCloseTo(-x, 6));
   });
 
+  it("wade where they are painted into what they stand in, bending the picture about them rather than drawn on their own", () => {
+    const wading = gait({ ...rig, legs: legs.map((l) => ({ ...l, inPicture: true })) });
+    expect(lifeModule("gait")!.layers!(wading)).toEqual([]);
+    const body = grid(1000, 600, 50, 30);
+    const life = lifeModule("gait")!.build(body, wading, 0);
+    const foot = nearest(body, 200, 540);
+    const beside = nearest(body, 250, 540);
+    const hip = nearest(body, 200, 300);
+    const xs: number[] = [];
+    let near = 0;
+    for (let t = 0; t < 2; t += 0.02) {
+      const out = new Float32Array(body.rest.length);
+      life.move(stride(1, 0.02), out);
+      xs.push(out[2 * foot]!);
+      near = Math.max(near, Math.abs(out[2 * beside]!));
+      // The hip keeps still across the stride, but for the body's rise.
+      expect(Math.abs(out[2 * hip]!)).toBeLessThan(0.5);
+    }
+    // The foot swings to and fro, and the cloud beside it partly goes with it.
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(40);
+    expect(near).toBeGreaterThan(1);
+    expect(near).toBeLessThan(Math.max(...xs.map(Math.abs)));
+  });
+
+  it("are a person's two, half a stride apart, the body rising over each step", () => {
+    const person = gait({ strideHz: 1, swing: 0.3, bob: 10, legs: [leg("near", 400), leg("far", 600)] });
+    expect(BEAT.far - BEAT.near).toBe(0.5);
+    const body = grid(1000, 600, 50, 30);
+    const life = lifeModule("gait")!.build(body, person, 0);
+    const head = nearest(body, 500, 20);
+    const ys: number[] = [];
+    for (let t = 0; t < 1; t += 0.01) {
+      const out = new Float32Array(body.rest.length);
+      life.move(stride(1, 0.01), out);
+      ys.push(out[2 * head + 1]!);
+    }
+    let lows = 0;
+    for (let k = 1; k + 1 < ys.length; k++) if (ys[k]! < ys[k - 1]! && ys[k]! <= ys[k + 1]!) lows++;
+    expect(lows).toBe(2);
+    expect(() => lifeModule("gait")!.check(gait({ ...person, legs: [leg("near", 400), leg("far-fore", 600)] }), 1000, 600)).toThrow(/a person's two/);
+  });
+
   it("are refused two legs for a foot, a leg painted past its swing, or a swing past what a leg can do", () => {
     const m = lifeModule("gait")!;
     expect(() => m.check(gait({ ...rig, legs: [...legs, leg("near-fore", 900)] }), 1000, 600)).toThrow(/one near-fore/);
     expect(() => m.check(gait({ ...rig, legs: [{ ...legs[0]!, painted: 2 }] }), 1000, 600)).toThrow(/painted/);
     expect(() => m.check(gait({ ...rig, swing: 1 }), 1000, 600)).toThrow(/swing/);
+    expect(() => m.check(gait({ ...rig, legs: [{ ...legs[0]!, swing: 1 }] }), 1000, 600)).toThrow(/near-hind leg's swing/);
+    expect(() => m.check(gait({ ...rig, legs: [{ ...legs[0]!, beat: 1 }] }), 1000, 600)).toThrow(/near-hind leg's beat/);
     expect(() => m.check(gait({ ...rig, legs: [] }), 1000, 600)).toThrow(/leg/);
   });
 });
@@ -431,23 +492,11 @@ describe("a person's sway", () => {
     expect(Math.max(...[...Array(1000)].map((_, k) => Math.abs(leanAt(k / 100))))).toBeLessThanOrEqual(1);
   });
 
-  it("rises over each step if they walk, twice a stride, the feet kept where they are", () => {
-    const walking = sway({ ...rig, lean: 0.001, stepHz: 1, step: 10 });
-    const ys = track(walking, nearest(body, 200, 100), 2.2, 0.01).map(([, y]) => y);
-    expect(Math.min(...ys)).toBeLessThan(-8);
-    expect(Math.max(...ys)).toBeLessThanOrEqual(0.01);
-    let lows = 0;
-    for (let k = 1; k + 1 < ys.length; k++) if (ys[k]! < ys[k - 1]! && ys[k]! <= ys[k + 1]!) lows++;
-    expect(lows).toBe(4);
-    for (const [x, y] of track(walking, nearest(body, 200, 900), 2)) expect(Math.hypot(x, y)).toBe(0);
-  });
-
-  it("is refused feet off the picture, a crown below them, no lean, or steps without a rise", () => {
+  it("is refused feet off the picture, a crown below them, or no lean", () => {
     const m = lifeModule("sway")!;
     expect(() => m.check(sway({ ...rig, feet: [500, 900] }), 400, 1000)).toThrow(/feet/);
     expect(() => m.check(sway({ ...rig, crown: 950 }), 400, 1000)).toThrow(/crown/);
     expect(() => m.check(sway({ ...rig, lean: 0 }), 400, 1000)).toThrow(/lean/);
-    expect(() => m.check(sway({ ...rig, stepHz: 1 }), 400, 1000)).toThrow(/together/);
     expect(() => m.check(sway({ ...rig, who: { name: "he-xiangu", within: [] } }), 400, 1000)).toThrow(/he-xiangu/);
   });
 });
@@ -564,6 +613,22 @@ describe("a living painting", () => {
     expect(() => registerPainting("carp", { views: [{ ...living, pixels: [1000, 900] }] })).toThrow(/pixels/);
     expect(() => registerPainting("carp", { views: [{ ...living, life: [serpent({ spine: [[900, 250], [500, 250], [100, 900]], radius: 40, reach: 150 })] }] })).toThrow(/leaves the picture/);
     expect(() => registerPainting("carp", { views: [{ ...living, life: [{ kind: "wings" as never }] }] })).toThrow(/no life/);
+    expect(() => registerPainting("carp", { views: [{ ...living, cells: 8 }] })).toThrow(/cells/);
+    expect(() => registerPainting("carp", { views: [{ ...living, cells: 400 }] })).toThrow(/cells/);
+  });
+
+  it("is bent on a finer mesh if its view asks", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { figureBuilder } = await import("../../engine/src/cast/figure.js");
+    const { lanternSkin } = await import("../../engine/src/cast/skin.js");
+    const { DEFAULT_SCALE } = await import("../../engine/src/sim/scale.js");
+    registerPainting("carp", { views: [{ ...living, name: "coarse" }, { ...living, name: "fine", cells: 128 }] });
+    const build = (variant: string) => figureBuilder("carp")!({ skin: lanternSkin(), variant, scale: DEFAULT_SCALE });
+    const coarse = build("coarse");
+    const fine = build("fine");
+    expect(fine.triangles).toBeGreaterThan(3.5 * coarse.triangles);
+    coarse.dispose();
+    fine.dispose();
   });
 
   it("bends its card from frame to frame, where a still one stays two triangles", async () => {

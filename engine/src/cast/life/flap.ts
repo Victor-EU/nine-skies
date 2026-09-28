@@ -15,7 +15,7 @@
  * harder it works. Since the hinge is the seam, what a wing uncovers is
  * sky and the body behind it is the body as painted: nothing is painted in.
  */
-import { cadence, registerLife, shareOf, whose, type Body, type Layer, type Life, type LifeRig, type Px, type Stride, type Who } from "../life.js";
+import { cadence, FEATHER, insideBy, registerLife, shareOf, whose, type Body, type Layer, type Life, type LifeRig, type Px, type Stride, type Who } from "../life.js";
 
 export interface Wing {
   /** The wing where it lies over sky, pixels, its seam with the body along its hinge. */
@@ -32,6 +32,13 @@ export interface Wing {
   readonly glide?: number;
   /** The seam's feather, pixels. */
   readonly feather?: number;
+  /**
+   * A far wing drawn in front of the picture rather than behind it: one
+   * painted over something beside the bird, a robe, which it would go
+   * behind as it beat. It reaches no less far than painted, so it never
+   * uncovers what it lies over.
+   */
+  readonly front?: boolean;
 }
 
 export interface FlapRig extends LifeRig {
@@ -79,14 +86,13 @@ export function reachAt(wing: Wing, stroke: number, beating: number): number {
   return glide + beating * (wing.top + (wing.bottom - wing.top) * stroke - glide);
 }
 
-/** A wing bound to the vertices of its layer. */
+/** A wing bound to the vertices of its layer that may show: on its side of its hinge, and within a few cells of its outline. */
 interface Bound {
   readonly wing: Wing;
-  readonly start: number;
-  readonly count: number;
+  readonly verts: Int32Array;
   readonly nx: number;
   readonly ny: number;
-  /** Each vertex's distance across the hinge, pixels, and how far out along the wing it is (0 at the hinge, 1 at its furthest); -1 on the body's side. */
+  /** Each vertex's distance across the hinge, pixels, and how far out along the wing it is (0 at the hinge, 1 at its furthest). */
   readonly across: Float32Array;
   readonly out: Float32Array;
 }
@@ -109,15 +115,22 @@ function bind(body: Body, wing: Wing, name: string): Bound | null {
   const side = Math.sign(acrossOf(cx, cy)) || 1;
   let reach = 1;
   for (const [x, y] of wing.outline) reach = Math.max(reach, side * acrossOf(x, y));
-  const across = new Float32Array(span.count);
-  const out = new Float32Array(span.count);
+  // A cell of the layer is drawn only where its share, made whole a cell past its feather, reaches: three cells is room enough.
+  const margin = (wing.feather ?? FEATHER) / 2 + (3 * body.width) / (body.across - 1);
+  const verts: number[] = [];
+  const across: number[] = [];
+  const out: number[] = [];
   for (let k = 0; k < span.count; k++) {
     const v = span.start + k;
-    const b = acrossOf(body.rest[2 * v]!, body.rest[2 * v + 1]!);
-    across[k] = b;
-    out[k] = side * b > 0 ? Math.min(1, (side * b) / reach) : -1;
+    const x = body.rest[2 * v]!;
+    const y = body.rest[2 * v + 1]!;
+    const b = acrossOf(x, y);
+    if (side * b <= 0 || insideBy(x, y, wing.outline) < -margin) continue;
+    verts.push(v);
+    across.push(b);
+    out.push(Math.min(1, (side * b) / reach));
   }
-  return { wing, start: span.start, count: span.count, nx, ny, across, out };
+  return { wing, verts: Int32Array.from(verts), nx, ny, across: Float32Array.from(across), out: Float32Array.from(out) };
 }
 
 class Flap implements Life {
@@ -161,13 +174,12 @@ class Flap implements Life {
     const beating = this.beating;
     const stroke = strokeAt(this.phase);
     for (const w of this.wings) {
-      for (let k = 0; k < w.count; k++) {
+      for (let k = 0; k < w.verts.length; k++) {
         const u = w.out[k]!;
-        if (u < 0) continue;
         // The tip a little behind the root, so the wing bends through each turn.
         const f = reachAt(w.wing, strokeAt(this.phase - TIP_LAG * u), beating);
         const d = (f - 1) * w.across[k]!;
-        const v = w.start + k;
+        const v = w.verts[k]!;
         out[2 * v]! += d * w.nx;
         out[2 * v + 1]! += d * w.ny;
       }
@@ -189,6 +201,7 @@ function checkWing(wing: Wing, width: number, height: number, which: string): vo
   const [[ax, ay], [bx, by]] = wing.hinge;
   if (Math.hypot(bx - ax, by - ay) < 1) throw new Error(`the ${which} wing's hinge needs two points apart`);
   for (const f of [wing.top, wing.bottom, wing.glide ?? 0]) if (!(f >= -1.2 && f <= 1.3)) throw new Error(`the ${which} wing's reach must be within -1.2 and 1.3 of as painted`);
+  if (wing.front && Math.min(wing.top, wing.bottom, wing.glide ?? 1) < 1) throw new Error(`the ${which} wing is drawn in front, so it must reach no less far than painted`);
 }
 
 registerLife<FlapRig>("flap", {
@@ -202,7 +215,7 @@ registerLife<FlapRig>("flap", {
   layers(rig): Layer[] {
     const near: Layer = { name: whose(NEAR, rig.who), outline: rig.near.outline, behind: false, ...(rig.near.feather ? { feather: rig.near.feather } : {}) };
     if (!rig.far) return [near];
-    return [near, { name: whose(FAR, rig.who), outline: rig.far.outline, behind: true, ...(rig.far.feather ? { feather: rig.far.feather } : {}) }];
+    return [near, { name: whose(FAR, rig.who), outline: rig.far.outline, behind: !rig.far.front, ...(rig.far.feather ? { feather: rig.far.feather } : {}) }];
   },
   build: (body, rig, seed) => new Flap(body, rig, seed),
 });

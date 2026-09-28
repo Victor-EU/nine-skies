@@ -3927,3 +3927,60 @@ walks, and refuses a rig it cannot read; a picture of several naming
 each one's parts, moving each one's body within its own circles, and
 refusing two parts of one name), the winged card's test reading its
 alpha through the card's own vertices, and the film validates.
+
+## F122 — The pilgrims wade, the turtle rows with both hind flippers, the birds beat both wings (D96), 29 September 2026
+
+**Asked.** "Improve" the three weak spots F121 left: the pilgrims' legs
+did not step, the turtle's far hind flipper kept still, and the birds and
+the parrot beat only their raised wings.
+
+**The pilgrims.** Sha's and Bajie's feet are painted sunk in their road
+of cloud, and the horse's hind and far fore legs with them: a leg drawn
+on its own would leave a hole in the road where it stood. A leg can now
+be `inPicture` (`life/gait.ts`): it is not a layer, and the picture about
+it is bent with it, turned at the hip and folded at the knee as any leg,
+so its foot wades and the cloud stretches about it. A gait may now be a
+person's two feet, `near` and `far`, half a stride apart, and the body
+rises over each step as over a beast's hind legs. The step's rise moved
+from `sway`, which is balance alone again, into the gait, so the rise and
+the legs keep time: Sha wades with his one leg clear of his robe, Bajie
+with both, and the horse with three, its near foreleg, clear of the road,
+still drawn on its own.
+
+**The turtle.** The near hind flipper had been traced 50 px low, so its
+upper edge was only half in its layer, and the far flipper, 40 px across,
+is under two cells of the 64-cell mesh. Both are traced again; a view may
+now ask for a finer mesh (`cells`, up to 160), and the turtle's is 96.
+The two flippers touch along their length, and whichever swings away
+from the seam uncovers the copy of the other's edge it carries, or its
+own hidden edge. So each swings only toward the other, the near one up
+over the far and the far one down behind the near: painted all the way
+forward and all the way back, with a leg's own `swing` and `beat` (the
+hind flippers stroke together, or they cross). Nothing is uncovered at
+the seam.
+
+**The birds.** The Queen Mother's three birds have their far wings
+painted, below or beside the body, two of them over her robe. A far
+wing's reach never goes below as painted (1 at the top of the stroke to
+1.3 at the bottom), so it never uncovers what it lies over, and one may
+be drawn in front (`front`), so it stays in front of the robe as it
+reaches over it. Each bird now beats both wings, the far one reaching out
+as the raised one comes down. The parrot's far wing is hidden behind its
+body in its picture, so its tail fans and its crest lifts instead.
+
+**Cost.** A wing now binds only the vertices within three cells of its
+outline, not half its grid: the Queen Mother, six wing layers, 0.30 ms a
+frame. The turtle on 96 cells 0.26 ms (0.43 on 128, which looked no
+better once the flippers kept to their seam). Measured with the machine
+heavily loaded (load average 23), so if anything high.
+
+**Seen.** In the lab at twice the pixel density, frame by frame, and in
+their scenes with seed 1: the pilgrims over the Karst (28 s), the Queen
+Mother Below the Sea (21 s), Guanyin's seat over the Karst (74 s), the
+turtle on the Roof (85 s).
+
+**Checked.** `npm run check`: 583 tests (a leg in the picture bends it
+rather than being drawn apart, a person's two feet half a stride apart
+rising the body twice a stride, a far wing drawn in front never reaching
+less than painted, a finer mesh, and a leg's own swing and beat refused
+past what a leg can do), and the film validates.

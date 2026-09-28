@@ -1,7 +1,8 @@
 /**
  * A beast walking the air (D96). Its legs stride in the order a walking
  * animal sets its feet down, near hind, near fore, far hind, far fore, a
- * quarter of a stride apart. Each leg turns about its hip or shoulder:
+ * quarter of a stride apart; a person's two, near and far, half a stride
+ * apart. Each leg turns about its hip or shoulder:
  * back steadily while its foot bears the body, forward quickly while it is
  * lifted, its lower leg folding back at the knee or hock as it lifts. The
  * cloud under a foot is carried level with it and pressed flat as the foot
@@ -18,13 +19,24 @@
  * with its leg, so the seam there never shows. What a leg uncovers as it
  * swings is the sky beside it: the legs must stand clear of the body below
  * it, as a beast painted walking from the side has them.
+ *
+ * A leg painted into what it stands in (the pilgrims' feet sunk in their
+ * road of cloud) is not drawn on its own, since it would leave a hole in
+ * the cloud where it stood: the picture about it is bent with it, so its
+ * foot wades, the cloud stretching about it. A leg too slight to draw
+ * apart from the one beside it (a turtle's far flipper against the near)
+ * may be painted all the way back, so it swings only forward, behind the
+ * near one, and never uncovers the edge of it it carries.
  */
 import { cadence, inCircles, insideLayer, registerLife, shareOf, smoothstep, whose, type Body, type Circle, type Layer, type Life, type LifeRig, type Px, type Stride, type Who } from "../life.js";
 
-export type Foot = "near-hind" | "near-fore" | "far-hind" | "far-fore";
+export type Foot = "near-hind" | "near-fore" | "far-hind" | "far-fore" | "near" | "far";
 
-/** Where in a stride each foot comes down, a share of it after the near hind's: a walk's four even beats. */
-export const BEAT: Readonly<Record<Foot, number>> = { "near-hind": 0, "near-fore": 0.25, "far-hind": 0.5, "far-fore": 0.75 };
+/** Where in a stride each foot comes down, a share of it after the near hind's: a walk's four even beats, or a person's two. */
+export const BEAT: Readonly<Record<Foot, number>> = { "near-hind": 0, "near-fore": 0.25, "far-hind": 0.5, "far-fore": 0.75, near: 0, far: 0.5 };
+
+/** A person's feet, which do not go with a beast's in one gait. */
+const TWO: readonly Foot[] = ["near", "far"];
 
 export interface Leg {
   readonly foot: Foot;
@@ -38,6 +50,12 @@ export interface Leg {
   readonly with?: readonly Circle[];
   /** Where in its swing the painting caught it: -1 all the way back, 1 all the way forward. */
   readonly painted: number;
+  /** Painted into what it stands in: bent with the picture, not drawn on its own. */
+  readonly inPicture?: boolean;
+  /** Half the arc it swings through, radians, if less than the gait's: a leg with less room to swing in. */
+  readonly swing?: number;
+  /** Where in a stride it comes down, a share after the near hind's, if not as its foot's in a walk: a turtle's hind flippers stroke together. */
+  readonly beat?: number;
 }
 
 export interface GaitRig extends LifeRig {
@@ -110,6 +128,7 @@ export const LEG_FEATHER = 16;
  */
 function shapeOf(leg: Leg, who?: Who): Layer {
   const behind = leg.foot.startsWith("far");
+  if (leg.inPicture) return { name: legLayer(leg.foot, who), bands: [{ line: leg.line, radius: leg.radius }], circles: [...(leg.cloud ?? []), ...(leg.with ?? [])], behind };
   const circles = [...(leg.cloud ?? []), ...(leg.with ?? [])].map((c) => (behind ? { at: c.at, r: Math.max(c.r / 2, c.r - LEG_FEATHER) } : c));
   return { name: legLayer(leg.foot, who), bands: [{ line: leg.line, radius: leg.radius }], circles, feather: LEG_FEATHER, behind };
 }
@@ -172,11 +191,12 @@ class Gait implements Life {
     // and all of its cloud, though a far leg's layer is drawn in from the rim, so no wisp of it is left behind.
     const holds = rig.legs.map((leg, k) => {
       const shape: Layer = { ...shapes[k]!, circles: [...(leg.cloud ?? []), ...(leg.with ?? [])] };
-      const reach = LEG_FEATHER / 2 + SOFT * rig.legs[k]!.radius;
+      // A leg in the picture holds all of it within its line's reach, and bends what is about it over as far again.
+      const [from, to] = leg.inPicture ? [-leg.radius, 0] : [-LEG_FEATHER / 2 - (LEG_FEATHER / 2 + SOFT * leg.radius), -LEG_FEATHER / 2];
       const w = new Float32Array(picture.count);
       for (let v = 0; v < picture.count; v++) {
         const i = picture.start + v;
-        w[v] = smoothstep(-LEG_FEATHER / 2 - reach, -LEG_FEATHER / 2, insideLayer(rest[2 * i]!, rest[2 * i + 1]!, shape));
+        w[v] = smoothstep(from, to, insideLayer(rest[2 * i]!, rest[2 * i + 1]!, shape));
       }
       return w;
     });
@@ -190,7 +210,7 @@ class Gait implements Life {
       const [hip, knee, foot] = leg.line;
       const upper = Math.hypot(knee[0] - hip[0], knee[1] - hip[1]);
       const lower = Math.hypot(foot[0] - knee[0], foot[1] - knee[1]);
-      const own = body.layers.find((l) => l.name === legLayer(leg.foot, rig.who));
+      const own = leg.inPicture ? undefined : body.layers.find((l) => l.name === legLayer(leg.foot, rig.who));
       const verts: number[] = [];
       const held: number[] = [];
       for (let v = 0; v < picture.count; v++) {
@@ -225,10 +245,11 @@ class Gait implements Life {
         cx = leg.cloud.reduce((s, c) => s + c.at[0], 0) / leg.cloud.length;
         cy = leg.cloud.reduce((s, c) => s + c.at[1], 0) / leg.cloud.length;
       }
-      return { leg, beat: BEAT[leg.foot], verts: Int32Array.from(verts), atHip, atKnee, held: Float32Array.from(held), level, cx, cy };
+      return { leg, beat: leg.beat ?? BEAT[leg.foot], verts: Int32Array.from(verts), atHip, atKnee, held: Float32Array.from(held), level, cx, cy };
     });
     // The back rocks between the hips and the shoulders.
-    const xs = (end: "hind" | "fore") => rig.legs.filter((l) => l.foot.endsWith(end)).map((l) => l.line[0][0]);
+    // A person's legs rise the body as a beast's hind legs do: all of it together.
+    const xs = (end: "hind" | "fore") => rig.legs.filter((l) => l.foot.endsWith("fore") === (end === "fore")).map((l) => l.line[0][0]);
     const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
     const hinds = xs("hind");
     const fores = xs("fore");
@@ -269,7 +290,7 @@ class Gait implements Life {
         hindRise += rise;
         hinds++;
       }
-      const turn = this.dir * rig.swing * reach * (swingAt(p) - b.leg.painted);
+      const turn = this.dir * (b.leg.swing ?? rig.swing) * reach * (swingAt(p) - b.leg.painted);
       const bend = -this.dir * fold * liftAt(p);
       const q = p - Math.floor(p);
       const press = PRESS * reach * Math.exp(-q / SPRING);
@@ -343,6 +364,8 @@ function checkLeg(leg: Leg, width: number, height: number): void {
   if (Math.hypot(kx - hx, ky - hy) < 1 || Math.hypot(fx - kx, fy - ky) < 1) throw new Error(`the ${leg.foot} leg's hip, knee and foot must stand apart`);
   if (!(leg.radius > 0)) throw new Error(`the ${leg.foot} leg's radius must be above nought`);
   if (!(leg.painted >= -1 && leg.painted <= 1)) throw new Error(`the ${leg.foot} leg is painted within its swing, -1 to 1`);
+  if (leg.swing !== undefined && !(leg.swing > 0 && leg.swing < 0.8)) throw new Error(`the ${leg.foot} leg's swing must be above nought and under 0.8 radians`);
+  if (leg.beat !== undefined && !(leg.beat >= 0 && leg.beat < 1)) throw new Error(`the ${leg.foot} leg's beat must be a share of a stride, 0 to 1`);
   for (const c of [...(leg.cloud ?? []), ...(leg.with ?? [])]) if (!(c.r > 0)) throw new Error(`the ${leg.foot} leg's circles must have a radius above nought`);
 }
 
@@ -362,7 +385,8 @@ registerLife<GaitRig>("gait", {
     if (!(rig.bob >= 0)) throw new Error("a gait's bob must not be below nought");
     if (rig.head && !(rig.head.regions.length > 0)) throw new Error("a gait's head needs a region");
     if (rig.who && rig.who.within.length === 0) throw new Error(`${rig.who.name}'s gait needs a circle to keep within`);
+    if (rig.legs.some((l) => TWO.includes(l.foot)) && rig.legs.some((l) => !TWO.includes(l.foot))) throw new Error("a gait is a beast's four feet or a person's two, not both");
   },
-  layers: (rig) => rig.legs.map((leg) => shapeOf(leg, rig.who)),
+  layers: (rig) => rig.legs.filter((leg) => !leg.inPicture).map((leg) => shapeOf(leg, rig.who)),
   build: (body, rig, seed) => new Gait(body, rig, seed),
 });

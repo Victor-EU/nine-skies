@@ -3,7 +3,7 @@
  * his shell (`content/paintings/turtle.yaml`). Sized nose to tail.
  */
 import { flutter } from "../life/flutter.js";
-import { gait } from "../life/gait.js";
+import { BEAT, gait } from "../life/gait.js";
 import { pitch } from "../life/pitch.js";
 import { registerPainting } from "../painting.js";
 
@@ -11,9 +11,10 @@ import { registerPainting } from "../painting.js";
  * His life (D96): he rows the air as a river turtle swims, with the walk
  * of its kind, each flipper in turn: back slowly while it pulls, forward
  * quickly and feathered while it returns. The flippers turn where they
- * leave the shell, so the shell under them keeps still; the thin far hind
- * flipper lies behind the near one, and keeps still with the shell, since
- * the two cannot be drawn apart. His head nods
+ * leave the shell, so the shell under them keeps still. The thin far hind
+ * flipper lies along the near one: it is drawn apart on a finer mesh, and
+ * the two swing only toward each other, the far one down behind the near
+ * and the near one up over the far, so neither uncovers the seam between. His head nods
  * with the stroke, the moss on his shell stirs, and he noses into a climb.
  */
 registerPainting("turtle", {
@@ -26,6 +27,8 @@ registerPainting("turtle", {
       feet: 0.5,
       size: { across: 0.97 },
       pixels: [1434, 836],
+      // The far hind flipper is 40 pixels across: a cell of 15 pixels draws it apart from the near one.
+      cells: 96,
       life: [
         gait({
           strideHz: 0.35,
@@ -33,7 +36,12 @@ registerPainting("turtle", {
           fold: 0.25,
           bob: 6,
           legs: [
-            { foot: "near-hind", line: [[330, 580], [200, 680], [60, 760]], radius: 80, painted: -0.5 },
+            // The hind flippers touch, so each swings only toward the other, and neither uncovers their seam: the near one
+            // painted all the way forward swings back, up over the far one; the far one, painted all the way back, swings
+            // forward, down behind the near one.
+            { foot: "near-hind", line: [[380, 560], [210, 632], [55, 740]], radius: 74, painted: 1, swing: 0.15 },
+            // It strokes with the near one, so the two never cross.
+            { foot: "far-hind", line: [[330, 512], [190, 570], [38, 617]], radius: 30, painted: -1, swing: 0.12, beat: BEAT["near-hind"] },
             { foot: "far-fore", line: [[1100, 420], [1250, 510], [1400, 640]], radius: 75, painted: 0.6 },
             { foot: "near-fore", line: [[640, 560], [540, 660], [450, 760]], radius: 95, painted: -0.6 },
           ],

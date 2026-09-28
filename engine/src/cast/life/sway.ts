@@ -2,9 +2,10 @@
  * A person standing on the air (D96): on a cloud, on wheels of fire, on a
  * lotus throne. They keep their balance as a person standing in a boat
  * does, leaning a little over their feet one way and then the other, never
- * in time; and if they walk, they rise over each step. Their feet keep
- * where they are painted, and the lean grows from nothing at the knees to
- * the most at the crown, so what they stand on keeps still under them.
+ * in time. Their feet keep where they are painted, and the lean grows from
+ * nothing at the knees to the most at the crown, so what they stand on
+ * keeps still under them. One who walks steps with a gait as well, on two
+ * feet.
  *
  * The rig is where the feet are and how high the crown, and how far it
  * leans. A picture of several (the Eight Immortals abreast) gives each its
@@ -20,10 +21,6 @@ export interface SwayRig extends LifeRig {
   readonly crown: number;
   /** How far the crown leans either way, pixels. */
   readonly lean: number;
-  /** Steps a second keeping pace with the flight, if they walk. */
-  readonly stepHz?: number;
-  /** How far they rise over each step, pixels. */
-  readonly step?: number;
   readonly who?: Who;
 }
 
@@ -45,36 +42,28 @@ export function leanAt(phase: number): number {
 
 class Sway implements Life {
   private phase: number;
-  private stepPhase: number;
-  /** For each point of the picture's grid, its share of the lean, and of the rise over a step. */
+  /** For each point of the picture's grid, its share of the lean. */
   private readonly at: Int32Array;
   private readonly leans: Float32Array;
-  private readonly rises: Float32Array;
   private readonly height: number;
 
   constructor(private readonly body: Body, private readonly rig: SwayRig, seed: number) {
     this.phase = ((seed >>> 6) % 1000) / 1000;
-    this.stepPhase = ((seed >>> 16) % 1000) / 1000;
     const [, fy] = rig.feet;
     this.height = fy - rig.crown;
     const share = shareOf(body, rig.who);
     const at: number[] = [];
     const leans: number[] = [];
-    const rises: number[] = [];
     // The picture's grid: every layer's is the same points again.
     for (let v = 0; v < body.layers[0]!.count; v++) {
       const y = body.rest[2 * v + 1]!;
-      const m = share ? share[v]! : 1;
-      const lean = m * smoothstep(fy, fy - LEGS * this.height, y);
-      const rise = m * smoothstep(fy, fy - 0.5 * LEGS * this.height, y);
-      if (lean === 0 && rise === 0) continue;
+      const lean = (share ? share[v]! : 1) * smoothstep(fy, fy - LEGS * this.height, y);
+      if (lean === 0) continue;
       at.push(v);
       leans.push(lean);
-      rises.push(rise);
     }
     this.at = Int32Array.from(at);
     this.leans = Float32Array.from(leans);
-    this.rises = Float32Array.from(rises);
   }
 
   move(st: Stride, out: Float32Array): void {
@@ -82,12 +71,6 @@ class Sway implements Life {
     this.phase += st.dt * cadence(st.effort, REST_HZ, CRUISE_HZ, HURRY_HZ);
     // Turned about the feet, as little as a lean is: y is down, so the crown leans right as a point right of the feet goes down.
     const angle = (rig.lean / this.height) * leanAt(this.phase);
-    let rise = 0;
-    if (rig.stepHz && rig.step) {
-      this.stepPhase = (this.stepPhase + st.dt * cadence(st.effort, 0.4 * rig.stepHz, rig.stepHz, 0.3 * rig.stepHz)) % 1;
-      // Highest over each foot midway through its step, twice a stride; up is less.
-      rise = -0.5 * rig.step * Math.min(1.5, 0.4 + 0.6 * st.effort) * (1 + Math.cos(4 * Math.PI * this.stepPhase));
-    }
     const [fx, fy] = rig.feet;
     const rest = this.body.rest;
     for (let k = 0; k < this.at.length; k++) {
@@ -95,7 +78,7 @@ class Sway implements Life {
       const a = angle * this.leans[k]!;
       const x = rest[2 * v]!;
       const y = rest[2 * v + 1]!;
-      moveEverywhere(this.body, v, (fy - y) * a, (x - fx) * a + rise * this.rises[k]!, out);
+      moveEverywhere(this.body, v, (fy - y) * a, (x - fx) * a, out);
     }
   }
 }
@@ -106,8 +89,6 @@ registerLife<SwayRig>("sway", {
     if (!(x >= 0 && x <= width && y >= 0 && y <= height)) throw new Error(`a sway's feet are off the picture at ${x}, ${y}`);
     if (!(rig.crown >= 0 && rig.crown < y)) throw new Error("a sway's crown must be in the picture, above its feet");
     if (!(rig.lean > 0)) throw new Error("a sway's lean must be above nought");
-    if ((rig.stepHz === undefined) !== (rig.step === undefined)) throw new Error("a sway's steps a second and its rise go together");
-    if (rig.stepHz !== undefined && !(rig.stepHz > 0 && rig.step! > 0)) throw new Error("a sway's steps and rise must be above nought");
     if (rig.who && rig.who.within.length === 0) throw new Error(`${rig.who.name}'s sway needs a circle to keep within`);
   },
   build: (body, rig, seed) => new Sway(body, rig, seed),

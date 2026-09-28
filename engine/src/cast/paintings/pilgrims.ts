@@ -24,12 +24,14 @@ const BAJIE = { name: "bajie", within: circlesAlong([[660, 250], [660, 600]], 21
 const HORSE = { name: "horse", within: [{ at: [1150, 300], r: 330 }, { at: [1300, 450], r: 200 }, { at: [1000, 450], r: 200 }] } as const;
 
 /**
- * The pilgrims on the road (D96): Sha and Bajie each rise over their own
- * steps and keep their own balance, the hems of their robes swinging; the
- * white horse steps out with its near foreleg, its head nodding and its
- * back rising under the monk, its tail, mane and tassels swinging; and the
- * road of cloud boils under them all. Their feet are painted in the road,
- * so only the horse's foreleg, which stands clear of it, strides.
+ * The pilgrims on the road (D96): Sha and Bajie each walk, keeping their
+ * own balance, the hems of their robes swinging; the white horse walks
+ * under the monk, its head nodding, its tail, mane and tassels swinging;
+ * and the road of cloud boils under them all. Their feet are painted sunk
+ * in the road, so they wade: each leg bends the picture about it, the
+ * cloud stretching about the foot, rather than being drawn on its own and
+ * leaving a hole in the road. Only the horse's near foreleg, which stands
+ * clear of the road, strides on its own.
  *
  * The monk alone (D96): the white horse walks, each hoof's puff of cloud
  * carried and pressed, its head nodding; its tail swings, its mane and the
@@ -47,14 +49,31 @@ registerPainting("pilgrims", {
       size: { across: 0.97 },
       pixels: [1473, 938],
       life: [
-        sway({ feet: [330, 665], crown: 115, lean: 8, stepHz: 0.55, step: 8, who: SHA }),
-        sway({ feet: [640, 690], crown: 185, lean: 8, stepHz: 0.5, step: 9, who: BAJIE }),
+        sway({ feet: [330, 665], crown: 115, lean: 8, who: SHA }),
+        sway({ feet: [640, 690], crown: 185, lean: 8, who: BAJIE }),
+        // Sha's far leg is under his robe; the near one wades.
+        gait({ strideHz: 0.55, swing: 0.13, fold: 0.15, bob: 8, legs: [{ foot: "near", line: [[375, 500], [388, 585], [430, 665]], radius: 28, painted: 0.6, inPicture: true }], who: SHA }),
+        gait({
+          strideHz: 0.5,
+          swing: 0.13,
+          fold: 0.15,
+          bob: 9,
+          legs: [
+            { foot: "near", line: [[670, 540], [690, 615], [735, 687]], radius: 32, painted: 0.6, inPicture: true },
+            { foot: "far", line: [[530, 560], [530, 635], [535, 688]], radius: 28, painted: -0.4, inPicture: true },
+          ],
+          who: BAJIE,
+        }),
         gait({
           strideHz: 0.55,
           swing: 0.18,
           fold: 0.45,
           bob: 6,
-          legs: [{ foot: "near-fore", line: [[1285, 575], [1340, 655], [1372, 722]], radius: 22, painted: 0.5 }],
+          legs: [
+            { foot: "near-fore", line: [[1285, 575], [1340, 655], [1372, 722]], radius: 22, painted: 0.5 },
+            { foot: "near-hind", line: [[990, 580], [992, 645], [1000, 690]], radius: 22, painted: -0.3, inPicture: true },
+            { foot: "far-fore", line: [[1185, 540], [1190, 630], [1200, 705]], radius: 24, painted: -0.2, inPicture: true },
+          ],
           head: { regions: [{ at: [1340, 320], r: 100 }], nod: 5 },
           who: HORSE,
         }),

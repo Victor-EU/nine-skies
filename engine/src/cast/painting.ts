@@ -65,6 +65,8 @@ export interface PaintingView {
   readonly pixels?: readonly [number, number];
   /** What moves in it (D96), in the order they move it; none leaves it a still picture. */
   readonly life?: readonly LifeRig[];
+  /** Cells across the mesh it is bent on, if not `MESH_CELLS`: finer for a part too slight to draw apart at a cell's width. */
+  readonly cells?: number;
 }
 
 export interface Painting {
@@ -83,6 +85,8 @@ export const TURN_S = 0.4;
 
 /** Cells across the mesh a living painting is bent on: a cell is about 24 pixels of a 1536-pixel picture. */
 export const MESH_CELLS = 64;
+/** The finest mesh a view may ask for: each cell more costs every frame. */
+export const MOST_CELLS = 160;
 
 /**
  * How hard a figure works (D96), from its pace: one keeping pace with the
@@ -188,8 +192,8 @@ class Puppet {
     seed: number,
   ) {
     const [width, height] = view.pixels!;
-    this.cellsX = MESH_CELLS;
-    this.cellsY = Math.max(1, Math.round(MESH_CELLS / view.aspect));
+    this.cellsX = view.cells ?? MESH_CELLS;
+    this.cellsY = Math.max(1, Math.round(this.cellsX / view.aspect));
     const across = this.cellsX + 1;
     const grid = across * (this.cellsY + 1);
     const rigs = view.life ?? [];
@@ -492,6 +496,7 @@ function check(kind: string, v: PaintingView): void {
   if (!v.life?.length) return;
   const px = v.pixels;
   if (!px || !(px[0] > 0 && px[1] > 0) || Math.abs(px[0] / px[1] - v.aspect) > 0.01) throw new Error(`${where}: a living view needs its pixels, width over height its aspect`);
+  if (v.cells !== undefined && !(Number.isInteger(v.cells) && v.cells >= 16 && v.cells <= MOST_CELLS)) throw new Error(`${where}: its mesh is 16 to ${MOST_CELLS} cells across`);
   const parts = new Set<string>();
   for (const rig of v.life) {
     const module = lifeModule(rig.kind);
