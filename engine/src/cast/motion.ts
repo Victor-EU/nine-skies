@@ -205,6 +205,25 @@ export interface PathKey {
 
 const isPicture = (p: PicturePoint | FramePoint): p is PicturePoint => "d" in p;
 
+/**
+ * The author's facing for a figure that goes one way across the picture:
+ * as the author set it, or mirrored across the line of sight when it points
+ * back across the picture against the way the figure goes (F120). It still
+ * turns toward the lens or away as the author set, but on the side it is
+ * going to: turned to face back it would swing edge-on in view and then
+ * go backwards, and a walker would walk backwards. A figure going toward
+ * the lens or away from it, not across, keeps the author's facing. Yaws
+ * from the flight, radians, whose sine is how far across the picture they
+ * head.
+ */
+export function facingAlong(namedYaw: number, pathYaw: number): number {
+  const across = Math.sin(pathYaw);
+  return Math.abs(across) > ACROSS && Math.sin(namedYaw) * across < 0 ? -namedYaw : namedYaw;
+}
+
+/** How far across the picture a path must head, the sine of its yaw, for a facing to be kept to its side. */
+export const ACROSS = 0.25;
+
 export interface PathOptions {
   /** The way it faces while it is named, from the flight, radians; NaN for its path. */
   readonly namedYaw: number;
@@ -331,7 +350,7 @@ export class KeyPath implements Motion {
       const [a, b] = this.namedWindow;
       const turn = o.turnS ?? 1.2;
       const w = smooth(Math.min((flightS - a) / turn, (b - flightS) / turn));
-      out.yaw = pathYaw + w * angleTo(pathYaw, o.namedYaw);
+      out.yaw = pathYaw + w * angleTo(pathYaw, facingAlong(o.namedYaw, pathYaw));
     }
     const flat = Math.hypot(v0.ahead, v0.right);
     out.pitch = clamp(Math.atan2(v0.up, flat), o.maxPitchRad);

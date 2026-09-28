@@ -175,6 +175,28 @@ Everything else in the repository served the version-1 game and goes.
   none in dust), rivers reflect their valley's walls, and the film opens on
   a painted Huangshan (`content/art/`) while the real one loads. The
   spend stays under D94's cap.
+- **D96** The cast lives (decided 28 September 2026, F118). A painting
+  that only slides across the picture reads as a flying picture however
+  its motion is drawn, since nothing in it moves; a figure's body works as
+  it goes. Its card is a fine mesh over the picture, bent every frame by
+  the painting's lives, the seventh plug axis (`engine/src/cast/life/`, a
+  module for each way a body moves, named view by view with a rig traced
+  on its painting): a serpent's wave from head to tail, loose parts
+  stirring, the cloud it rides churning, a flier nosing into its climb.
+  The lives are told how hard the figure works (its pace, which the layer
+  reads from the figure's own path a moment either side of now, and
+  whether it keeps pace with the flight) and how steeply it climbs, and
+  never where it is. A bird's wings are parts of the picture drawn on
+  their own, the near in front of the body and the far behind, each
+  turning about its seam with the body, so what a wing uncovers is sky
+  and nothing is painted in (F119). A walker's legs are parts of their
+  own as well, each turning at its hip and folding at its knee in a
+  walk's four beats and carrying the cloud under its foot level with it
+  (F120). A person keeps their balance over their feet, leaning a little
+  one way and the other, and rises over each step if they walk; a picture
+  of several gives each its own life (F121). A video model is not the way: OpenAI's closed on
+  24 September 2026, this machine cannot run an open one, and a loop keeps
+  its own tempo whatever the figure's path does.
 
 
 ## What each part of the repository becomes

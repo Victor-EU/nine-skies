@@ -34,6 +34,18 @@ export interface CastFrame {
   readonly alarm?: number;
   /** The scene's light this frame, for a figure that brings its own picture and must be lit by hand (D94). */
   readonly light?: CastLight;
+  /**
+   * How fast it goes by its own motion (D96), for a painting whose body
+   * works with it: body lengths a second through the picture for one in
+   * the camera's frame, over the ground for one in the world, and whether
+   * it keeps pace with the flight besides.
+   */
+  readonly pace?: Pace;
+}
+
+export interface Pace {
+  readonly bodiesPerS: number;
+  readonly withFlight: boolean;
 }
 
 /**

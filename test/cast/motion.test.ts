@@ -10,7 +10,7 @@ import { Color, Scene as ThreeScene, Vector3 } from "three";
 import { cueFromRaw } from "../../content/cast.ts";
 import { FIGURE_KINDS, LIVING_FAITHS } from "../../engine/src/cast/kinds.js";
 import { CUE_MOTIONS, MOTION_KINDS, TRANSIT_MOTIONS, WORLD_TRANSIT_MOTIONS, motionSuits, type MotionKind } from "../../engine/src/cast/moves.js";
-import { DEFAULT_VIEW, frameToPicture, inPicture, motionBuilder, newPose, pictureToFrame, registeredMotions, type MotionContext, type View, type Visit } from "../../engine/src/cast/motion.js";
+import { DEFAULT_VIEW, facingAlong, frameToPicture, inPicture, motionBuilder, newPose, pictureToFrame, registeredMotions, type MotionContext, type View, type Visit } from "../../engine/src/cast/motion.js";
 import "../../engine/src/cast/motions/index.js";
 import "../../engine/src/cast/figures/index.js";
 import { hashSeed, Rng } from "../../engine/src/cast/random.js";
@@ -148,6 +148,8 @@ describe("the motions", () => {
 
   it("pause where the author put a named figure, turned as the author turned it, for its line", () => {
     const c = cue({ facing_deg: 210, line: "Cranes over the cloud.", line_at: 24, from: 10, until: 60 });
+    const off = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+    const author = (210 * Math.PI) / 180;
     for (const motion of TRANSIT_MOTIONS) {
       const m = motionBuilder(motion)!(contextOf(c, visitOf(motion, 5, { fromS: 20, untilS: 36, dwell: [23.6, 30.4], named: true })));
       const pose = newPose();
@@ -155,9 +157,26 @@ describe("the motions", () => {
       const home = Math.hypot(1200, 300, 200);
       expect(Math.hypot(pose.at.ahead - 1200, pose.at.right - 300, pose.at.up + 200), motion).toBeLessThan(home * 0.12);
       m.pose(27, DEFAULT_VIEW, pose);
-      expect(Math.abs(Math.atan2(Math.sin(pose.yaw - (210 * Math.PI) / 180), Math.cos(pose.yaw - (210 * Math.PI) / 180))), motion).toBeLessThan(0.05);
+      // As the author turned it, or that mirrored to the side it drifts to (F120).
+      const right = pose.at.right;
+      const yaw = pose.yaw;
+      m.pose(27.5, DEFAULT_VIEW, pose);
+      const drift = pose.at.right - right;
+      expect(Math.min(off(yaw, author), off(yaw, -author)), motion).toBeLessThan(0.05);
+      if (off(yaw, author) > 0.05) expect(Math.sin(yaw) * drift, motion).toBeGreaterThan(0);
       expect(inPicture(pose.at, DEFAULT_VIEW), motion).toBe(true);
     }
+  });
+
+  it("never turn a named figure back across the picture against the way it goes (F120)", () => {
+    const right = Math.PI / 2;
+    const back = (250 * Math.PI) / 180;
+    // Going right, a facing to the left is mirrored to the right, still turned toward the lens as the author turned it.
+    expect(Math.sin(facingAlong(back, right))).toBeGreaterThan(0);
+    expect(Math.cos(facingAlong(back, right))).toBeCloseTo(Math.cos(back), 9);
+    // A facing already to the side it goes is kept; so is any facing of a figure coming toward the lens.
+    expect(facingAlong(back, -right)).toBe(back);
+    expect(facingAlong(back, Math.PI)).toBe(back);
   });
 });
 

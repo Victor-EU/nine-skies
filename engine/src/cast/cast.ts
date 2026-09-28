@@ -31,7 +31,7 @@ import { projectAlbers } from "../terrain/worldGrid.js";
 import { toWorldH, type WorldScale } from "../sim/scale.js";
 import { planScene, type Plan } from "./director.js";
 import { FADE_S } from "./fade.js";
-import { figureBuilder, type CastFrame, type Figure } from "./figure.js";
+import { figureBuilder, type CastFrame, type Figure, type Pace } from "./figure.js";
 import { restHeads, turnHead } from "./gaze.js";
 import { angleTo, DEFAULT_VIEW, motionBuilder, newPose, type Motion, type MotionContext, type Pose, type View, type Visit } from "./motion.js";
 import { omenWrap } from "./omens.js";
@@ -75,6 +75,41 @@ export interface CastLayerOptions {
   readonly skin?: string;
   /** The viewing's seed (D92): the same seed plays the same cast. Drawn from the clock if absent. */
   readonly seed?: number;
+}
+
+/** Seconds either side of now a figure's path is read at for its pace (D96). */
+export const PACE_S = 0.2;
+
+/**
+ * Where a pose puts a figure, as plain numbers (D96): metres of the picture
+ * for a pose in the frame, real metres from its place for one in the
+ * world. Taken at once, since a motion may hand every pose it makes the
+ * same place to fill.
+ */
+export interface Spot {
+  readonly space: Pose["space"];
+  /** The world place it is measured from, so two spots from different places are not compared. */
+  readonly place: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
+
+export function spotOf(pose: Pose): Spot {
+  const w = pose.world;
+  if (pose.space === "world" && w) return { space: "world", place: `${w.lat},${w.lon}`, x: w.eastM ?? 0, y: w.aboveGroundM, z: w.northM ?? 0 };
+  return { space: "frame", place: "", x: pose.at.right, y: pose.at.up, z: pose.at.ahead };
+}
+
+/**
+ * How far a figure went between two spots of its path, body lengths a
+ * second (D96): through the picture for spots in the frame, over the
+ * ground for spots in the world. Nought when they are not the same kind of
+ * place, as at a visit's edge.
+ */
+export function paceBetween(a: Spot, b: Spot, seconds: number, sizeM: number): number {
+  if (a.space !== b.space || a.place !== b.place || seconds <= 0) return 0;
+  return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) / seconds / Math.max(1, sizeM);
 }
 
 /** Seconds the companions' frame takes to follow the camera's heading round a turn. */
@@ -137,6 +172,8 @@ export class CastLayer {
   /** The heading the companions' frame is at, following the camera's. */
   private frameHeading: number | null = null;
   private readonly pose: Pose = newPose();
+  /** Its path a moment before and after, for its pace. */
+  private readonly before: Pose = newPose();
   private readonly fwd = new Vector3();
   private readonly right = new Vector3();
   /** The frame's eye and the camera's altitude, for a pose read in the middle of placing. */
@@ -317,10 +354,27 @@ export class CastLayer {
         g.position.y += p.lift;
         g.rotation.set(-pose.pitch, h + pose.yaw, pose.bank);
       }
-      const frame: CastFrame = { timeS: f.timeS, flightS: f.flightS, eye: f.eye, headingRad: f.headingRad, group: g, alarm: pose.alarm, light: L };
+      const frame: CastFrame = { timeS: f.timeS, flightS: f.flightS, eye: f.eye, headingRad: f.headingRad, group: g, alarm: pose.alarm, light: L, pace: this.paceOf(on.motion, f.flightS, view, p.cue.sizeM, pose.space === "frame") };
       p.figure.update(frame);
       this.look(p, pose);
     }
+  }
+
+  /**
+   * How fast a figure goes by its own motion now (D96): its path read a
+   * moment either side, which is where it would be at those seconds, since
+   * a path is the flight's second's alone; one side only at a visit's edge.
+   */
+  private paceOf(motion: Motion, flightS: number, view: View, sizeM: number, withFlight: boolean): Pace {
+    const scratch = this.before;
+    const now = spotOf(this.pose);
+    scratch.gaze.weight = 0;
+    const early = motion.pose(flightS - PACE_S, view, scratch) ? spotOf(scratch) : null;
+    const late = motion.pose(flightS + PACE_S, view, scratch) ? spotOf(scratch) : null;
+    // Read again at now, so a place the motion shares between its poses is where the figure stands.
+    motion.pose(flightS, view, scratch);
+    const bodiesPerS = early && late ? paceBetween(early, late, 2 * PACE_S, sizeM) : early ? paceBetween(early, now, PACE_S, sizeM) : late ? paceBetween(now, late, PACE_S, sizeM) : 0;
+    return { bodiesPerS, withFlight };
   }
 
   /** Its heads where its pose looks, or back to rest once it has stopped looking. */

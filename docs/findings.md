@@ -3529,3 +3529,401 @@ air's `blue` bluer in clean air than in dust), the film validates;
 `nineskies.cloudmaps`'s cut wraps on both axes, keeps the middle as
 painted and levels clear to 0 and thick to 1 (`test_cloudmaps.py`, 3).
 Every scene seen before and after, headless, at the same held seconds.
+
+
+## F118 — The dragons alive: a painting's body swims as it goes (D96), 28 September 2026
+
+**Asked.** "Biggest feature request, think from first principles, how can
+we make the fantasy animal 'alive' meaning moving like animated, not like
+a flying picture, think a lot"; then, on the answer, "yes, start with the
+dragon".
+
+**Why a card reads as a picture.** What makes a thing look alive, most
+telling first: its parts move against each other (a dozen lit joints are a
+walking man); that movement answers its travel (a bird bobs with its
+downstroke, beats harder climbing and glides diving; a stride keeps pace
+with the ground); loose parts lag and settle; the body turns along its
+path; it touches the world (cloud churns under it); it means something
+(goes somewhere, looks). The cast had the last from its director and
+omens (D92, D93) and none of the rest: a painted card glides, always
+upright, and nothing in it moves.
+
+**Not a video model.** Animating each painting into a loop was the first
+thought, and it is not to be had: OpenAI shut down Sora 2 and its Videos
+API on 24 September 2026 (the models endpoint gives `shutdown_date`), and
+an open model does not run on this M3 with 8 GB. A loop would anyway keep
+its own tempo whatever the figure's path does, show one side only, and need
+a matte cut from every frame.
+
+**Bending the painting.** Tried first in numpy on the East King's picture
+over the Huangshan still: a wave along his traced midline, the mane
+stirring, the painted cloud churning, a gentle bob. It read as swimming,
+with no tearing where the coils pass close, so it was built:
+
+- `life.ts`, the cast's seventh plug axis: `LIFE_KINDS`, `registerLife`, a
+  `Body` (the mesh at rest in the picture's pixels, and what the picture
+  shows about each vertex once read), a `Stride` (effort and climb); four
+  modules in `life/`, one file each. `serpent`: a wave down the midline
+  from head to tail, little at the head and growing to the tail, blended
+  between the four nearest stretches of midline so coils go their own ways;
+  everything within `reach` goes with the body (legs, fins, the cloud about
+  the coils), the rest only rises and falls with it; quicker and deeper
+  the harder it works (0.28 waves a second hovering, 0.45 keeping pace).
+  `flutter`: loose parts in circles about a root, stirring more the
+  further they reach, stiff circles kept still (antlers, the face).
+  `churn`: cloud found by its colour (grey and pale) once the picture has
+  loaded, boiling in eddies, spared where named. `pitch`: the picture
+  turned about the figure's origin to its path's climb, a moment late,
+  last since it turns what the others moved.
+- A view names its lives and its `pixels`; `registerPainting` checks each
+  rig with its module. A living view's card is a grid 64 cells across
+  (about 24 pixels a cell) instead of two triangles, bent on the CPU each
+  frame; a view without lives is the card it was.
+- The layer hands each figure its `pace`: its own path read 0.2 s either
+  side of now, as body lengths a second through the picture (a companion)
+  or over the ground (a monument), and whether it keeps pace with the
+  flight. Effort is 0.35 standing, 1 keeping pace, one more for each
+  length a second, at most 2. A monument's surfacing reads 0.15 to 0.2
+  lengths a second, its hover 0.02; Wukong crossing 3.7. The first pace
+  read nought throughout: the surfacing motion hands every pose the same
+  `world` object, so a pose read later overwrote the one read before;
+  poses are now copied to plain numbers at once (`spotOf`) and the path
+  read again at now.
+- Climb is the pitch the motion gave the figure's group, which the card,
+  turned to the eye, never showed.
+
+**The dragons' rig.** Traced on the East King: 26 points of midline from
+his head down the neck, round the lower coil, over the arch, down to the
+hind legs, up over the left coil and down to the tuft (radius 70, reach
+320 pixels); his mane, beard and whiskers about a still head and antlers;
+the tuft; his cloud (grey under 0.15), never on his body (circles along
+the midline) or his head. The five others were drawn from his picture, so
+his rig serves each, moved to where the figure lies in it, fitted by
+silhouette: overlaps 0.87 to 0.96, offsets 0 to 15 pixels, no scale. Only
+their cloud differs: the Western King's silver and the White Dragon's
+pearl are nearly cloud's grey, so their cloud must be brighter (0.86,
+0.8); the Jing River King's dust is loess-coloured (grey under 0.55).
+
+**Seen.** Headless, the four kings at Huangshan held and played, the White
+Dragon in the gorges, the Jing River King over the Loess: the coils swell
+and pass, the tuft and mane stir, the cloud turns over, the body noses up
+as it surfaces. At the film's sizes (a king is 200 to 470 pixels across)
+the swim is plain and never rubbery.
+
+**Cost.** About 0.2 ms of the main thread a living dragon a frame on the
+M3 (serpent 0.03 to 0.05 ms, churn 0.04 to 0.09, each flutter 0.02 to
+0.03, pitch 0.01; a wave's sine taken once per vertex at build, so a frame
+is two products). Three dragons in the picture at Huangshan: about 0.6
+ms. 5,376 triangles a dragon where it was 2. No paint spent: the ledger
+stands at $5.38 of $30.
+
+**Left.** The rest of the cast, on the same axis: the birds (wings hinged
+as plates at the shoulder, flap to climb and glide to dive; the flank
+under a near wing painted in, about $0.07 each), the walkers (legs cut
+below the body, the far pair the near pair darkened and out of step), the
+turtle's flippers, the carp's tail, the people's plumes, sashes and
+sleeves. A wake of cloud shed behind a cloud-rider. A card cannot turn in
+depth, so an animated figure should not reverse in view: the director's
+to learn.
+
+**Checked.** `npm run check`: 556 tests (18 new in `test/cast/life.test.ts`:
+the list and the modules agree; a serpent swims more at the tail, carries
+only what is within reach, sends its wave toward the tail and quickens
+with effort; loose parts stir from their root and not where stiff; cloud
+is found by colour, churns only once read, and is spared; a flier noses
+up whichever way it faces and follows its climb late and no further than
+its most; pace through the picture and over the ground, none between two
+kinds of place, copied at once; a living painting bends its card and a
+still one stays two triangles, and a living view without its pixels or
+with a rig off its picture is refused), and the film validates.
+
+
+## F119 — The birds alive: wings that beat, glide and bank the body (D96), 28 September 2026
+
+**Asked.** "yes, go on to the birds", after F118's dragons.
+
+**The idea.** The phoenix, the Peng, the magpie and Jingwei were each
+painted in three-quarter view with a near wing raised up and back from
+the bird's back and a far wing spread from behind the breast. A wing is
+cut from the picture along the line where it leaves the body, over sky,
+and drawn as a part of its own: the near one in front of the body, the far
+one behind. It turns about that line as a plate turns about an edge seen
+from the side, reaching further or less far across it and, past it,
+showing its other side. Since the hinge is the seam, what a wing uncovers
+is sky, and the body behind it is the body as painted: the flank-painting
+F118 expected ($0.07 a bird) was not needed.
+
+**Built.**
+
+- `Layer` in `life.ts`: a part's outline, feathered across its seam; a
+  life module may name the layers it moves (`layers(rig)`). The card lays
+  its grid once for the picture and again for each part, each vertex
+  carrying its layer's share as a premultiplied vertex colour, the parts
+  behind drawn first and those in front last, and a cell no layer shows
+  not drawn. Of two layers laid one over the other, the lower is whole
+  across their seam and only the upper feathered: split between them, a
+  seam pixel's coverage came to three quarters and a pale line ran along
+  every wing root.
+- `life/flap.ts`: a wing's reach across its hinge, as a share of how it
+  is painted, at the top of the stroke, at the bottom, and gliding. The
+  downstroke takes 55 per cent of a beat; the tip lags the root by 0.15 of
+  a beat, so the wing bends through each turn; the body rises through each
+  downstroke. It glides down any dive steeper than 0.12 rad and beats up
+  any climb over 0.08; otherwise it beats on, or in bursts with glides
+  between. Quicker the harder it works.
+- `serpent` gained `bob`, nought for a streamer that swims on a body that
+  does not: the phoenix's five plumes each swim from their root.
+
+**The birds.** The magpie's bounding flight: four beats at 3 a second and
+half a second's glide, the near wing swung down over the body at the
+bottom, the far one folded up behind it at the top, the tail's end
+stirring. Jingwei, a crow's steady 2 a second. The Peng soars: two beats
+at 0.45 a second and five seconds' glide with its wings held high, beating
+whenever it climbs; its far wing turns about a line along the body at the
+breast, so it rises over the neck; its crest streams. The phoenix, 0.7 a
+second, both wings raised at the top; its near wing comes down only to
+edge on, since at that pace a wing swung over the body is long in view
+and muddles it; five plumes, a beaded crest.
+
+**Seen.** A lab in headless Chrome: the page's own modules imported by the
+URLs the app loaded them at (Vite stamps them, and another stamp is
+another registry), one figure built and flown in front of the lens with a
+chosen climb and pace, recorded with CDP's screencast at about 60 frames a
+second. Then each bird in its scene as the film plays (seed 1 casts the
+phoenix, the Peng and Jingwei, which come by chance; seed 7 casts none of
+them). The Peng's near wing at first came down nearly flat to its back and
+it read one-winged for a moment: its stroke now stops at 0.3.
+
+**Cost.** A winged bird is its grid three times over, about 8,500
+vertices and 6,000 triangles; its lives cost 0.11 to 0.26 ms of the main
+thread a frame on the M3 (the phoenix's flap 0.12, each plume 0.03). No
+paint spent: $5.38 of $30.
+
+**Left.** The walkers, the turtle, the carp and the people, as F118 lists.
+The card's swing round when a figure turns the other way is still a
+picture's (the Peng seen edge on as it overtakes); animated figures should
+not reverse in view.
+
+**Checked.** `npm run check`: 563 tests (7 new: a stroke's halves, a
+wing's reach at top, bottom and glide, a near part in front and a far one
+behind, wings moving about their hinges while the picture only bobs,
+gliding down a dive, beating up a climb and resting between bursts, a
+rig refused a one-point hinge, a reach past a wing's or a burst without
+its rest, and a winged card drawing its wings again less the picture's
+cells under them), and the film validates.
+
+
+## F120 — The walkers alive: legs that stride, clouds that are trodden (D96), 28 September 2026
+
+**Asked.** "Yes, go on", to the walkers after F119's birds.
+
+**The idea.** The six walkers, the tiger, the qilin, the elephant of
+heaven, the Bull Demon King, Sanduo's horse and Miyolangsangma's tigress,
+were each painted from the side in mid-stride with a puff of cloud under
+every foot (the bull wades a bank of it). Below the body a leg is a limb
+over sky, so like a wing it can be drawn on its own and turned: about its
+hip or shoulder, back at an even pace while its foot bears the body and
+forward while it is lifted, its lower leg folding back at the knee or hock
+as it lifts. The four come down a quarter of a stride apart in a walk's
+order, near hind, near fore, far hind, far fore. The body rises over each
+leg as it passes under, hindquarters and forequarters in turn, so the
+back rocks, and the head nods. The puff under a foot is carried level with
+it rather than turned with the leg, and pressed flat as the foot comes
+down: the cloud is trodden. No paint.
+
+**Built.**
+
+- `life/gait.ts`, the life of a walker. A leg is traced as its hip, knee
+  and foot, its thickness, the circles of the cloud under it, and where in
+  its swing the painting caught it (-1 all the way back to 1 forward), so
+  it swings through its stride about its painted pose and never past it.
+  Back through the stance, 60 per cent of a stride, at an even pace; then
+  forward on a cubic whose ends run at that pace, so the leg never jerks
+  where the foot leaves or meets the cloud. Strides quicken and lengthen
+  with effort.
+- Each leg is a layer, the far ones behind the body and the near in
+  front, shaped by its line and its circles (`Layer` gained `bands` and
+  `circles` beside the wings' outlines). A first try bent the one mesh:
+  where two puffs nearly touch (the qilin's far feet stand 20 px apart)
+  the wisps between them smeared into comet tails as the feet parted. As
+  layers, legs and their clouds pass over one another. The body about a
+  hip goes with its leg as far as the layer's seam, so the seam never
+  shows.
+- A far leg's layer is drawn whole a little past its edge, as the lower of
+  two layers is, so its cloud circles are drawn in by its feather's width
+  or it carries off a sliver of the next foot's cloud.
+- Two faults of the card the legs showed up, both the wings' as well:
+  - Where the picture was cut away at one corner of a mesh cell and the
+    part over it feathered at another, the sky showed through the cell:
+    pale holes in the qilin's flank. The upper layer is now whole at all
+    four corners of any cell where the lower is cut.
+  - The picture and its parts lie in one plane and the card writes depth,
+    so a part and the picture under it fought pixel by pixel for which was
+    nearer: speckles. The far parts, the picture and the near parts are now
+    three draws, the far held back and the near forward by a polygon
+    offset.
+- `churn` gained `within`, the circles its cloud lies in, so the white
+  horse's and the white bull's coats do not boil. Churn, flutter and
+  serpent now reckon a point once and move it alike in every layer: a
+  walker is its grid five times over, and churning every copy had cost
+  the horse 0.12 ms a frame.
+- A named figure no longer turns its back on its own way across the
+  picture (`facingAlong` in `motion.ts`). At the First Bend the tiger
+  crossed right, then, pausing for its line, turned to its cue's 250°, to
+  the left: the card swung edge-on in view and the tiger walked backwards
+  while it drifted on to the right. An author's facing that points back
+  across the picture against the figure's way is now mirrored across the
+  line of sight: turned toward the lens or away as the author set it, on
+  the side the figure goes. It was the flying picture's fault too, but a
+  figure that walks shows it.
+
+**The walkers.** The tiger prowls at 0.6 strides a second, its far
+forepaw, tucked behind the near one, carried with it; its tail swings.
+The qilin steps high (its lower legs fold 0.5 rad), its mane, beard and
+long whisker stirring, the flames at its hocks carried with its legs, its
+antlers still. The elephant walks slow and short (0.4 a second, legs
+swinging 0.12 rad), its trunk swaying as a serpent, its ear stirring, its
+tail swinging the tassel. The bull strides heavily, head tossing, legs
+wading the bank of cloud, which boils about them; the tail lashes, the
+sash's end stirs, and the burning wheel swings on its horn. Sanduo's
+horse walks proudly, knees high and head nodding, the pennant flying from
+the spear and the long tail streaming; only its puffs churn. The tigress
+walks unhurried, her back rocking under the bowl, her tail swinging its
+curled tip.
+
+**Seen.** The lab again (F119), each walker alone against open sky, and
+at twice the pixel density with the frame clipped to the figure, since
+the painting's size cap holds it to a share of the view, too small to
+judge a hoof. Then each in its own scene as the film plays: the elephant
+over the Karst (8 s), the tiger (64 s) and the horse (92 s) at the First
+Bend, the bull Below the Sea (47 s), the tigress at the Wall (36 s), all
+with seed 1, and the qilin on the Roof (77 s) with seed 7, since seed 1
+does not cast it. Each goes the way it faces. What is left: in a
+frame or two of the qilin's stride, two specks of cloud a few pixels
+across where its far feet part.
+
+**Cost.** A walker is its grid five times over, 11,000 to 19,500
+vertices and 6,400 to 9,000 triangles; its lives cost 0.13 to 0.21 ms of
+the main thread a frame on the M3 (the horse most, with its pennant and
+tail). Reckoning each point once took the phoenix to 0.20 ms. No paint
+spent: $5.38 of $30.
+
+**Left.** The turtle's flippers, the carp's tail and the people's loose
+clothes, as F118 lists; a wake of cloud where a foot or a wing presses.
+A figure turning round on its own path, not only for its line (the
+Peng's overtake, F119), still swings its card edge-on.
+
+**Checked.** `npm run check`: 571 tests (8 new: a stride's order, its
+even stance and its unjerking swing and lift; legs as parts of their
+own, the far behind and the near in front, a far leg's cloud drawn in;
+feet swinging about their hips half a stride apart, the hip still; a
+cloud carried level and pressed; the walk mirrored for a beast facing
+left; a rig refused two legs for a foot, a leg painted past its swing or
+a swing past a leg's; a walker's card in three draws; and a named
+figure's facing kept to the side it goes), two tests extended (a winged
+card whole over every cell of the picture it cuts; a named figure turned
+as the author turned it or that mirrored), and the film validates.
+
+## F121 — The people alive, the seat, the turtle and the carp (D96), 29 September 2026
+
+**Asked.** "Proceed", to the people and Guanyin's seat, then the turtle
+and the carp, after F120's walkers.
+
+**The idea.** A person painted standing on a cloud has little that moves
+on its own but what the air moves: hair, ribbons, sleeves, tatters, the
+tassels of a crown, and the cloud itself. Those were F118's `flutter` and
+`churn` already, rigged on each picture. What a person adds is balance:
+one standing on a cloud as on a boat leans a little over their feet one
+way and the other, never in time, and one walking rises over each step.
+The turtle rows the air with a river turtle's stroke, which is its walk:
+each flipper back slowly while it pulls and forward quickly while it
+returns, in a walk's order, so it is F120's `gait` with flippers for
+legs. The carp is F118's serpent: a wave from its head to its tail,
+which beats. No paint.
+
+**Built.**
+
+- `life/sway.ts`, a new kind of life. The rig is where the feet are,
+  how high the crown, and how far it leans. The picture turns about the
+  feet, the turn growing from nothing at the knees to all of it at the
+  crown, so what they stand on keeps still; two slow sways out of step
+  make the lean, so it never ticks. A walker's rig adds steps a second and
+  a rise, and the body rises over each step, twice a stride, its feet
+  kept where they are painted.
+- A picture of several (`Who` in `life.ts`): the Eight Immortals abreast,
+  the pilgrims on their road, the Queen Mother's three birds. A life names
+  whose it is and the circles of the picture that are them, so each
+  immortal keeps their own balance, each bird bobs on its own beat, and
+  each walker's legs are their own layers (`sha:leg-near-hind`). A view
+  whose lives name two parts alike is refused when it is registered.
+- `flutter` gained `pace`, how many times quicker than cloth it stirs:
+  flames lick. Nezha's wheels and spear point burn at four times.
+- The card now holds only the vertices a drawn cell uses, since it is
+  sent to the GPU whole each frame and most of a wing's or a leg's grid is
+  sky. The lives still move the whole grid. The Queen Mother, four grids
+  of 6,800 vertices, went from 0.76 to 0.31 ms a frame; Sanduo's horse
+  from 0.47 to 0.34; every layered figure gains.
+
+**The figures.**
+
+- Wukong leans over his cloud; the two long pheasant plumes of his crown
+  stream and stir, his red tatters flutter, the somersault cloud boils.
+  The staff on his shoulder keeps still where a plume passes it.
+- Nezha leans on his wheels; the red sash loops and streams, his hair
+  ribbons and the lotus-leaf skirt stir, the fire of the wheels and the
+  spear's point licks, and he noses into a climb.
+- The Queen Mother stands almost still; her crown's jade pendants and her
+  sleeves stir, her cloud boils, and her three blue birds beat their
+  raised wings out of step, tails streaming.
+- Yao Ji leans over her cloud; the long white ribbon streams and loops,
+  her hair lifts, her sleeves and hem stir.
+- Guanyin's seat keeps still, as the living faiths do (`LIVING_FAITHS`):
+  the white parrot beats its raised wing over it, the willow in the vase
+  sways, and only the cloud under the throne boils.
+- The monk alone: the white horse walks as Sanduo's does, each hoof's
+  puff of cloud carried and pressed; its head nods, tail swings, mane and
+  harness tassels stir.
+- The pilgrims on the road: Sha and Bajie each rise over their own steps
+  and keep their own balance, their hems swinging; the horse strides with
+  its near foreleg, nods, and its back rises under the monk; the road of
+  cloud boils. Their feet are painted in the road, so a leg drawn on its
+  own would leave a hole in the cloud where it was; only the horse's
+  foreleg, clear of it, strides.
+- The Eight Immortals each keep their own balance on their own cloud;
+  He Xiangu's ribbons stir, and the clouds boil, sparing Zhang Guolao's
+  white donkey.
+- The turtle rows, three flippers in a walk's order; his head nods with
+  the stroke, the moss stirs, and he noses into a climb. The thin far
+  hind flipper lies behind the near one, and moving both drew the near
+  one's edge again as a ghost when it swung away, so it keeps still with
+  the shell.
+- The carp swims up out of its spray, its body sending a wave to its
+  great tail; its fins and barbels stir, the spray boils.
+
+**Seen.** Each alone in the lab at twice the pixel density, frame by
+frame and as a map of what moved, then in its scene as the film plays
+with seed 1: Wukong (33 s) and Nezha (64 s) at Huangshan, Yao Ji in the
+Three Gorges (81 s), the pilgrims (28 s) and Guanyin (74 s) over the
+Karst, the monk (25 s) and the carp (63 s) over the Loess, the Queen
+Mother (21 s) and the Eight Immortals (53 s) Below the Sea, the turtle on
+the Roof (85 s). The birds' and the parrot's wings first left their
+feather tips behind as specks: a wing's outline is feathered, so it must
+lie a feather's half-width past the feathers, over sky. Grown by 12 px
+and feathered over 14 px, they are clean.
+
+**Cost.** 0.08 to 0.33 ms of the main thread a frame on the M3, measured
+in the lab (the Eight Immortals least, their picture being low; the monk's
+horse most). No paint spent: $5.38 of $30.
+
+**Left.** A wake of cloud where a foot or a wing presses. A figure
+turning round on its own path still swings its card edge-on (F119). The
+pilgrims' own feet do not step, and the Queen Mother's birds and the
+parrot beat only their raised wings.
+
+**Checked.** `npm run check`: 580 tests (9 new: flames quicker than
+cloth; a sway that leans the crown within its rig over still feet, turns
+about them, never ticks, and rises twice a stride over still feet if it
+walks, and refuses a rig it cannot read; a picture of several naming
+each one's parts, moving each one's body within its own circles, and
+refusing two parts of one name), the winged card's test reading its
+alpha through the card's own vertices, and the film validates.
