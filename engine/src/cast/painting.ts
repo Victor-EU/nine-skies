@@ -25,7 +25,7 @@
  * whose variant has none is drawn by the figure made in code, which stays
  * registered for that and for a film without the paintings.
  */
-import { Color, DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Quaternion, SRGBColorSpace, TextureLoader, Vector3, type Texture } from "three";
+import { Color, CustomBlending, DoubleSide, Group, Mesh, MeshBasicMaterial, OneFactor, OneMinusSrcAlphaFactor, PlaneGeometry, Quaternion, SRGBColorSpace, TextureLoader, Vector3, type Texture } from "three";
 import type { CastLight } from "./cast.js";
 import { madeBuilder, registerPainted, type BuildContext, type CastFrame, type Figure } from "./figure.js";
 
@@ -146,7 +146,18 @@ class PaintedFigure implements Figure {
   constructor(private readonly view: PaintingView) {
     this.nativeSize = viewSize(view);
     // It writes its depth, as the code-made figures do, so the cloud sea drawn after it is hidden where the figure is in front.
-    this.material = new MeshBasicMaterial({ transparent: true, premultipliedAlpha: true, alphaTest: 0.05, side: DoubleSide });
+    // The picture is premultiplied as it is uploaded (below), so the blend
+    // takes its colour as it comes: the material's own premultiplying would
+    // multiply by alpha twice, and every soft edge - a cloud's wisps, a
+    // plume - came out ringed in dark (28 September 2026).
+    this.material = new MeshBasicMaterial({
+      transparent: true,
+      blending: CustomBlending,
+      blendSrc: OneFactor,
+      blendDst: OneMinusSrcAlphaFactor,
+      alphaTest: 0.05,
+      side: DoubleSide,
+    });
     // A picture a unit high, its origin at the figure's, so it turns about that.
     this.card = new Mesh(new PlaneGeometry(1, 1).translate(0, 0.5 - view.feet, 0), this.material);
     this.card.name = `painting:${view.url}`;

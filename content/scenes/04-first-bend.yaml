@@ -76,7 +76,7 @@ pitch_deg: 22
 look:
   sky: noon-hard
   palette: snow-and-scree
-  cloud: none
+  cloud: noon-cumulus
   grade: clear
 
 # The cast (D91): the party on the road (ch. 14, the tiger whose skin is

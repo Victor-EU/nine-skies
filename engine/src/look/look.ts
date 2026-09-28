@@ -2,7 +2,7 @@
  * The look, assembled (design v2, "The look"; plan v2, stage 3).
  *
  * One object owns everything stage 3 added over the terrain renderer - the
- * sky dome, the sun's shadow map, two cloud layers, the post pass - and the
+ * sky dome, the sun's shadow map, the cloud layers, the post pass - and the
  * values that drive them. A scene hands it a look (`setScene`); every frame
  * the shell hands it where the camera is and what time it is (`frame`), and
  * it writes the sun, the sky, the haze, the mist and the shadow into every
@@ -16,7 +16,7 @@ import type { Scene } from "../film/scene.js";
 import type { Terrain } from "../terrain/terrain.js";
 import type { HorizonRing } from "../terrain/horizonRing.js";
 import { hazeDensityPerWorldUnit, hazeFalloffPerWorldUnit, toWorldH, toWorldV, type WorldScale } from "../sim/scale.js";
-import { mix, mul, srgbToLinear } from "./colour.js";
+import { add, mix, mul, srgbToLinear } from "./colour.js";
 import { CloudLayer } from "./clouds.js";
 import { PostPipeline } from "./post.js";
 import { resolveLook, scenePalette, type ResolvedLook, type MistPreset } from "./presets.js";
@@ -71,8 +71,8 @@ export function shadowSizeWorld(aboveGroundWorld: number): number {
 export class LookRig {
   readonly sky = new SkyDome();
   readonly shadow: SunShadow;
-  readonly deck = new CloudLayer();
-  readonly cirrus = new CloudLayer();
+  /** One per layer the scene's cloud names, made as the scenes ask for them. */
+  readonly clouds: CloudLayer[] = [];
   readonly post: PostPipeline;
   readonly values = createLookValues();
   readonly passes: Passes = { sky: true, shadow: true, clouds: true, post: true, cast: true };
@@ -90,14 +90,25 @@ export class LookRig {
     this.scale = options.scale;
     this.shadow = new SunShadow(options.shadowResolution ?? 2048);
     this.post = new PostPipeline(options.renderer);
-    options.scene.add(this.sky.mesh, this.deck.mesh, this.cirrus.mesh);
+    options.scene.add(this.sky.mesh);
     this.post.setGrade(this.look.grade);
     this.values.shadowMap = this.shadow.map;
   }
 
   /** The materials the look writes: the terrain's, the curtain's, the ring's, the clouds'. */
   private get materials(): ShaderMaterial[] {
-    return [...this.options.terrain.lookMaterials, this.options.ring.material, this.sky.material, this.deck.material, this.cirrus.material];
+    return [...this.options.terrain.lookMaterials, this.options.ring.material, this.sky.material, ...this.clouds.map((c) => c.material)];
+  }
+
+  /** The scene's cloud layers onto the quads, a quad made for any layer past the ones there are. */
+  private setClouds(): void {
+    const layers = this.look.cloud.layers;
+    while (this.clouds.length < layers.length) {
+      const layer = new CloudLayer(this.options.renderer.capabilities.getMaxAnisotropy());
+      this.clouds.push(layer);
+      this.options.scene.add(layer.mesh);
+    }
+    this.clouds.forEach((c, i) => c.set(layers[i] ?? null, this.scale));
   }
 
   /**
@@ -107,8 +118,7 @@ export class LookRig {
    */
   setScale(scale: WorldScale): void {
     this.scale = scale;
-    this.deck.set(this.look.cloud.deck, scale);
-    this.cirrus.set(this.look.cloud.cirrus, scale);
+    this.setClouds();
   }
 
   /** A scene's look, or the defaults for none. Recompiles the palette shaders. */
@@ -119,8 +129,7 @@ export class LookRig {
     this.options.terrain.setPalette(palette);
     this.options.ring.setPalette(palette);
     this.mist = this.look.cloud.mist;
-    this.deck.set(this.look.cloud.deck, this.scale);
-    this.cirrus.set(this.look.cloud.cirrus, this.scale);
+    this.setClouds();
     this.post.setGrade(this.look.grade);
   }
 
@@ -138,6 +147,7 @@ export class LookRig {
     v.glowPower = sky.glowPower;
     v.sunDisc.setRGB(...sky.disc);
     v.sunDiscCos = sky.discCos;
+    v.airBlue = preset.blue;
     v.sunColor.setRGB(...sky.sunColor);
     v.ambientZenith.setRGB(...sky.ambientZenith);
     v.ambientGround.setRGB(...sky.ambientGround);
@@ -167,6 +177,18 @@ export class LookRig {
       v.mistDensity = 0;
     }
 
+    // A deck the ground meets from above: pale it towards the cloud's top,
+    // lit as the layer lights a flat billow.
+    const deck = this.passes.clouds ? this.look.cloud.layers.find((l) => l.contactM) : undefined;
+    if (deck?.contactM) {
+      v.deckTop = toWorldV(deck.altitudeM, this.scale);
+      v.deckBand = toWorldV(deck.contactM, this.scale);
+      const wrap = Math.min(1, Math.max(0, (sun.direction[1] + 0.65) / 1.65));
+      v.deckColor.setRGB(...mul(add(mul(sky.sunColor, wrap), mul(sky.ambientZenith, 1.1)), 0.95));
+    } else {
+      v.deckBand = 0;
+    }
+
     // The shadow map over the ground ahead.
     const on = this.passes.shadow && sun.elevationDeg > 0.5;
     v.shadowOn = on ? 1 : 0;
@@ -190,8 +212,7 @@ export class LookRig {
       v.shadowStrength = 0.9 * sun.daylight;
     }
 
-    this.deck.update(f.eye, hazeDensity, hazeFalloff);
-    this.cirrus.update(f.eye, hazeDensity, hazeFalloff);
+    for (const c of this.clouds) c.update(f.eye, hazeDensity, hazeFalloff);
     this.sky.update(this.options.camera);
     for (const m of this.materials) writeLookUniforms(m, v);
   }
@@ -201,11 +222,9 @@ export class LookRig {
     const { renderer, scene, camera, terrain } = this.options;
     this.sky.mesh.visible = this.passes.sky;
     if (!this.passes.clouds) {
-      this.deck.mesh.visible = false;
-      this.cirrus.mesh.visible = false;
+      for (const c of this.clouds) c.mesh.visible = false;
     } else {
-      this.deck.set(this.look.cloud.deck, this.scale);
-      this.cirrus.set(this.look.cloud.cirrus, this.scale);
+      this.clouds.forEach((c, i) => (c.mesh.visible = i < this.look.cloud.layers.length));
     }
     if (this.values.shadowOn > 0) this.shadow.render(renderer, scene, terrain.casters);
     if (this.passes.post) {

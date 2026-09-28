@@ -34,7 +34,7 @@ corridor_deg: 60
 look:
   sky: desert-evening
   palette: dune-orange
-  cloud: none
+  cloud: desert-cirrus
   grade: warm
 
 # The cast (D91): at 300 km a minute a figure standing in the world is

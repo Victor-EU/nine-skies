@@ -607,8 +607,9 @@ ${waterSamples > 0 ? WATER_FRAGMENT_BODY : ""}
   // looked, which is what makes the plateau horizon read as hard and clean
   // while the Sichuan Basin reads as milk.
   lit = mix(lit, uMistColor, mistAlong(uCameraWorld, vWorld));
+  lit = mix(lit, uDeckColor, 0.85 * deckContact(vWorld.y));
   float fog = aerialFog(uCameraWorld, vWorld, uHazeDensity, uHazeHeightFalloff);
-  fragColor = vec4(mix(lit, skyHorizonAt(dir), fog), 1.0);
+  fragColor = vec4(mix(lit, skyHorizonAt(dir), airFog(fog)), 1.0);
 }
 `;
 

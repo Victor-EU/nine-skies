@@ -1,0 +1,15 @@
+# Altocumulus: a mackerel sky, the rippled mid-level cloud that catches a
+# low sun first, for a dawn or an evening.
+
+figure: alto
+
+subject: >-
+  Altocumulus, a mackerel sky: a broad sheet of small rounded cloudlets
+  arranged in rows and ripples like fish scales, the rows gently curving,
+  thicker in some patches and breaking into scattered cloudlets and clear
+  lanes in others.
+
+views:
+  default:
+    pose: About sixty percent of the square is cloud.
+    size: 1024x1024

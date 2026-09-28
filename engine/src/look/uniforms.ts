@@ -20,6 +20,7 @@ export function lookUniformDefaults(): Record<string, { value: unknown }> {
     uGlowPower: { value: 8 },
     uSunDisc: { value: new Color(0, 0, 0) },
     uSunDiscCos: { value: 1 },
+    uAirBlue: { value: 0 },
     uSunColor: { value: new Color(1, 0.97, 0.92) },
     uAmbientZenith: { value: new Color(0.45, 0.5, 0.6) },
     uAmbientGround: { value: new Color(0.2, 0.2, 0.2) },
@@ -28,6 +29,9 @@ export function lookUniformDefaults(): Record<string, { value: unknown }> {
     uMistDensity: { value: 0 },
     uMistColor: { value: new Color(1, 1, 1) },
     uMistBankScale: { value: 1000 },
+    uDeckTop: { value: 0 },
+    uDeckBand: { value: 0 },
+    uDeckColor: { value: new Color(1, 1, 1) },
     uShadowMap: { value: null },
     uShadowMatrix: { value: new Matrix4() },
     uShadowTexel: { value: 0 },
@@ -48,6 +52,8 @@ export interface LookValues {
   glowPower: number;
   readonly sunDisc: Color;
   sunDiscCos: number;
+  /** How much bluer the near haze is than the far: 0 dust to 1 clean air. */
+  airBlue: number;
   readonly sunColor: Color;
   readonly ambientZenith: Color;
   readonly ambientGround: Color;
@@ -60,6 +66,11 @@ export interface LookValues {
   readonly mistColor: Color;
   /** World units: the size of a bank of mist. */
   mistBankScale: number;
+  /** World units: a cloud deck's top, where ground meets it from above. */
+  deckTop: number;
+  /** World units the ground is paled over at the deck's top; 0 is no deck. */
+  deckBand: number;
+  readonly deckColor: Color;
   shadowMap: Texture | null;
   readonly shadowMatrix: Matrix4;
   shadowTexel: number;
@@ -79,6 +90,7 @@ export function createLookValues(): LookValues {
     glowPower: 8,
     sunDisc: new Color(0, 0, 0),
     sunDiscCos: 1,
+    airBlue: 0,
     sunColor: new Color(1, 0.97, 0.92),
     ambientZenith: new Color(0.45, 0.5, 0.6),
     ambientGround: new Color(0.2, 0.2, 0.2),
@@ -87,6 +99,9 @@ export function createLookValues(): LookValues {
     mistDensity: 0,
     mistColor: new Color(1, 1, 1),
     mistBankScale: 1000,
+    deckTop: 0,
+    deckBand: 0,
+    deckColor: new Color(1, 1, 1),
     shadowMap: null,
     shadowMatrix: new Matrix4(),
     shadowTexel: 0,
@@ -106,6 +121,7 @@ const NAMES: readonly (keyof LookValues)[] = [
   "glowPower",
   "sunDisc",
   "sunDiscCos",
+  "airBlue",
   "sunColor",
   "ambientZenith",
   "ambientGround",
@@ -114,6 +130,9 @@ const NAMES: readonly (keyof LookValues)[] = [
   "mistDensity",
   "mistColor",
   "mistBankScale",
+  "deckTop",
+  "deckBand",
+  "deckColor",
   "shadowMap",
   "shadowMatrix",
   "shadowTexel",

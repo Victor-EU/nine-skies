@@ -22,6 +22,7 @@ uniform vec3 uSunGlow;
 uniform float uGlowPower;
 uniform vec3 uSunDisc;
 uniform float uSunDiscCos;
+uniform float uAirBlue;
 
 // The sun's light scattered forward through the air: a broad warm lobe and
 // a tight bright one. Zero away from the sun, so the shade side of the sky
@@ -34,6 +35,17 @@ vec3 sunGlow(vec3 dir) {
 // The air at the horizon in a direction: what distant ground fades into.
 vec3 skyHorizonAt(vec3 dir) {
   return uSkyHorizon + sunGlow(dir);
+}
+
+// The haze's share per channel, from its share of grey: clean air takes the
+// blue out of a far view first and the red last (Rayleigh's law, softened),
+// so ridge behind ridge steps back into blue before it goes to the white of
+// the horizon. Dust scatters all colours alike, and a dusty sky asks for
+// none of it (\`SkyPreset.blue\`). The same function for the ground and the
+// horizon ring, so where one hands over to the other is still one colour.
+vec3 airFog(float fog) {
+  vec3 k = mix(vec3(1.0), vec3(0.72, 0.96, 1.34), uAirBlue);
+  return 1.0 - pow(vec3(1.0 - clamp(fog, 0.0, 1.0)), k);
 }
 
 // The sky without its disc: what water reflects, since a mirror of a disc
@@ -87,6 +99,22 @@ float mistAlong(vec3 eye, vec3 target) {
   vec2 p = target.xz / uMistBankScale;
   float bank = 0.35 + 1.3 * (0.65 * vnoise(p) + 0.35 * vnoise(p * 2.7 + 17.0));
   return 1.0 - exp(-uMistDensity * bank * distance(eye, target) * inside);
+}
+
+// Where ground meets a cloud deck seen from above (\`CloudLayerPreset.contactM\`):
+// the ground just over the deck is seen through its thinning top, and all
+// under it through its body, which no one sees the forest through; so a
+// peak rises out of the cloud rather than standing on a white floor, and a
+// thin place in the deck is thin cloud, not a window. By the ground's own
+// height, not along the sight line, so a range forty kilometres off is not
+// whitened.
+uniform float uDeckTop;
+uniform float uDeckBand;
+uniform vec3 uDeckColor;
+
+float deckContact(float y) {
+  if (uDeckBand <= 0.0) return 0.0;
+  return 1.0 - smoothstep(uDeckTop, uDeckTop + uDeckBand, y);
 }
 `;
 

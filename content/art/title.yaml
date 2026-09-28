@@ -1,0 +1,16 @@
+# The card the film opens on, behind its name: Huangshan's granite peaks in
+# a sea of cloud, the scene the film flies first.
+
+figure: title
+
+subject: >-
+  Huangshan's granite peaks and spires rising out of a sea of cloud: a
+  few tall ink peaks with windswept pines at the left and right edges,
+  lower ranges fading into mist in layers behind them, the sea of cloud
+  lying level across the lower middle, and above it an empty night sky
+  with the thinnest bands of cloud.
+
+views:
+  default:
+    pose: A wide landscape, the peaks kept to the outer thirds and the lower edge.
+    size: 1536x1024

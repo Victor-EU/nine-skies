@@ -2,7 +2,10 @@
  * The look's presets (plan v2, stage 3): every name a scene file uses
  * exists, and the tables make sense as pictures.
  */
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { CLOUD_MAPS } from "../../engine/src/look/clouds.js";
 import {
   CLOUD_PRESETS,
   GRADE_PRESETS,
@@ -91,6 +94,47 @@ describe("the clouds and the grades", () => {
       // of the mist is well under the band's ceiling above it.
       expect(mist.topM).toBeLessThan(s.band.maxM + 200);
     }
+  });
+
+  it("draw every cloud layer from a painted map that is on disk (D95)", () => {
+    for (const map of CLOUD_MAPS) expect(existsSync(join(import.meta.dirname, "../../app/public/clouds", `${map}.webp`)), map).toBe(true);
+    for (const [name, preset] of Object.entries(CLOUD_PRESETS)) {
+      for (const layer of preset.layers) {
+        expect(CLOUD_MAPS, name).toContain(layer.map);
+        expect(layer.coverage, name).toBeGreaterThan(0);
+        expect(layer.coverage, name).toBeLessThanOrEqual(1);
+        expect(layer.density, name).toBeGreaterThan(0);
+        expect(layer.density, name).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("put every sky layer above the highest the camera flies, by the rails report", () => {
+    // A plane the camera flew through would show; the report is the rail
+    // flown over the built world (\`make rails\`), its altitude column the
+    // camera's least and most above sea level.
+    const report = readFileSync(join(import.meta.dirname, "../../docs/rails-report.md"), "utf8");
+    const highest = new Map<string, number>();
+    for (const m of report.matchAll(/^\| ([a-z-]+) \|(?:[^|]*\|){5} [\d,]+–([\d,]+) m \|/gm)) highest.set(m[1]!, Number(m[2]!.replace(/,/g, "")));
+    const { film } = loadFilm();
+    for (const s of film.scenes) {
+      const top = highest.get(s.id);
+      expect(top, s.id).toBeDefined();
+      for (const layer of resolveLook(s.look).cloud.layers) {
+        // A deck is the cloud sea the camera looks down on, not sky.
+        if (layer.contactM) continue;
+        expect(layer.altitudeM, s.id).toBeGreaterThan(top! + 300);
+      }
+    }
+  });
+
+  it("blue the near haze in clean air and not in dust", () => {
+    for (const sky of Object.values(SKY_PRESETS)) {
+      expect(sky.blue).toBeGreaterThanOrEqual(0);
+      expect(sky.blue).toBeLessThanOrEqual(1);
+    }
+    expect(SKY_PRESETS["dust-afternoon"]!.blue).toBeLessThan(SKY_PRESETS["gorge-afternoon"]!.blue);
+    expect(SKY_PRESETS["desert-evening"]!.blue).toBeLessThan(SKY_PRESETS["plateau-dusk"]!.blue);
   });
 
   it("warm the desert and cool the gorges", () => {

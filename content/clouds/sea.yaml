@@ -1,0 +1,16 @@
+# The cloud sea: Huangshan's yunhai, a deck of low cloud filling every
+# valley, seen from the peaks above it.
+
+figure: sea
+
+subject: >-
+  A sea of clouds: an unbroken deck of low stratocumulus whose top is a
+  landscape of rounded billows, swells and cauliflower domes of many
+  sizes, like a white ocean frozen mid-swell, with a few narrow darker
+  troughs and small rifts where it is thinner, and one or two small
+  holes showing black.
+
+views:
+  default:
+    pose: About ninety percent of the square is cloud; the brightness is the billows' height.
+    size: 1024x1024

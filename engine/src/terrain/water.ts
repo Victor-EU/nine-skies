@@ -110,7 +110,7 @@ export function riverMinPx(river: number): number {
 /** Colours, sRGB 0-1, picked by eye like the ramp's stops. */
 export const SEA_SRGB: readonly [number, number, number] = [0.15, 0.27, 0.38];
 export const LAKE_SRGB: readonly [number, number, number] = [0.2, 0.4, 0.5];
-export const RIVER_SRGB: readonly [number, number, number] = [0.42, 0.66, 0.84];
+export const RIVER_SRGB: readonly [number, number, number] = [0.32, 0.42, 0.42];
 
 /** Half the diagonal of a sample, in samples. */
 const HALF_DIAGONAL = Math.SQRT1_2;
@@ -205,6 +205,14 @@ function glslVec3(c: readonly [number, number, number]): string {
  * lake seen at a low angle is the sky and seen from above is its own colour,
  * which reads as depth - and glinting where the sun's reflection lands, in
  * the sun's own colour and brighter than white, so the bloom finds it.
+ *
+ * Only open water sees the sky low down. A river runs in a valley, and what
+ * it mirrors at a low angle is the valley's far wall: so a river's
+ * reflection is the ground's own colour, in shade, until the reflected ray
+ * climbs clear of the walls, and a lake's is that a little. Mirroring the
+ * open sky had drawn the Jinsha at the First Bend and the Yangtze in the
+ * gorges as sheets of pale sky-blue lying in the rock, the brightest thing
+ * in the frame and the least like water (28 September 2026).
  */
 export interface WaterColours {
   readonly seaSrgb: readonly [number, number, number];
@@ -288,10 +296,12 @@ vec3 withWater(vec3 lit, vec3 sun, vec3 sunColor, float shadow, vec2 texel, floa
   float wet = max(cover.x, cover.y);
   if (wet <= 0.001) return lit;
 
-  // A little wind: two octaves of noise tilt the surface by a few degrees,
+  // A little wind: noise at two sizes tilts the surface by a few degrees,
   // drifting slowly, so the glint breaks into sparkle rather than one spot.
   vec2 p = world.xz * 0.05 + vec2(uTime * 0.03, uTime * 0.02);
   vec2 tilt = vec2(vnoise(p) - 0.5, vnoise(p * 1.7 + 31.0) - 0.5) * 0.10;
+  vec2 p2 = world.xz * 0.23 - vec2(uTime * 0.05, uTime * 0.04);
+  tilt += vec2(vnoise(p2) - 0.5, vnoise(p2 * 1.3 + 7.0) - 0.5) * 0.06;
   vec3 n = normalize(vec3(tilt.x, 1.0, tilt.y));
 
   vec3 river = srgbToLinear(${glslVec3(colours.riverSrgb)});
@@ -299,10 +309,18 @@ vec3 withWater(vec3 lit, vec3 sun, vec3 sunColor, float shadow, vec2 texel, floa
   body = mix(body, srgbToLinear(${glslVec3(colours.lakeSrgb)}), cover.z);
   body = mix(body, river, cover.y);
 
+  // Silt and depth, drifting: never one flat colour from above.
+  float silt = 0.6 * vnoise(world.xz * 0.012 + vec2(uTime * 0.006, 0.0)) + 0.4 * vnoise(world.xz * 0.05 - vec2(0.0, uTime * 0.012));
+  body *= 0.8 + 0.4 * silt;
   vec3 own = body * groundLight(vec3(0.0, 1.0, 0.0), sun, sunColor, shadow);
   vec3 r = reflect(view, n);
   r.y = abs(r.y);
   vec3 reflected = skyReflect(r);
+  // The valley's walls, low in the mirror: a river's all the way, a lake's a
+  // little, the sea's not at all.
+  float walled = max(max(cover.w, cover.y) * 0.9, cover.z * 0.45);
+  vec3 walls = lit * 0.6 + uAmbientZenith * 0.04;
+  reflected = mix(reflected, walls, walled * (1.0 - smoothstep(0.04, 0.32, r.y)));
   float facing = max(dot(-view, n), 0.0);
   float fresnel = 0.03 + 0.97 * pow(1.0 - facing, 5.0);
   vec3 water = mix(own, reflected, min(fresnel, 0.7));

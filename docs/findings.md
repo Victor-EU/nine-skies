@@ -3406,3 +3406,126 @@ in code, and every registered picture on disk (`test/cast/painting.test.ts`,
 11); and that a passing companion keeps out of every line, for every
 seed the director is tested on (`test/cast/motion.test.ts`). The film
 validates.
+
+## F117 — The sky given weather, the cloud sea rebuilt, the air blued, the rivers darkened (D95), 28 September 2026
+
+**Asked.** "Go through the app as a real user … improve the visuals. We
+want to make the app great", with the OpenAI key for pictures and $30 at
+most.
+
+**Seen.** The film watched in the browser pane at 800 × 600, each chapter
+for its first half minute, keys 1 to 9 between them. What read worst, in
+order of how much of the film it spoils:
+
+- Every sky was the gradient and the glow and nothing else: no scene had
+  a cloud over it (Grassland and the Wall had a faint cirrus of value
+  noise). The sky is a third to a half of most frames.
+- Huangshan, the first thing seen, lay over a flat grey fuzz: the cloud
+  sea was value noise on a plane, streaked by perspective, with dark
+  blots where it thinned and hills cut off by it along a hard line.
+- The rivers were sheets of pale sky-blue: the Jinsha at the First Bend a
+  flat cyan wedge from above, the Yangtze in the gorges the colour of the
+  open sky though it runs between walls.
+- Captions and the cast's lines, cream and gold, were faint on the cloud
+  sea and on pale ground.
+- Wukong's somersault cloud, and every painting's soft edge, was ringed
+  in dark.
+
+**The sky.** `engine/src/look/clouds.ts` draws a layer from a painted map.
+Four maps (`content/clouds/`: cumulus, cirrus, the cloud sea, a mackerel
+sky) were painted by the cast's image model, two drafts each, as
+satellite views of cloud over a black ocean with no light of their own;
+`npm run paint` gained `--set` for a folder of briefs and a style's
+`background: opaque`. `python -m nineskies.cloudmaps keep` levels a
+picture and makes it tile: the picture joined to itself rolled half a
+side along the cheapest cut through a band at each edge (image quilting).
+Averaging the two had left grey ghosts over the cumulus; joining them by
+the brighter had cut clouds off at the band. The shader reads the map
+twice (once 3.7 × finer, fraying the edges), moves its threshold by a slow
+noise so a tiled map never repeats a sky, and lights it: from below, the
+sky's light on a base that darkens as it thickens, the sun through it by
+Beer's law, a sunward edge brighter than a lee one, and the silver lining
+of thin cloud towards the sun (Henyey-Greenstein, g 0.65); from above, the
+map as the height of billows the sun rakes, the lee of each paled, the
+relief going smooth with distance.
+
+A first pass drew every sky as popcorn. The layer's height over the
+camera is drawn at the scene's exaggeration and its map was not, so a
+heap two kilometres up looked twelve up and a sixth of its size; the map
+is now spread by the exaggeration too. A second bug: a map already loaded
+answered at once, before the layer knew which map it wanted, and was
+dropped, so a scene whose map an earlier one had loaded drew no cloud
+(Grassland, the Roof, the Wall when held after others).
+
+`CloudPreset` is now `{ mist, layers }`. Cumulus over the Gorges (3,400
+m, with cirrus), the Karst (2,600), the First Bend (6,600), Grassland
+(3,600, with cirrus) and the Roof (7,400); cirrus in the Loess's dust,
+over Turpan's evening and at the Wall (10,500 m); Huangshan's cloud sea
+under a mackerel sky at 5,200 m. The First Bend, Turpan and the Roof had
+`cloud: none` and name new presets. A test holds every sky layer 300 m
+over the highest the camera flies in `docs/rails-report.md` (the Wall's
+9,904 m under cirrus at 10,500), and every map to a file on disk.
+
+**The cloud sea.** Drawn from the painted map at a scale of 9 km, with a
+veil: where the map is thin the deck is thin cloud (0.8 opaque), not a
+hole. The ground meets it softly: a deck's `contactM` (90 m) pales ground
+from 90 m over the deck's top down, and everything under it, towards the
+cloud's own colour, by the ground's height and not along the sight line,
+so a range forty kilometres off is not whitened. A mist slab with a tail
+was tried first: it washed out every distant peak.
+
+**The air.** The haze takes blue first (`airFog` in `SKY_GLSL`: the
+haze's share per channel as 1 − (1 − fog)^k, k mixed toward 0.72 / 0.96 /
+1.34 by the sky preset's `blue`), so far ridges step back in blue before
+the horizon's white. The terrain and the horizon ring use the same
+function, so where one hands to the other is still one colour. Clean air
+0.6 to 0.8, the dust 0.1, Turpan 0.15.
+
+**The water.** A river's reflection is its valley's walls (the ground's
+own colour in shade) until the reflected ray climbs clear, a lake's a
+little, the sea's not at all; a second, finer ripple; the body varies
+with a drifting silt noise; and the rivers' colours are rivers': the
+Jinsha silty khaki (0.40, 0.39, 0.31), the Yangtze in the gorges grey-green
+(0.30, 0.38, 0.34), the Li jade (0.26, 0.42, 0.36), the default grey-green
+(0.32, 0.42, 0.42) where it had been sky-blue (0.42, 0.66, 0.84).
+
+**The cards.** A painting's texture is premultiplied as it uploads, and
+the material premultiplied it again, so every half-clear pixel was
+darkened by its own alpha twice. It now blends ONE, ONE_MINUS_SRC_ALPHA
+with the material's own premultiplying off: Wukong's cloud is white to
+its last wisp.
+
+**The words.** A soft shade behind a caption and a cast's line (a blurred
+radial gradient, 0.42 at its middle). The loading card has a painting
+behind the name: Huangshan's peaks over a sea of cloud in ink on dark
+silk, one of four drafts (`content/art/`, kept by `python -m
+nineskies.art keep` to `app/public/art/title.webp`, 216 KB), fading in and
+drifting slowly larger while the real ground loads; still under
+`prefers-reduced-motion`.
+
+**Cost.** Eight cloud maps and four title paintings, $0.60; the ledger
+stands at $5.38 of its $30. The frame cost, headless on the M3 at 1080p:
+every station 4.8 to 7.9 ms against the 33.3 ms frame; the clouds, priced
+by absence, are inside the instrument's ±1 ms spread at every station
+but the Gorges, where two layers may cost 1.6 ms.
+
+**Stills.** All nine retaken with `npm run stills`, and the cover's two
+frames and the cover redrawn: they need sign-off (D77).
+
+**Left.**
+
+- Water reflects the sky without its cloud: a lake at a low angle under
+  a sky of cumulus mirrors a clear one (the Roof's Qinghai Lake).
+- The cloud sea from low over it still reads a little like snow in its
+  middle distance, the lee shade a pattern of blue flecks.
+- Cloud layers are planes: no cumulus stands up in profile at the
+  horizon, and the Roof's clouds at 7,400 m are flat undersides.
+- The Roof's and the Wall's terrain in low sun shines like crumpled foil;
+  Qinghai Lake carries a paler band across it; both were there before.
+
+**Checked.** `npm run check`: 538 tests (three new: the maps on disk and
+every layer's numbers, the layers over the rails report's altitudes, the
+air's `blue` bluer in clean air than in dust), the film validates;
+`nineskies.cloudmaps`'s cut wraps on both axes, keeps the middle as
+painted and levels clear to 0 and thick to 1 (`test_cloudmaps.py`, 3).
+Every scene seen before and after, headless, at the same held seconds.

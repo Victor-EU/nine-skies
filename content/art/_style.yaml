@@ -1,0 +1,25 @@
+# The house style of the film's own pictures (D95): the few that are not
+# the ground, the sky or the cast - the card the film opens on while its
+# first ground loads.
+#
+# The film is real ground, flown; a picture of its own is the old way of
+# seeing the same mountains, ink and silk, which is where the film starts:
+# Huangshan, where painters came for a thousand years. So a picture is a
+# painting, not a render, and it keeps back: text is set over it, the page
+# around it is the film's night, and the eye should go to the name.
+
+background: opaque
+
+preamble: >-
+  A Chinese shan shui landscape painting in ink and faint colour on old
+  silk, in the manner of the Song and Ming masters of Huangshan: a real
+  painting's brushwork, ink washes and texture strokes, photographed flat.
+
+rules: >-
+  Deep, dark and quiet in tone: an indigo-black night ground with the
+  mountains in grey and silver ink and only the faintest wash of blue and
+  ochre, so that cream lettering set over the middle of it reads clearly.
+  Wide empty mist across the whole centre band of the picture. No text, no
+  calligraphy, no seals, no signature, no border, no mount, no frame, no
+  people, no buildings, no boats. The painting fills the whole picture to
+  every edge.

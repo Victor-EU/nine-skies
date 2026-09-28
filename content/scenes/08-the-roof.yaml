@@ -35,7 +35,7 @@ corridor_deg: 60
 look:
   sky: plateau-dusk
   palette: plateau-tan-turquoise
-  cloud: none
+  cloud: plateau-cumulus
   grade: clear
 
 # The cast (D91): the pilgrims crossing the Tongtian River (ch. 47-49)

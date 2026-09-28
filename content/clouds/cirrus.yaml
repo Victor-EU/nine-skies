@@ -1,0 +1,15 @@
+# High cirrus: the ice cloud of an evening over the steppe and a plume
+# off the Himalaya, drawn thin enough that the sky shows through.
+
+figure: cirrus
+
+subject: >-
+  High cirrus cloud: long, thin, fibrous streaks of ice cloud, combed
+  in one direction, with hooked mares' tails and fine feathery filaments,
+  some bands brighter and denser, most of them faint and translucent,
+  crossing the whole square roughly from left to right.
+
+views:
+  default:
+    pose: About half of the square has some cirrus; only a tenth is bright.
+    size: 1024x1024

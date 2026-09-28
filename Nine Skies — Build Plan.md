@@ -161,6 +161,20 @@ Everything else in the repository served the version-1 game and goes.
   about a quarter of the frame at its authored distance, and grows at most
   fourfold. Living faiths stay aniconic. The spend is capped at $30 and
   ledgered (`docs/paint-ledger.jsonl`).
+- **D95** The sky has weather, drawn from painted maps (decided 28
+  September 2026, F117). Every scene's cloud is a list of layers, each a
+  quad at a real altitude above everything its scene flies past, whose
+  cloud is read from a map painted by the same image model as the cast
+  (`content/clouds/`: fair-weather cumulus, cirrus, a mackerel sky, the
+  cloud sea's billows), seen from straight above with no light of its own,
+  cut to tile (`nineskies.cloudmaps`), and lit in the shader by the scene's
+  sun: Beer's law and a silver lining from below, a raked surface from
+  above. A map is spread by the scene's exaggeration, so a cloud keeps the
+  proportion of its size to its height. Value noise is no longer anyone's
+  cloud. The haze blues with distance before it whitens (`SkyPreset.blue`,
+  none in dust), rivers reflect their valley's walls, and the film opens on
+  a painted Huangshan (`content/art/`) while the real one loads. The
+  spend stays under D94's cap.
 
 
 ## What each part of the repository becomes

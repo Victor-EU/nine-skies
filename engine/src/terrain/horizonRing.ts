@@ -135,7 +135,7 @@ void main() {
   // looking like painted scenery.
   vec3 lit = vColor * groundLight(vec3(0.0, 1.0, 0.0), normalize(uSunDirection), uSunColor, 1.0);
   lit = mix(lit * uRidgeShade, uMistColor, vMist);
-  fragColor = vec4(mix(lit, skyHorizonAt(normalize(vDir)), vFog), 1.0);
+  fragColor = vec4(mix(lit, skyHorizonAt(normalize(vDir)), airFog(vFog)), 1.0);
 }
 `;
 

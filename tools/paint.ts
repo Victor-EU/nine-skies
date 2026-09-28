@@ -19,7 +19,14 @@
  * git ignores. It is sent to api.openai.com and nowhere else, and never
  * printed.
  *
+ * A set is a folder of briefs with its own `_style.yaml`: the cast's are
+ * `content/paintings/`, the default; the sky's cloud maps (D95) are
+ * `content/clouds/`, painted opaque, since a style may say `background:
+ * opaque` where the cast's cards are transparent. A set's pictures land in
+ * `.scratch/paint/<set>/<figure>/` and its ledger rows are `<set>/<figure>`.
+ *
  * Options:
+ *   --set <folder under content/>         default paintings
  *   --quality low|medium|high|xhigh|max   default high
  *   --n <1-8>                             pictures from one call, default 1
  *   --size <W>x<H>                        default the view's, else 1024x1536
@@ -43,13 +50,14 @@ const RATE = { textIn: 5e-6, imageIn: 8e-6, imageOut: 30e-6 };
 const OUT_TOKENS: Record<string, number> = { low: 158, medium: 343, high: 1372, xhigh: 2459, max: 5488 };
 
 const ROOT = join(import.meta.dirname, "..");
-const BRIEFS = join(ROOT, "content/paintings");
 const OUT = join(ROOT, ".scratch/paint");
 const LEDGER = join(ROOT, "docs/paint-ledger.jsonl");
 
 interface Style {
   preamble: string;
   rules: string;
+  /** What the picture is drawn on: the cast's cards are transparent, a map is opaque. */
+  background?: "transparent" | "opaque";
 }
 type View = string | { pose: string; size?: string };
 interface Brief {
@@ -58,6 +66,7 @@ interface Brief {
   views: Record<string, View>;
 }
 interface Args {
+  set: string;
   figure: string;
   view: string | null;
   quality: string;
@@ -74,12 +83,13 @@ function fail(message: string): never {
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { figure: "", view: null, quality: "high", n: 1, size: null, model: "flare", refs: [], dry: false };
+  const a: Args = { set: "paintings", figure: "", view: null, quality: "high", n: 1, size: null, model: "flare", refs: [], dry: false };
   const free: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i]!;
     const v = () => argv[++i] ?? fail(`${k} wants a value`);
-    if (k === "--quality") a.quality = v();
+    if (k === "--set") a.set = v();
+    else if (k === "--quality") a.quality = v();
     else if (k === "--n") a.n = Number(v());
     else if (k === "--size") a.size = v();
     else if (k === "--model") a.model = v();
@@ -95,6 +105,7 @@ function parseArgs(argv: string[]): Args {
   if (a.size !== null && !/^\d+x\d+$/.test(a.size)) fail("--size is WIDTHxHEIGHT");
   if (a.model !== "flare" && a.model !== "sunburst") fail("--model is flare or sunburst");
   for (const r of a.refs) if (!existsSync(r)) fail(`no picture at ${r}`);
+  if (!/^[a-z][a-z0-9-]*$/.test(a.set)) fail("--set is a folder name under content/");
   return a;
 }
 
@@ -164,10 +175,10 @@ interface ImageResponse {
   error?: { message?: string };
 }
 
-async function call(a: Args & { size: string }, prompt: string): Promise<ImageResponse> {
+async function call(a: Args & { size: string }, prompt: string, background: string): Promise<ImageResponse> {
   const model = `gpt-image-2.5-${a.model}`;
   const headers = { Authorization: `Bearer ${key()}` };
-  const common = { model, prompt, n: a.n, size: a.size, quality: a.quality, background: "transparent", output_format: "png" };
+  const common = { model, prompt, n: a.n, size: a.size, quality: a.quality, background, output_format: "png" };
   let res: Response;
   if (a.refs.length === 0) {
     res = await fetch("https://api.openai.com/v1/images/generations", {
@@ -201,8 +212,10 @@ function costUsd(r: ImageResponse, fallback: number): number {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const style = load<Style>(join(BRIEFS, "_style.yaml"));
-const brief = load<Brief>(join(BRIEFS, `${args.figure}.yaml`));
+const briefs = join(ROOT, "content", args.set);
+const style = load<Style>(join(briefs, "_style.yaml"));
+const brief = load<Brief>(join(briefs, `${args.figure}.yaml`));
+const named = args.set === "paintings" ? args.figure : `${args.set}/${args.figure}`;
 const view = args.view ?? Object.keys(brief.views)[0] ?? fail(`${args.figure} has no views`);
 const posed = viewOf(brief, view);
 const a = { ...args, size: args.size ?? posed.size };
@@ -212,7 +225,7 @@ const spent = spentUsd();
 
 console.log(prompt);
 console.log(
-  `\n${a.figure}/${view} · gpt-image-2.5-${a.model} · ${a.quality} · ${a.size} · ${a.n} picture(s)` +
+  `\n${named}/${view} · gpt-image-2.5-${a.model} · ${a.quality} · ${a.size} · ${a.n} picture(s)` +
     `${a.refs.length ? ` from ${a.refs.length} reference(s)` : ""} · about $${estimate.toFixed(2)}` +
     ` · spent $${spent.toFixed(2)} of $${CAP_USD}`,
 );
@@ -220,8 +233,8 @@ if (a.dry) process.exit(0);
 if (spent + estimate > CAP_USD) fail(`this could take the spend past the $${CAP_USD} cap; refused`);
 
 const started = Date.now();
-const r = await call(a, prompt);
-const dir = join(OUT, a.figure);
+const r = await call(a, prompt, style.background ?? "transparent");
+const dir = join(OUT, named);
 mkdirSync(dir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
 const files: string[] = [];
@@ -234,7 +247,7 @@ const files: string[] = [];
 const usd = costUsd(r, estimate);
 const row: LedgerRow = {
   at: new Date().toISOString(),
-  figure: a.figure,
+  figure: named,
   view,
   model: a.model,
   quality: a.quality,

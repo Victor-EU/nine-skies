@@ -1,0 +1,16 @@
+# Fair-weather cumulus: the summer sky over the gorges, the karst and the
+# steppe, seen from below as separate white heaps with blue between.
+
+figure: cumulus
+
+subject: >-
+  A field of fair-weather cumulus clouds: several hundred separate puffy
+  clouds of mixed sizes, from small tufts to a few larger heaps, some
+  alone and some gathered in loose clusters and short streets, with plenty
+  of clear black between them. Each cloud is a dense rounded core with
+  lumpy cauliflower edges that thin to wisps.
+
+views:
+  default:
+    pose: About forty percent of the square is cloud.
+    size: 1024x1024

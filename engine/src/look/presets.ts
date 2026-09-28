@@ -21,6 +21,7 @@ import {
   type ScenePalette,
 } from "../terrain/palette.js";
 import type { SceneLook } from "../film/scene.js";
+import type { CloudMap } from "./clouds.js";
 
 export interface SkyPreset {
   /** Extinction per real metre of sight line: how far you see. */
@@ -37,6 +38,8 @@ export interface SkyPreset {
   readonly glowPower: number;
   /** 0 pale, 1 the deep blue of thin air. */
   readonly zenithDepth: number;
+  /** How much the near haze blues a far ridge before the far haze whitens it: 0 dust, 1 clean air. */
+  readonly blue: number;
 }
 
 export interface PalettePreset {
@@ -73,23 +76,35 @@ export interface MistPreset {
   readonly tailM?: number;
 }
 
-export interface CloudDeckPreset {
+export interface CloudLayerPreset {
+  /** The painted map its cloud is read from (D95): `app/public/clouds/<map>.webp`. */
+  readonly map: CloudMap;
   /** Real metres above sea level. */
   readonly altitudeM: number;
-  /** 0 clear to 1 overcast. */
+  /** 0 clear to 1 as much as the map holds. */
   readonly coverage: number;
-  /** The size of the largest billow, real kilometres. */
+  /** One tile of the map, real kilometres. */
   readonly scaleKm: number;
-  /** How stretched along the wind: 1 is round. */
+  /** How stretched along the grain: 1 is the map as painted. */
   readonly stretch: number;
-  /** How solid: 1 is cumulus, 0.3 is cirrus. */
+  /** How solid at its thickest: 1 is cumulus, 0.4 is cirrus. */
   readonly density: number;
+  /** Degrees from east the map's grain runs along; 0 by default. */
+  readonly bearingDeg?: number;
+  /** How fast the sun's light dies through it, seen from below: 2.5 a heap, 0.4 ice. */
+  readonly absorb?: number;
+  /** How steep its billows are, seen from above: the cloud sea's relief. */
+  readonly billow?: number;
+  /** A deck's least opacity where the map is thin: 0 has holes, 0.8 a sea whose rifts are thin cloud. */
+  readonly veil?: number;
+  /** Real metres of ground paled where it meets a deck seen from above; none by default. */
+  readonly contactM?: number;
 }
 
 export interface CloudPreset {
   readonly mist: MistPreset | null;
-  readonly deck: CloudDeckPreset | null;
-  readonly cirrus: CloudDeckPreset | null;
+  /** Cloud layers, any number; each is one quad at its altitude. */
+  readonly layers: readonly CloudLayerPreset[];
 }
 
 export interface GradePreset {
@@ -107,17 +122,17 @@ export interface GradePreset {
 const WHITE: Rgb = [1, 1, 1];
 
 export const SKY_PRESETS: Readonly<Record<string, SkyPreset>> = {
-  default: { hazeDensityPerM: 2.75e-6, scaleHeightM: 6000, hazeTint: WHITE, turbidity: 1, glow: 0.8, glowPower: 8, zenithDepth: 0.8 },
-  "huangshan-dawn": { hazeDensityPerM: 2.5e-6, scaleHeightM: 2000, hazeTint: [1.0, 0.96, 0.92], turbidity: 1.3, glow: 1.3, glowPower: 6, zenithDepth: 0.65 },
-  "delta-dawn": { hazeDensityPerM: 3.5e-6, scaleHeightM: 2500, hazeTint: [1.0, 0.95, 0.9], turbidity: 1.4, glow: 1.2, glowPower: 6, zenithDepth: 0.55 },
-  "gorge-afternoon": { hazeDensityPerM: 4.5e-6, scaleHeightM: 2500, hazeTint: [0.92, 0.97, 1.0], turbidity: 1.1, glow: 0.8, glowPower: 8, zenithDepth: 0.7 },
-  "karst-mist": { hazeDensityPerM: 7e-6, scaleHeightM: 1500, hazeTint: [0.95, 1.0, 0.98], turbidity: 1.2, glow: 0.7, glowPower: 6, zenithDepth: 0.5 },
-  "noon-hard": { hazeDensityPerM: 2.2e-6, scaleHeightM: 5000, hazeTint: WHITE, turbidity: 0.8, glow: 0.5, glowPower: 12, zenithDepth: 1.0 },
-  "dust-afternoon": { hazeDensityPerM: 5e-6, scaleHeightM: 3000, hazeTint: [1.0, 0.86, 0.66], turbidity: 1.6, glow: 1.0, glowPower: 5, zenithDepth: 0.45 },
-  "steppe-evening": { hazeDensityPerM: 2.5e-6, scaleHeightM: 4000, hazeTint: [1.0, 0.93, 0.84], turbidity: 1.2, glow: 1.2, glowPower: 8, zenithDepth: 0.8 },
-  "desert-evening": { hazeDensityPerM: 3e-6, scaleHeightM: 3000, hazeTint: [1.0, 0.82, 0.62], turbidity: 1.7, glow: 1.5, glowPower: 6, zenithDepth: 0.7 },
-  "plateau-dusk": { hazeDensityPerM: 2e-6, scaleHeightM: 6000, hazeTint: [0.9, 0.95, 1.0], turbidity: 0.7, glow: 0.6, glowPower: 14, zenithDepth: 1.0 },
-  "last-light": { hazeDensityPerM: 2e-6, scaleHeightM: 6000, hazeTint: [0.95, 0.92, 1.0], turbidity: 0.9, glow: 1.4, glowPower: 8, zenithDepth: 1.0 },
+  default: { hazeDensityPerM: 2.75e-6, scaleHeightM: 6000, hazeTint: WHITE, turbidity: 1, glow: 0.8, glowPower: 8, zenithDepth: 0.8, blue: 0.5 },
+  "huangshan-dawn": { hazeDensityPerM: 2.5e-6, scaleHeightM: 2000, hazeTint: [1.0, 0.96, 0.92], turbidity: 1.3, glow: 1.3, glowPower: 6, zenithDepth: 0.65, blue: 0.65 },
+  "delta-dawn": { hazeDensityPerM: 3.5e-6, scaleHeightM: 2500, hazeTint: [1.0, 0.95, 0.9], turbidity: 1.4, glow: 1.2, glowPower: 6, zenithDepth: 0.55, blue: 0.4 },
+  "gorge-afternoon": { hazeDensityPerM: 4.5e-6, scaleHeightM: 2500, hazeTint: [0.92, 0.97, 1.0], turbidity: 1.1, glow: 0.8, glowPower: 8, zenithDepth: 0.7, blue: 0.8 },
+  "karst-mist": { hazeDensityPerM: 7e-6, scaleHeightM: 1500, hazeTint: [0.95, 1.0, 0.98], turbidity: 1.2, glow: 0.7, glowPower: 6, zenithDepth: 0.5, blue: 0.6 },
+  "noon-hard": { hazeDensityPerM: 2.2e-6, scaleHeightM: 5000, hazeTint: WHITE, turbidity: 0.8, glow: 0.5, glowPower: 12, zenithDepth: 1.0, blue: 0.7 },
+  "dust-afternoon": { hazeDensityPerM: 5e-6, scaleHeightM: 3000, hazeTint: [1.0, 0.86, 0.66], turbidity: 1.6, glow: 1.0, glowPower: 5, zenithDepth: 0.45, blue: 0.1 },
+  "steppe-evening": { hazeDensityPerM: 2.5e-6, scaleHeightM: 4000, hazeTint: [1.0, 0.93, 0.84], turbidity: 1.2, glow: 1.2, glowPower: 8, zenithDepth: 0.8, blue: 0.45 },
+  "desert-evening": { hazeDensityPerM: 3e-6, scaleHeightM: 3000, hazeTint: [1.0, 0.82, 0.62], turbidity: 1.7, glow: 1.5, glowPower: 6, zenithDepth: 0.7, blue: 0.15 },
+  "plateau-dusk": { hazeDensityPerM: 2e-6, scaleHeightM: 6000, hazeTint: [0.9, 0.95, 1.0], turbidity: 0.7, glow: 0.6, glowPower: 14, zenithDepth: 1.0, blue: 0.6 },
+  "last-light": { hazeDensityPerM: 2e-6, scaleHeightM: 6000, hazeTint: [0.95, 0.92, 1.0], turbidity: 0.9, glow: 1.4, glowPower: 8, zenithDepth: 1.0, blue: 0.6 },
 };
 
 export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
@@ -127,7 +142,7 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     stops: { plain: [0.24, 0.36, 0.23], farmland: [0.28, 0.38, 0.24], loess: [0.34, 0.4, 0.28], highDry: [0.42, 0.42, 0.36] },
     rock: [0.54, 0.52, 0.5],
     rockSlope: [0.6, 0.95],
-    river: [0.4, 0.55, 0.58],
+    river: [0.26, 0.34, 0.32],
   },
   // August: the Xilingol steppe and Changbai's forest are green, the tundra
   // above the trees olive, the crater's rim pale grey trachyte and pumice,
@@ -149,21 +164,21 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     stops: { plain: [0.28, 0.4, 0.24], farmland: [0.35, 0.44, 0.27], loess: [0.46, 0.48, 0.31], highDry: [0.52, 0.48, 0.38] },
     rock: [0.56, 0.53, 0.49],
     rockSlope: [0.55, 0.9],
-    river: [0.35, 0.55, 0.55],
+    river: [0.3, 0.38, 0.34],
   },
   "jade-limestone": {
     face: "limestone",
     stops: { plain: [0.3, 0.46, 0.26], farmland: [0.38, 0.5, 0.29], loess: [0.46, 0.52, 0.31] },
     rock: [0.52, 0.51, 0.46],
     rockSlope: [0.62, 0.95],
-    river: [0.4, 0.62, 0.58],
+    river: [0.26, 0.42, 0.36],
   },
   "snow-and-scree": {
     face: "limestone",
     stops: { loess: [0.5, 0.5, 0.33], highDry: [0.5, 0.45, 0.38], plateau: [0.58, 0.55, 0.5] },
     rock: [0.42, 0.38, 0.35],
     snowLine: 4900,
-    river: [0.45, 0.6, 0.66],
+    river: [0.4, 0.39, 0.31],
   },
   "loess-ochre": {
     face: "sediment",
@@ -200,22 +215,57 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     rock: [0.32, 0.3, 0.3],
     snow: [0.97, 0.97, 1.0],
     snowLine: 5400,
-    river: [0.5, 0.58, 0.62],
+    river: [0.44, 0.49, 0.5],
     lake: [0.3, 0.42, 0.5],
   },
 };
 
-const NO_CLOUD: CloudPreset = { mist: null, deck: null, cirrus: null };
+const NO_CLOUD: CloudPreset = { mist: null, layers: [] };
+
+/*
+ * The sky's cloud, a layer or two per scene (D95), each drawn from a painted
+ * map: fair-weather cumulus over the south's summer, ice cloud at evening,
+ * a mackerel sky catching the dawn over Huangshan's cloud sea. A layer sits
+ * above every peak its scene flies past, since a plane through a mountain
+ * is a line drawn round it; the gorges' and the karst's lie under 2,500 m,
+ * the Roof's under 6,500. Altitudes are real and drawn at the scene's
+ * exaggeration like the ground, so a heap two kilometres over the camera
+ * stands as high in the frame as a ridge twelve (at six) would: the sky
+ * reads its cloud overhead and thinning into the haze at the horizon.
+ */
+const CUMULUS = { map: "cumulus", coverage: 0.55, scaleKm: 20, stretch: 1.15, density: 0.95, absorb: 2.4 } as const;
+const CIRRUS = { map: "cirrus", altitudeM: 9500, coverage: 0.7, scaleKm: 90, stretch: 1.6, density: 0.5, absorb: 0.4 } as const;
 
 export const CLOUD_PRESETS: Readonly<Record<string, CloudPreset>> = {
   none: NO_CLOUD,
-  "coastal-haze": { mist: { topM: 120, densityPerM: 5e-5, tint: [0.96, 0.96, 0.95], bankKm: 25 }, deck: null, cirrus: null },
-  "valley-mist": { mist: { topM: 230, densityPerM: 1.4e-4, tint: [0.97, 0.98, 1.0], bankKm: 12 }, deck: null, cirrus: null },
-  "river-mist": { mist: { topM: 190, densityPerM: 7e-5, tint: [0.98, 0.99, 1.0], bankKm: 8 }, deck: null, cirrus: null },
-  "dust-haze": { mist: { topM: 1500, densityPerM: 5e-5, tint: [1.0, 0.9, 0.72], bankKm: 40, tailM: 900 }, deck: null, cirrus: null },
-  "cloud-sea": { mist: null, deck: { altitudeM: 1050, coverage: 0.78, scaleKm: 5, stretch: 1.3, density: 1.0 }, cirrus: null },
-  "high-cirrus": { mist: null, deck: null, cirrus: { altitudeM: 9000, coverage: 0.45, scaleKm: 60, stretch: 3, density: 0.35 } },
-  "summit-plume": { mist: null, deck: null, cirrus: { altitudeM: 8800, coverage: 0.3, scaleKm: 40, stretch: 4, density: 0.3 } },
+  "coastal-haze": { mist: { topM: 120, densityPerM: 5e-5, tint: [0.96, 0.96, 0.95], bankKm: 25 }, layers: [] },
+  "valley-mist": {
+    mist: { topM: 230, densityPerM: 1.4e-4, tint: [0.97, 0.98, 1.0], bankKm: 12 },
+    layers: [{ ...CUMULUS, altitudeM: 3400 }, { ...CIRRUS, coverage: 0.45, bearingDeg: 20 }],
+  },
+  "river-mist": {
+    mist: { topM: 190, densityPerM: 7e-5, tint: [0.98, 0.99, 1.0], bankKm: 8 },
+    layers: [{ ...CUMULUS, altitudeM: 2600, coverage: 0.5, scaleKm: 22 }],
+  },
+  "dust-haze": {
+    mist: { topM: 1500, densityPerM: 5e-5, tint: [1.0, 0.9, 0.72], bankKm: 40, tailM: 900 },
+    layers: [{ ...CIRRUS, coverage: 0.35, density: 0.3, bearingDeg: -15 }],
+  },
+  "cloud-sea": {
+    mist: null,
+    layers: [
+      { map: "sea", altitudeM: 1050, coverage: 0.9, scaleKm: 9, stretch: 1.25, density: 1.0, billow: 0.09, veil: 0.8, contactM: 90 },
+      { map: "alto", altitudeM: 5200, coverage: 0.4, scaleKm: 34, stretch: 1.2, density: 0.7, absorb: 1.2, bearingDeg: 30 },
+    ],
+  },
+  "noon-cumulus": { mist: null, layers: [{ ...CUMULUS, altitudeM: 6600, coverage: 0.5, scaleKm: 30 }] },
+  "high-cirrus": {
+    mist: null,
+    layers: [{ ...CUMULUS, altitudeM: 3600, coverage: 0.45, scaleKm: 30 }, { ...CIRRUS, coverage: 0.55, bearingDeg: 10 }],
+  },
+  "desert-cirrus": { mist: null, layers: [{ ...CIRRUS, coverage: 0.75, density: 0.6, bearingDeg: -25 }] },
+  "plateau-cumulus": { mist: null, layers: [{ ...CUMULUS, altitudeM: 7400, coverage: 0.42, scaleKm: 34 }] },
+  "summit-plume": { mist: null, layers: [{ ...CIRRUS, altitudeM: 10500, coverage: 0.88, scaleKm: 70, density: 0.65, bearingDeg: 0 }] },
 };
 
 export const GRADE_PRESETS: Readonly<Record<string, GradePreset>> = {

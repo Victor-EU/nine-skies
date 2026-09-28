@@ -1,0 +1,29 @@
+# The house style of the sky's cloud maps (D95): what every brief is wrapped in.
+#
+# A map is not a picture anyone sees. It is where cloud is and how thick,
+# read by the cloud layer's shader as a density, tiled over a plane that
+# runs to the horizon, and lit there by the scene's own sun. So a map is
+# cloud seen from straight above, white where it is thick and black where
+# there is none, with no light of its own: the shader brings the light,
+# and a shadow painted in would point the wrong way under eight of the
+# nine suns. The tiling is made seamless after, in the cut; the painter
+# is asked for it anyway, so there is less to hide.
+
+background: opaque
+
+preamble: >-
+  A square greyscale texture map for the clouds of a real-time flight
+  film, made from a real satellite photograph looking exactly straight
+  down on clouds over a night-black ocean.
+
+rules: >-
+  Orthographic, straight overhead: no horizon, no perspective, no
+  vanishing point, no curvature of the earth. Monochrome: white cloud on
+  a pure black ground, the brightness showing how thick the cloud is,
+  thin edges grey and fraying into the black. Lit evenly from directly
+  above: no cast shadows, no shading on one side, no sun glint, no
+  vignette. Nothing but cloud and black: no land, no coastline, no sea
+  texture, no text, no border, no frame, no labels. The pattern fills
+  the whole square evenly to every edge, with no single feature in the
+  centre, as a seamless tileable texture whose left edge continues into
+  its right and top into its bottom.
