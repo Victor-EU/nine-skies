@@ -1,0 +1,33 @@
+# The pilgrims (D91): the monk on the white horse, Bajie and Sha, walking
+# a road of cloud; Wukong scouts ahead as his own figure. `monk` is the
+# departure from Chang'an (ch. 12-13), the monk and the horse alone.
+
+figure: pilgrims
+
+subject: >-
+  The pilgrims of the Ming novel Journey to the West, travelling west on a
+  road of real cloud.
+
+views:
+  default:
+    size: 1536x1024
+    pose: >-
+      Tang Sanzang the monk, young and resolute, in a patched red and gold
+      kasaya and the five-leaf Vairocana crown, riding a white horse and
+      holding the nine-ringed staff; behind him Zhu Bajie, the pig spirit,
+      heavy and round-bellied with a pig's snout and great flapping ears, in
+      a black monk's robe, the nine-toothed iron rake on his shoulder; last
+      Sha Wujing, tall and gaunt, with a wild red beard and hair and a
+      necklace of nine skulls, carrying the crescent-bladed staff and the
+      luggage on a pole. All three in single file toward the right of the
+      picture, three-quarter side view, on a long flat drift of cloud. The
+      whole party in the picture.
+  monk:
+    size: 1536x1024
+    pose: >-
+      Tang Sanzang alone, the monk setting out from Chang'an: young, calm and
+      resolute, in a patched red and gold kasaya and the five-leaf Vairocana
+      crown, riding a white horse and holding the nine-ringed staff. Walking
+      toward the right of the picture, three-quarter side view, the horse's
+      hooves on small drifts of cloud. Horse and rider whole in the
+      picture.

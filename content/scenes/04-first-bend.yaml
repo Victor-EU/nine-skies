@@ -92,7 +92,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1900, right_m: -120, up_m: -620 }
-    size_m: 120
+    size_m: 420
     facing_deg: 190
     from: 10
     until: 112
@@ -100,7 +100,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1500, right_m: -360, up_m: -720 }
-    size_m: 280
+    size_m: 1120
     facing_deg: 215
     from: 10
     until: 112
@@ -119,7 +119,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1400, right_m: 380, up_m: -800 }
-    size_m: 170
+    size_m: 680
     facing_deg: 250
     from: 52
     until: 112
@@ -130,7 +130,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1600, right_m: 600, up_m: -240 }
-    size_m: 260
+    size_m: 630
     facing_deg: 215
     from: 82
     until: 112

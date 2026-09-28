@@ -3284,3 +3284,125 @@ Gorges' first 20 s turn −25° → −75° → −25° → −103° with no fra
 half a degree; Huangshan pressed again at 21 s starts at km 0 and is at
 km 1.10 three seconds into the flight (1.10 by the clock); the Wall from
 the end card starts at km 0 under `#the-wall`.
+
+## F116 — The cast painted: pictures in place of the figures made in code (D94), 27 and 28 September 2026
+
+**Asked.** The fantasy animals look childish, "even child animation has
+better designs", with a photoreal, cinematic Wukong as the bar; images
+through the user's OpenAI key, $25 then $30 at most. Then, the pilot seen:
+"It's way better. proceed".
+
+**How they are made.** Safata, the user's local agent, has no image tool
+(0.1.4: its tools are text, files, search, charts and decks; asked on
+three models, $0.03), so `npm run paint` calls OpenAI's image API itself,
+keyed by `.keys/openai`, which git ignores. A brief per figure in
+`content/paintings/` gives the figure and a pose per view; `_style.yaml`
+wraps every one: film concept art, not children's illustration;
+transparent ground; soft dawn light that sits under any sun; a strong
+silhouette; a beast bare unless it is said to wear something; the
+novels' and temples' designs (Wukong wears the crown and plumes of the
+havoc years, not the fillet of *Black Myth*); living faiths by their
+mounts, seats and flags. Four drafts a view at `high` (gpt-image-2.5
+Flare, $0.043 a picture at 1024×1536 or 1536×1024), one chosen by hand,
+cut to its figure and written as WebP with its alpha by `python -m
+nineskies.paintings keep` into `app/public/cast/`. The dragons are one
+family: the East King drawn first, the other kings, the White Dragon and
+the Jing River's king drawn from his picture with Sunburst, same pose and
+design in their colours. 26 views of 20 figures, 9.5 MB; 110 pictures
+made in all, $4.78, every call in `docs/paint-ledger.jsonl`.
+
+The image model dressed animals of its own accord: all four tigers, Pengs
+and qilins came with harness, saddles or bells, and the turtle with the
+pilgrims' luggage roped to his shell. The rule that a beast is bare
+unless it is said to wear something redrew them clean. Nezha came back
+two drafts of four, the rest four.
+
+**How they are drawn.** `engine/src/cast/painting.ts`: a card upright and
+turned to the camera about the figure's origin, its feet for one that
+stands or walks, its middle for one that flies. A view says where the
+feet are and what a cue's size measures, as the figure made in code did:
+feet to crown for one that stands, nose to tail or wingtip to wingtip
+across the picture for the rest. `paintings/<figure>.ts` registers a view
+per variant; a variant without one (the dragon lying twenty kilometres
+along the Flaming Mountains) and a film asked `?paint=off` are drawn by
+the figure made in code (`madeBuilder`), which stays. The flocks and the
+wind horses stay made in code.
+
+- *The world is left-handed and the grade turns the picture round at the
+  end (F100).* A picture laid in it reads mirrored, so the card is
+  mirrored once more: at `scale.x < 0` a painting is as painted.
+- *A figure faces the way it goes.* Every painting faces right; the card
+  mirrors when its figure heads left across the picture, not within
+  `MIRROR_AT` of straight at the camera, and swings round through edge
+  on over `TURN_S` = 0.4 s rather than jumping. A hovering figure turns:
+  Wukong over Huangshan swung from −86° to 164° at 32.3 s.
+- *The card writes its depth.* Without it the cloud sea, drawn after the
+  figures without writing its own, painted over their lower halves.
+- *The scene's light tints it.* Sun and sky in the shares a matte face
+  takes them, over their sum at the First Bend's noon channel by channel,
+  four fifths of the way: noon as painted, Huangshan's dawn (0.86, 0.74,
+  0.58) before that, Turpan's sunset deep orange.
+- *A close pass is held to the picture.* `heldTo` shrinks a card to fill
+  at most 0.5 rad of the view's height and 1.1 of its width; the Karst
+  elephant came to 124 m of the lens at 28 s and would have filled 61%
+  of the frame's height.
+
+**Found on the way: pictures uploaded upside down.** Some cards drew
+upside down, and not the same ones from run to run: the pilgrims over the
+Karst in one, Sanduo's horse at the First Bend in every run. Upright in
+the world by their matrices, upside down squeezed to 40% and wholly in
+front of the lens: the texture itself. `terrain/colourLayers.ts` set
+`UNPACK_FLIP_Y_WEBGL` and `UNPACK_PREMULTIPLY_ALPHA_WEBGL` off with raw
+`gl.pixelStorei`; three r186 remembers what it last set and skips setting
+it again, so a picture uploaded after a terrain tile, which three believed
+it had flipped already, went up unflipped and unpremultiplied. It now
+sets them through `renderer.state.pixelStorei`. Nothing showed it before:
+no texture of the film's asked for the flip.
+
+**Staged.** At the scenes' sizes the paintings were 30 to 110 px high at
+their lines (Wukong over Huangshan 101, Nezha 45, the tiger 45, the
+Wall's pilgrims 46), and at that size the old toys' flat colours read
+better than a painting's detail. Each painted companion is sized for about
+a quarter of the frame at its authored offset, where the director holds
+it through its line: 190 px high for one that stands, 330 wide for a
+beast, 300 for a bird, 460 for a company, never more than four times its
+old size (Nezha over Huangshan 60 → 240 m, the Karst pilgrims 220 → 700,
+the Turpan immortals 520 → 1300). The monuments were large enough.
+
+A companion on its own way now keeps out of the picture from two seconds
+before another figure's line to one after it (`LINE_ALONE_S`): at the
+Karst the elephant, a quarter of the frame, crossed in front of the
+pilgrims through theirs.
+
+**Seen.** All nine scenes played headless at each line, seeds 7 and 1
+(for the phoenix, Jingwei and the Peng, which some viewings never see):
+the kings on Huangshan's cloud sea, the White Dragon before the Gorges'
+wall, Yao Ji over the Wu Gorge, the elephant and the pilgrims over the
+towers, the tiger in Tiger Leaping Gorge, Sanduo's horse, the monk
+leaving Chang'an over the Loess, the Jing River king in dust, the carp,
+the magpie at Heaven Lake, the Queen Mother, Nezha, the Bull Demon King,
+the Eight Immortals and the Flowing Sands in Turpan's evening, the qilin
+and the turtle on the Roof, the tigress before the Wall and the last
+crossing over it.
+
+**Left.**
+
+- The dragon lying along the Flaming Mountains is still the red lantern
+  serpent made in code, and beside the paintings it is the toy the rest
+  were. A card cannot lie along a range; it wants a painting laid on the
+  ground or a view the rail sees side on.
+- A painting does not move its parts: no wingbeat, no head turned to the
+  lens or to what is coming (`heads` is empty), no somersault. It glides
+  on its motion and swings round to turn.
+- A seed can still stand one figure in front of another outside a line:
+  over Huangshan at 67 s (seed 7) Wukong stood before the South King as
+  he surfaced.
+- `?paint=off` draws the toys at the new sizes, up to four times what
+  they were.
+
+**Checked.** `npm run check`: 535 tests, twelve new: the painting's view,
+size, mirror, light, hold, registration and fall-back to the figure made
+in code, and every registered picture on disk (`test/cast/painting.test.ts`,
+11); and that a passing companion keeps out of every line, for every
+seed the director is tested on (`test/cast/motion.test.ts`). The film
+validates.

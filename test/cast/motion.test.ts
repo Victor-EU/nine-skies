@@ -15,7 +15,7 @@ import "../../engine/src/cast/motions/index.js";
 import "../../engine/src/cast/figures/index.js";
 import { hashSeed, Rng } from "../../engine/src/cast/random.js";
 import { GENERIC, TEMPERAMENTS, temperamentOf } from "../../engine/src/cast/temperament.js";
-import { CROWD, RISEN, planScene, repertoire } from "../../engine/src/cast/director.js";
+import { CROWD, LINE_ALONE_S, RISEN, planScene, repertoire } from "../../engine/src/cast/director.js";
 import { sightOf } from "../../engine/src/cast/sight.js";
 import { CastLayer } from "../../engine/src/cast/cast.js";
 import { CAST_LINE_SHOW_S, type CastCue, type Scene } from "../../engine/src/film/scene.js";
@@ -248,6 +248,26 @@ describe("the director", () => {
           const up = risings.filter((v) => v.fromS <= t && v.untilS > t);
           if (up.some((v) => !v.named)) expect(up.length, `${s.id} seed ${seed} at ${t}`).toBeLessThanOrEqual(RISEN + up.filter((v) => v.named).length);
         }
+      }
+    }
+  });
+
+  it("leaves each line the picture to itself: no companion passes on its own way while another is named (D94)", () => {
+    for (const s of film.scenes) {
+      for (const seed of SEEDS) {
+        const plan = planScene(s, seed, temperamentOf, sightOf(s));
+        s.cast.forEach((named, j) => {
+          if (!plan.cues[j]!.cast || !named.line) return;
+          const from = named.lineAtS - LINE_ALONE_S[0];
+          const until = named.lineAtS + CAST_LINE_SHOW_S + LINE_ALONE_S[1];
+          s.cast.forEach((c, i) => {
+            if (i === j || c.role !== "companion") return;
+            for (const v of plan.cues[i]!.visits) {
+              if (v.named || v.motion === "chase" || v.motion === "hold" || v.reaction) continue;
+              expect(v.untilS <= from || v.fromS >= until, `${s.id} ${c.figure} across ${named.figure}'s line, seed ${seed}`).toBe(true);
+            }
+          });
+        });
       }
     }
   });

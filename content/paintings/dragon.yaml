@@ -1,0 +1,64 @@
+# The dragon of the cloud seas and rivers (D91): the classical long of the
+# nine resemblances, no wings, riding the cloud. The East King is drawn
+# first; the other kings, the White Dragon and the Jing River's are drawn
+# from him (`--ref`), so the family is one design in its liveries. The
+# Uyghur dragon lying twenty kilometres along the Flaming Mountains stays
+# made in code: a card cannot lie along a range.
+
+figure: dragon
+
+subject: >-
+  A Chinese dragon, the classical long of the nine resemblances: a long
+  serpent's body swimming through the air in painted S-curves, a camel-like
+  head with branching deer antlers, a flowing mane and long whiskers, eyes
+  like a hare's that burn, four legs each with four taloned claws, a crest
+  of fins along the spine, and no wings: it rides the cloud. Heavy real
+  scales like a great carp's, catching the light. Wisps of real cloud
+  trail from its body and coils.
+
+views:
+  east-king:
+    size: 1536x1024
+    pose: >-
+      The Dragon King of the Eastern Sea, ancient and immense: scales of deep
+      jade green, a pale gold belly, an amber mane. Rising out of cloud in one
+      great S-curve from the lower left to the upper right, head raised and
+      turned toward the right of the picture, jaws parted, one foreclaw
+      reaching forward. The whole length of the dragon in the picture, head
+      to tail.
+  south-king:
+    size: 1536x1024
+    pose: >-
+      Keep the dragon in the reference picture exactly: its design, pose,
+      composition, framing and light. Change only its colours: the Dragon
+      King of the Southern Sea, scales of deep vermilion red, a pale apricot
+      belly, a gold mane.
+  west-king:
+    size: 1536x1024
+    pose: >-
+      Keep the dragon in the reference picture exactly: its design, pose,
+      composition, framing and light. Change only its colours: the Dragon
+      King of the Western Sea, scales of cold silver with a pearl sheen, a
+      pale belly, a blue-grey mane.
+  north-king:
+    size: 1536x1024
+    pose: >-
+      Keep the dragon in the reference picture exactly: its design, pose,
+      composition, framing and light. Change only its colours: the Dragon
+      King of the Northern Sea, scales of blue-black iron, a slate-grey
+      belly, a dark grey mane.
+  white:
+    size: 1536x1024
+    pose: >-
+      Keep the dragon in the reference picture exactly: its design, pose,
+      composition, framing and light. Change it into the White Dragon of
+      Eagle Grief Stream, the Western Sea King's young son: slimmer and
+      younger, scales of pure white with a pearl sheen, a cream belly, a
+      pale gold mane.
+  dust:
+    size: 1536x1024
+    pose: >-
+      Keep the dragon in the reference picture exactly: its design, pose,
+      composition, framing and light. Change it into the Dragon King of the
+      Jing River: scales the ochre-brown of loess dust, a pale sand belly, a
+      dark umber mane, and dust streaming from his coils like smoke.

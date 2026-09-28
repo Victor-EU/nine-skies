@@ -5,15 +5,18 @@
  * A figure is built once for its cue at its native size, in its own units,
  * and the layer scales its group to the cue's real metres. Each frame it is
  * handed the time and where the camera is, and it moves itself; where its
- * group stands is the layer's business, not the figure's. It draws nothing
- * of its own: every material comes from the skin it was built with.
+ * group stands is the layer's business, not the figure's. A figure made in
+ * code draws nothing of its own: every material comes from the skin it was
+ * built with. A painted one (D94) is a picture, and brings it.
  *
  * Builders register themselves by importing `figures/index.ts`, which the
  * shell does only when the viewer switches the cast on, so a film with the
- * cast off carries none of this.
+ * cast off carries none of this. A figure with a painting registers it too,
+ * from `paintings/index.ts`, and the painting is drawn in its place.
  */
 import type { Group, Object3D, Vector3 } from "three";
 import type { WorldScale } from "../sim/scale.js";
+import type { CastLight } from "./cast.js";
 import { isFigureKind, type FigureKind } from "./kinds.js";
 import type { Skin } from "./skin.js";
 
@@ -29,6 +32,8 @@ export interface CastFrame {
   readonly group: Group;
   /** 0 to 1: how frightened it is, when an omen has scattered it (D93); a flock breaks its formation. */
   readonly alarm?: number;
+  /** The scene's light this frame, for a figure that brings its own picture and must be lit by hand (D94). */
+  readonly light?: CastLight;
 }
 
 /**
@@ -66,6 +71,7 @@ export interface BuildContext {
 export type FigureBuilder = (ctx: BuildContext) => Figure;
 
 const builders = new Map<FigureKind, FigureBuilder>();
+const painted = new Map<FigureKind, FigureBuilder>();
 
 /** A builder for a kind the list knows; registering a kind it does not is a programming error. */
 export function registerFigure(kind: string, builder: FigureBuilder): void {
@@ -73,8 +79,20 @@ export function registerFigure(kind: string, builder: FigureBuilder): void {
   builders.set(kind, builder);
 }
 
-export function figureBuilder(kind: string): FigureBuilder | null {
+/** A painted figure for a kind (D94), built in place of the code-made one once registered. */
+export function registerPainted(kind: string, builder: FigureBuilder): void {
+  if (!isFigureKind(kind)) throw new Error(`"${kind}" is not in FIGURE_KINDS; add it there first`);
+  painted.set(kind, builder);
+}
+
+/** The kind's figure made in code, whether or not it has a painting. */
+export function madeBuilder(kind: string): FigureBuilder | null {
   return isFigureKind(kind) ? (builders.get(kind) ?? null) : null;
+}
+
+/** The kind's builder: its painting's when one is registered, else the one made in code. */
+export function figureBuilder(kind: string): FigureBuilder | null {
+  return isFigureKind(kind) ? (painted.get(kind) ?? builders.get(kind) ?? null) : null;
 }
 
 export function registeredFigures(): readonly FigureKind[] {

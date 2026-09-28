@@ -99,6 +99,20 @@ Dario Barresi and processed by Jenelle van Heerden. Every Poly Haven asset is
 CC0, <https://polyhaven.com/license>: in the public domain, to be used for
 any purpose, credit not required. They are credited all the same.
 
+## The cast's paintings — generated with OpenAI's image model
+
+The figures the cast draws as pictures (D94), the WebPs in
+`app/public/cast/`, were generated for this film on 27 and 28 September
+2026 with OpenAI's `gpt-image-2.5` (Flare; the other dragons from the East
+King's picture with Sunburst), from the briefs in `content/paintings/`,
+through `npm run paint`. Each was chosen from its drafts by hand and cut to
+its figure by `python -m nineskies.paintings keep`. Every call and what it
+cost is in `docs/paint-ledger.jsonl`. OpenAI's terms of use give the output
+of a request to whoever made it. The designs follow the Ming novels, the
+Classic of Mountains and Seas and the temples' own iconography, not any
+game's or film's; the figures of living faiths are drawn by their mounts,
+seats and standards only.
+
 ## Music and sound
 
 Nine cues, one a scene, and a bed of wind, each licensed or commissioned

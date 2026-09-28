@@ -143,6 +143,24 @@ Everything else in the repository served the version-1 game and goes.
   lens while their line is on, in a glance on their way as often as they
   are curious, and toward what is coming. A few figures are rare, by the
   lore that makes them so, and every scene keeps one that always comes.
+- **D94** The cast is painted (decided 27 and 28 September 2026, F116),
+  which undoes D91's "made in code, never cut from pictures": the figures
+  made in code read as toys over photographed ground, and the bar is a
+  live-action film's concept art. A figure is drawn from a painting where
+  it has one: generated with OpenAI's image model from a brief the film
+  writes (`content/paintings/`, a house style and a file per figure; the
+  novels' and the temples' designs, never a game's), chosen by hand from
+  its drafts and cut to its figure; drawn on a card upright and turned to
+  the camera, mirrored to face the way it goes, under the scene's haze and
+  tinted by its light. How a figure is drawn is the sixth plug axis: a file
+  per painted figure under `engine/src/cast/paintings/`, a view per
+  variant; a variant without one, and a film asked `?paint=off`, is drawn
+  by the figure made in code, which stays. The flocks, the wind-horse flags
+  and the dragon lying along the Flaming Mountains stay made in code.
+  Paintings are staged larger than the toys were: a companion is sized for
+  about a quarter of the frame at its authored distance, and grows at most
+  fourfold. Living faiths stay aniconic. The spend is capped at $30 and
+  ledgered (`docs/paint-ledger.jsonl`).
 
 
 ## What each part of the repository becomes

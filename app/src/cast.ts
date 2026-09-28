@@ -32,6 +32,11 @@ export function seedAtStart(search: string, draw: () => number = () => Math.floo
   return Number.isInteger(v) && v >= 0 ? v >>> 0 : draw() >>> 0;
 }
 
+/** Whether the painted figures (D94) are drawn: yes unless the address says `?paint=off`. */
+export function paintingsWanted(search: string): boolean {
+  return new URLSearchParams(search).get("paint") !== "off";
+}
+
 /** The viewer's choice as the page opened: the address first, then this browser's memory. */
 export function wantedAtStart(search: string, stored: string | null): boolean {
   const params = new URLSearchParams(search);
@@ -79,10 +84,11 @@ export class CastSwitch {
     if (on) {
       if (this.loading) return;
       this.loading = (async () => {
-        // The layer, its figures, their motions and their omens, only now (vite splits them into their own chunks).
+        // The layer, its figures and their paintings, their motions and their omens, only now (vite splits them into their own chunks).
         const [{ CastLayer }] = await Promise.all([
           import("../../engine/src/cast/cast.js"),
           import("../../engine/src/cast/figures/index.js"),
+          paintingsWanted(location.search) ? import("../../engine/src/cast/paintings/index.js") : null,
           import("../../engine/src/cast/motions/index.js"),
           import("../../engine/src/cast/omens/index.js"),
         ]);

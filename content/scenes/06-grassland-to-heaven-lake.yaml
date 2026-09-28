@@ -112,7 +112,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 700, right_m: 220, up_m: -260 }
-    size_m: 90
+    size_m: 340
     facing_deg: 200
     from: 96
     until: 114

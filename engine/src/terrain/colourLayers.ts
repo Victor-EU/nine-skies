@@ -149,10 +149,14 @@ export function rendererUploader(renderer: WebGLRenderer, texture: DataArrayText
   return {
     upload(layer, image) {
       bind();
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      // Through three's own state, which remembers what it last set and skips
+      // setting it again: set behind its back, the next picture three uploaded
+      // believing the flip still on went up unflipped, upside down (F116).
+      const { state } = renderer;
+      state.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      state.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      state.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+      state.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       const { width, height } = image;
       if (image.source instanceof Uint8Array) {
         gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, layer, width, height, 1, gl.RGBA, gl.UNSIGNED_BYTE, image.source);

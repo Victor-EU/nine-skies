@@ -52,7 +52,7 @@ cast:
   - figure: xiwangmu
     role: companion
     offset: { ahead_m: 1600, right_m: 500, up_m: 20 }
-    size_m: 320
+    size_m: 420
     facing_deg: 200
     from: 6
     until: 40
@@ -72,7 +72,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1200, right_m: -720, up_m: -60 }
-    size_m: 150
+    size_m: 290
     facing_deg: 200
     from: 22
     until: 62
@@ -80,7 +80,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1100, right_m: -420, up_m: 30 }
-    size_m: 140
+    size_m: 310
     facing_deg: 150
     from: 24
     until: 96
@@ -91,7 +91,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1500, right_m: -760, up_m: -480 }
-    size_m: 400
+    size_m: 850
     facing_deg: 210
     from: 26
     until: 54
@@ -102,7 +102,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1800, right_m: 620, up_m: -150 }
-    size_m: 520
+    size_m: 1300
     facing_deg: 200
     from: 46
     until: 100
@@ -113,7 +113,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1000, right_m: 360, up_m: -300 }
-    size_m: 200
+    size_m: 750
     facing_deg: 225
     from: 62
     until: 114

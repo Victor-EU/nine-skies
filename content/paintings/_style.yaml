@@ -1,0 +1,36 @@
+# The house style of the cast's paintings: what every brief is wrapped in.
+#
+# A painting is drawn on a card in the sky, and the scene's own haze and
+# grade go over it, so the picture is the figure alone, lit softly enough
+# to sit under any of the film's suns, in colour left for the grade to set.
+# It is seen at a quarter of the frame at most and often much less, so the
+# silhouette carries it before any detail does.
+#
+# Living faiths stay aniconic (D91): no brief paints Guanyin, Sanduo's
+# rider or Miyolangsangma in a body; their mounts, seats and flags may be.
+# Designs are the novels' and the temples', never a game's or a film's.
+#
+# A view is a pose, and the picture's size when it is not a portrait:
+# walking and flying figures are drawn wide, 1536x1024. Every figure faces
+# or moves toward the picture's right, so one flag (`faces: right`) serves
+# the whole cast and the card mirrors it to go the other way.
+
+preamble: >-
+  From Chinese myth, painted as photoreal characters for a serious
+  live-action fantasy epic: the craft of a feature film's creature and
+  costume concept art, with real anatomy, real fur, feathers and scale,
+  real metal, silk and leather, worn by use.
+
+rules: >-
+  Isolated on a fully transparent background. Nothing else in the picture
+  but what is described: no landscape, no sky, no mountains, no ground, no
+  floor shadow, no text, no seal, no signature, no border. The whole
+  figure, with everything it wears and carries, inside the frame with a
+  clear margin on every side. A beast or a bird is bare unless it is said
+  to wear something: no harness, saddle, straps, luggage or jewellery of
+  the painter's own.
+  Soft dawn light: cool blue-grey skylight from above, a thin warm rim of
+  low sun along one edge, no hard cast shadows. Natural, ungraded colour,
+  true to the materials. A strong, clear silhouette that still reads when
+  the figure is small on a screen. Dignified and dangerous in tone: not
+  cute, not a cartoon, not a toy, not chibi, not anime.

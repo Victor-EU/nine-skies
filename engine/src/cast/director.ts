@@ -17,6 +17,10 @@
  *   a line stands for it;
  * - no more than `CROWD` companions are in the picture at once, and no
  *   more than `RISEN` monuments are up, lines aside;
+ * - a companion passing on its own way stays out of the picture while
+ *   another figure's line is on, which has it to itself: the figures are
+ *   paintings a quarter of the frame high (D94), and one crossing in front
+ *   of another while it is named hid it;
  * - a figure's visits stay inside its cue's seconds and apart;
  * - a monument that does not surface stands for its whole cue, as it did;
  * - a monument that surfaces comes up where the flight is looking more
@@ -42,6 +46,8 @@ export const CROWD = 2;
 export const RISEN = 3;
 /** Seconds a named figure is in place before its line and after it. */
 export const LINE_PAD_S = 0.4;
+/** Seconds before another figure's line, and after it, that a passing companion keeps out of the picture (D94). */
+export const LINE_ALONE_S = [2, 1] as const;
 /** How often a visit with no line pauses in the picture, and for how long. */
 const PAUSE_CHANCE = 0.35;
 const PAUSE_S = [2, 4.5] as const;
@@ -140,6 +146,9 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
     reaction: null,
   });
   const apart = (i: number, from: number, until: number, gap = APART_S) => !drafts[i]!.some((v) => v.fromS < until + gap && from < v.untilS + gap);
+  // Another cast figure's line, which a passing companion keeps out of (D94).
+  const lines = cues.flatMap((c, j) => (cast[j] && c.line ? [{ j, from: c.lineAtS - LINE_ALONE_S[0], until: c.lineAtS + CAST_LINE_SHOW_S + LINE_ALONE_S[1] }] : []));
+  const clearOfLines = (i: number, from: number, until: number) => lines.every((l) => l.j === i || until <= l.from || from >= l.until);
   const shuffled = (list: number[], salt: string): number[] => {
     const rng = new Rng(hashSeed(seed, scene.id, salt));
     for (let k = list.length - 1; k > 0; k--) {
@@ -364,6 +373,7 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
       for (let from = cursor; from + length <= c.untilS; from += 1.5) {
         const until = from + length;
         if (!apart(i, from, until)) continue;
+        if (!clearOfLines(i, from, until)) continue;
         if (crowdOver(moving, from, until) >= CROWD) continue;
         const a = from + 0.4 * (length - pause);
         const v: Draft = { ...base(i, motion, from, until), dwell: pause > 0 ? [a, a + pause] : null };

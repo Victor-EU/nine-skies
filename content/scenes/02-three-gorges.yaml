@@ -127,7 +127,7 @@ cast:
   - figure: yaoji
     role: companion
     offset: { ahead_m: 1400, right_m: 520, up_m: 120 }
-    size_m: 200
+    size_m: 360
     facing_deg: 205
     from: 62
     until: 106

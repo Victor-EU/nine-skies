@@ -317,7 +317,7 @@ export class CastLayer {
         g.position.y += p.lift;
         g.rotation.set(-pose.pitch, h + pose.yaw, pose.bank);
       }
-      const frame: CastFrame = { timeS: f.timeS, flightS: f.flightS, eye: f.eye, headingRad: f.headingRad, group: g, alarm: pose.alarm };
+      const frame: CastFrame = { timeS: f.timeS, flightS: f.flightS, eye: f.eye, headingRad: f.headingRad, group: g, alarm: pose.alarm, light: L };
       p.figure.update(frame);
       this.look(p, pose);
     }

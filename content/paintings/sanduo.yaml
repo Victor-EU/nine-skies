@@ -1,0 +1,19 @@
+# Sanduo's mount (D91): the Naxi god is the snow mountain itself, so the
+# film draws his white horse, riderless, and his standard, never him.
+
+figure: sanduo
+
+subject: >-
+  The mount of Sanduo, the Naxi god of Jade Dragon Snow Mountain, shown
+  without him: a powerful white horse saddled in white and gold, walking
+  the air with no rider. Upright at the saddle, a white spear with a long
+  white pennant streaming from it in the wind. No person, no rider, no
+  figure: the saddle is empty. Each hoof on a small drift of real
+  cloud.
+
+views:
+  default:
+    size: 1536x1024
+    pose: >-
+      Walking toward the right of the picture, three-quarter side view, head
+      high. The whole horse, the spear and the pennant in the picture.
