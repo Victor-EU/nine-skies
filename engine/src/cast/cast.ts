@@ -17,7 +17,8 @@
  * the camera's frame. That frame follows the camera's position exactly and
  * its heading a moment late, so a figure keeps its place in the picture at
  * any speed and swings a little when the rail turns. It is kept off ground
- * it skims, and hidden by a peak it passes behind.
+ * it skims, and where rock would cut it or stand before it, it is drawn
+ * nearer and smaller about the eye, the same in the picture (F137).
  *
  * The plan is drawn with the scene's sight (D93), so a monument that
  * surfaces comes up where the flight looks; a visit an omen reacts in is
@@ -25,10 +26,11 @@
  * with a head turns it where its pose says to look, after it has moved
  * itself.
  */
-import { DirectionalLight, Fog, Group, HemisphereLight, Vector3, type Color, type Scene as ThreeScene, type WebGLRenderer } from "three";
+import { Box3, DirectionalLight, Fog, Group, HemisphereLight, Vector3, type Color, type Scene as ThreeScene, type WebGLRenderer } from "three";
 import { castLineAt, type CastCue, type Scene } from "../film/scene.js";
 import { projectAlbers } from "../terrain/worldGrid.js";
 import { toWorldH, type WorldScale } from "../sim/scale.js";
+import { clearRatio } from "./clearance.js";
 import { planScene, type Plan } from "./director.js";
 import { FADE_S } from "./fade.js";
 import { figureBuilder, type CastFrame, type Figure, type Pace } from "./figure.js";
@@ -127,6 +129,8 @@ interface Placed {
   grid: { eastM: number; northM: number } | null;
   /** How far it has been lifted over the ground, world units; below zero while it is off stage. */
   lift: number;
+  /** The share of its distance it is drawn at, to keep it out of the rock (F137); 1 in the clear. */
+  nearer: number;
   /** Whether its heads are turned, so they are set back when the pose lets them go. */
   looking: boolean;
 }
@@ -180,7 +184,17 @@ export class CastLayer {
   /** The frame's eye and the camera's altitude, for a pose read in the middle of placing. */
   private readonly eye = new Vector3();
   private altitudeM = 0;
+  /** The camera's real position, for the ground under a figure in the frame. */
+  private eastM = 0;
+  private northM = 0;
   private readonly at = new Vector3();
+  private readonly bounds = new Box3();
+  /** The drawn ground at a world position, world units (F137). */
+  private readonly drawnGround = (x: number, z: number): number | null => {
+    const c = this.scale.horizontalCompression;
+    const g = this.options.terrain.groundElevationM(this.eastM + (x - this.eye.x) * c, this.northM + (z - this.eye.z) * c);
+    return g === null ? null : g * this.scale.verticalExaggeration;
+  };
   /** How deep a pose is being read for another figure's omen. */
   private asking = 0;
   /** This viewing's seed (D92). */
@@ -252,7 +266,7 @@ export class CastLayer {
       figure.group.visible = false;
       figure.group.rotation.order = "YXZ";
       this.group.add(figure.group);
-      this.placed.push({ index, cue, figure, visits, grid: null, lift: -1, looking: false });
+      this.placed.push({ index, cue, figure, visits, grid: null, lift: -1, nearer: 1, looking: false });
     });
   }
 
@@ -338,6 +352,8 @@ export class CastLayer {
     this.right.set(this.fwd.z, 0, -this.fwd.x);
     this.eye.copy(f.eye);
     this.altitudeM = f.altitudeM;
+    this.eastM = f.eastM;
+    this.northM = f.northM;
     const view = f.view ?? DEFAULT_VIEW;
     // A picture a frame, handed to the GPU before its figure first comes on.
     if (this.renderer) for (const p of this.placed) if (p.figure.warm?.(this.renderer)) break;
@@ -356,6 +372,7 @@ export class CastLayer {
       const sizeWorld = toWorldH(p.cue.sizeM, this.scale);
       g.scale.setScalar((sizeWorld / p.figure.nativeSize) * (0.6 + 0.4 * pose.presence));
       if (pose.space === "world" && pose.world) {
+        p.nearer = 1;
         this.worldPlace(p, pose.world, g.position);
         g.rotation.set(-pose.pitch, pose.yaw, pose.bank);
       } else {
@@ -376,6 +393,19 @@ export class CastLayer {
         else p.lift += (need - p.lift) * Math.min(1, (need > p.lift ? 10 : 1.5) * dt);
         g.position.y += p.lift;
         g.rotation.set(-pose.pitch, h + pose.yaw, pose.bank);
+        // Where rock would still cut it or stand before it, nearer and
+        // smaller about the eye: the same picture, in front of the rock (F137).
+        g.updateMatrixWorld(true);
+        this.bounds.setFromObject(g).expandByScalar(0.05 * sizeWorld);
+        p.nearer = clearRatio(this.eye, this.bounds, this.drawnGround, 0.02 * sizeWorld);
+        if (p.nearer === 0) {
+          g.visible = false;
+          continue;
+        }
+        if (p.nearer < 1) {
+          g.position.sub(this.eye).multiplyScalar(p.nearer).add(this.eye);
+          g.scale.multiplyScalar(p.nearer);
+        }
       }
       const frame: CastFrame = { timeS: f.timeS, flightS: f.flightS, eye: f.eye, headingRad: f.headingRad, group: g, alarm: pose.alarm, light: L, pace: this.paceOf(on.motion, f.flightS, view, p.cue.sizeM, pose.space === "frame") };
       p.figure.update(frame);

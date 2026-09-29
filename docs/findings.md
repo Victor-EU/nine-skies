@@ -4880,3 +4880,42 @@ line comes on at 17 s of play with him under it. `npm run typecheck`;
 **Left.** The code-made dragon keeps its `lantern` variant, which the film
 no longer asks for (the painting tests use it as the variant with no view).
 Cranes, egrets and the wind-horse flags are still made in code.
+
+## F137 — Companions out of the rock: drawn nearer, the same in the picture, 30 September 2026
+
+**Asked.** A frame of the Three Gorges 52 s in, the White Dragon's body cut
+off by the gorge's right wall: "the animal flies through mountain and
+rocks. This is just not logical and users will laugh at us."
+
+**What it was.** A companion is placed in the camera's frame (D92), the
+White Dragon 2 km ahead and 700 m below, 1 km long. In a winding gorge at
+six times relief a point 2 km straight ahead is as often in a wall as over
+the river, and the dragon is wider than the gorge. The layer kept a
+companion off the ground by one height under its middle, lifting it at
+most half its size, and let a peak it passed behind hide it (F111). With
+the cast on (seed 1), held at nine moments from 15 to 105 s, the dragon
+was cut by a wall or ridge at 15, 25 and 52 s and wholly inside or behind
+the rock at 45 and 75 s. Lifting further is no cure: the walls stand
+kilometres over him, and he would leave the picture.
+
+**The rule.** Where the rock would still cut a companion or stand between
+it and the eye, it is drawn nearer and smaller in one ratio, a scaling
+about the eye (`cast/clearance.ts`). Every point of it stays on its own
+sight line, so its picture is where it was and as large; only its depth
+changes, and it passes in front of the wall. The ratio is the largest at
+which its bounds (its group's box, 5 % larger) stand clear of the drawn
+ground under them, a 3 by 3 of samples, and no ground rises over the lines
+from the eye to its four lower corners and its middle, 24 samples each;
+found by six halvings down to 8 % of its distance. If not even that is
+clear, it is not drawn. A monument is untouched: it stands on its place
+and a peak may hide it.
+
+**Seen.** The nine moments again, same seed: at 52 s the dragon is whole,
+drawn at 0.51 of his distance, in front of the right wall where only a
+white fleck had shown; at 15 s his tail is over the ridge, not in it; where
+he was clear (35, 90 s) nothing moved. The cast layer's frame costs a mean
+0.26 ms with the dragon held nearer at 52 s and 0.48 ms with both figures
+on at 90 s (headless, the M3).
+
+**Left.** A companion drawn nearer is fogged a little less, as the cast's
+fog is by distance; not measured.
