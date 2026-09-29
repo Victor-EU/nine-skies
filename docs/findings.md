@@ -4755,16 +4755,24 @@ grid (the old box cut alone is identical).
 
 **Seen.** Headless at 1280 by 720, held at 3, 12, 22, 34 and 45 s: to
 22 s the gorge now has the hero grid's ridges and rock walls, the reservoir
-level behind the dam; 34 and 45 s as before. Three Gorges pack 106.4 to
-111.5 MB; the film 1,075.5 MB of 2,000.
+level behind the dam; 34 and 45 s as before. The Yichang part is built from
+all 200 of its passes (4.2 GB at 1 MB/s; twelve read again after the
+network failed them), and nothing of the area is filled. Where the two
+parts overlap, a tile column wide, their toned medians differ by a median
+1 to 1.7 levels a channel, blended over the 1.5 km: at 27, 30 and 33 s,
+where the rail crosses the old edge, no seam shows. Three Gorges pack
+106.4 to 114.5 MB; the film 1,078.5 MB of 2,000.
 
-**Left.** The Yichang part's colour is built from the first 51 of its 200
-passes; the rest are coming at 1 MB/s. Until they are in, its three
-eastern columns are filled from round them, flat green where the camera
-starts. Then: build, cut, `make scenes`, the Gorges cover card (18 s) and
-still 02 retaken for sign-off (D77). A test bound moved: a quarter of a
-rail's near sub-tiles may lie under its hero area, now a third (23 of the
-Gorges' 78). Frame cost not measured.
+The Gorges cover card (18 s) retaken: the White Dragon whole over the
+gorge, clear of the caption; the sheet is drawn again with F138's Loess
+card. Still 02 (60 s, the old ground) retaken: 7.5 % of its ground pixels
+moved by more than 8 levels (two takes of one build differ by 0.75 %), as
+fine shading along the slopes, the old tiles' relief cut again over the
+larger grid. Both need signing off (D77).
+
+**Left.** A test bound moved: a quarter of a rail's near sub-tiles may lie
+under its hero area, now a third (23 of the Gorges' 78). Frame cost not
+measured.
 
 ## F133 — The four Dragon Kings together for their line, and no king timed behind a mountain, 29 September 2026
 
