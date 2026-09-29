@@ -4,8 +4,8 @@
  * from him, so the family is one design (`content/paintings/dragon.yaml`).
  * Rising in an S from the lower left, head to the right; sized head to
  * tail across the picture, as the dragon made in code is. The Uyghur
- * dragon lying along the Flaming Mountains (`lantern`) has no view and
- * stays made in code.
+ * dragon of the Flaming Mountains (`slain`) is his design too, lying dead
+ * along its picture.
  */
 import { circlesAlong, type LifeRig, type Px } from "../life.js";
 import { churn, PALE } from "../life/churn.js";
@@ -93,6 +93,15 @@ const FOUR_KINGS: LifeRig[] = [
   pitch({ most: 0.15 }),
 ];
 
+/**
+ * The dragon of the Flaming Mountains is dead, so nothing of him moves but
+ * the smoke off his back, as off hot rock, found by its colour in the
+ * plumes over him and never on his scales.
+ */
+const SLAIN: LifeRig[] = [
+  churn({ swirl: 6, grey: 0.25, pale: 0.5, within: [disc(185, 185, 45), disc(390, 145, 70), disc(545, 200, 50), disc(790, 110, 90), disc(925, 170, 70)] }),
+];
+
 registerPainting("dragon", {
   views: [
     { name: "east-king", url: "cast/dragon-east-king.webp", faces: "right", aspect: 1505 / 999, feet: 0.5, size: { across: 0.97 }, pixels: [1505, 999], life: lifeAt(0, 0, {}) },
@@ -102,5 +111,6 @@ registerPainting("dragon", {
     { name: "white", url: "cast/dragon-white.webp", faces: "right", aspect: 1517 / 1006, feet: 0.5, size: { across: 0.97 }, pixels: [1517, 1006], life: lifeAt(10, 5, { grey: 0.12, pale: 0.8 }) },
     { name: "dust", url: "cast/dragon-dust.webp", faces: "right", aspect: 1508 / 1004, feet: 0.5, size: { across: 0.97 }, pixels: [1508, 1004], life: lifeAt(0, 0, { grey: 0.55, pale: 0.72 }) },
     { name: "four-kings", url: "cast/dragon-four-kings.webp", faces: "right", aspect: 1523 / 1024, feet: 0.5, size: { across: 0.97 }, pixels: [1523, 1024], life: FOUR_KINGS },
+    { name: "slain", url: "cast/dragon-slain.webp", faces: "right", aspect: 1536 / 568, feet: 0.25, size: { across: 0.98 }, pixels: [1536, 568], life: SLAIN },
   ],
 });

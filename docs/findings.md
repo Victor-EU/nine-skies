@@ -4849,3 +4849,34 @@ the tool knows every monument, and Heaven Lake's crane flock, placed to sit
 below the crater's rim (F104), is behind it until 103 s. The painting is `high`
 quality; spend $5.93 of $30. `npx vite-node tools/sightlines.ts` has no npm
 script yet: `package.json` carries another session's uncommitted work.
+
+## F134 — The dragon of the Flaming Mountains painted, and laid on the range, 29 September 2026
+
+Seen in the browser over Turpan (scene 7, 12:28): the Uyghur story's slain
+dragon was still the one made in code, a flat orange tube with a toy's
+eyes, beside a painted Queen Mother of the West. It had been kept in code
+(D94) because a card cannot lie along a range; but hung 1,500 m over the
+ground, nine kilometres up at six times relief, it did not lie along it
+either.
+
+**Changed.** Painted as the family's design (`--ref` the East King, one
+pass, four pictures, $0.23), in the red and ochre of the sandstone his
+blood stained: lying dead along the picture, head laid on his forelegs,
+eyes shut, smoke rising off his back as off hot rock (`slain` in
+`content/paintings/dragon.yaml`). Nothing of him moves but the smoke,
+churned in the plumes over him only. The cue stands him on the range's
+crest at the Flaming Mountain, 350 m over the ground: his belly on the
+ridge and the tail that hangs under him just clear of it. He is named
+while he is ahead, 火焰山, "The dragon a Uyghur hero slew; its blood turned
+the mountains red.", at 14 s, so Bogda's caption moved from 12 to 8 s.
+His sightlines (F133) were worked out again for the new place: not behind
+the ground until 46.5 s, and he is gone at 30.
+
+**Checked.** Held at 6–20 s the painted dragon lies on the red crest,
+ahead and to the left of the line, 60 to 40 km out; played through, the
+line comes on at 17 s of play with him under it. `npm run typecheck`;
+`npm run content:validate` (film ok); tests 625 of 625.
+
+**Left.** The code-made dragon keeps its `lantern` variant, which the film
+no longer asks for (the painting tests use it as the variant with no view).
+Cranes, egrets and the wind-horse flags are still made in code.

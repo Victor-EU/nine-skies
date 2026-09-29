@@ -5,8 +5,8 @@
 # four kings together over Huangshan for their line (`four-kings`) are one
 # picture: `gathering` drawn from the four kings, then its pick with only
 # the South King's crown made the Monkey King's (F133). The Uyghur dragon
-# lying twenty kilometres along the Flaming Mountains stays made in code:
-# a card cannot lie along a range.
+# of the Flaming Mountains (`slain`) is drawn from the East King too, in
+# the red of the range his blood stained, lying dead along the picture.
 
 figure: dragon
 
@@ -98,3 +98,19 @@ views:
       flame-shaped plate rising at its front, a gold phoenix wing sweeping
       up from each side, and two very long pheasant-tail plumes rising from
       it and arching back. No arches, no cross, no orb, no jewels.
+  slain:
+    size: 1536x1024
+    pose: >-
+      The dragon of the Uyghur story of the Flaming Mountains, which the
+      hero Kara Khoja slew: the same design as the dragon in the reference
+      picture, its head, antlers, mane, whiskers, scales and claws, but
+      its scales the deep rust red and burnt ochre of sun-baked red
+      sandstone, cracked and dusty, a pale sand belly, a dark copper mane.
+      It lies dead and still, stretched out long and low across the whole
+      width of the picture in slow shallow waves, the way a range of hills
+      lies on a plain: its head at the right laid low on its forelegs, eyes
+      closed, jaws shut, whiskers and mane hanging slack; its legs folded
+      under it; its long tail trailing out to the far left. Heat haze and
+      thin wisps of smoke rising off its back, as off hot rock. No blood,
+      no wounds. The whole length of the dragon in the picture, head to
+      tail.

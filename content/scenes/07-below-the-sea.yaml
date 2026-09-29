@@ -49,8 +49,10 @@ look:
 # is room ahead of it for him (F129); and the Eight Immortals crossing the
 # sea over Ayding Lake, the one ground below it.
 # The Uyghur story's slain dragon lies along the red range itself, a
-# monument twenty kilometres long, seen for the seconds the rail passes
-# Turpan. It is dead, so it lies still; the living dragons surface (D93).
+# monument twenty kilometres long, seen for the seconds the rail runs down
+# on Turpan: painted, laid on the crest with his tail just clear of it,
+# his line while he is ahead. It is dead, so nothing of it moves but the
+# smoke off its back; the living dragons surface (D93).
 cast:
   - figure: xiwangmu
     role: companion
@@ -63,14 +65,17 @@ cast:
     line: "Xiwangmu, Queen Mother of the West, with her three blue birds."
     line_at: 20
   - figure: dragon
-    variant: lantern
+    variant: slain
     role: monument
-    at: { lat: 42.93, lon: 89.55, above_ground_m: 1500 }
+    at: { lat: 42.93, lon: 89.55, above_ground_m: 350 }
     size_m: 20000
     facing_deg: 100
     from: 4
-    until: 40
+    until: 30
     motion: anchor
+    name_zh: 火焰山
+    line: "The dragon a Uyghur hero slew; its blood turned the mountains red."
+    line_at: 14
   - figure: wukong
     variant: still
     role: companion
@@ -134,7 +139,7 @@ cast:
     until: 114
 
 captions:
-  - { at: 12, text: "Bogda: {5445 m} of snow over a desert." }
+  - { at: 8, text: "Bogda: {5445 m} of snow over a desert." }
   - { at: 40, text: "Ayding Lake, {154 m} below the sea. {47 °C} in July." }
   - { at: 102, text: "The Taklamakan: go in, and you will not come out." }
 
