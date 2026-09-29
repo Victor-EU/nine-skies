@@ -4560,3 +4560,86 @@ Flaming Mountains; a chaser behind the one it chases by a body's length,
 over it straight on, and off it close and straight on in a wide frame and
 a tall one; the escort's rise clear of the pilgrims' outline at every
 side), and the film validates.
+
+## F130 — Wukong after the Bull Demon King and Nezha in his way; followers come down to keep their heads in; Nezha Wukong's size over Huangshan, 29 September 2026
+
+**Asked.** F129's two leftovers: Wukong seen over the Flaming Mountains in
+8 % of viewings; heads past the top of the frame, Wukong's at the Roof and
+the Wall (2–3 % of the party's seconds), Nezha's at Huangshan (21 % of the
+chase).
+
+**The Flaming Mountains.** Wukong now goes after the Bull Demon King there
+(`chases: ["niumowang"]`), as the novel has him do (ch. 61), and a chase is
+not kept out of the picture by the others' lines, as a figure passing on
+its own way is. With Nezha after the Bull too, the two took the same place
+and stood on each other for 68–75 % of the chase; in a line, the second
+after the first, 15–25 %, the pair piled over the Bull's back where there
+was no room behind him. So Nezha does what the novel has him do instead:
+he bars the Bull's way. A temperament's `blocks` (Nezha's: the Bull) is
+looked for before its `chases`, and the director casts the new motion
+`block` (`motions/block.ts`) with each of the other's visits that stops,
+for the same seconds. It keeps to one side of the other for the whole
+visit, the side the other faces while it stops: ahead of it coming in,
+going its way; turned round to face it while it stops, a body's length off,
+as a chaser keeps behind; behind it as it turns and goes, and after it. It
+never goes backwards and never passes over the other. The director's
+lookups are one, `followOf`: escort, then block, then chase, and one blocked
+or chased must go its own way, so no one chases a chaser. The Bull stopped
+for his line 760 m left, facing in, with no room behind him, and Wukong
+climbed over his back into the top-left corner; named 480 m left, there is
+room behind him for Wukong and before him for Nezha. Over 60 viewings:
+Wukong in 82 % of them (from 8 %), 9.7 s a viewing; Nezha in the Bull's way
+in 80 %; on the Bull, of the seconds the Bull is well in the picture, 1.9 %
+and 0; on any other figure 5.4 % and 3.7 %.
+
+**Rising by what is painted.** A chaser rose over the other by the other's
+size; the Bull's size is his length, and he stands 0.64 of it to his horns.
+The layer now hands the motions each figure's painted height
+(`paintedHeight`, from the painting's feet and size, the pictures being
+cut to the figure): Nezha 1.03, Wukong 1.18 with his plumes, the Bull 0.64,
+the pilgrims 0.53. A chaser or a blocker rises by the other's and keeps its
+own top by its own.
+
+**Heads.** Nezha was cued over Huangshan at 240 m, 900 m off, for his line;
+after Wukong (130 m, 600 m off) he is drawn at Wukong's distance, so nearly
+twice his height, up to three-eighths of the frame, and his head went out
+whenever Wukong rode high. His cue is now 140 m at 525 m: drawn for his
+line exactly as before (every path scales with the cue's distance and
+size), and after the monkey the monkey's size. And a follower whose leader
+rides so high that even level with it its top would be past the keep comes
+down as far as keeps it in (`keptBeside`'s `lower`, at most its own
+height), but only as far as it is clear of the other across the picture:
+all the way beside it, not at all over it, where it would come down on it.
+Head past the top, of the seconds the leader is well in the picture: Nezha
+at Huangshan 22 % to 0.8 % (off the picture 3.4 % to 0, on Wukong 1.3 % to
+0.7 %); Wukong at the Roof 1.9 % to 0.9 %, at the Wall 3.2 % to 1.0 %. What is
+left is where the one followed has its own head at the top (all of the
+Roof's and the Wall's, 13 of 23 at Huangshan), or where the follower is over
+it with no room either side, as in a tall frame.
+
+**Measured right.** The escort's overlap with the party had been measured
+against the top of the painting's outline only, so Wukong down beside the
+horse's nose, where nothing is painted, counted as in the party. Against
+each column's top and bottom, from `pilgrims-default.webp`, the party's
+seconds with his cloud in it are as they were before this: 1.6 % the Karst,
+0.8 % the First Bend, 4.1 % Below the Sea, 7.1 % the Roof, 3.6 % the Wall.
+
+**Cost.** A follower's pose, in a loop over the Huangshan, Turpan and Roof
+visits: 1.6–4.5 µs on average, under 30 µs at the 99th percentile; its worst
+single call varies from run to run between 40 and 300 µs (the timer and the
+collector). The block asks for the leader's pose twice. Wukong over the
+Flaming Mountains is one more painted figure for about 10 s a viewing, as
+the escort was (F129: 0.3–0.4 ms a frame, 2 draw calls).
+
+**Seen.** Headless, seeds 1 and 2 (the Bull crossing, and coming at the
+lens): the Bull stopped left of the middle, Nezha before him turned to him,
+Wukong behind him at his height and after him as he goes; seed 53 over
+Huangshan, Nezha after Wukong at his size, and in his own line where he was.
+
+**Left.** The Eight Immortals come in for their line as the Bull's ends,
+and on some viewings pass behind him on the way, as before.
+
+**Checked.** `npm run check`: 620 tests (the block; a follower brought down
+to keep its head in and never down on the other; Wukong after the Bull and
+Nezha in his way; Nezha over Huangshan about Wukong's size; the paintings'
+heights), and the film validates.

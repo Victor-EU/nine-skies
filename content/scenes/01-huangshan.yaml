@@ -120,11 +120,13 @@ cast:
     name_zh: 孙悟空
     line: "Sun Wukong, the Monkey King, scouting from his somersault cloud."
     line_at: 32
+  # Where he is drawn as big as he was at 900 m and 240 m, so that after the
+  # monkey, beside him, he is about his size and not twice it (F130).
   - figure: nezha
     variant: still
     role: companion
-    offset: { ahead_m: 900, right_m: -380, up_m: 40 }
-    size_m: 240
+    offset: { ahead_m: 525, right_m: -222, up_m: 23 }
+    size_m: 140
     facing_deg: 120
     from: 40
     until: 104

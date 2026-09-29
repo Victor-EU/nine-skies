@@ -11,7 +11,7 @@ import { Color } from "three";
 import { describe, expect, it } from "vitest";
 import "../../engine/src/cast/figures/index.js";
 import { figureBuilder, madeBuilder } from "../../engine/src/cast/figure.js";
-import { heldTo, MIRROR_AT, MOST_TALL_RAD, mirrored, paintedLight, registerPainting, registeredPaintings, sideOfTurn, TURNED_WIDTH, viewFor, viewSize, type Painting, type PaintingView } from "../../engine/src/cast/painting.js";
+import { heldTo, MIRROR_AT, MOST_TALL_RAD, mirrored, paintedHeight, paintedLight, registerPainting, registeredPaintings, sideOfTurn, TURNED_WIDTH, viewFor, viewHeight, viewSize, type Painting, type PaintingView } from "../../engine/src/cast/painting.js";
 import { lanternSkin } from "../../engine/src/cast/skin.js";
 import { DEFAULT_SCALE } from "../../engine/src/sim/scale.js";
 
@@ -30,6 +30,11 @@ describe("a painting's view", () => {
   it("measures a cue's size feet to crown, or across the picture", () => {
     expect(viewSize(stand)).toBeCloseTo(0.8, 9);
     expect(viewSize(fly)).toBeCloseTo(1.2, 9);
+  });
+
+  it("stands as high over its feet as the picture goes, of a cue's size (F130)", () => {
+    expect(viewHeight(stand)).toBeCloseTo(0.9 / 0.8, 9);
+    expect(viewHeight(fly)).toBeCloseTo(0.5 / 1.2, 9);
   });
 });
 
@@ -129,5 +134,14 @@ describe("the film's paintings", () => {
     const views = [...registeredPaintings().values()].flatMap((p) => p.views).filter((v) => v !== fly && !v.url.endsWith("/b.webp"));
     expect(views.length).toBeGreaterThan(0);
     for (const v of views) expect(existsSync(join("app/public", v.url)), v.url).toBe(true);
+  });
+
+  it("stand as high as the figures cut out of them: Nezha to his topknot, Wukong to his plumes, the Bull to his horns (F130)", async () => {
+    await import("../../engine/src/cast/paintings/index.js");
+    // Measured from the pictures' alpha, top row over the feet, of a cue's size.
+    expect(paintedHeight("nezha", "still")).toBeCloseTo(1.033, 2);
+    expect(paintedHeight("wukong", "still")).toBeCloseTo(1.178, 2);
+    expect(paintedHeight("niumowang", "still")).toBeCloseTo(0.639, 2);
+    expect(paintedHeight("pilgrims", "still")).toBeCloseTo(0.525, 2);
   });
 });

@@ -51,6 +51,13 @@ export const MOTIONS = {
    */
   escort: { space: "frame", transit: false, cueable: false, naturalS: 0, arriveS: 0 },
   /**
+   * In another figure's way, for each of its visits that stops (F130):
+   * ahead of it coming in, turned to face it while it stops, after it as it
+   * goes; Nezha barring the Bull Demon King's way. The director casts it
+   * from a figure's temperament; a cue cannot name it.
+   */
+  block: { space: "frame", transit: false, cueable: false, naturalS: 0, arriveS: 0 },
+  /**
    * A monument's that comes and goes (D93): up out of what lies under its
    * place - the cloud sea, the water - to stand there a while, and down
    * again, on its own timing. The rise and the dive are its natural length;
@@ -68,7 +75,7 @@ const kinds = (test: (t: MotionTraits) => boolean): readonly MotionKind[] => MOT
 /** The motions that place a figure in the world rather than in the camera's frame. */
 export const WORLD_MOTIONS: readonly MotionKind[] = kinds((t) => t.space === "world");
 
-/** The motions a cue may name: `chase` and `escort` need a leader, which only the director knows. */
+/** The motions a cue may name: `chase`, `escort` and `block` need a leader, which only the director knows. */
 export const CUE_MOTIONS: readonly MotionKind[] = kinds((t) => t.cueable);
 
 /** The motions that pass through the picture and leave: what the director draws a companion's visit from. */

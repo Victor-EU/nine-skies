@@ -162,6 +162,18 @@ export function viewSize(view: PaintingView): number {
   return "crown" in view.size ? view.size.crown - view.feet : view.size.across * view.aspect;
 }
 
+/** How high a view's picture stands over its feet, of a cue's size: the pictures are cut to the figure, so its top (F130). */
+export function viewHeight(view: PaintingView): number {
+  return (1 - view.feet) / viewSize(view);
+}
+
+/** How high the painting a kind is drawn from, in a variant, stands over its feet, of a cue's size; null for a figure made in code. */
+export function paintedHeight(kind: string, variant: string | null): number | null {
+  const painting = paintings.get(kind);
+  const view = painting ? viewFor(painting, variant) : null;
+  return view ? viewHeight(view) : null;
+}
+
 /**
  * Whether the card is mirrored: given how far the figure heads to the
  * picture's right (the sine of its heading across the view, -1 to 1), which

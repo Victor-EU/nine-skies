@@ -40,14 +40,14 @@ look:
 # The cast (D91): at 300 km a minute a figure standing in the world is
 # passed in seconds, so the company rides with the camera: the Queen
 # Mother from Bogda's Jade Pool over the first leg, with her blue birds;
-# Wukong and Nezha over the Flaming Mountains (ch. 59-61), Nezha sent to
-# help and after the Bull Demon King (F129); the party over
-# the Flowing Sands (ch. 22), where Sha is taken on, Wukong ahead of it
-# again (F128), named near the middle of the picture so there is room
-# ahead of it for him (F129); the Bull Demon King
-# as the white bull of the fight's end (ch. 61), the fire wheel on his
-# horn, on the far left of the Flaming Mountains' seconds; and the Eight
-# Immortals crossing the sea over Ayding Lake, the one ground below it.
+# the Bull Demon King as the white bull of the fight's end over the
+# Flaming Mountains (ch. 61), the fire wheel on his horn, Wukong after him
+# and Nezha, sent to help, in his way (F130), the Bull named left of the
+# middle so there is room behind him for Wukong and before him for Nezha;
+# the party over the Flowing Sands (ch. 22), where Sha is taken on, Wukong
+# ahead of it again (F128), named near the middle of the picture so there
+# is room ahead of it for him (F129); and the Eight Immortals crossing the
+# sea over Ayding Lake, the one ground below it.
 # The Uyghur story's slain dragon lies along the red range itself, a
 # monument twenty kilometres long, seen for the seconds the rail passes
 # Turpan. It is dead, so it lies still; the living dragons surface (D93).
@@ -93,7 +93,7 @@ cast:
   - figure: niumowang
     variant: still
     role: companion
-    offset: { ahead_m: 1500, right_m: -760, up_m: -480 }
+    offset: { ahead_m: 1500, right_m: -480, up_m: -480 }
     size_m: 850
     facing_deg: 210
     from: 26

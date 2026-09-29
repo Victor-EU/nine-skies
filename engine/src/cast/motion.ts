@@ -170,6 +170,8 @@ export interface MotionContext {
   readonly leader: PoseOf | null;
   /** The leader's cue, for its size: what an escort keeps ahead of it by. */
   readonly leaderCue?: CastCue | null;
+  /** How high a cue's figure stands over its feet as it is drawn, of its size (F130): what one beside it rises over. */
+  readonly heightOf?: (cue: CastCue) => number;
 }
 
 export interface Motion {
@@ -268,11 +270,18 @@ export function keptAcross(side: number, keep: number, view: View, place: (side:
   return lo;
 }
 
-/** Where a figure beside another may go (F128, F129): its middle across the picture, of the half width, before it closes in on the other; how far when there is no room over the other; and its top up the picture. */
+/**
+ * Where a figure beside another may go (F128–F130): its middle across the
+ * picture, of the half width, before it closes in on the other; how far
+ * when there is no room over the other; its top up the picture; and how far
+ * it may come down, of its own height, where even level with the other its
+ * top would be past that.
+ */
 export interface Keep {
   readonly x: number;
   readonly crowdedX: number;
   readonly y: number;
+  readonly down: number;
 }
 
 /**
@@ -287,10 +296,17 @@ export interface Keep {
  * other. Where the other comes nearly straight at the lens, so that it has
  * no side of its own to go out to, it goes out to `lean`, its visit's side
  * of the picture: a chaser over Wukong as he came at the lens over
- * Huangshan had no room there and hid him (F129). A figure's `place` must
- * rise less the further out it is. `scratch` is written.
+ * Huangshan had no room there and hid him (F129). Where the other rides
+ * so high in the picture that even level with it its top is past `keep.y`,
+ * it comes down, `lower` metres, as far as keeps it in and no more than
+ * `keep.down` of its height (F130), but only as far as it is clear of the
+ * other across the picture, as `place` rises: all the way beside it, not
+ * at all over it, which it would come down on. Where it is over the other
+ * with no room either side, its head goes out of the picture first. A
+ * figure's `place` must rise less the further out it is. `scratch` is
+ * written.
  */
-export function keptBeside(wholly: number, keep: Keep, top: number, lean: -1 | 1, view: View, place: (side: number, over: number, at: FramePoint) => void, scratch: Pose): { side: number; over: number } {
+export function keptBeside(wholly: number, keep: Keep, top: number, lean: -1 | 1, view: View, place: (side: number, over: number, at: FramePoint) => void, scratch: Pose): { side: number; over: number; lower: number } {
   let side = keptAcross(wholly, keep.x, view, (s, at) => place(s, 1, at), scratch);
   let over = keptUnder(keep.y, top, view, (o, at) => place(side, o, at), scratch);
   if (over < 1) {
@@ -313,7 +329,31 @@ export function keptBeside(wholly: number, keep: Keep, top: number, lean: -1 | 1
     side = keptAcross(along(hi), crowded, view, (s, at) => place(s, 1, at), scratch);
     over = keptUnder(keep.y, top, view, (o, at) => place(side, o, at), scratch);
   }
-  return { side, over };
+  // Down only as far as it is clear of the other, which it would come down on: all of the way beside it, none over it.
+  const rise = (s: number): number => {
+    place(s, 1, scratch.at);
+    const up = scratch.at.up;
+    place(s, 0, scratch.at);
+    return up - scratch.at.up;
+  };
+  const beside = rise(side < 0 ? -1 : 1);
+  const whole = rise(0) - beside;
+  const clear = whole > 0 ? 1 - Math.max(0, Math.min(1, (rise(side) - beside) / whole)) : 1;
+  place(side, over, scratch.at);
+  return { side, over, lower: clear * Math.min(keep.down * top, keptDown(scratch.at, top, keep.y, view)) };
+}
+
+/** How far a figure at `at` must come down, metres, to keep its top, `top` over it, `keepY` up the picture: none when it does. */
+function keptDown(at: FramePoint, top: number, keepY: number, view: View): number {
+  const c = Math.cos(view.pitchRad);
+  const s = Math.sin(view.pitchRad);
+  const up = at.up + top;
+  const d = at.ahead * c - up * s;
+  const yc = at.ahead * s + up * c;
+  const k = keepY * view.tanHalfY;
+  if (d <= 0 || yc <= k * d) return 0;
+  // Down by h: yc - h c = k (d + h s).
+  return (yc - k * d) / (c + k * s);
 }
 
 /**

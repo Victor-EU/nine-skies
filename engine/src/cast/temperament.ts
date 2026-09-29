@@ -10,8 +10,8 @@
  *
  * The rules the table keeps:
  * - playfulness is Wukong's and Nezha's alone: the somersault and the chase,
- *   Nezha after the monkey in Heaven and after the Bull Demon King at the
- *   Flaming Mountains (F129);
+ *   Nezha after the monkey in Heaven; at the Flaming Mountains Wukong after
+ *   the Bull Demon King, and Nezha in his way (F130);
  * - Wukong goes ahead of his master wherever the pilgrims are cast with
  *   him (F128): the painting of the pilgrims is the monk, Bajie and Sha,
  *   and he is his own figure;
@@ -42,8 +42,10 @@ export interface Temperament {
   readonly gapS: readonly [number, number];
   /** Never drawn close to the lens, never hurried. */
   readonly stately: boolean;
-  /** Figures it goes after, the first of them cast in a scene at the same time as it (F129). */
+  /** Figures it goes after, the first of them cast in a scene at the same time as it and going its own way (F129). */
   readonly chases: readonly FigureKind[];
+  /** Figures it gets in the way of, before any it chases: ahead of one as it comes, facing it while it stops (F130). */
+  readonly blocks: readonly FigureKind[];
   /**
    * A figure it goes with when both are cast at once (F128): whenever the
    * other comes, it comes too, `ahead` of the other's size in front of the
@@ -77,6 +79,7 @@ const base: Temperament = {
   gapS: [8, 24],
   stately: false,
   chases: [],
+  blocks: [],
   escorts: null,
   facesPath: true,
   curiosity: 0.35,
@@ -94,11 +97,12 @@ export const TEMPERAMENTS: Readonly<Partial<Record<FigureKind, Temperament>>> = 
   // standing, they come up out of the cloud sea and go down into it again.
   dragon: t({ moves: { rise: 3, cross: 2, oncoming: 1, surface: 1 }, band: [-0.6, 0.3], pace: 1.2, maxPitchDeg: 35, curiosity: 0.5, omens: { scatter: 3, look: 1 } }),
   // Sent to bring the monkey in (ch. 4): after him wherever he goes. At
-  // the Flaming Mountains he is sent to help him (ch. 61) and goes after
-  // the Bull Demon King instead, and it is he who ends the fight.
-  nezha: t({ moves: { overtake: 2, cross: 2, stoop: 1 }, band: [-0.3, 0.5], pace: 0.8, maxPitchDeg: 20, chases: ["niumowang", "wukong"], curiosity: 0.4 }),
+  // the Flaming Mountains he is sent to help him (ch. 61) and bars the
+  // Bull Demon King's way instead, and it is he who ends the fight.
+  nezha: t({ moves: { overtake: 2, cross: 2, stoop: 1 }, band: [-0.3, 0.5], pace: 0.8, maxPitchDeg: 20, chases: ["wukong"], blocks: ["niumowang"], curiosity: 0.4 }),
   // A somersault is 108,000 li: he is never where he was.
   // He looks at you. He always looks at you.
+  // At the Flaming Mountains he goes after the Bull Demon King (ch. 61).
   // With the pilgrims he leads the way on his cloud, just past the horse's
   // nose (the painting's nose is 0.48 of its size ahead of its middle, and
   // his staff reaches back 0.13), a little over their road. Over them, his
@@ -111,6 +115,7 @@ export const TEMPERAMENTS: Readonly<Partial<Record<FigureKind, Temperament>>> = 
     pace: 0.9,
     gapS: [4, 14],
     curiosity: 0.65,
+    chases: ["niumowang"],
     escorts: { figure: "pilgrims", ahead: 0.7, above: 0.1, over: 0.52, rise: [0.665, 0.525] },
   }),
   pilgrims: t({ moves: { cross: 3, oncoming: 2 }, band: [-0.7, 0], pace: 1.5, maxPitchDeg: 4, curiosity: 0.3 }),

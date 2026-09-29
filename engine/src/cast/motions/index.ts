@@ -14,4 +14,5 @@ import "./circle.js";
 import "./blink.js";
 import "./chase.js";
 import "./escort.js";
+import "./block.js";
 import "./surface.js";

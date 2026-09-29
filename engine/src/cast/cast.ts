@@ -35,6 +35,7 @@ import { figureBuilder, type CastFrame, type Figure, type Pace } from "./figure.
 import { restHeads, turnHead } from "./gaze.js";
 import { angleTo, DEFAULT_VIEW, motionBuilder, newPose, type Motion, type MotionContext, type Pose, type View, type Visit } from "./motion.js";
 import { omenWrap } from "./omens.js";
+import { paintedHeight } from "./painting.js";
 import { hashSeed, Rng } from "./random.js";
 import { sightOf } from "./sight.js";
 import { DEFAULT_SKIN, SKINS, type Skin } from "./skin.js";
@@ -236,6 +237,7 @@ export class CastLayer {
           rng: new Rng(v.seed),
           leader: leader === null ? null : (t, view, out) => this.poseOf(leader, t, view, out),
           leaderCue: leader === null ? null : (scene?.cast[leader] ?? null),
+          heightOf: (c) => paintedHeight(c.figure, c.variant) ?? 1,
         });
         // A visit an omen reacts in: the omen's module lays the figure's own motion and takes over from it.
         const r = visit.reaction;
