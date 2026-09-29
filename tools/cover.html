@@ -6,9 +6,10 @@
 <!-- The cover: the nine scenes as nine cards, and the same scenes as
      postcards for a post. `npm run cover` draws both with a headless Chrome.
      The frame is the window: 1280 × 640, the size GitHub and Open Graph use.
-     #sheet is the cover; #postcards the second image. Huangshan and the
-     Wall are the cover's own frames, from `npm run cover -- frames`; the
-     other seven are the film's stills. -->
+     #sheet is the cover; #postcards the second image. Every card is the
+     cover's own frame, from `npm run cover -- frames`: the scene with the
+     cast on (D91), a figure of its sky in the picture. The film's stills
+     are drawn without it. -->
 <style>
   :root {
     --ground: #0d1117; --ground-2: #131923;
@@ -67,12 +68,12 @@
 </head>
 <body>
   <div class="frame" id="postcards">
-    <div class="post" style="--pos:55% 60%;--x:38cqw;--y:12cqh;--r:-9deg"><div class="photo"><img src="../docs/stills/03-karst.png" alt="Karst"></div><div class="cap"><span class="zh">漓江</span><span class="en">Karst</span></div></div>
-    <div class="post" style="--pos:50% 62%;--x:52cqw;--y:30cqh;--r:6deg"><div class="photo"><img src="../docs/stills/05-loess.png" alt="Loess"></div><div class="cap"><span class="zh">黄土高原</span><span class="en">Loess</span></div></div>
-    <div class="post" style="--pos:50% 45%;--x:33cqw;--y:44cqh;--r:-4deg"><div class="photo"><img src="../docs/stills/06-grassland-to-heaven-lake.png" alt="Heaven Lake"></div><div class="cap"><span class="zh">天池</span><span class="en">Heaven Lake</span></div></div>
-    <div class="post" style="--pos:55% 60%;--x:66cqw;--y:8cqh;--r:11deg"><div class="photo"><img src="../docs/stills/07-below-the-sea.png" alt="Below the Sea"></div><div class="cap"><span class="zh">吐鲁番</span><span class="en">Below the Sea</span></div></div>
-    <div class="post" style="--pos:50% 70%;--x:48cqw;--y:52cqh;--r:-2deg"><div class="photo"><img src="../docs/cover/huangshan.png" alt="Huangshan"></div><div class="cap"><span class="zh">黄山</span><span class="en">Huangshan</span></div></div>
-    <div class="post" style="--pos:50% 45%;--x:68cqw;--y:40cqh;--r:5deg"><div class="photo"><img src="../docs/cover/the-wall.png" alt="The Wall"></div><div class="cap"><span class="zh">珠穆朗玛</span><span class="en">The Wall</span></div></div>
+    <div class="post" style="--pos:100% 50%;--x:38cqw;--y:12cqh;--r:-9deg"><div class="photo"><img src="../docs/cover/grassland-to-heaven-lake.png" alt="Heaven Lake: the magpie with the red fruit over the crater"></div><div class="cap"><span class="zh">天池</span><span class="en">Heaven Lake</span></div></div>
+    <div class="post" style="--pos:50% 50%;--x:52cqw;--y:30cqh;--r:6deg"><div class="photo"><img src="../docs/cover/loess.png" alt="Loess: the carp leaping over the Yellow River"></div><div class="cap"><span class="zh">黄土高原</span><span class="en">Loess</span></div></div>
+    <div class="post" style="--pos:30% 50%;--x:33cqw;--y:44cqh;--r:-4deg"><div class="photo"><img src="../docs/cover/huangshan.png" alt="Huangshan: Wukong on his cloud over the cloud sea"></div><div class="cap"><span class="zh">黄山</span><span class="en">Huangshan</span></div></div>
+    <div class="post" style="--pos:30% 50%;--x:66cqw;--y:8cqh;--r:11deg"><div class="photo"><img src="../docs/cover/below-the-sea.png" alt="Below the Sea: Nezha, the Bull Demon King and Wukong at the Flaming Mountains"></div><div class="cap"><span class="zh">吐鲁番</span><span class="en">Below the Sea</span></div></div>
+    <div class="post" style="--pos:100% 45%;--x:48cqw;--y:52cqh;--r:-2deg"><div class="photo"><img src="../docs/cover/the-wall.png" alt="The Wall: the pilgrims crossing over Everest"></div><div class="cap"><span class="zh">珠穆朗玛</span><span class="en">The Wall</span></div></div>
+    <div class="post" style="--pos:70% 50%;--x:68cqw;--y:40cqh;--r:5deg"><div class="photo"><img src="../docs/cover/karst.png" alt="Karst: the elephant of heaven over the towers"></div><div class="cap"><span class="zh">漓江</span><span class="en">Karst</span></div></div>
     <div class="stack">
       <div class="en">Nine Skies</div>
       <div class="line">Eighteen minutes over real ground.<br>Nine places you would not have put in China.</div>
@@ -81,15 +82,15 @@
   <div class="frame" id="sheet">
     <div class="sheet">
       <div class="grid">
-        <div class="card" style="--pos:50% 70%"><img src="../docs/cover/huangshan.png" alt="Huangshan"><div class="cap"><span class="zh">黄山</span><span class="en">Huangshan</span></div></div>
-        <div class="card" style="--pos:45% 45%"><img src="../docs/stills/02-three-gorges.png" alt="The Three Gorges"><div class="cap"><span class="zh">三峡</span><span class="en">The Three Gorges</span></div></div>
-        <div class="card" style="--pos:55% 60%"><img src="../docs/stills/03-karst.png" alt="Karst"><div class="cap"><span class="zh">漓江</span><span class="en">Karst</span></div></div>
-        <div class="card" style="--pos:35% 55%"><img src="../docs/stills/04-first-bend.png" alt="The First Bend"><div class="cap"><span class="zh">长江第一湾</span><span class="en">The First Bend</span></div></div>
-        <div class="card" style="--pos:50% 62%"><img src="../docs/stills/05-loess.png" alt="Loess"><div class="cap"><span class="zh">黄土高原</span><span class="en">Loess</span></div></div>
-        <div class="card" style="--pos:50% 45%"><img src="../docs/stills/06-grassland-to-heaven-lake.png" alt="Heaven Lake"><div class="cap"><span class="zh">天池</span><span class="en">Heaven Lake</span></div></div>
-        <div class="card" style="--pos:55% 60%"><img src="../docs/stills/07-below-the-sea.png" alt="Below the Sea"><div class="cap"><span class="zh">吐鲁番</span><span class="en">Below the Sea</span></div></div>
-        <div class="card" style="--pos:35% 60%"><img src="../docs/stills/08-the-roof.png" alt="The Roof"><div class="cap"><span class="zh">青藏高原</span><span class="en">The Roof</span></div></div>
-        <div class="card" style="--pos:50% 45%"><img src="../docs/cover/the-wall.png" alt="The Wall"><div class="cap"><span class="zh">珠穆朗玛</span><span class="en">The Wall</span></div></div>
+        <div class="card"><img src="../docs/cover/huangshan.png" alt="Huangshan: Wukong on his cloud over the cloud sea"><div class="cap"><span class="zh">黄山</span><span class="en">Huangshan</span></div></div>
+        <div class="card"><img src="../docs/cover/three-gorges.png" alt="The Three Gorges: the White Dragon in the gorge"><div class="cap"><span class="zh">三峡</span><span class="en">The Three Gorges</span></div></div>
+        <div class="card"><img src="../docs/cover/karst.png" alt="Karst: the elephant of heaven over the towers"><div class="cap"><span class="zh">漓江</span><span class="en">Karst</span></div></div>
+        <div class="card"><img src="../docs/cover/first-bend.png" alt="The First Bend: the tiger over Tiger Leaping Gorge"><div class="cap"><span class="zh">长江第一湾</span><span class="en">The First Bend</span></div></div>
+        <div class="card"><img src="../docs/cover/loess.png" alt="Loess: the carp leaping over the Yellow River"><div class="cap"><span class="zh">黄土高原</span><span class="en">Loess</span></div></div>
+        <div class="card"><img src="../docs/cover/grassland-to-heaven-lake.png" alt="Heaven Lake: the magpie with the red fruit over the crater"><div class="cap"><span class="zh">天池</span><span class="en">Heaven Lake</span></div></div>
+        <div class="card"><img src="../docs/cover/below-the-sea.png" alt="Below the Sea: Nezha, the Bull Demon King and Wukong at the Flaming Mountains"><div class="cap"><span class="zh">吐鲁番</span><span class="en">Below the Sea</span></div></div>
+        <div class="card"><img src="../docs/cover/the-roof.png" alt="The Roof: the old turtle of the Tongtian over the plateau"><div class="cap"><span class="zh">青藏高原</span><span class="en">The Roof</span></div></div>
+        <div class="card"><img src="../docs/cover/the-wall.png" alt="The Wall: the pilgrims crossing over Everest"><div class="cap"><span class="zh">珠穆朗玛</span><span class="en">The Wall</span></div></div>
       </div>
       <div class="spine">Nine Skies<small>eighteen minutes over real ground</small></div>
     </div>

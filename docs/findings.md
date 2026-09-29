@@ -4643,3 +4643,64 @@ and on some viewings pass behind him on the way, as before.
 to keep its head in and never down on the other; Wukong after the Bull and
 Nezha in his way; Nezha over Huangshan about Wukong's size; the paintings'
 heights), and the film validates.
+
+## F131 — The cover with its skies: a figure on every card, 29 September 2026
+
+**Asked.** The cover has nine cards, and something shipped is not on it.
+It was the cast. The cover (`app/public/cover.png`, the README's first
+picture and the site's preview) was the ground alone: seven cards were the
+film's stills, which are drawn without the cast for the look's sign-off
+(D77), and its own two frames, Huangshan and the Wall, were taken with the
+cast off too. Since 26 September the film has had its figures (D91), painted
+since the 28th (D94) and alive since the 29th (D96), and the film is named
+for the skies they fill, yet no card showed one. The cover was a day behind
+the ground as well: the stills were taken again for F126–F127 and the cover
+was last drawn for F117. The README did not mention the cast at all.
+
+**A frame a card, with the cast on.** `npm run cover -- frames` now takes
+all nine cards from the running film with the cast on, in one viewing
+(`?cast&castseed=1`, `CAST_SEED` in `tools/cover.ts`), so a card comes out
+the same each time it is taken. It waits thirty frames after the ground has
+settled, since the figures' pictures go to the GPU one a frame (F123), and
+reports how many figures are on stage. Most frames are a second in a
+figure's line, when the director holds it where its cue puts it (D92):
+
+| Card | Second | Figure |
+| --- | --- | --- |
+| Huangshan | 34 | Wukong on his cloud over the cloud sea, the peaks beside him |
+| The Three Gorges | 18 | the White Dragon coming up the gorge |
+| Karst | 8 | the elephant of heaven over the towers and the Li |
+| The First Bend | 66 | the tiger over the gorge it jumped |
+| Loess | 54 | the carp leaping over the Yellow River |
+| Heaven Lake | 106, 1,500 m up | the magpie with the red fruit over the crater |
+| Below the Sea | 46 | the Bull Demon King with Nezha's wheel on his horn, Nezha in his way, Wukong after him |
+| The Roof | 86 | the old turtle of the Tongtian |
+| The Wall | 72 | the party crossing over the face to the Western Heaven |
+
+Nine different figures. The Dragon Kings over Huangshan (22 s) read as
+well as Wukong does, and the pilgrims over the Karst (28 s) are that
+scene's strongest frame, but they are the Wall's card; the Jing River King
+over the Loess (42 s) would have made three dragons.
+
+**Off the caption.** Held for their lines, the White Dragon (30 s) and the
+carp (62 s) sit low in the picture, under the card's words. Both are taken
+earlier in their visits, where this viewing has them high: the only two
+cards that hang on the seed. Heaven Lake's rail is 300 m over Changbai's
+flank, which fills the picture while the magpie is in it; by 108 s, when
+the crater opens, the bird has gone. Held at 1,500 m, inside the scene's
+band of 300 to 2,500, at 106 s the lake is under it. On the postcards, a
+card lies under the ones after it, so the six are placed where each
+figure is on an uncovered part: Heaven Lake's magpie was under the
+Huangshan card, then under the Wall's.
+
+**The README** opens with the cast and says in "Watching it" how to bring
+it on (`J`, the lantern on the bar, `?cast`): the cover now shows a layer
+the film opens without. Each card's alt text names its figure.
+
+**Checked.** `npm run typecheck`; the nine frames and the cover and
+postcards drawn again and looked at, every figure clear of its card's
+words. The film's stills and every scene file are untouched.
+
+**Left.** The cards' captions name the place, not its sky; 苍天 and the
+rest are on the title card only while the cast is on (F104). The cover
+needs signing off (D77).

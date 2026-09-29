@@ -1,11 +1,16 @@
 # Nine Skies
 
-![The nine scenes as nine cards: Huangshan, the Three Gorges, karst, the First Bend, loess, Heaven Lake, Turpan, the plateau, Everest](app/public/cover.png)
+![The nine scenes as nine cards, each with a figure of its sky: Wukong over Huangshan's cloud sea, the White Dragon in the Three Gorges, the elephant of heaven over the karst, the tiger at the First Bend, the carp over the loess, the magpie at Heaven Lake, the Bull Demon King at Turpan, the old turtle on the plateau, the pilgrims crossing Everest](app/public/cover.png)
 
 Eighteen minutes over real ground: nine scenes of China, two minutes each,
 flown over open elevation data, from Huangshan's granite above the clouds
 to the face of Everest. You can steer, speed up or slow down, or do nothing
 at all. After eighteen minutes it is over.
+
+Over the ground, when you ask for them, fly the figures of the stories
+told about each place: Wukong over Huangshan's clouds, the tiger that
+jumped Tiger Leaping Gorge, the pilgrims crossing to the Western Heaven
+over Everest, each scene under one of the *Huainanzi*'s nine skies.
 
 It is a public research project, and the question it asks is written on the
 front of it: *can eighteen minutes over real ground give someone who has
@@ -34,6 +39,10 @@ the credits; in flight it steps aside until the pointer moves. Its keys are
 A chapter's name in the address starts the film there (`#karst`), and a
 scene whose ground has not arrived holds on its title card until it has.
 Phones play in landscape.
+
+The cast, the figures on the cover, is off until asked: `J` or the lantern
+on the bar brings it on, the browser remembers the choice, and `?cast` in
+the address carries it in a link.
 
 ## Running it
 
@@ -64,10 +73,10 @@ scene, `await __ns.settled()` waits for its ground to land,
 `docs/stills/`, and `__ns.frameCost()` asks the GPU what a frame costs.
 `npm run cover` draws the cover, the nine scenes as nine cards, from
 `tools/cover.html` with a headless Chrome: `app/public/cover.png`, and the
-postcards in `docs/cover-postcards.png`. Seven cards are the stills; Huangshan
-and the Wall, whose stills do not hold up that small, are the cover's own
-frames in `docs/cover/`, taken again with `npm run cover -- frames` while the
-dev server runs.
+postcards in `docs/cover-postcards.png`. Every card is the cover's own frame
+in `docs/cover/`, the scene with the cast on and one of its figures in the
+picture, taken again with `npm run cover -- frames` while the dev server
+runs; the stills are drawn without the cast.
 `?frametime` shows the frame time by wall clock, for a phone, and
 `?without=fine,near,rock,relief` flies without those layers, to measure
 what each costs.
