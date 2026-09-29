@@ -6,6 +6,7 @@ import {
 } from "three";
 import type { AreaBounds } from "./heroSource.js";
 import { splineAt, tileFetch, type TexelFetch } from "./spline.js";
+import { rimTaper } from "./water.js";
 
 /**
  * The country grid's curtain along the rim of each hero area (F74).
@@ -37,6 +38,11 @@ import { splineAt, tileFetch, type TexelFetch } from "./spline.js";
  * uploaded from, because it is a few hundred points and the LOD that decides
  * them is the CPU's choice anyway.
  *
+ * Where a river's bed is drawn lowered under its water (F126), the curtain
+ * hangs from the bed, as the vertex shader lowers it, since that is the
+ * ground drawn; the bed is let back up to the data by the rim, so the two
+ * meet there as they did.
+ *
  * Lit as the ground it hangs from (F97). With the flat normal of its own
  * triangles, a wall, it took no snow, was painted the palette's rock and
  * stood in shadow: at the Wall's hero rim, a black wedge down Everest's
@@ -54,7 +60,7 @@ import { splineAt, tileFetch, type TexelFetch } from "./spline.js";
  * LOD the quads stride across the same samples. At a finer one a corner
  * between samples stands where the spline puts it (F97), read past the
  * tile's edge by `fetch` as the vertex shader reads it; without one, the
- * edge is held.
+ * edge is held. A corner under a river stands where `bed` lowers it (F126).
  */
 export function drawnHeightAt(
   data: ArrayLike<number>,
@@ -64,6 +70,7 @@ export function drawnHeightAt(
   u: number,
   v: number,
   fetch?: TexelFetch,
+  bed?: (x: number, y: number, h: number) => number,
 ): number {
   const stride = (samples - 1) / segments;
   const fu = Math.min(segments, Math.max(0, u / stride));
@@ -76,8 +83,9 @@ export function drawnHeightAt(
   const at = (ci: number, cj: number): number => {
     const x = ci * stride;
     const y = cj * stride;
-    if (read && !(Number.isInteger(x) && Number.isInteger(y))) return splineAt(read, samples, x, y).h;
-    return data[base + y * samples + x] ?? 0;
+    const h =
+      read && !(Number.isInteger(x) && Number.isInteger(y)) ? splineAt(read, samples, x, y).h : (data[base + y * samples + x] ?? 0);
+    return bed ? bed(x, y, h) : h;
   };
   const a = at(i, j);
   const b = at(i + 1, j);
@@ -185,10 +193,32 @@ export interface DrawnTiles {
   readonly samples: number;
   /**
    * A tile drawn this frame: its heights, where in them it starts, how many
-   * quads a side its LOD draws, and its samples read past its edge as the
-   * vertex shader reads them. Null for a tile not drawn.
+   * quads a side its LOD draws, its samples read past its edge as the
+   * vertex shader reads them, and, where its water has landed, its river's
+   * bed at a texel as the vertex shader lowers it (`water.waterBedM`). Null
+   * for a tile not drawn.
    */
-  drawn(i: number, j: number): { data: ArrayLike<number>; base: number; segments: number; fetch?: TexelFetch } | null;
+  drawn(
+    i: number,
+    j: number,
+  ): {
+    data: ArrayLike<number>;
+    base: number;
+    segments: number;
+    fetch?: TexelFetch;
+    bed?: (x: number, y: number, h: number) => number;
+  } | null;
+}
+
+/** Metres from a point to the nearest of the areas, 0 inside one: the vertex shader's `rimTaper` distance. */
+export function rimDistanceM(areas: readonly AreaBounds[], eastM: number, northM: number): number {
+  let d = Infinity;
+  for (const a of areas) {
+    const dx = Math.max(a.eastM0 - eastM, eastM - a.eastM1, 0);
+    const dy = Math.max(a.northM0 - northM, northM - a.northM1, 0);
+    d = Math.min(d, Math.hypot(dx, dy));
+  }
+  return d;
 }
 
 /** Points along one piece at the finest LOD, which no coarser LOD exceeds. */
@@ -290,11 +320,19 @@ export class RimCurtain {
         if (tile === null) continue;
         const along = crossings(samples, tile.segments, piece.across, piece.from, piece.to);
         const fetch = tile.fetch ?? tileFetch(tile, samples);
+        // The bed as far as the rim lets it down, as the vertex shader has it.
+        const riverBed = tile.bed;
+        const bed = riverBed
+          ? (x: number, y: number, h: number): number => {
+              const taper = rimTaper(rimDistanceM(areas, piece.i * tileM + x * cellM, piece.j * tileM + y * cellM) / cellM);
+              return taper === 0 ? h : h + (riverBed(x, y, h) - h) * taper;
+            }
+          : undefined;
         const start = points;
         for (const t of along) {
           const u = piece.alongU ? t : piece.across;
           const v = piece.alongU ? piece.across : t;
-          const h = drawnHeightAt(tile.data, tile.base, samples, tile.segments, u, v, fetch);
+          const h = drawnHeightAt(tile.data, tile.base, samples, tile.segments, u, v, fetch, bed);
           const x = (piece.i * tileM + u * cellM - originEastM) / compression;
           const z = (piece.j * tileM + v * cellM - originNorthM) / compression;
           // The ground's own slope there, metres a texel, to metres a world unit.

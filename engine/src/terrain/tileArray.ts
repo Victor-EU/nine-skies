@@ -333,6 +333,14 @@ export class HeightTileArray {
     return bilinearSample(this.data, layer * this.samples * this.samples, this.samples, u, v);
   }
 
+  /** A resident tile's water, `WATER_BYTES` a sample, once it has landed; null before and for a dry tile (F126). */
+  waterTile(x: number, y: number): Uint8Array | null {
+    const layer = this.layerOf.get(tileId(x, y));
+    if (layer === undefined || !this.waterData || this.waterState[layer] !== WATER_HELD) return null;
+    const stride = this.samples * this.samples * WATER_BYTES;
+    return this.waterData.subarray(layer * stride, (layer + 1) * stride);
+  }
+
   /**
    * A resident tile's samples as the GPU has them: the array they live in and
    * where the tile starts. Not a copy, and not a use for eviction's sake.

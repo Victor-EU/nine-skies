@@ -25,7 +25,15 @@ import { HeightTileArray, MAX_LAYERS, TILE_SAMPLES, tileId } from "./tileArray.j
 import { TILE_KM } from "./syntheticTiles.js";
 import { SyntheticTileSource, type TileSource } from "./tileSource.js";
 import { NO_WATER } from "./tileStream.js";
-import { OFFSET_STEP_M, OFFSET_ZERO, REACH_M, RESOLVED_RIBBON_SAMPLES } from "./water.js";
+import {
+  NO_RIBBON_CAP_M,
+  OFFSET_STEP_M,
+  OFFSET_ZERO,
+  REACH_M,
+  RESOLVED_RIBBON_SAMPLES,
+  waterBedM,
+  waterSample,
+} from "./water.js";
 import type { AreaBounds, HeroCover } from "./heroSource.js";
 import { createRimMaterial, createTerrainMaterial, MAX_CUT_RECTS, setRockFace, setTerrainPalette } from "./terrainMaterial.js";
 import { rockAcrossM, type RockFaces } from "./rock.js";
@@ -296,6 +304,8 @@ class TileLattice implements DrawnTiles {
   /** The camera, real metres, for the fine colour's reach. */
   private cameraEastM = 0;
   private cameraNorthM = 0;
+  /** The widest a ribbon is drawn before the pixel floor, as the shader holds it. */
+  private readonly ribbonCapM: number;
 
   constructor(
     readonly name: string,
@@ -322,6 +332,7 @@ class TileLattice implements DrawnTiles {
     nearColour: { source: FineColourSource; reach: FineReach } | null = null,
   ) {
     this.maxInstances = maxInstances;
+    this.ribbonCapM = ribbonMaxM ?? NO_RIBBON_CAP_M;
     // A water layer only for a source that can have one: a package (F72), or
     // hero cover cut with water (F73).
     const withWater = typeof source.water === "function";
@@ -455,14 +466,30 @@ class TileLattice implements DrawnTiles {
   }
 
   /** `DrawnTiles`: what the curtain along a hero rim hangs from (F74). */
-  drawn(i: number, j: number): { data: Int16Array; base: number; segments: number; fetch: TexelFetch } | null {
+  drawn(
+    i: number,
+    j: number,
+  ): { data: Int16Array; base: number; segments: number; fetch: TexelFetch; bed?: (x: number, y: number, h: number) => number } | null {
     const lod = this.drawnLod.get(tileId(i, j));
     if (lod === undefined) return null;
     const tile = this.heights.tileData(i, j);
     if (!tile) return null;
     // Past its edge, the tile beside it as the vertex shader reads it (F97).
     const fetch = tileFetch(tile, this.samples, (di, dj) => this.heights.tileData(i + di, j + dj));
-    return { ...tile, segments: this.segments[lod]!, fetch };
+    // Its river's bed, once its water has landed, as the vertex shader lowers it (F126).
+    const water = this.heights.waterTile(i, j);
+    const samples = this.samples;
+    const reads = water && {
+      samples,
+      sampleM: this.tileM / (samples - 1),
+      stepM: OFFSET_STEP_M,
+      offsetZero: OFFSET_ZERO,
+      reachM: REACH_M,
+      capM: this.ribbonCapM,
+      water: (a: number, b: number) => waterSample(water, samples, a, b),
+      height: fetch,
+    };
+    return { ...tile, segments: this.segments[lod]!, fetch, ...(reads && { bed: (x: number, y: number, h: number) => waterBedM(reads, x, y, h) }) };
   }
 
   /**

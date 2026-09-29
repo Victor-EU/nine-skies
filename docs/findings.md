@@ -4197,3 +4197,222 @@ its last; started again from the first row when its layer takes another
 tile or image; the frame's bytes shared, what one array sends the next
 not having; a picture's band picked out by the unpack rows, put back to 0
 for three), and the film validates.
+
+## F126 — Water keeps its level: the rivers lie flat in their valleys, 29 September 2026
+
+**Asked.** A frame of the Three Gorges' opening, the Yangtze a pale sheet
+tilted up the gorge: "the water is against the physical law. It should be
+flat or should be as what gravity pull."
+
+**What it was.** Water was painted on the ground as the ground lay (F72,
+F73). For the Three Gorges' first 26 s the camera is over the 1 km country
+grid: the 90 m area begins 39 km up the rail. There the Yangtze is one
+sample wide, every channel sample at the river's own level (158 m above
+the dam, 75 m below it, 44 to 51 m at Yichang), and its ribbon was drawn
+600 m either side of the line, 60 % of the way up the next sample's wall.
+That wall stands a median 163 m over the water, and a tenth of the time
+461 m (the higher bank beside each channel sample, country tiles 58 to 64
+by 22 to 24). At six times relief the river stood up the gorge as a tilted
+sheet. The same happened wherever a ribbon ran in a valley narrower than
+itself: the Yellow River's canyon in the Loess, and the Jinsha at the
+First Bend, a pale strip standing up the gorge 15 s in. A standing body's
+shore, half a sample out from its last wet sample, climbed a wall the
+same way.
+
+**The rule.** Water is drawn only where the ground is at its level: within
+4 m of it, for a river on a plain whose 1 km banks stand a few metres
+over the water, or a pixel and a half of height, so a coarse level of the
+mesh far off keeps its water. The level is the data's own. A standing
+body's is its wet samples' (GLO-30 flattens a body to one value). A
+river's is the lowest of the four samples round the nearest point of its
+line. The offset a sample carries runs from the line to the sample
+(`water.py` writes the sample less the line's point), so that point is
+the sample less its offset. In 2,591 samples of 2,591 between 300 m and
+2.5 km of the Yangtze on those tiles, a channel sample (within 708 m of
+the line) is a corner of its cell; the water report's drift bound, half a
+sample's diagonal, says it always is.
+
+**The channel.** The 1 km grid cannot hold a river's floor, so the vertex
+shader carves one into the ground drawn (`waterBed`): under the level
+inside the ribbon, up to it at the ribbon's edge, and back to the data
+half a sample beyond, as a function of the distance to the line, as deep
+at the line as twice what the lower bank stands over the water at the
+ribbon's edge. In a model V valley the drawn shore then lands within 55 m
+of the ribbon's edge on the 500 m mesh and 70 m on the 1 km mesh, for
+walls from 0.5 % to 150 % (`water.test.ts`). Two rules were tried first
+and left: lowering every vertex inside the ribbon by its own lowest bank
+was out by up to 600 m and drew the shore as the mesh's staircase, since
+a vertex just inside was carved and its neighbour just outside not; and a
+channel of fixed depth dug the Roof's gentle banks into ditches the river
+spilled along into side valleys. Only ground the channel carved is flooded
+past the ribbon's edge; hollows the data has under a river's level beside
+it stay dry, as they were. The channel is drawn only: the ground the
+camera, the cast and the captions stand on is the data's. The sun's depth
+pass runs the same vertex shader, so the walls shadow the water and the
+carved bed shadows nothing.
+
+**Flat.** The water is lit where the sight line meets its level, not
+where it meets the carved bed: its ripples, glint, shadow, mist and haze
+are the level surface's, so what is seen is a flat surface with its shore
+where the bank rises through it.
+
+**At the rims.** Within 2 to 4 samples of a drawn hero rim the carve is let
+back up to the data (`rimTaper`). Carved beside the rim, the hero area's
+skirts stood up out of the water as a cliff across the river, 26 s into
+the Three Gorges. The curtain along the rim (F74) is built on the CPU, so
+it hangs from the bed the CPU's copy of the rule gives (`waterBedM`).
+
+**Seen.** Headless at 1280 by 720, every scene at 15, 45, 75 and 105 s
+against the same frames drawn by HEAD, the sky masked since the clouds
+drift: the ground changed at the Three Gorges' 15 s (30 % of its pixels),
+the Loess (4 %), the First Bend's 15 s (3.7 %) and the Roof's 45 s
+(3.2 %), each where a river had stood up a wall and now lies in its
+valley; the rest within 1.3 %, most of it nothing, but for Huangshan,
+whose cloud sea drifts too. The Three Gorges from
+2 to 26 s: the river flat in the gorge floor, the reservoir behind the
+dam level at 20 s, the shore a curve along the river. With the cast on
+(seed 1), the White Dragon swims in the gorge's air, above the water. Of the nine stills, retaken, only the Loess's changed on
+the ground (2.5 %, the Yellow River lying in its canyon where it had
+washed up the canyon's west wall); the other eight moved only by drifting
+cloud and rippling water, and are kept as signed off.
+
+**Cost.** Not measurable on this machine today. Three passes over the
+stations at 1080p, old and new interleaved, with other sessions holding
+the load average at 27 to 35: the instrument's resolution was ±5.4 ms,
+and its last pass flagged a poor fit. Summed over the eight stations
+drawn whole, terrain was 41.1 ms new against 41.5 old in that pass; an
+earlier pass's 2 ms more at the Loess (5.5 against 3.5) came back as 4.1
+against 3.9. The work added: four water reads a vertex on a tile whose
+water has landed, and twelve height reads more within a ribbon; four
+height reads a fragment where a ribbon covers or the channel carved, four
+where standing water does, and a second shadow read where the surface
+lies over a carved bed. To be timed again on a quiet machine.
+
+**Left.** The drawn river's grey-blue beside the reservoir the Sentinel-2
+composite photographed, turquoise, on ground the grid does not hold as
+water. The grassland's river drawn as pieces of standing water with gaps
+(F73's surface where the 1 km grid resolves it, no ribbon between), as
+before. A standing body is clipped to its level but not carved, so far off
+on a coarse mesh a narrow one thins to its wet samples and the pixel
+tolerance. The Loess's still needs signing off (D77), and the cover,
+whose Loess card is that still, drawing again after it.
+
+**Checked.** `npm run check`: 596 tests (the level found round the line's
+nearest point, the other way from the offset; the tolerance; the channel
+never raising the ground, continuous in the distance, uncarved on a plain;
+the drawn shore at the ribbon's edge in valleys of any steepness at every
+phase of the mesh; the CPU's bed against a tile; the rim's taper; and the
+shader holding each), and the film validates.
+
+## F127 — Rivers the colour of their photograph, and whole, 29 September 2026
+
+**Asked.** The two things F126 left: the drawn river's grey-blue beside the
+reservoir the photograph shows turquoise, and the grassland's river drawn
+in pieces.
+
+**Pieces: what it was.** Not standing water, as F126 had it: the ribbon.
+Its distance was read from the four samples' offsets bilinearly, which is
+exact along a straight reach, but the steppe's river is the channel stage
+3 cut, eight-connected and smoothed twice, and it turns within a sample.
+There the offsets are not linear in position, and read so the distance
+missed the line by 144 m at the gaps, up to 190 m. The river the camera
+sees 45 s in (43.4 N, 122.9 E, byte 7) is drawn 180 m either side, and
+10.4 % of its centreline was not drawn at all; over the region's rivers
+(country tiles 74 to 83 by 43 to 48, bytes 7 to 10), 7.8 % at 120 m and
+4.6 % at 180 m. The Yangtze's 600 m ribbon hid the same error.
+
+**Pieces: the rule.** Each sample also names a point of the line, its foot:
+the sample less its offset. The line through a cell's four feet, joined
+by chords where two lie within 1.5 samples of each other along the river
+(the chord square to the offsets at both ends, within a cosine of 0.7) and
+the nearest foot where none do, is the river's wherever it turns. A cell's
+chords are its own four feet's, not its neighbour's, so a distance read
+from them alone steps at every edge of the grid: by more than 20 m at 53 %
+of edge points near a line, the bytes' rounding (32 m units). So the
+bilinear reading is kept and the chords' taken only where the two part:
+wholly past 120 m, not at all under 60 m. Along the line they part by 30 m
+or less at 75 % of its points and by more than 120 m at 8 %, the turns;
+2 % fall in between. Undrawn centreline 7.8 % to 0.05 %; steps over 20 m
+at 5.8 % of edge points, all at turns. It also mends a river that was not
+there: between two rivers 1.4 samples apart the offsets read bilinearly
+pass through zero, and the chords, which never join one river's foot to
+the other's, put the point 700 m from both (`water.test.ts`). The shader
+and its CPU copy, which the rim curtain's bed reads, do the same.
+
+**Colour: what it was.** Four things. The river's colour was the palette's,
+picked by eye and drawn ungraded, beside ground drawn from the photograph
+graded (gain 1.4, saturation 1.05, white balance 1.1, 1.0, 0.78). Three
+palettes named no river colour and drew the default's sky blue (0.42,
+0.66, 0.84): the grassland's, the Roof's and the Below the Sea's, blue
+ribbons on the steppe, the plateau's ochre and the desert. The glint was a
+lobe a few degrees wide (cos^400) on ripples tilted 4.6 degrees over
+160 m, so looking towards an evening sun, as the Three Gorges' opening
+does, its path lay on the water as white cloud; it had been taken for
+mist. And a gorge's river mirrored the open sky: the valley's walls came
+into the mirror only below 18 degrees, and at six times relief a gorge's
+stand at 70 and more.
+
+**Colour: the rule.** A river's colour is its water's in the photograph,
+graded as the ground's is. Measured in the 10 m colour along the rails:
+crops 800 m across centred on the river's line where it passes within
+2.5 km of the rail, each crop's colours in four clusters, the cluster
+nearest the river as seen in the crops, the median of its pixels. The
+Yangtze below the gorges, jade, 0.32, 0.44, 0.39 (40 crops); the Jinsha,
+milky, 0.66, 0.62, 0.50 (28 of 37); the Yellow River, khaki, 0.52, 0.47,
+0.33 (32 of 40); the plateau's rivers, ochre, 0.67, 0.51, 0.33 (22 of 27).
+The steppe's river is dry sand where the rail crosses it; its river's
+standing water, 185 km south of the rail, and its lakes, 120 km north,
+are a dark teal, 0.15, 0.24, 0.22. The desert's are dry beds under the rails, and take the Yellow
+River's silt. The Three Gorges' 90 m area agrees: its reservoir's 8,109
+inner samples, in its own composite, 0.22, 0.35, 0.33. Inside a river's
+own surface (F73), where all four samples round are water, the drawn water
+is the photograph itself, so the reservoir is the turquoise and jade the
+bays beside it are. A river's line runs on across the lake it feeds and
+out to sea, and there its colour gives way to the lake's and the sea's:
+the Roof's still had an ochre stripe across its lake. The sun's glitter
+is Cox and Munk's: the share of the facets tilted to throw the sun at the
+eye, their slopes' variance 0.004 (calm water; at 3 m/s of wind the whole
+of the gorge's river was one sheet of it), twice as bright as white at its
+heart, as the glint was; the ripples' tilt halved. And a ribbon mirrors its
+banks as steep as they stand: the lower bank's rise over the water, drawn,
+over the ribbon's half-width, seen along the reflected ray's heading
+across the river (`vWallTan`, from the vertex shader's bed).
+
+**Seen.** Every scene at 15, 45, 75 and 105 s against F126's frames, the sky
+masked: the First Bend, where a grey ribbon had run down the middle of the
+cream Jinsha the photograph shows, is the photograph's cream, seamless;
+the Roof's blue ribbons are its silt, a dusty ochre-grey under the sky
+they mirror at a low angle; the steppe's river is whole and slate, where
+it had been pale blue pieces; the Yellow River is khaki; the Three
+Gorges' is jade under its mist, and the path of the evening sun on it a
+soft silver rather than white cloud. Changed: the Three Gorges' 15 s
+(3.1 %), the First Bend's 15, 45 and 105 s (to 3.7 %), the Loess (0.7 to
+1.1 %), the grassland's 15 and 45 s (0.6 and 9.6 %), the Below the Sea's
+75 s (1 %), the Roof's 45 and 105 s (5.3 and 1 %); the rest within
+0.2 %. Of the stills, retaken, four
+changed on the ground: the Three Gorges' (0.3 %), the First Bend's
+(0.5 %), the Below the Sea's (0.3 %, its lake's glint) and the Roof's
+(2.6 %); the other five are kept as signed off.
+
+**Cost.** Not measured: the headless capture refused, its frames arriving
+at 8.5 Hz. The work added is arithmetic, no reads: six chords a water
+fragment and a water vertex, one exponential for the glitter in place of
+a power, and a varying.
+
+**Left.** The steppe's river is drawn as water where the photograph shows
+a dry bed: Natural Earth's line and stage 3's channel say river. The line
+itself zigzags at the kilometre where the channel stage 3 cut does. Lakes
+and the sea keep their palettes' colours, picked by eye: Heaven Lake's
+photograph is a deep blue (0.11, 0.17, 0.27 over its 901 inner samples)
+where its palette's is turquoise (0.14, 0.46, 0.58). The four stills, and
+the Loess's from F126, need signing off (D77), and the cover drawing again
+after them. The frame's cost, F126's and this, to be timed on a quiet
+machine.
+
+**Checked.** `npm run check`: 604 tests (a line that turns within a sample
+drawn along the line; no two rivers a sample apart joined across the land
+between; the point halfway between two rivers as far from each as the
+bytes put them; every scene's palette with its own river colour; the
+shader grading a river as the ground and drawing a river's surface as its
+photograph, leaving lakes and the sea their colour, the glitter's width
+and peak, the walls in the mirror), and the film validates.

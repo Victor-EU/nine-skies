@@ -21,22 +21,38 @@ import {
 } from "../../engine/src/terrain/tileStream.js";
 import type { WorldManifest } from "../../engine/src/terrain/tileSource.js";
 import {
+  BED_BAND_SAMPLES,
+  BED_BANK,
+  GLINT_PEAK,
+  GLINT_SLOPE_VARIANCE,
+  LEVEL_TOLERANCE_M,
+  LEVEL_TOLERANCE_PX,
+  NO_RIBBON_CAP_M,
   NO_RIVER,
   OFFSET_STEP_M,
   OFFSET_ZERO,
   REACH_M,
   RESOLVED_RIBBON_SAMPLES,
+  RIM_CLEAR_SAMPLES,
   WATER_LAKE,
   WATER_LAND,
   WATER_RIVER,
   WATER_SEA,
+  bedHeightM,
+  levelToleranceM,
+  lineCell,
   ribbonHalfWidthM,
+  rimTaper,
   riverAt,
   riverHalfWidthM,
+  riverLevelM,
   riverMinPx,
   stillAt,
   stillClassAt,
+  waterBedGlsl,
+  waterBedM,
   waterGlsl,
+  type BedReads,
   type WaterSample,
 } from "../../engine/src/terrain/water.js";
 import { Terrain } from "../../engine/src/terrain/terrain.js";
@@ -113,11 +129,38 @@ describe("what the shader reads a river as", () => {
     // Rivers along rows 0 and 4 of a cell grid: at row 2 the offsets flip.
     const corners = [sample(0, -2000), sample(0, -2000), sample(0, 2000), sample(0, 2000)] as const;
     const got = riverAt(corners, 0.5, 0.5, SAMPLE_M, OFFSET_STEP_M);
-    // Read bilinearly the offset is zero here; the nearest sample says a river
-    // is at least its own distance less a half-diagonal away. Its own distance
-    // is 2 km as the bytes round it: 62 units of 32 m.
-    expect(got.distanceM).toBeCloseTo(62 * OFFSET_STEP_M - SAMPLE_M * Math.SQRT1_2, 6);
+    // Read bilinearly the offset is zero here. Each river's feet are joined
+    // along it, and the point is as far from either as the bytes put them:
+    // 62 units of 32 m from each corner, half a sample less from the middle.
+    expect(got.distanceM).toBeCloseTo(62 * OFFSET_STEP_M - SAMPLE_M / 2, 6);
     expect(got.distanceM).toBeGreaterThan(riverHalfWidthM(2) * 2);
+  });
+
+  it("joins no two rivers a sample apart across the land between (F127)", () => {
+    // Rivers 200 m south of the cell and 200 m north of it: their feet are
+    // 1.4 samples apart, close enough to join but along the offsets, not
+    // across them. Read bilinearly, a third river ran through the middle.
+    const corners = [sample(0, 200), sample(0, 200), sample(0, -200), sample(0, -200)] as const;
+    const got = riverAt(corners, 0.5, 0.5, SAMPLE_M, OFFSET_STEP_M);
+    expect(got.distanceM).toBeGreaterThan(690);
+    expect(got.distanceM).toBeLessThan(710);
+  });
+
+  it("draws a line that turns within a sample along the line, not beside it (F127)", () => {
+    // The steppe's river at 43.4 N 122.9 E as `water.bin` has it, a byte-7
+    // river 180 m either side: its line turns through a cell, and each corner's
+    // foot lies on it. Read bilinearly, the distance at a foot was 144 m.
+    const corners = [sample(-512, -512, 7), sample(0, 0, 7), sample(0, 256, 7), sample(512, 512, 7)] as const;
+    // At the foot of the third corner, (0, 1) less its offset, and half way
+    // between the second's and the first's.
+    expect(riverAt(corners, 0, 0.744, SAMPLE_M, OFFSET_STEP_M).distanceM).toBeLessThan(1);
+    expect(riverAt(corners, 0.756, 1 - 0.756, SAMPLE_M, OFFSET_STEP_M).distanceM).toBeLessThan(20);
+    // And a point off the line is as far from it as it is.
+    const off = riverAt(corners, 0.9, 0.9, SAMPLE_M, OFFSET_STEP_M);
+    expect(off.distanceM).toBeGreaterThan(400);
+    // The offset read there is the chords' too: it names the line's point.
+    const at = riverAt(corners, 0, 0.744, SAMPLE_M, OFFSET_STEP_M);
+    expect(Math.hypot(at.eastM, at.northM)).toBeLessThan(1);
   });
 
   it("says no river where a sample is past the reach", () => {
@@ -182,6 +225,120 @@ describe("a river the grid resolves (F73)", () => {
     expect(glsl).toContain("min(RIVER_HALF_WIDTH_M[k], uWaterRibbonMaxM)");
     expect(glsl).toContain(`a.a == ${WATER_RIVER}u`);
     expect(glsl).toContain("ivec2(127)");
+  });
+});
+
+describe("water keeps its level (F126)", () => {
+  // The Yangtze below the Three Gorges on the 1 km grid: a channel one sample
+  // wide at the reservoir's 158 m, and walls a sample out hundreds of metres up.
+  const LEVEL = 158;
+  const WIDE = riverHalfWidthM(2);
+
+  it("finds the river's level round the nearest point of its line, which is the point less its offset", () => {
+    // The offset runs from the line to the point (water.py), so a point 500 m
+    // east of its river finds the line half a sample to its west.
+    expect(lineCell(10.3, 20.6, 500, -200, SAMPLE_M)).toEqual([9, 20]);
+    expect(lineCell(10.3, 20.6, -500, 200, SAMPLE_M)).toEqual([10, 20]);
+    // The lowest of the four: one is always a channel sample, at the water.
+    expect(riverLevelM([LEVEL, 612, 158, 540])).toBe(LEVEL);
+  });
+
+  it("lets water stand a few metres over its level, or a pixel and a half of height, and no more", () => {
+    expect(levelToleranceM(0)).toBe(LEVEL_TOLERANCE_M);
+    expect(levelToleranceM(100)).toBe(LEVEL_TOLERANCE_PX * 100);
+    // The ribbon drawn 600 m out on a wall standing 542 m over the water a
+    // sample away was 325 m up it (the bug); now it is not water at all.
+    const painted = LEVEL + (WIDE / SAMPLE_M) * (700 - LEVEL);
+    expect(painted - LEVEL).toBeGreaterThan(300);
+    expect(painted - LEVEL).toBeGreaterThan(levelToleranceM(1));
+  });
+
+  it("carves the channel under the level as deep as the bank stands, up to it at the ribbon's edge, and never raises the ground", () => {
+    const bank = LEVEL + 300;
+    expect(bedHeightM(LEVEL, LEVEL, 0, WIDE, SAMPLE_M, bank)).toBe(LEVEL - BED_BANK * 300);
+    expect(bedHeightM(700, LEVEL, WIDE, WIDE, SAMPLE_M, bank)).toBe(LEVEL);
+    expect(bedHeightM(700, LEVEL, WIDE + BED_BAND_SAMPLES * SAMPLE_M, WIDE, SAMPLE_M, bank)).toBe(700);
+    // A plain's river, whose banks stand at its level, is not carved.
+    expect(bedHeightM(LEVEL, LEVEL, 0, WIDE, SAMPLE_M, LEVEL)).toBe(LEVEL);
+    for (let d = 0; d < 2 * WIDE; d += 7) {
+      for (const h of [LEVEL - 50, LEVEL, LEVEL + 3, 400, 1200]) {
+        expect(bedHeightM(h, LEVEL, d, WIDE, SAMPLE_M, bank)).toBeLessThanOrEqual(h);
+      }
+    }
+    // Continuous in the distance: no vertex is carved and its neighbour not.
+    const at = (d: number) => bedHeightM(700, LEVEL, d, WIDE, SAMPLE_M, bank);
+    for (let d = 1; d < WIDE + SAMPLE_M; d += 1) expect(Math.abs(at(d) - at(d - 1))).toBeLessThan(3);
+  });
+
+  it("puts the drawn shore at the ribbon's edge wherever the mesh's vertices fall, in a valley of any steepness", () => {
+    // V valleys from a plain's to a gorge's, cut by a mesh at the country's
+    // finest two spacings, at every phase across the line. Water is drawn
+    // where the ground is under the level, and within the ribbon a few
+    // metres over it; the membership rule it replaced was out by up to 600 m.
+    for (const wall of [0.005, 0.03, 0.1, 0.54, 1.5]) {
+      const valley = (d: number) => LEVEL + wall * Math.abs(d);
+      for (const spacing of [500, 1000]) {
+        for (let phase = 0; phase < spacing; phase += 25) {
+          const xs = Array.from({ length: 10 }, (_, k) => phase + (k - 5) * spacing);
+          const ys = xs.map((x) => bedHeightM(valley(x), LEVEL, Math.abs(x), WIDE, SAMPLE_M, valley(WIDE)));
+          let edge = 0;
+          for (let x = 0; x < 3000; x += 5) {
+            const k = xs.findIndex((v, q) => q + 1 < xs.length && v <= x && xs[q + 1]! > x);
+            const y = ys[k]! + ((x - xs[k]!) / spacing) * (ys[k + 1]! - ys[k]!);
+            if (!(y < LEVEL || (x < WIDE && y <= LEVEL + LEVEL_TOLERANCE_M))) break;
+            edge = x;
+          }
+          expect(Math.abs(edge - WIDE)).toBeLessThan(0.08 * spacing + 20);
+        }
+      }
+    }
+  });
+
+  it("is the shader's bed on the CPU, reading the tile it is in", () => {
+    // A river north and south down column 10 of a 65-sample tile, its channel
+    // at the level, walls rising 540 m a sample either side.
+    const samples = TILE_SAMPLES;
+    const water = (i: number): WaterSample => sample((i - 10) * SAMPLE_M, 0, 2);
+    const reads: BedReads = {
+      samples,
+      sampleM: SAMPLE_M,
+      stepM: OFFSET_STEP_M,
+      offsetZero: OFFSET_ZERO,
+      reachM: REACH_M,
+      capM: NO_RIBBON_CAP_M,
+      water: (i) => (Math.abs(i - 10) <= 4 ? water(i) : sample(0, 0, NO_RIVER)),
+      height: (i) => LEVEL + 540 * Math.abs(i - 10),
+    };
+    // The banks at the ribbon's edge, 600 m out on a wall rising 540 m a sample: 324 m over the water.
+    const depth = BED_BANK * 0.54 * WIDE;
+    expect(waterBedM(reads, 10, 30, LEVEL)).toBeCloseTo(LEVEL - depth, 6);
+    // Half a sample out, where the offsets say 496 m (992 m a sample, quantised
+    // to 32 m), which also moves the line, and the banks read from it, by 4 m.
+    expect(Math.abs(waterBedM(reads, 10.5, 30, LEVEL + 270) - (LEVEL - depth * (1 - 496 / WIDE)))).toBeLessThan(1);
+    expect(waterBedM(reads, 12, 30, LEVEL + 1080)).toBe(LEVEL + 1080);
+    // Past every river's reach, the data.
+    expect(waterBedM(reads, 20, 30, 999)).toBe(999);
+  });
+
+  it("lets the bed back up to the data by a drawn rim", () => {
+    expect(rimTaper(0)).toBe(0);
+    expect(rimTaper(RIM_CLEAR_SAMPLES[0])).toBe(0);
+    expect(rimTaper(RIM_CLEAR_SAMPLES[1])).toBe(1);
+    expect(rimTaper(3)).toBeGreaterThan(0);
+    expect(rimTaper(3)).toBeLessThan(1);
+  });
+
+  it("puts the level, the carve and the flat surface in the shader", () => {
+    const glsl = waterGlsl(TILE_SAMPLES);
+    expect(glsl).toContain("floor(texel - o / uWaterSampleM)");
+    expect(glsl).toContain(`LEVEL_TOLERANCE_M = ${LEVEL_TOLERANCE_M}.0`);
+    expect(glsl).toContain("uniform highp isampler2DArray uHeights;");
+    expect(glsl).toContain("inout vec3 seen");
+    const vertex = waterBedGlsl();
+    expect(vertex).toContain("float waterBed(vec2 texel, float elevationM)");
+    expect(vertex).toContain(`BED_BANK = ${BED_BANK}.0`);
+    expect(vertex).not.toContain("rimTaper");
+    expect(waterBedGlsl("uniform vec4 uCutRects[2];\nuniform int uCutCount;")).toContain("float rimTaper(vec2 xz)");
   });
 });
 
@@ -263,6 +420,37 @@ function wetWorld(water?: PackedWater) {
   };
   return { index, fetch, asked, release, lake };
 }
+
+describe("rivers the colour of their photograph (F127)", () => {
+  it("grades a river's colour as the ground's photograph is, where there is one", () => {
+    expect(waterGlsl(TILE_SAMPLES, undefined, true)).toContain("if (photo.a > 0.5) river = imageryGrade(river);");
+    // Without the mosaic there is no grade to share.
+    expect(waterGlsl(TILE_SAMPLES)).not.toContain("imageryGrade");
+  });
+
+  it("draws the inside of a river's own surface as its photograph", () => {
+    expect(waterGlsl(TILE_SAMPLES, undefined, true)).toContain("photo.a * cover.w * (1.0 - cover.z) * here.inner");
+  });
+
+  it("leaves a lake and the sea their colour where a river's line runs on across them", () => {
+    const glsl = waterGlsl(TILE_SAMPLES);
+    expect(glsl).toContain("float ribbon = cover.y * (1.0 - cover.x * max(cover.z, 1.0 - cover.w));");
+    expect(glsl).toContain("body = mix(body, river, ribbon);");
+  });
+
+  it("glitters as wide as calm water's facets, and no brighter than it did", () => {
+    expect(GLINT_SLOPE_VARIANCE).toBeGreaterThanOrEqual(0.003);
+    expect(GLINT_SLOPE_VARIANCE).toBeLessThan(0.01);
+    const glsl = waterGlsl(TILE_SAMPLES);
+    expect(glsl).toContain(`GLINT_PEAK = ${GLINT_PEAK}.0`);
+    expect(glsl).not.toContain("400.0");
+  });
+
+  it("mirrors a gorge's walls as steep as its banks stand", () => {
+    expect(waterBedGlsl()).toContain("out float vWallTan;");
+    expect(waterGlsl(TILE_SAMPLES)).toContain("in float vWallTan;");
+  });
+});
 
 describe("a streamed world's water", () => {
   it("answers null until a wet tile's water lands, and none for a dry tile", async () => {

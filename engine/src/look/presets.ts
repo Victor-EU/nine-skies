@@ -135,6 +135,13 @@ export const SKY_PRESETS: Readonly<Record<string, SkyPreset>> = {
   "last-light": { hazeDensityPerM: 2e-6, scaleHeightM: 6000, hazeTint: [0.95, 0.92, 1.0], turbidity: 0.9, glow: 1.4, glowPower: 8, zenithDepth: 1.0, blue: 0.6 },
 };
 
+/*
+ * A river's colour is its water's in the photograph (F127), which the film
+ * grades as it grades the ground: the median of the pixels in the river's
+ * own cluster of colours, within 400 m of its line, in the 10 m colour along
+ * the rails. Where the rails cross only dry beds, the nearest water of the
+ * same kind the photograph has.
+ */
 export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
   default: {},
   "granite-pine": {
@@ -153,6 +160,9 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     rock: [0.56, 0.56, 0.55],
     rockSlope: [0.65, 0.95],
     lake: [0.14, 0.46, 0.58],
+    // The steppe's rivers are dry sand where the rail crosses them: its
+    // river's standing water, off the rail, is a dark teal (F127).
+    river: [0.15, 0.24, 0.22],
   },
   "delta-grey-green": {
     stops: { plain: [0.36, 0.46, 0.3], farmland: [0.45, 0.52, 0.3] },
@@ -164,7 +174,8 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     stops: { plain: [0.28, 0.4, 0.24], farmland: [0.35, 0.44, 0.27], loess: [0.46, 0.48, 0.31], highDry: [0.52, 0.48, 0.38] },
     rock: [0.56, 0.53, 0.49],
     rockSlope: [0.55, 0.9],
-    river: [0.3, 0.38, 0.34],
+    // The Yangtze below the gorges, jade (F127).
+    river: [0.32, 0.44, 0.39],
   },
   "jade-limestone": {
     face: "limestone",
@@ -178,13 +189,15 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     stops: { loess: [0.5, 0.5, 0.33], highDry: [0.5, 0.45, 0.38], plateau: [0.58, 0.55, 0.5] },
     rock: [0.42, 0.38, 0.35],
     snowLine: 4900,
-    river: [0.4, 0.39, 0.31],
+    // The Jinsha, milky with the silt of its gorges (F127).
+    river: [0.66, 0.62, 0.5],
   },
   "loess-ochre": {
     face: "sediment",
     stops: { farmland: [0.6, 0.5, 0.3], loess: [0.72, 0.58, 0.32], highDry: [0.68, 0.56, 0.4] },
     rock: [0.55, 0.45, 0.35],
-    river: [0.7, 0.6, 0.4],
+    // The Yellow River, khaki (F127).
+    river: [0.52, 0.47, 0.33],
     lake: [0.45, 0.5, 0.45],
   },
   "sage-to-tan": {
@@ -202,11 +215,15 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     },
     rock: [0.5, 0.42, 0.36],
     lake: [0.3, 0.45, 0.5],
+    // Its rivers are dry beds under the rails: silt, as the Yellow River's (F127).
+    river: [0.52, 0.47, 0.33],
   },
   "plateau-tan-turquoise": {
     face: "dark",
     stops: { highDry: [0.6, 0.55, 0.42], plateau: [0.66, 0.6, 0.48], alpine: [0.72, 0.7, 0.66] },
     lake: [0.15, 0.55, 0.62],
+    // The plateau's rivers, ochre with silt (F127).
+    river: [0.67, 0.51, 0.33],
     snowLine: 5600,
   },
   "snow-rock": {

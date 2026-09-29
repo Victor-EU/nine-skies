@@ -10,7 +10,7 @@ import {
 } from "./palette.js";
 import { MIST_GLSL, NOISE_GLSL, SHADOW_GLSL, SKY_GLSL, TIME_GLSL } from "../look/glsl.js";
 import { lookUniformDefaults } from "../look/uniforms.js";
-import { NO_RIBBON_CAP_M, waterGlsl } from "./water.js";
+import { NO_RIBBON_CAP_M, waterBedGlsl, waterGlsl } from "./water.js";
 import { COLOUR_SAMPLES } from "./colour.js";
 import type { RockFace } from "./rock.js";
 import { SPLINE_GLSL } from "./spline.js";
@@ -66,7 +66,10 @@ in float iWater;
 flat out float vWater;`;
 
 const WATER_VERTEX_BODY = /* glsl */ `
-  vWater = iWater;`;
+  vWater = iWater;
+  vNeighbours = iNeighbours;
+  vCarved = elevationM - groundM;
+  vWallTan = waterWallTan;`;
 
 const WATER_FRAGMENT_INPUTS = /* glsl */ `
 flat in float vWater;`;
@@ -192,6 +195,12 @@ flat in vec4 vNearColour;`
 }
 ${nearSamples > 0 || nearColourSamples > 0 ? NEAR_GLSL : ""}
 
+// A colour of the mosaic's, linear, as the film draws it.
+vec3 imageryGrade(vec3 c) {
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  return max(mix(vec3(l), c, uImagery.y), 0.0) * uImagery.x * uImageryTint;
+}
+
 vec3 imageryAt(vec2 texel, float layer, float across, float blur) {
   vec2 uv = texel / uTileTexels;
   vec3 c = texture(uColour, vec3(${colourSt("uv", COLOUR_SAMPLES)}, layer), blur).rgb;
@@ -217,8 +226,7 @@ ${
   }`
     : ""
 }
-  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-  return max(mix(vec3(l), c, uImagery.y), 0.0) * uImagery.x * uImageryTint;
+  return imageryGrade(c);
 }
 ${reliefSamples > 0 ? reliefGlsl(reliefSamples, nearSamples) : ""}
 ${WALL_GLSL}`;
@@ -286,9 +294,13 @@ ${
 }`;
 
 // A tile whose water has landed. Flat per instance, so every fragment of a
-// triangle takes the same branch and the derivatives inside it hold.
-const WATER_FRAGMENT_BODY = /* glsl */ `
-  if (vWater > 0.5) lit = withWater(lit, sun, uSunColor, shadow, vTexel, vLayer, dir, vWorld);`;
+// triangle takes the same branch and the derivatives inside it hold. The
+// metres of height a pixel spans, from how far the sight line turns across
+// one, for how far over its level water may be drawn (F126); and the
+// photograph there, graded, where the tile has one (F127).
+const waterFragmentBody = (colour: boolean): string => /* glsl */ `
+  float pxM = length(toFrag) * max(length(dFdx(dir)), length(dFdy(dir))) / uVerticalExaggeration;
+  if (vWater > 0.5) lit = withWater(lit, sun, uSunColor, shadow, vTexel, vLayer, dir, vWorld, pxM, ${colour ? "vec4(photo, step(0.5, vColour))" : "vec4(0.0)"}, seen);`;
 
 /** The ground's normal at a vertex, for the lit pass (not the depth pass). */
 const NORMAL_VERTEX_INPUTS = /* glsl */ `
@@ -338,7 +350,16 @@ vec3 groundNormal(ivec2 t, float here) {
   return normalize(vec3(-dx, 1.0, -dz));
 }`;
 
-const vertexShader = (water: boolean, normals: boolean, colour: boolean, fine = false, relief = false, near = false, nearColour = false): string => /* glsl */ `
+const vertexShader = (
+  water: boolean,
+  normals: boolean,
+  colour: boolean,
+  fine = false,
+  relief = false,
+  near = false,
+  nearColour = false,
+  maxCuts = 0,
+): string => /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp isampler2DArray;
@@ -361,6 +382,7 @@ out vec3 vWorld;
 out float vElevation;
 ${SPLINE_GLSL}
 ${normals ? NORMAL_VERTEX_INPUTS : ""}
+${water ? waterBedGlsl(cutUniforms(maxCuts)) : ""}
 
 void main() {
   // A vertex on a sample reads it. One between samples, which only the
@@ -372,9 +394,18 @@ void main() {
     ? spline.x
     : float(texelFetch(uHeights, ivec3(int(aTexel.x), int(aTexel.y), int(iLayer)), 0).r);
 
+  // The ground drawn: under a river, a bed lowered under its level (F126).
+  float groundM = ${
+    !water
+      ? "elevationM"
+      : maxCuts === 0
+        ? "waterBed(aTexel, elevationM)"
+        : "mix(elevationM, waterBed(aTexel, elevationM), rimTaper(iOrigin + position.xz * uTileWorldSize))"
+  };
+
   // Skirt vertices duplicate the edge sample and drop straight down, which
   // hides the crack where a coarser neighbour tile disagrees about the height.
-  float y = elevationM * uVerticalExaggeration - aSkirt * uSkirtDepth;
+  float y = groundM * uVerticalExaggeration - aSkirt * uSkirtDepth;
 
   vec3 world = vec3(
     iOrigin.x + position.x * uTileWorldSize,
@@ -573,7 +604,7 @@ ${MIST_GLSL}
 ${SHADOW_GLSL}
 ${TIME_GLSL}
 ${cutUniforms(maxCuts)}
-${waterSamples > 0 ? waterGlsl(waterSamples, palette) : ""}
+${waterSamples > 0 ? waterGlsl(waterSamples, palette, colour) : ""}
 
 void main() {
 ${cutBody(maxCuts)}
@@ -592,6 +623,7 @@ ${reliefSamples > 0 ? reliefFragmentBody(nearSamples > 0) : ""}
   float rock = smoothstep(ROCK_FROM, ROCK_TO, slope);
   float snow = smoothstep(SNOW_LINE_M - 400.0, SNOW_LINE_M + 300.0, vElevation) * (1.0 - smoothstep(0.55, 0.85, slope));
 ${colour ? COLOUR_FRAGMENT_BODY : ""}
+${colour && waterSamples > 0 ? "  vec3 photo = base;" : ""}
   base = mix(base, srgbToLinear(ROCK_SRGB), rock);
   base = mix(base, srgbToLinear(SNOW_SRGB), snow);
 
@@ -600,15 +632,17 @@ ${colour ? COLOUR_FRAGMENT_BODY : ""}
 
   vec3 toFrag = vWorld - uCameraWorld;
   vec3 dir = toFrag / max(length(toFrag), 1e-3);
-${waterSamples > 0 ? WATER_FRAGMENT_BODY : ""}
+  // Where the surface drawn is: the ground, or a water surface over it.
+  vec3 seen = vWorld;
+${waterSamples > 0 ? waterFragmentBody(colour) : ""}
 
   // Mist first, then the analytic haze integrated along the sight line: the
   // valley fills with white and the whole fades to the sky in the direction
   // looked, which is what makes the plateau horizon read as hard and clean
   // while the Sichuan Basin reads as milk.
-  lit = mix(lit, uMistColor, mistAlong(uCameraWorld, vWorld));
-  lit = mix(lit, uDeckColor, 0.85 * deckContact(vWorld.y));
-  float fog = aerialFog(uCameraWorld, vWorld, uHazeDensity, uHazeHeightFalloff);
+  lit = mix(lit, uMistColor, mistAlong(uCameraWorld, seen));
+  lit = mix(lit, uDeckColor, 0.85 * deckContact(seen.y));
+  float fog = aerialFog(uCameraWorld, seen, uHazeDensity, uHazeHeightFalloff);
   fragColor = vec4(mix(lit, skyHorizonAt(dir), airFog(fog)), 1.0);
 }
 `;
@@ -794,6 +828,7 @@ export function createTerrainMaterial(
       recipe.reliefSamples > 0,
       recipe.nearSamples > 0,
       recipe.nearColourSamples > 0,
+      maxCuts,
     ),
     fragmentShader: fragmentShader(
       maxCuts,
@@ -958,9 +993,12 @@ export function createDepthMaterial(source: ShaderMaterial): ShaderMaterial {
   }
   const names = ["uHeights", "uTileWorldSize", "uVerticalExaggeration", "uSkirtDepth"];
   if (recipe.maxCuts > 0) names.push("uCutRects", "uCutCount");
+  // The river's bed as the picture draws it (F126), so the walls shadow the water and the bed does not.
+  const water = recipe.waterSamples > 0;
+  if (water) names.push("uWater", "uWaterSampleM", "uWaterStepM", "uWaterReachM", "uWaterZero", "uWaterRibbonMaxM");
   return new ShaderMaterial({
     glslVersion: GLSL3,
-    vertexShader: vertexShader(false, false, false),
+    vertexShader: vertexShader(water, false, false, false, false, false, false, recipe.maxCuts),
     fragmentShader: depthFragmentShader(recipe.maxCuts),
     uniforms: Object.fromEntries(names.map((name) => [name, u[name]!])),
   });

@@ -75,6 +75,16 @@ describe("the palettes", () => {
     expect(snowLineForLatitude(43)).toBeLessThan(4300);
   });
 
+  it("give every scene's rivers its photograph's colour, never the default's sky blue (F127)", () => {
+    const { film } = loadFilm();
+    for (const s of film.scenes) expect(PALETTE_PRESETS[s.look.palette]!.river, s.id).toBeDefined();
+    // The Jinsha is milky and the Yangtze below the gorges jade, as photographed.
+    const jinsha = PALETTE_PRESETS["snow-and-scree"]!.river!;
+    const yangtze = PALETTE_PRESETS["limestone-green"]!.river!;
+    expect(Math.min(...jinsha)).toBeGreaterThan(Math.max(...yangtze) - 0.05);
+    expect(yangtze[1]).toBeGreaterThan(yangtze[0]);
+  });
+
   it("colour the Yellow River yellow and the plateau's lakes turquoise", () => {
     const yellow = scenePalette(PALETTE_PRESETS["loess-ochre"]!, 36).riverSrgb;
     expect(yellow[0]).toBeGreaterThan(yellow[2]);
