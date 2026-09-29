@@ -146,6 +146,14 @@ export interface Scene {
   readonly music: string | null;
   /** The figures in this scene's sky when the viewer has the cast on; empty for none (D91). */
   readonly cast: readonly CastCue[];
+  /**
+   * When each monument's place is behind the ground, seen from the camera
+   * flown at the rail's authored speed (F133): spans of flight seconds, by
+   * the place (`placeKey` in `cast/sight.ts`). Worked out from the built
+   * world by `tools/sightlines.ts` into `content/scenes/sightlines.json`;
+   * absent where it has not been.
+   */
+  readonly behind?: Readonly<Record<string, readonly (readonly [number, number])[]>>;
 }
 
 export interface Film {

@@ -5,9 +5,11 @@
  * Node only; the Vite plugin and the validator share it, so the film the
  * shell fetches is the film the gate checked.
  */
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
+import { placeKey } from "../engine/src/cast/sight.js";
 import { FILM_VERSION, type Film, type Scene } from "../engine/src/film/scene.js";
 import { HERO_DIRS } from "../engine/src/terrain/heroSource.js";
 import { sceneFromRaw, validateFilm, type FilmOptions, type Problem } from "../content/scenes.ts";
@@ -21,7 +23,49 @@ export interface LoadedFilm {
   readonly problems: readonly Problem[];
 }
 
-export function loadFilm(dir = SCENES_DIR, options: FilmOptions = {}): LoadedFilm {
+/** Where `tools/sightlines.ts` writes when the cast's monuments are behind the ground (F133), beside the scenes. */
+export const SIGHTLINES_FILE = join(SCENES_DIR, "sightlines.json");
+
+/** The sightlines on disk: per scene, what its rail was, and each monument's spans of seconds behind the ground by `placeKey`. */
+export interface Sightlines {
+  readonly scenes: Record<string, { readonly rail: string; readonly places: Record<string, readonly (readonly [number, number])[]> }>;
+}
+
+/** What a scene's sightlines were worked out from, besides the ground and the places: its rail, its band and how far ahead the camera reads. */
+export function railDigest(scene: Pick<Scene, "rail" | "band" | "lookAheadKm">): string {
+  return createHash("sha256").update(JSON.stringify([scene.rail, scene.band, scene.lookAheadKm])).digest("hex").slice(0, 16);
+}
+
+/**
+ * Each scene with monuments given its `behind` from the sightlines beside
+ * the scenes, and a problem for each that has none, or has them for a rail
+ * or a place it no longer has: the director would time its monuments by
+ * mountains that have moved.
+ */
+function withSightlines(scenes: readonly Scene[], file: string): { scenes: Scene[]; problems: Problem[] } {
+  const problems: Problem[] = [];
+  const lines = existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Sightlines) : { scenes: {} };
+  const rerun = "run `npx vite-node tools/sightlines.ts` where the world is built";
+  const out = scenes.map((scene) => {
+    const places = scene.cast.flatMap((c) => (c.role === "monument" && c.at ? [placeKey(c.at)] : []));
+    if (places.length === 0) return scene;
+    const mine = lines.scenes[scene.id];
+    if (!mine) {
+      problems.push({ scene: scene.id, field: "cast", message: `no sightlines for its monuments: ${rerun}` });
+      return scene;
+    }
+    if (mine.rail !== railDigest(scene)) {
+      problems.push({ scene: scene.id, field: "cast", message: `its rail has changed since its sightlines were worked out: ${rerun}` });
+      return scene;
+    }
+    const missing = places.filter((key) => !(key in mine.places));
+    if (missing.length > 0) problems.push({ scene: scene.id, field: "cast", message: `no sightline for the monument at ${missing.join(", ")}: ${rerun}` });
+    return { ...scene, behind: mine.places };
+  });
+  return { scenes: out, problems };
+}
+
+export function loadFilm(dir = SCENES_DIR, options: FilmOptions = {}, read: { sightlines?: boolean } = {}): LoadedFilm {
   const problems: Problem[] = [];
   const scenes: Scene[] = [];
   const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".yaml")).sort() : [];
@@ -42,8 +86,9 @@ export function loadFilm(dir = SCENES_DIR, options: FilmOptions = {}): LoadedFil
     problems.push(...read.problems);
     if (read.scene && read.problems.length === 0) scenes.push(read.scene);
   }
-  const film: Film = { version: FILM_VERSION, scenes };
-  problems.push(...validateFilm(film, options));
+  const seen = read.sightlines === false ? { scenes, problems: [] } : withSightlines(scenes, join(dir, "sightlines.json"));
+  const film: Film = { version: FILM_VERSION, scenes: seen.scenes };
+  problems.push(...seen.problems, ...validateFilm(film, options));
   return { film, problems };
 }
 

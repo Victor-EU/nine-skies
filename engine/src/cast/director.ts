@@ -24,7 +24,8 @@
  * - a figure's visits stay inside its cue's seconds and apart;
  * - a monument that does not surface stands for its whole cue, as it did;
  * - a monument that surfaces comes up where the flight is looking more
- *   often than not, when the scene's rail is known;
+ *   often than not, and nothing stands between (F133), when the scene's
+ *   rail is known;
  * - a figure whose temperament chases others follows the visits of the
  *   first of them cast for some of the same seconds, a second behind, if
  *   that one goes its own way (F129, F130: Nezha after Wukong in Heaven,

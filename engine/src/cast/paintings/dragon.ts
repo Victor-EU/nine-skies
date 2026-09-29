@@ -53,6 +53,46 @@ function lifeAt(dx: number, dy: number, cloud: { readonly grey?: number; readonl
   ];
 }
 
+/**
+ * The four kings together (F133), in their own picture: each king's body
+ * swims on its own midline, traced by eye on the colour of his scales, so
+ * it runs along the body but not exactly down it; the wave is a hundredth
+ * of the body, and at the size the four are seen that is enough. None of
+ * them rises and falls as a whole (`bob`), or the picture would move four
+ * ways at once. Manes, beards and tails stir about still heads and
+ * antlers, the pheasant plumes of the crown the Southern King holds up
+ * sway on it, and the long bank of cloud they rise from churns, never
+ * where the Western King's silver body lies in it.
+ */
+const SOUTH: readonly Px[] = [[590, 150], [505, 165], [440, 195], [420, 255], [460, 300], [530, 325], [565, 375], [520, 415], [440, 395], [370, 345], [320, 280], [250, 265], [205, 320], [215, 400], [260, 450], [190, 440], [110, 420], [45, 410]];
+const WEST: readonly Px[] = [[545, 525], [470, 540], [400, 570], [355, 630], [345, 710], [330, 790], [270, 790], [225, 720], [200, 640], [130, 610], [75, 670], [90, 760], [150, 820], [170, 900], [120, 960]];
+const EAST: readonly Px[] = [[1190, 245], [1090, 262], [1000, 300], [950, 380], [950, 470], [980, 560], [980, 660], [920, 720], [850, 680], [800, 580], [760, 480], [690, 470], [640, 540], [640, 640], [680, 740], [700, 840], [660, 940]];
+const NORTH: readonly Px[] = [[1440, 440], [1360, 440], [1290, 470], [1240, 540], [1210, 620], [1230, 700], [1270, 780], [1240, 850], [1180, 880]];
+const swims = (spine: readonly Px[]) => serpent({ radius: 50, reach: 110, spine, bob: 0 });
+const disc = (x: number, y: number, r: number) => ({ at: [x, y] as Px, r });
+const FOUR_KINGS: LifeRig[] = [
+  swims(SOUTH),
+  swims(WEST),
+  swims(EAST),
+  swims(NORTH),
+  flutter({ root: [575, 145], stir: 12, regions: [disc(440, 125, 90), disc(395, 205, 70), disc(560, 230, 50)], stiff: [disc(590, 145, 60), disc(470, 60, 60), disc(715, 215, 60)] }),
+  flutter({ root: [730, 165], stir: 10, regions: [disc(770, 90, 85)], stiff: [disc(715, 215, 60)] }),
+  flutter({ root: [230, 440], stir: 14, regions: [disc(110, 420, 110)] }),
+  flutter({ root: [540, 525], stir: 12, regions: [disc(380, 515, 90), disc(325, 600, 60), disc(520, 580, 45)], stiff: [disc(545, 525, 60), disc(440, 440, 70)] }),
+  flutter({ root: [170, 860], stir: 14, regions: [disc(120, 925, 100)] }),
+  flutter({ root: [1190, 245], stir: 12, regions: [disc(1020, 200, 110), disc(960, 300, 80), disc(1170, 320, 60)], stiff: [disc(1190, 245, 70), disc(1070, 85, 110)] }),
+  flutter({ root: [690, 860], stir: 14, regions: [disc(650, 930, 100)] }),
+  flutter({ root: [1430, 440], stir: 12, regions: [disc(1300, 420, 80), disc(1250, 500, 60), disc(1420, 500, 45)], stiff: [disc(1435, 440, 55), disc(1340, 360, 70)] }),
+  churn({
+    swirl: 7,
+    grey: 0.12,
+    pale: 0.86,
+    within: circlesAlong([[60, 905], [1460, 905]], 130),
+    spare: [SOUTH, WEST, EAST, NORTH].flatMap((spine) => circlesAlong(spine, 70)),
+  }),
+  pitch({ most: 0.15 }),
+];
+
 registerPainting("dragon", {
   views: [
     { name: "east-king", url: "cast/dragon-east-king.webp", faces: "right", aspect: 1505 / 999, feet: 0.5, size: { across: 0.97 }, pixels: [1505, 999], life: lifeAt(0, 0, {}) },
@@ -61,5 +101,6 @@ registerPainting("dragon", {
     { name: "north-king", url: "cast/dragon-north-king.webp", faces: "right", aspect: 1525 / 1006, feet: 0.5, size: { across: 0.97 }, pixels: [1525, 1006], life: lifeAt(15, 5, { pale: 0.75 }) },
     { name: "white", url: "cast/dragon-white.webp", faces: "right", aspect: 1517 / 1006, feet: 0.5, size: { across: 0.97 }, pixels: [1517, 1006], life: lifeAt(10, 5, { grey: 0.12, pale: 0.8 }) },
     { name: "dust", url: "cast/dragon-dust.webp", faces: "right", aspect: 1508 / 1004, feet: 0.5, size: { across: 0.97 }, pixels: [1508, 1004], life: lifeAt(0, 0, { grey: 0.55, pale: 0.72 }) },
+    { name: "four-kings", url: "cast/dragon-four-kings.webp", faces: "right", aspect: 1523 / 1024, feet: 0.5, size: { across: 0.97 }, pixels: [1523, 1024], life: FOUR_KINGS },
   ],
 });

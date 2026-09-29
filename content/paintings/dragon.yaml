@@ -2,8 +2,11 @@
 # nine resemblances, no wings, riding the cloud. The East King is drawn
 # first; the other kings, the White Dragon and the Jing River's are drawn
 # from him (`--ref`), so the family is one design in its liveries. The
-# Uyghur dragon lying twenty kilometres along the Flaming Mountains stays
-# made in code: a card cannot lie along a range.
+# four kings together over Huangshan for their line (`four-kings`) are one
+# picture: `gathering` drawn from the four kings, then its pick with only
+# the South King's crown made the Monkey King's (F133). The Uyghur dragon
+# lying twenty kilometres along the Flaming Mountains stays made in code:
+# a card cannot lie along a range.
 
 figure: dragon
 
@@ -62,3 +65,36 @@ views:
       composition, framing and light. Change it into the Dragon King of the
       Jing River: scales the ochre-brown of loess dust, a pale sand belly, a
       dark umber mane, and dust streaming from his coils like smoke.
+  gathering:
+    size: 1536x1024
+    pose: >-
+      The four Dragon Kings of the Four Seas together, four brothers of the
+      one design in the reference pictures, each in his own livery exactly
+      as there, rising side by side out of one long low bank of cloud along
+      the bottom of the picture. Each is a whole dragon, head to tail, in a
+      pose of his own, so that the four read apart even when the picture is
+      small; all four heads turned toward the right of the picture. Foremost
+      and largest, right of centre, the Dragon King of the Eastern Sea in
+      deep jade green with an amber mane, rearing up in a great S-curve,
+      jaws parted. Higher on the left, the Dragon King of the Southern Sea in
+      vermilion red with a gold mane, holding up in one foreclaw the purple-gold
+      crown with phoenix wings, two long pheasant-tail plumes rising from
+      it. Lower left, the Dragon King
+      of the Western Sea in silver with a pearl sheen and a blue-grey mane,
+      carrying in his foreclaws a cuirass of interlinked golden chain mail.
+      Far right, the Dragon King of the Northern Sea in blue-black iron with
+      a dark grey mane, holding out a pair of pale cloud-stepping boots woven
+      of lotus-root fibre. Clear space between the four, their coils not
+      knotted together.
+  four-kings:
+    size: 1536x1024
+    pose: >-
+      Keep the picture in the reference exactly: the four dragons, their
+      designs, poses, colours, the cloud, the composition, framing and
+      light, and what each holds. Change only the crown the red dragon
+      holds up: make it the purple-gold crown with phoenix wings that the
+      Monkey King wears in the Ming novel, a Chinese crown and not a
+      European one: a close-fitting cap of gold tinged with purple, a
+      flame-shaped plate rising at its front, a gold phoenix wing sweeping
+      up from each side, and two very long pheasant-tail plumes rising from
+      it and arching back. No arches, no cross, no orb, no jewels.

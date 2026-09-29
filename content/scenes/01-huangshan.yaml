@@ -57,49 +57,65 @@ look:
   grade: warm
 
 # The cast (D91), when the viewer has it on: Havoc in Heaven (ch. 3-7).
-# The cloud sea is the East Sea, and the four Dragon Kings surface from it
-# round the massif, each where a pass of the loop looks across at him:
-# the East King north of Lotus Peak, the South King off the start, the
-# West King off the west flank, the North King over the north. Each comes
-# up and goes under on his own timing, as the flight looks his way, and
-# the cranes scatter before him (D93). Wukong
-# rides beside the camera with the cranes, looking back; Nezha comes
-# after him from half way, the chase of ch. 4.
+# The cloud sea is the East Sea. The four Dragon Kings come up out of it
+# together for their line, the brothers the East King's drum and bell
+# called to him, with the gifts they gave Wukong: the South King the
+# crown, the West King the mail, the North King the boots (F133, one
+# picture, clear of the peaks from 20 s). Then each goes back to his own
+# sea round the massif and surfaces where the loop looks across at him
+# with nothing standing between, in the order it comes round: the North
+# King off the north-east as it turns (34-48 s), the East King off the
+# east as it runs south (52-69 s), the South King off the south
+# (61-79 s), the West King off the south-west as it turns for home
+# (86-101 s). Each comes up and goes under on his own timing, as the
+# flight looks his way, and the cranes scatter before him (D93). Wukong rides beside the camera with the cranes, looking back;
+# Nezha comes after him from half way, the chase of ch. 4.
 cast:
+  # Seven kilometres out, right of the line, their middle about 1,760 m up:
+  # at six times relief, whole in the picture above the camera's 1,700 m,
+  # and their cloud clear of the ridges between from 20 s.
   - figure: dragon
-    variant: east-king
+    variant: four-kings
     role: monument
-    at: { lat: 30.165, lon: 118.205, above_ground_m: 700 }
-    size_m: 1500
-    facing_deg: 250
-    from: 6
-    until: 108
+    at: { lat: 30.1789, lon: 118.2031, above_ground_m: 950 }
+    size_m: 4000
+    facing_deg: 230
+    from: 10
+    until: 34
     name_zh: 四海龙王
     line: "The four Dragon Kings, up from the cloud sea with Wukong's gifts."
     line_at: 20
+  - figure: dragon
+    variant: east-king
+    role: monument
+    at: { lat: 30.11, lon: 118.27, above_ground_m: 720 }
+    size_m: 1500
+    facing_deg: 60
+    from: 38
+    until: 108
   - figure: dragon
     variant: south-king
     role: monument
     at: { lat: 30.095, lon: 118.205, above_ground_m: 700 }
     size_m: 1800
     facing_deg: 300
-    from: 4
+    from: 38
     until: 110
   - figure: dragon
     variant: west-king
     role: monument
-    at: { lat: 30.135, lon: 118.115, above_ground_m: 800 }
+    at: { lat: 30.06, lon: 118.13, above_ground_m: 650 }
     size_m: 1800
-    facing_deg: 120
-    from: 4
+    facing_deg: 170
+    from: 38
     until: 110
   - figure: dragon
     variant: north-king
     role: monument
-    at: { lat: 30.215, lon: 118.175, above_ground_m: 1000 }
+    at: { lat: 30.24, lon: 118.25, above_ground_m: 1050 }
     size_m: 1800
-    facing_deg: 180
-    from: 4
+    facing_deg: 260
+    from: 34
     until: 110
   - figure: cranes
     variant: still

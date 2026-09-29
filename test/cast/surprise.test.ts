@@ -17,7 +17,7 @@ import "../../engine/src/cast/motions/index.js";
 import { OMEN_KINDS, OMENS, omenWrap, registeredOmens, witnesses, type Reaction } from "../../engine/src/cast/omens.js";
 import "../../engine/src/cast/omens/index.js";
 import { hashSeed, Rng } from "../../engine/src/cast/random.js";
-import { sightOf } from "../../engine/src/cast/sight.js";
+import { placeKey, sightOf } from "../../engine/src/cast/sight.js";
 import { SKINS } from "../../engine/src/cast/skin.js";
 import { TEMPERAMENTS, temperamentOf } from "../../engine/src/cast/temperament.js";
 import { CAST_LINE_SHOW_S, type CastCue, type Scene } from "../../engine/src/film/scene.js";
@@ -78,6 +78,26 @@ describe("the sight", () => {
     expect(sightOf({ rail: [] })).toBeNull();
   });
 
+  it("does not see a place while the ground stands between it and the lens (F133)", () => {
+    const north = huangshan.cast.find((c) => c.variant === "north-king")!;
+    const spans = huangshan.behind?.[placeKey(north.at!)];
+    expect(spans?.length).toBeGreaterThan(0);
+    const across = sightOf({ rail: huangshan.rail })!;
+    const sight = sightOf(huangshan)!;
+    let checked = 0;
+    for (const [a, b] of spans!) {
+      for (let t = a; t < b; t += 0.5) {
+        if (!across(north.at!, t)) continue;
+        expect(sight(north.at!, t), `at ${t}`).toBeNull();
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(0);
+    // Clear of the ground, it is seen as it was.
+    const clear = [0, 30, 45].find((t) => !spans!.some(([a, b]) => t >= a && t < b) && across(north.at!, t))!;
+    expect(sight(north.at!, clear)).toEqual(across(north.at!, clear));
+  });
+
   it("brings the Dragon Kings up where the flight is looking, most of the time, and every king up in most viewings", () => {
     const sight = sightOf(huangshan)!;
     const share = (plan: (seed: number) => ReturnType<typeof planScene>) => {
@@ -96,7 +116,7 @@ describe("the sight", () => {
           }
         });
       }
-      return { seen: seen / risings, absent: absent / (4 * SEEDS.length) };
+      return { seen: seen / risings, absent: absent / (huangshan.cast.filter((c) => c.role === "monument").length * SEEDS.length) };
     };
     const looked = share((seed) => planScene(huangshan, seed, temperamentOf, sight));
     const blind = share((seed) => planScene(huangshan, seed));
@@ -105,15 +125,37 @@ describe("the sight", () => {
     expect(looked.absent).toBeLessThan(0.25);
   });
 
-  it("stands the named king for every second of his line", () => {
+  it("stands the four kings together for every second of their line, mid-picture and clear of the peaks, and no king alone while they are up (F133)", () => {
     const sight = sightOf(huangshan)!;
-    const east = huangshan.cast.findIndex((c) => c.variant === "east-king");
-    const c = huangshan.cast[east]!;
+    const four = huangshan.cast.findIndex((c) => c.variant === "four-kings");
+    const c = huangshan.cast[four]!;
+    expect(c.line).toMatch(/four Dragon Kings/);
     for (const seed of SEEDS) {
-      const named = planScene(huangshan, seed, temperamentOf, sight).cues[east]!.visits.find((v) => v.named)!;
+      const plan = planScene(huangshan, seed, temperamentOf, sight);
+      const named = plan.cues[four]!.visits.find((v) => v.named)!;
       expect(named.motion).toBe("surface");
       expect(named.dwell![0]).toBeLessThanOrEqual(c.lineAtS);
       expect(named.dwell![1]).toBeGreaterThanOrEqual(c.lineAtS + CAST_LINE_SHOW_S);
+      for (let t = c.lineAtS; t <= c.lineAtS + CAST_LINE_SHOW_S; t += 0.5) expect(Math.abs(sight(c.at!, t)?.x ?? Infinity), `at ${t}`).toBeLessThanOrEqual(0.8);
+      huangshan.cast.forEach((k, i) => {
+        if (k.figure !== "dragon" || i === four) return;
+        for (const v of plan.cues[i]!.visits) expect(v.fromS >= named.untilS || v.untilS <= named.fromS, `${k.variant} ${v.fromS}–${v.untilS}`).toBe(true);
+      });
+    }
+  });
+
+  it("brings each king up on his own after, where he is seen, in most viewings (F133)", () => {
+    const sight = sightOf(huangshan)!;
+    const kings = huangshan.cast.flatMap((c, i) => (c.figure === "dragon" && c.variant !== "four-kings" ? [i] : []));
+    expect(kings).toHaveLength(4);
+    for (const i of kings) {
+      const c = huangshan.cast[i]!;
+      let seen = 0;
+      for (const seed of SEEDS) {
+        const visits = planScene(huangshan, seed, temperamentOf, sight).cues[i]!.visits;
+        if (visits.some((v) => { for (let t = v.dwell![0]; t <= v.dwell![1]; t += 0.5) if (Math.abs(sight(c.at!, t)?.x ?? Infinity) <= 1) return true; return false; })) seen++;
+      }
+      expect(seen / SEEDS.length, c.variant!).toBeGreaterThan(0.85);
     }
   });
 });

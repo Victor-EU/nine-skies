@@ -4765,3 +4765,87 @@ starts. Then: build, cut, `make scenes`, the Gorges cover card (18 s) and
 still 02 retaken for sign-off (D77). A test bound moved: a quarter of a
 rail's near sub-tiles may lie under its hero area, now a third (23 of the
 Gorges' 78). Frame cost not measured.
+
+## F133 — The four Dragon Kings together for their line, and no king timed behind a mountain, 29 September 2026
+
+**Asked.** Over Huangshan the line says "The four Dragon Kings, up from the
+cloud sea with Wukong's gifts", and one dragon is in the picture. The four
+were placed round the massif, one to a quarter, each coming up where a pass
+of the loop looked his way (D93). While the line was on (20–26 s) the East
+King was in the picture; the South King was behind the lens, the West King
+off the left; the North King was straight ahead and counted as seen, ten
+kilometres off, behind the peaks, a curl of tail by a spire. Over 200
+viewings a viewer met three or four kings, one at a time, never four.
+
+**The kings together, one picture.** The four are brothers in the novel:
+the East King beat his drum and struck his bell, and the other three came
+with the gifts (ch. 3): the South King's phoenix-winged purple-gold crown,
+the West King's golden chain mail, the North King's cloud-stepping boots of
+lotus fibre. Their four pictures are one pose recoloured (D94), so side by
+side they would read as copies. A new view, `dragon:four-kings`, draws them
+in one picture: `gathering` painted from the four kings as references
+(`--ref`, four at $0.37), each in a pose of his own and holding his gift,
+rising out of one long bank of cloud; then its pick edited once, only the
+crown made the Monkey King's (the model's first was a European crown with
+arches and a jewel, $0.17). Its life (D96): a serpent on each king's
+midline, traced by eye on the colour of his scales, none bobbing the whole
+picture; manes, beards, tails and the crown's plumes stirring about still
+heads; the cloud bank churning, spared along the four bodies so the West
+King's silver does not churn with it.
+
+It is a monument cue of its own at Huangshan, which takes the line and the
+name (四海龙王), up from 10 to 34 s: seven kilometres out, right of the
+line, where nothing stands between from 20 s. The four single kings now
+start after it, and none of them is ever up while it is.
+
+**Height at six times relief.** A place's height shows six times over in
+the picture (`exaggeration`) and a figure's size does not. Put where the
+gathering's cloud would lie on the cloud sea's top (1,050 m), it stood 30°
+up, cut by the frame's top. Its middle is now 1,760 m, about the camera's
+height, so the four stand whole over the cloud sea, 2° above the level.
+
+**Each king in his own quarter, in the loop's order.** After 38 s the old
+places were barely looked at: the East King's place was behind the flight,
+the North King's in view only when his cue was over. Each king now stands
+where the loop looks across at him, clear of the peaks, and about 2° above
+the camera's level: the North King off the north-east as it turns (34–48 s),
+the East King off the east as it runs south (52–69 s), the South King where
+he was (61–79 s), the West King off the south-west as it turns for home
+(86–101 s). Set 16–21° up at first, they hung small at the top of the sky.
+
+**Nothing behind a mountain (the sight).** The director's sight (D93) knew
+only where across the picture a place was. `tools/sightlines.ts` flies each
+scene's rail at its authored speed, the camera held over the drawn ground by
+the altitude controller as the shell holds it, and for every quarter second
+asks whether the ground rises over the straight line from the lens to each
+monument at its height (a line straight in the exaggerated world is
+straight in real metres, so the relief does not change the answer). The
+spans behind the ground go to `content/scenes/sightlines.json`, a place to a
+line, with a digest of the rail, band and look-ahead they were worked out
+for; a gap under a second between two spans is a peep over a ridge and
+counts as behind. The film reads them into each scene's `behind`, and the
+sight answers null for a place while it is behind the ground, so a king
+waits for a moment he can be seen. The content gate says when a scene's
+rail or a monument's place has changed since: run the tool again where the
+world is built. It takes a second for the film.
+
+Before, 31% of the seconds the director counted a king as seen were behind
+the ground, and 9% of risings were wholly so.
+
+**Measured** over 200 viewings: the four kings together up, mid-picture and
+clear for every second of their line in all of them; each king seen on his
+own after in 92–98% (6.7–11.9 s a viewing); no rising only behind the
+ground; all four again on their own in 84% of viewings, three in 12%.
+Played to the line: 四海龙王 on, the four whole over the cloud sea. The cover's
+Huangshan card (34 s, Wukong) is as it was.
+
+**Checked.** `npm run typecheck`; `npm run content:validate` (film ok);
+tests 624 of 625: the one failing is the Three Gorges' near relief in the
+scene packs, which another session is re-cutting as this is written.
+
+**Left.** At about 56 s the East King, ten kilometres off, stands over a far
+knoll for a moment, as if perched on it. Only the Dragon Kings surface;
+the tool knows every monument, and Heaven Lake's crane flock, placed to sit
+below the crater's rim (F104), is behind it until 103 s. The painting is `high`
+quality; spend $5.93 of $30. `npx vite-node tools/sightlines.ts` has no npm
+script yet: `package.json` carries another session's uncommitted work.
