@@ -4069,3 +4069,76 @@ the body, leaving the picture as it was and drawn first with no depth;
 a borrowed wing and leg go as their twin does, shifted, bending nothing of
 the picture, and are refused when near, in the picture or treading
 cloud), and the film validates.
+
+## F124 — Below the Sea no longer stalls at 81 s: the Taklamakan's programs and arrays made ready before it comes, 29 September 2026
+
+**Asked.** "The film stalls on one frame in scene 7, Below the Sea, at about
+81.25 s of flight": `__ns.rig.render` took 50 to 60 ms on that frame
+headless, with the cast off and on, and one whole-film run under a load
+average of 15 saw a 750 ms gap there. Find what happens at that moment and
+make the frame not stall.
+
+**What happens at 81.25 s.** The rail comes within reach of the
+Taklamakan's 90 m area (`VIEW_RADIUS_TILES`, 384 km), and its lattice is
+drawn for the first time. That frame compiled four programs, the lattice's
+and the rim curtain's, each in the picture and in the sun's depth pass, and
+spent 53 ms of it waiting in `getProgramInfoLog` for ANGLE to link them.
+The palette is written into the terrain's shaders (`setTerrainPalette`),
+so every scene's programs are new, and a hero lattice is hidden until an
+area is in reach. The same frame made the area's sixteen tiles resident
+and sent the lattice's arrays for the first time: 7 MB, 6.4 MB of it the
+dry area's water array sent whole, in zeros.
+
+**Programs asked for ahead.** After a frame is drawn, the look rig asks
+three for every program the scene can draw with, drawn or hidden
+(`renderer.compile`), whenever the program the ground is drawn with
+changes: a new palette, or new lights. It asks where each will draw: the
+scene's into the post pass's target, since a program drawn into a target
+is made for linear light and no tone mapping; the sun's with the scene as
+its pass sees it (`SunShadow.fromTheSun`). They link beside the frames that
+follow (KHR_parallel_shader_compile), and one a frame is taken into use
+once it has linked: its first use still waits 7 to 30 ms on ANGLE Metal,
+and in the lead-in no one sees the wait. Asked for once at a scene's
+start, they went stale with the cast on. The cast brings a sun and a sky
+of its own when its code arrives, after the lead-in's first frame, and
+three counts the scene's lights into every program's key, a
+`ShaderMaterial`'s too; the sun's pass hides the lights, so its programs
+count none. The cast's figures are asked for with the rest, so the frames
+they came on in, 4, 16 and 28 s into this scene, no longer compile either
+(40 to 240 ms before).
+
+**An area readied before its reach.** A hero area within 64 km of the
+reach is readied four tiles a frame: each made resident, its water and
+colour asked for, its heights and water sent to the GPU as they are
+written (`readyArea`, `HERO_READY_M`, `HERO_READY_PER_FRAME`). The
+Taklamakan's sixteen tiles are in by 68.2 s, and at 81.25 s the area is
+only drawn. An array of heights or water is now allocated with nothing
+sent until a layer is written (`dataReady`), so no zeros go up.
+
+**Measured.** Headless at 1,280 by 720 (ANGLE Metal on the M3), the scene
+played from its lead-in, before and after interleaved, the load average
+noted:
+
+| | cast | load | render at 81.25 s | worst gap, 80.5–82.5 s |
+|---|---|---|---|---|
+| before | off | 4.9, 6.6 | 74, 71 ms | 87, 78 ms |
+| after | off | 3.8, 5.4 | 4, 7 ms | 26, 46 ms |
+| before | on | 5.2, 5.1 | 99, 356 ms | 110, 383 ms |
+| after | on | 8.5, 6.2 | 2, 7 ms | 24, 24 ms |
+
+An earlier run of the fix at a load of 16 to 20 held 4.8 ms. The picture
+at 83 s is the same before and after, and the First Bend, the Karst and the
+Three Gorges play to 70 s with the cast on, their areas drawn whole and
+nothing in the console.
+
+**Left.** The lead-in now carries the programs' first uses, one a frame,
+25 to 31 ms each with the cast on. `terrain.update` still spikes now and
+then, and the country's near relief and colour pools take 5 to 40 ms of a
+frame under load.
+
+**Checked.** `npm run check`: 592 tests (an area past its reach readied
+four tiles a frame, undrawn and uncut, then drawn whole the frame it is in
+reach with nothing left to make resident; an array that sends no zeros
+before a layer is written; the sun's programs asked for every caster,
+hidden or not, in its depth material, into the map, the lights hidden and
+the scene put back), and the film validates.

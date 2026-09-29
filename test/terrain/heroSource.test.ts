@@ -23,6 +23,8 @@ import { HERO_TILE_SAMPLES } from "../../engine/src/terrain/tileArray.js";
 import { buildGrid } from "../../engine/src/terrain/grid.js";
 import {
   HERO_LOD_SEGMENTS,
+  HERO_READY_M,
+  HERO_READY_PER_FRAME,
   SKIRT_DEPTH_M,
   Terrain,
 } from "../../engine/src/terrain/terrain.js";
@@ -362,6 +364,31 @@ describe("terrain over both grids at once", () => {
     expect(terrain.stats.hero.areasDrawn).toBe(0);
     expect(terrain.stats.hero.instances).toBe(0);
     expect(terrain.material.uniforms.uCutCount!.value).toBe(0);
+  });
+
+  it("readies an area a few tiles a frame before its reach, and draws it the frame it is in reach", () => {
+    // Two country tiles is this terrain's reach, 128 km; the area's east
+    // edge is 138 km, so from 290 km it is 152 km off: past the reach,
+    // inside the readying.
+    const terrain = build(cover());
+    const beforeM = 290_000;
+    terrain.update(beforeM, northM, 3000);
+    expect(terrain.stats.hero.resident).toBe(HERO_READY_PER_FRAME);
+    expect(terrain.stats.hero.areasDrawn).toBe(0);
+    expect(terrain.stats.hero.instances).toBe(0);
+    expect(terrain.material.uniforms.uCutCount!.value).toBe(0);
+    terrain.update(beforeM, northM, 3000);
+    expect(terrain.stats.hero.resident).toBe(6);
+    expect(terrain.stats.hero.areasDrawn).toBe(0);
+    // In reach: drawn whole, and nothing of it left to make resident.
+    terrain.update(eastM, northM, 3000);
+    expect(terrain.stats.hero.areasDrawn).toBe(1);
+    expect(terrain.stats.hero.instances).toBe(6);
+    expect(terrain.stats.hero.resident).toBe(6);
+    // Too far to ready is left alone.
+    const far = build(cover());
+    far.update(beforeM + HERO_READY_M, northM, 3000);
+    expect(far.stats.hero.resident).toBe(0);
   });
 
   it("will not punch a hole it cannot fill", () => {

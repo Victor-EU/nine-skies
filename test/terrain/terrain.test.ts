@@ -172,6 +172,20 @@ describe("uploading the heightmap array", () => {
     expect(arr.lastUpload).toEqual({ layers: 2, whole: false });
   });
 
+  it("allocates an array without sending its zeros, until a layer is written", () => {
+    // WebGL fills a new array with zeros itself. A hero area's dry water
+    // array, sent whole the frame the area came into reach, was 6.4 MB of them.
+    const arr = new HeightTileArray(8, TILE_SAMPLES, true);
+    expect(arr.texture.source.dataReady).toBe(false);
+    expect(arr.water!.source.dataReady).toBe(false);
+    arr.insert(3, 3, tile(7));
+    arr.flush();
+    expect(arr.texture.source.dataReady).toBe(true);
+    expect([...arr.texture.layerUpdates]).toEqual([0]);
+    // No water written, so none to send.
+    expect(arr.water!.source.dataReady).toBe(false);
+  });
+
   it("sends nothing when nothing was written", () => {
     const arr = new HeightTileArray(8);
     uploaded(arr);

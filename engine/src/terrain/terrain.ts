@@ -85,6 +85,15 @@ export const VIEW_RADIUS_TILES = 6;
 export const HERO_LOD_SEGMENTS = [128, 64, 32, 16] as const;
 
 /**
+ * How far past the reach a hero area starts to be readied, and how many of
+ * its tiles a frame: a country tile, 13 s of Below the Sea's 300 km a
+ * minute, and four tiles, so its sixteen are in within four frames and the
+ * largest area well before it is drawn (`readyArea`).
+ */
+export const HERO_READY_M = 64_000;
+export const HERO_READY_PER_FRAME = 4;
+
+/**
  * The country grid's ladder: the level finer than its samples (F97), then
  * L0 to L3. A tile's bucket is its index here, so L0 is bucket 1.
  */
@@ -472,28 +481,11 @@ class TileLattice implements DrawnTiles {
     originNorthM: number,
     scale: WorldScale,
   ): boolean {
-    if (!this.heights.has(i, j)) {
-      const samples = this.source.request(i, j);
-      // Not ready, or outside the built world. Skip it and ask again next
-      // frame rather than drawing a hole at sea level.
-      if (samples === null) return false;
-      this.heights.insert(i, j, samples);
-      this.generated++;
-    }
-    const layer = this.heights.layerFor(i, j);
+    const layer = this.ready(i, j);
+    // Not ready, or outside the built world. Skip it and ask again next
+    // frame rather than drawing a hole at sea level.
     if (layer < 0) return false;
-    // Asked for after the ground, so the ground never waits on it.
-    if (this.heights.waterWanted(layer)) {
-      const water = this.source.water ? this.source.water(i, j) : NO_WATER;
-      if (water !== null) this.heights.insertWater(layer, water);
-    }
-    // And the colour after the water, for the same reason.
     const colours = this.heights.colour;
-    if (colours && this.colour && colours.wanted(layer)) {
-      const image = this.colour(i, j);
-      if (image === NO_COLOUR) colours.none(layer);
-      else if (image) colours.queue(layer, image);
-    }
 
     const b = this.buckets[lod]!;
     if (b.count >= this.maxInstances) return true;
@@ -532,6 +524,35 @@ class TileLattice implements DrawnTiles {
     b.count++;
     this.drawnLod.set(tileId(i, j), lod);
     return true;
+  }
+
+  /**
+   * Make one tile resident if it is not, and ask for its water and colour:
+   * all a tile needs before it can be drawn. Returns its layer, or -1 when
+   * the source has nothing for it yet.
+   */
+  ready(i: number, j: number): number {
+    if (!this.heights.has(i, j)) {
+      const samples = this.source.request(i, j);
+      if (samples === null) return -1;
+      this.heights.insert(i, j, samples);
+      this.generated++;
+    }
+    const layer = this.heights.layerFor(i, j);
+    if (layer < 0) return -1;
+    // Asked for after the ground, so the ground never waits on it.
+    if (this.heights.waterWanted(layer)) {
+      const water = this.source.water ? this.source.water(i, j) : NO_WATER;
+      if (water !== null) this.heights.insertWater(layer, water);
+    }
+    // And the colour after the water, for the same reason.
+    const colours = this.heights.colour;
+    if (colours && this.colour && colours.wanted(layer)) {
+      const image = this.colour(i, j);
+      if (image === NO_COLOUR) colours.none(layer);
+      else if (image) colours.queue(layer, image);
+    }
+    return layer;
   }
 
   /** From the camera to the nearest point of a square `sideM` a side, zero when over it. */
@@ -1047,6 +1068,14 @@ export class Terrain {
    * is drawn; a tile is drawn in its colour from the frame after.
    */
   uploadColour(renderer: WebGLRenderer): void {
+    // A hero area's heights and water too, sent the frame they are written:
+    // readied ahead of its reach (`readyArea`), its lattice is not drawn
+    // yet, and three would send them only on the frame it first is.
+    for (const { lattice } of this.heroLattices) {
+      if (lattice.heights.residentCount === 0) continue;
+      renderer.initTexture(lattice.heights.texture);
+      if (lattice.heights.water) renderer.initTexture(lattice.heights.water);
+    }
     for (const lattice of this.lattices) {
       const colours = lattice.heights.colour;
       if (!colours || colours.pending === 0) continue;
@@ -1130,6 +1159,7 @@ export class Terrain {
     let instances = 0;
     let triangles = 0;
     let generated = 0;
+    let readying = HERO_READY_PER_FRAME;
 
     for (const { lattice, areas } of this.heroLattices) {
       const tileM = lattice.tileM;
@@ -1138,7 +1168,12 @@ export class Terrain {
         // Distance from the camera to the rectangle, zero when inside it.
         const dx = Math.max(area.eastM0 - eastM, 0, eastM - area.eastM1);
         const dy = Math.max(area.northM0 - northM, 0, northM - area.northM1);
-        if (Math.hypot(dx, dy) > reachM) continue;
+        const away = Math.hypot(dx, dy);
+        if (away > reachM + HERO_READY_M) continue;
+        if (away > reachM) {
+          readying = this.readyArea(lattice, area, readying);
+          continue;
+        }
 
         let drawn = 0;
         for (let hy = area.northM0 / tileM; hy < area.northM1 / tileM; hy++) {
@@ -1166,6 +1201,28 @@ export class Terrain {
     }
 
     return { areasDrawn: this.drawnAreas.length, instances, triangles, generated };
+  }
+
+  /**
+   * An area about to come into reach, readied `readying` new tiles at most:
+   * each resident, its water and colour asked for, and its layers sent to
+   * the GPU as they are written (`uploadColour`). The frame it comes into
+   * reach then only draws it. Left to that frame, the Taklamakan's sixteen
+   * tiles, their arrays and their colour were 20 to 170 ms of it under load.
+   * Returns what is left of `readying`.
+   */
+  private readyArea(lattice: TileLattice, area: AreaBounds, readying: number): number {
+    const tileM = lattice.tileM;
+    for (let hy = area.northM0 / tileM; hy < area.northM1 / tileM; hy++) {
+      for (let hx = area.eastM0 / tileM; hx < area.eastM1 / tileM; hx++) {
+        if (!lattice.heights.has(hx, hy)) {
+          if (readying === 0) return 0;
+          readying--;
+        }
+        lattice.ready(hx, hy);
+      }
+    }
+    return readying;
   }
 
   /** The drawn areas, in world units from the rebase point, into the shader. */

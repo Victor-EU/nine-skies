@@ -142,6 +142,30 @@ export class SunShadow {
 
   /** Draw the casters' depth from the sun. Leaves the renderer's target as it found it. */
   render(renderer: WebGLRenderer, scene: Scene, casters: readonly Mesh[]): void {
+    this.fromTheSun(renderer, scene, casters, () => {
+      renderer.clear();
+      renderer.render(scene, this.camera);
+    });
+  }
+
+  /**
+   * Ask for the casters' depth programs without drawing, hidden casters
+   * too, so one first drawn mid-flight does not wait on its shader. Asked
+   * with the scene as the pass draws it: its lights hidden with the rest,
+   * or they would be counted into programs the pass never uses.
+   */
+  compile(renderer: WebGLRenderer, scene: Scene, casters: readonly Mesh[]): void {
+    this.fromTheSun(renderer, scene, casters, () => {
+      for (const mesh of casters) renderer.compile(mesh, this.camera, scene);
+    });
+  }
+
+  /**
+   * The scene as the sun sees it: the casters alone, each in its depth
+   * material, into the map. Everything is put back after, the renderer's
+   * target too.
+   */
+  private fromTheSun(renderer: WebGLRenderer, scene: Scene, casters: readonly Mesh[], draw: () => void): void {
     const casting = new Set<Object3D>(casters);
     const hidden: Object3D[] = [];
     for (const child of scene.children) {
@@ -152,22 +176,25 @@ export class SunShadow {
     }
     const swapped: [Mesh, Material | Material[]][] = [];
     for (const mesh of casters) {
-      const material = mesh.material as ShaderMaterial;
-      let depth = this.depthMaterials.get(material);
-      if (!depth) {
-        depth = createDepthMaterial(material);
-        this.depthMaterials.set(material, depth);
-      }
       swapped.push([mesh, mesh.material]);
-      mesh.material = depth;
+      mesh.material = this.depthFor(mesh.material as ShaderMaterial);
     }
     const previous = renderer.getRenderTarget();
     renderer.setRenderTarget(this.target);
-    renderer.clear();
-    renderer.render(scene, this.camera);
+    draw();
     renderer.setRenderTarget(previous);
     for (const [mesh, material] of swapped) mesh.material = material;
     for (const child of hidden) child.visible = true;
+  }
+
+  /** A caster's depth material, made the first time it is asked for. */
+  private depthFor(material: ShaderMaterial): ShaderMaterial {
+    let depth = this.depthMaterials.get(material);
+    if (!depth) {
+      depth = createDepthMaterial(material);
+      this.depthMaterials.set(material, depth);
+    }
+    return depth;
   }
 
   dispose(): void {

@@ -11,7 +11,15 @@
  * The clock runs at 1x: two minutes of flight move the sun half a degree,
  * so a scene is lit by the hour its file names and nothing else.
  */
-import { Color, Vector3, type PerspectiveCamera, type Scene as ThreeScene, type ShaderMaterial, type WebGLRenderer } from "three";
+import {
+  Color,
+  Vector3,
+  type PerspectiveCamera,
+  type Scene as ThreeScene,
+  type ShaderMaterial,
+  type WebGLProgram,
+  type WebGLRenderer,
+} from "three";
 import type { Scene } from "../film/scene.js";
 import type { Terrain } from "../terrain/terrain.js";
 import type { HorizonRing } from "../terrain/horizonRing.js";
@@ -63,6 +71,9 @@ export interface Passes {
   cast: boolean;
 }
 
+/** three's program, with the check its typings leave out: linked yet, asked without waiting (KHR_parallel_shader_compile). */
+type Linking = WebGLProgram & { isReady?(): boolean };
+
 /** The shadow map's side, world units, from the camera's height over the ground. */
 export function shadowSizeWorld(aboveGroundWorld: number): number {
   return Math.min(16_000, Math.max(4_000, 40 * aboveGroundWorld + 1_500));
@@ -82,6 +93,10 @@ export class LookRig {
   readonly air = { hazeDensity: 0, hazeFalloff: 0 };
   private look: ResolvedLook = resolveLook({ sky: "default", palette: "default", cloud: "none", grade: "none" });
   private mist: MistPreset | null = null;
+  /** The program the ground was drawn with at the last frame's end: when it changes, every program is asked for again. */
+  private groundProgram: WebGLProgram | undefined = undefined;
+  /** Programs asked for and not yet used, in the order they were asked for. */
+  private linking: WebGLProgram[] = [];
   private readonly forward = new Vector3();
   private readonly sunDirection = new Vector3();
   private scale: WorldScale;
@@ -235,6 +250,60 @@ export class LookRig {
       renderer.setRenderTarget(null);
       renderer.render(scene, camera);
     }
+    // The ground is drawn every frame, so a new program for it means what
+    // every program is made for has changed: a scene's palette, or the
+    // lights (the cast brings a sun and a sky of its own when it comes on).
+    const ground = (renderer.properties.get(terrain.material) as { currentProgram?: WebGLProgram }).currentProgram;
+    if (ground !== this.groundProgram) {
+      this.groundProgram = ground;
+      this.compile();
+    } else {
+      this.takeIntoUse();
+    }
+  }
+
+  /**
+   * Ask for every program the scene can draw with, in both passes, drawn
+   * or not yet: the palette is in the terrain's and the curtain's shaders,
+   * so each scene's are new, and the lights are in every one. A hero
+   * area's lattice is hidden until the rail comes within reach of it, and
+   * its first frame held the film while its programs compiled: Below the
+   * Sea's Taklamakan, 81 s in, 50 to 80 ms of four. Asked for here, after
+   * a lead-in frame is drawn, they link beside the frames that follow
+   * (KHR_parallel_shader_compile) and are ready long before the rail gets
+   * there.
+   */
+  private compile(): void {
+    const { renderer, scene, camera, terrain } = this.options;
+    const programs = renderer.info.programs ?? [];
+    const before = new Set(programs);
+    this.shadow.compile(renderer, scene, terrain.casters);
+    const previous = renderer.getRenderTarget();
+    // The program depends on whether it draws into a target (linear, no
+    // tone mapping) or the canvas, so it is asked for where it will draw.
+    renderer.setRenderTarget(this.passes.post ? this.post.scene : null);
+    renderer.compile(scene, camera);
+    renderer.setRenderTarget(previous);
+    this.linking = programs.filter((p) => !before.has(p));
+  }
+
+  /**
+   * One program a frame, once it has linked, taken into use: the first use
+   * asks the GPU for its uniforms and waits for it, which on the frame the
+   * Taklamakan came into reach was 17 ms for its four. In the lead-in, the
+   * wait is where no one sees it.
+   */
+  private takeIntoUse(): void {
+    const next = this.linking[0];
+    if (!next) return;
+    if (!(this.options.renderer.info.programs ?? []).includes(next)) {
+      // Released since: its material is gone.
+      this.linking.shift();
+      return;
+    }
+    if ((next as Linking).isReady?.() === false) return;
+    next.getUniforms();
+    this.linking.shift();
   }
 
   /** What the scene's look resolved to, for the console and the findings. */

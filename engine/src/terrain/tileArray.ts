@@ -131,6 +131,11 @@ export class LayerUploads {
     texture.onUpdate = () => {
       this.wholePending = false;
     };
+    // Nor is there anything to send before a layer is written: an array
+    // first bound before then is allocated, and no zeros go with it. The
+    // Taklamakan's dry water array was 6.4 MB of them, sent on the frame the
+    // area came into reach.
+    texture.source.dataReady = false;
   }
 
   mark(layer: number): void {
@@ -149,6 +154,7 @@ export class LayerUploads {
     } else {
       for (const layer of this.dirty) this.texture.addLayerUpdate(layer);
     }
+    this.texture.source.dataReady = true;
     this.texture.needsUpdate = true;
     this.last = { layers: this.dirty.size, whole };
     this.dirty.clear();
