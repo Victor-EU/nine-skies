@@ -4,7 +4,7 @@
  * its image is on the GPU, and a tile without colour left in the palette.
  */
 import { describe, expect, it } from "vitest";
-import type { InstancedBufferGeometry } from "three";
+import type { InstancedBufferGeometry, WebGLRenderer } from "three";
 import {
   COLOUR_SAMPLES,
   ColourSource,
@@ -13,7 +13,13 @@ import {
   type ColourImage,
   type ColourIndex,
 } from "../../engine/src/terrain/colour.js";
-import { COLOUR_UPLOADS_PER_FRAME, ColourLayers, type ColourUploader } from "../../engine/src/terrain/colourLayers.js";
+import {
+  COLOUR_BYTES_PER_FRAME,
+  COLOUR_UPLOADS_PER_FRAME,
+  ColourLayers,
+  rendererUploader,
+  type ColourUploader,
+} from "../../engine/src/terrain/colourLayers.js";
 import { HeightTileArray, TILE_SAMPLES } from "../../engine/src/terrain/tileArray.js";
 import { Terrain } from "../../engine/src/terrain/terrain.js";
 import { SyntheticTileSource } from "../../engine/src/terrain/tileSource.js";
@@ -174,6 +180,139 @@ describe("the colour layers", () => {
     arr.insert(5, 5, tile); // evicts it
     expect(arr.colour!.wanted(layer)).toBe(true);
     expect(new HeightTileArray(1).colour).toBeNull();
+  });
+});
+
+/**
+ * A large image a band of rows at a time: a near image (F95) is 10 MB, and
+ * sent in one call it held the frame 15 to 300 ms.
+ */
+describe("the colour layers, a band at a time", () => {
+  const NEAR = 1601;
+  const big = (closed: string[], name: string): ColourImage => ({
+    width: NEAR,
+    height: NEAR,
+    source: new Uint8Array(NEAR * NEAR * 4),
+    close: () => closed.push(name),
+  });
+  function bands() {
+    const sent: { layer: number; y: number; rows: number }[] = [];
+    let mips = 0;
+    const uploader: ColourUploader = {
+      upload: (layer, _image, y, rows) => sent.push({ layer, y, rows }),
+      mipmap: () => mips++,
+    };
+    return { uploader, sent, mips: () => mips };
+  }
+  const rowBytes = NEAR * 4;
+
+  it("sends every row once, over the frames the bytes take, and holds the layer only at its last", () => {
+    const layers = new ColourLayers(4, NEAR);
+    const closed: string[] = [];
+    layers.queue(2, big(closed, "near"));
+    const r = bands();
+    let frames = 0;
+    while (!layers.held(2)) {
+      const spent = layers.flush(r.uploader, 1, COLOUR_BYTES_PER_FRAME);
+      expect(spent).toBeLessThanOrEqual(COLOUR_BYTES_PER_FRAME);
+      frames++;
+      if (!layers.held(2)) {
+        // Half sent: never drawn, its mips not rebuilt, the image kept.
+        expect(r.mips()).toBe(0);
+        expect(closed).toEqual([]);
+        expect(layers.pending).toBe(1);
+      }
+    }
+    expect(frames).toBe(Math.ceil((NEAR * rowBytes) / (Math.floor(COLOUR_BYTES_PER_FRAME / rowBytes) * rowBytes)));
+    expect(frames).toBeGreaterThan(1);
+    let next = 0;
+    for (const b of r.sent) {
+      expect(b.layer).toBe(2);
+      expect(b.y).toBe(next);
+      next += b.rows;
+    }
+    expect(next).toBe(NEAR);
+    expect(r.mips()).toBe(1);
+    expect(closed).toEqual(["near"]);
+    expect(layers.pending).toBe(0);
+  });
+
+  it("starts again from the first row when the layer takes another tile or another image part way", () => {
+    const layers = new ColourLayers(4, NEAR);
+    const closed: string[] = [];
+    layers.queue(0, big(closed, "first"));
+    const r = bands();
+    layers.flush(r.uploader, 1, COLOUR_BYTES_PER_FRAME);
+    layers.reset(0);
+    expect(closed).toEqual(["first"]);
+    expect(layers.held(0)).toBe(false);
+    layers.queue(0, big(closed, "second"));
+    r.sent.length = 0;
+    layers.flush(r.uploader, 1, COLOUR_BYTES_PER_FRAME);
+    expect(r.sent[0]!.y).toBe(0);
+    layers.queue(0, big(closed, "third")); // a new image for it, half way through the second
+    expect(closed).toEqual(["first", "second"]);
+    r.sent.length = 0;
+    layers.flush(r.uploader, 1, COLOUR_BYTES_PER_FRAME);
+    expect(r.sent[0]!.y).toBe(0);
+  });
+
+  it("shares the frame's bytes: what one array sends, the next does not have", () => {
+    const small = new ColourLayers(40);
+    const closed: string[] = [];
+    for (let l = 0; l < 3; l++) small.queue(l, image(closed, `s${l}`));
+    const near = new ColourLayers(4, NEAR);
+    near.queue(0, big(closed, "near"));
+    const r = bands();
+    let bytes = COLOUR_BYTES_PER_FRAME;
+    bytes -= small.flush(r.uploader, COLOUR_UPLOADS_PER_FRAME, bytes);
+    expect(bytes).toBe(COLOUR_BYTES_PER_FRAME - 3 * COLOUR_SAMPLES * COLOUR_SAMPLES * 4);
+    bytes -= near.flush(r.uploader, 1, bytes);
+    expect(bytes).toBeLessThan(rowBytes);
+    expect(near.flush(r.uploader, 1, bytes)).toBe(0); // not a row's worth left
+  });
+
+  it("picks a picture's band out by the unpack rows, and puts them back for three", () => {
+    const set = new Map<number, number>();
+    const log: string[] = [];
+    const gl = {
+      TEXTURE_2D_ARRAY: 1,
+      RGBA: 2,
+      UNSIGNED_BYTE: 3,
+      NONE: 4,
+      UNPACK_FLIP_Y_WEBGL: 10,
+      UNPACK_PREMULTIPLY_ALPHA_WEBGL: 11,
+      UNPACK_COLORSPACE_CONVERSION_WEBGL: 12,
+      UNPACK_ALIGNMENT: 13,
+      UNPACK_ROW_LENGTH: 14,
+      UNPACK_SKIP_ROWS: 15,
+      texSubImage3D: (...a: unknown[]) =>
+        log.push(`sub y=${String(a[3])} rows=${String(a[6])} rowLength=${set.get(14) ?? 0} skip=${set.get(15) ?? 0}`),
+      generateMipmap: () => log.push("mips"),
+    };
+    const renderer = {
+      getContext: () => gl,
+      properties: { get: () => ({ __webglTexture: {} }) },
+      initTexture: () => {},
+      state: {
+        bindTexture: () => {},
+        unbindTexture: () => {},
+        pixelStorei: (name: number, value: number) => set.set(name, value),
+      },
+    } as unknown as WebGLRenderer;
+    const layers = new ColourLayers(2, NEAR);
+    const picture: ColourImage = { width: NEAR, height: NEAR, source: {} as ImageBitmap, close: () => {} };
+    layers.queue(1, picture);
+    const uploader = rendererUploader(renderer, layers.texture);
+    const rows = Math.floor(COLOUR_BYTES_PER_FRAME / rowBytes);
+    layers.flush(uploader, 1, COLOUR_BYTES_PER_FRAME);
+    layers.flush(uploader, 1, COLOUR_BYTES_PER_FRAME);
+    expect(log).toEqual([
+      `sub y=0 rows=${rows} rowLength=${NEAR} skip=0`,
+      `sub y=${rows} rows=${rows} rowLength=${NEAR} skip=${rows}`,
+    ]);
+    expect(set.get(gl.UNPACK_ROW_LENGTH)).toBe(0);
+    expect(set.get(gl.UNPACK_SKIP_ROWS)).toBe(0);
   });
 });
 

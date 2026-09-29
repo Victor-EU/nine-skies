@@ -23,6 +23,10 @@ import { COLOUR_SAMPLES, type ColourImage } from "./colour.js";
  * layer (`held`), so a layer that changes tile needs no clearing, and a
  * tile's ground is never held back for its colour: it flies in the palette
  * until the image lands.
+ *
+ * An image goes up a band of its rows at a time when the frame's bytes run
+ * out part way through it, and is held only once its last row is in, so a
+ * layer half sent is never drawn.
  */
 
 const ASKED = 0;
@@ -37,9 +41,21 @@ const HELD = 3;
  */
 export const COLOUR_UPLOADS_PER_FRAME = 12;
 
+/**
+ * Bytes sent to the GPU in one frame at most, across every array
+ * (`Terrain.uploadColour`). A near image (F95) is 1,601² and 10 MB: sent in
+ * one call, the GPU's process took 15 to 20 ms over it on a quiet machine,
+ * 70 to 300 under load, and the frame waited, a few times a second over
+ * every scene. A band of its rows costs what its bytes do, about 1.5 ms a
+ * megabyte quiet and several times that under load, so a frame sends two
+ * and an image takes five, 85 ms of the 800 before its fade begins.
+ */
+export const COLOUR_BYTES_PER_FRAME = 2 * 1024 * 1024;
+
 /** How the images reach the GPU: the renderer's context in the app, a record in tests. */
 export interface ColourUploader {
-  upload(layer: number, image: ColourImage): void;
+  /** Rows `y` to `y + rows` of the image into the layer, the same rows of it. */
+  upload(layer: number, image: ColourImage, y: number, rows: number): void;
   /** After a frame's uploads: the mip chain, which the GPU builds for every layer. */
   mipmap(): void;
 }
@@ -48,6 +64,8 @@ export class ColourLayers {
   readonly texture: DataArrayTexture;
   private readonly state: Uint8Array;
   private readonly queued = new Map<number, ColourImage>();
+  /** Rows sent so far of an image going up a band at a time, by layer. */
+  private readonly sent = new Map<number, number>();
   /** Layers uploaded, over the life of the array. */
   uploaded = 0;
   /** Layers uploaded by the last flush. */
@@ -85,6 +103,8 @@ export class ColourLayers {
       stale.close();
       this.queued.delete(layer);
     }
+    // Rows of it may be in, but it was never held, so they are never drawn.
+    this.sent.delete(layer);
   }
 
   /** Whether this layer's tile still wants its colour asked for. */
@@ -109,6 +129,7 @@ export class ColourLayers {
     }
     this.queued.get(layer)?.close();
     this.queued.set(layer, image);
+    this.sent.delete(layer);
     this.state[layer] = QUEUED;
   }
 
@@ -117,12 +138,28 @@ export class ColourLayers {
     return this.queued.size;
   }
 
-  /** Send up to `COLOUR_UPLOADS_PER_FRAME` queued images, then rebuild the mips. */
-  flush(uploader: ColourUploader, budget = COLOUR_UPLOADS_PER_FRAME): void {
+  /**
+   * Send queued images, `budget` of them finished at most and `bytes` at
+   * most in all, oldest first: one the bytes run out in goes up as far as
+   * they reach and carries on from there next time. Then rebuild the mips,
+   * if a layer was finished. Returns the bytes sent.
+   */
+  flush(uploader: ColourUploader, budget = COLOUR_UPLOADS_PER_FRAME, bytes = Infinity): number {
     this.lastUploads = 0;
+    let spent = 0;
     for (const [layer, image] of this.queued) {
       if (this.lastUploads >= budget) break;
-      uploader.upload(layer, image);
+      const rowBytes = image.width * 4;
+      const from = this.sent.get(layer) ?? 0;
+      const rows = Math.min(image.height - from, Math.floor((bytes - spent) / rowBytes));
+      if (rows <= 0) break;
+      uploader.upload(layer, image, from, rows);
+      spent += rows * rowBytes;
+      if (from + rows < image.height) {
+        this.sent.set(layer, from + rows);
+        break;
+      }
+      this.sent.delete(layer);
       image.close();
       this.queued.delete(layer);
       this.state[layer] = HELD;
@@ -132,6 +169,7 @@ export class ColourLayers {
       uploader.mipmap();
       this.uploaded += this.lastUploads;
     }
+    return spent;
   }
 }
 
@@ -147,7 +185,7 @@ export function rendererUploader(renderer: WebGLRenderer, texture: DataArrayText
     renderer.state.bindTexture(gl.TEXTURE_2D_ARRAY, handle());
   };
   return {
-    upload(layer, image) {
+    upload(layer, image, y, rows) {
       bind();
       // Through three's own state, which remembers what it last set and skips
       // setting it again: set behind its back, the next picture three uploaded
@@ -157,11 +195,18 @@ export function rendererUploader(renderer: WebGLRenderer, texture: DataArrayText
       state.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       state.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
       state.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-      const { width, height } = image;
+      const { width } = image;
       if (image.source instanceof Uint8Array) {
-        gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, layer, width, height, 1, gl.RGBA, gl.UNSIGNED_BYTE, image.source);
+        const band = image.source.subarray(y * width * 4, (y + rows) * width * 4);
+        gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, y, layer, width, rows, 1, gl.RGBA, gl.UNSIGNED_BYTE, band);
       } else {
-        gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, layer, width, height, 1, gl.RGBA, gl.UNSIGNED_BYTE, image.source);
+        // A picture's band is picked out by the unpack rows (WebGL2), which
+        // three leaves at 0 for its own uploads, so they are put back.
+        state.pixelStorei(gl.UNPACK_ROW_LENGTH, width);
+        state.pixelStorei(gl.UNPACK_SKIP_ROWS, y);
+        gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, y, layer, width, rows, 1, gl.RGBA, gl.UNSIGNED_BYTE, image.source);
+        state.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+        state.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
       }
     },
     mipmap() {

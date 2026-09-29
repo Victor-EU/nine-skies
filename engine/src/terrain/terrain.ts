@@ -9,7 +9,13 @@ import {
   type WebGLRenderer,
 } from "three";
 import { COLOUR_SAMPLES, NO_COLOUR, type ColourProvider, type ColourSource, type FineColourSource } from "./colour.js";
-import { rendererUploader, type ColourLayers, type ColourUploader } from "./colourLayers.js";
+import {
+  COLOUR_BYTES_PER_FRAME,
+  COLOUR_UPLOADS_PER_FRAME,
+  rendererUploader,
+  type ColourLayers,
+  type ColourUploader,
+} from "./colourLayers.js";
 import { FINE_REACH, FineColour, type FineReach } from "./fineColour.js";
 import { NEAR_LAYER_BITS, NEAR_SPLIT } from "./near.js";
 import { RELIEF_REACH, type ReliefSource } from "./relief.js";
@@ -1064,8 +1070,10 @@ export class Terrain {
 
   /**
    * Send the colour images decoded since the last frame to the GPU, a few a
-   * frame (`COLOUR_UPLOADS_PER_FRAME` a lattice). Called before the frame
-   * is drawn; a tile is drawn in its colour from the frame after.
+   * frame (`COLOUR_UPLOADS_PER_FRAME` a lattice) and `COLOUR_BYTES_PER_FRAME`
+   * in all, a large one a band of rows at a time over the frames it takes.
+   * Called before the frame is drawn; a tile is drawn in its colour from the
+   * frame after its last row went up.
    */
   uploadColour(renderer: WebGLRenderer): void {
     // A hero area's heights and water too, sent the frame they are written:
@@ -1076,6 +1084,9 @@ export class Terrain {
       renderer.initTexture(lattice.heights.texture);
       if (lattice.heights.water) renderer.initTexture(lattice.heights.water);
     }
+    // The tiles' own colour first, which paints a tile at all, then the
+    // finer layers over the nearest; what one leaves the next has.
+    let bytes = COLOUR_BYTES_PER_FRAME;
     for (const lattice of this.lattices) {
       const colours = lattice.heights.colour;
       if (!colours || colours.pending === 0) continue;
@@ -1084,9 +1095,9 @@ export class Terrain {
         uploader = rendererUploader(renderer, colours.texture);
         this.uploaders.set(lattice, uploader);
       }
-      colours.flush(uploader);
+      bytes -= colours.flush(uploader, COLOUR_UPLOADS_PER_FRAME, bytes);
     }
-    // The fine colour's own array (F91), a couple of its large images a frame, the relief's (F93, F94) and the near colour's (F95).
+    // The fine colour's own array (F91), the relief's (F93, F94) and the near colour's (F95).
     for (const lattice of this.lattices) {
       for (const pool of [lattice.fine, lattice.relief, lattice.near, lattice.nearColour]) {
         const layers = pool?.layers;
@@ -1096,7 +1107,7 @@ export class Terrain {
           uploader = rendererUploader(renderer, layers.texture);
           this.fineUploaders.set(layers, uploader);
         }
-        layers.flush(uploader, pool.reach.uploadsPerFrame);
+        bytes -= layers.flush(uploader, pool.reach.uploadsPerFrame, bytes);
       }
     }
   }

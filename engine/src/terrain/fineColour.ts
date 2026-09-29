@@ -39,7 +39,7 @@ export interface FineReach {
   readonly reachM: number;
   /** Layers in the pool: every tile within `reachM` of a point, and a few more. */
   readonly layers: number;
-  /** Images uploaded a frame at most. */
+  /** Images finished a frame at most; their bytes come out of the frame's `COLOUR_BYTES_PER_FRAME`. */
   readonly uploadsPerFrame: number;
 }
 

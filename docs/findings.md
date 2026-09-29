@@ -4142,3 +4142,58 @@ reach with nothing left to make resident; an array that sends no zeros
 before a layer is written; the sun's programs asked for every caster,
 hidden or not, in its depth material, into the map, the lights hidden and
 the scene put back), and the film validates.
+
+## F125 — The near colour sent a band of rows at a time, 29 September 2026
+
+**Asked.** A hitch through every scene, seen while F124 was traced: each
+1,601² near colour image (F95), 10 MB, went to the GPU in one
+`texSubImage3D`, 10 to 30 ms of the frame on a quiet machine and 70 to
+300 under load, a few times a second. Spread each over frames, and hold
+its layer only once its last band is in.
+
+**Where the time goes.** In the app's own context, the call for a whole
+10 MB image returned in 2 to 5 ms, but the GPU's process took 15 to 20 ms
+more over it (70 to 90 for the first into a new array), and the frame
+waited at whatever next asked it anything. A band of 160 rows, 1 MB,
+took 1.5 to 1.7 ms, cut from the `ImageBitmap` as it is by the unpack
+rows (`UNPACK_ROW_LENGTH`, `UNPACK_SKIP_ROWS`), and the bands put
+together read back the same as the whole image.
+
+**A band at a time.** An array's images go up oldest first, and one the
+frame's bytes run out in goes up as far as they reach and carries on from
+that row the next frame (`ColourLayers.flush`). It is held, and the mips
+rebuilt, only once its last row is in, so a layer half sent is never
+drawn; a layer that takes another tile or another image part way starts
+again from the first row. The frame's bytes, `COLOUR_BYTES_PER_FRAME`,
+2 MB, are shared by every array: the tiles' own colour first, which
+paints a tile at all, then the fine colour, the relief and the near. A
+near image takes five frames, 85 ms of the 800 before its fade begins at
+Below the Sea's 300 km a minute. Four megabytes were tried first; a band
+of them still held a frame 6 to 21 ms under load. The unpack rows are set
+through three's own state and put back to 0, which three's uploads take
+them to be (F116).
+
+**Measured.** Below the Sea played headless to 112 s, cast off,
+`terrain.uploadColour` timed every frame, before (F124) and after
+interleaved:
+
+| | load | frames over 8 ms | worst | gaps over 50 ms |
+|---|---|---|---|---|
+| before | 5.4 → 3.9 | 16 | 11.7 ms | 1 |
+| after | 3.9 → 6.8 | 9 | 31.5 ms | 13 |
+| before | 6.8 → 7.6 | 38 | 73.1 ms | 21 |
+| after | 7.6 → 4.6 | 0 | 7.4 ms | 1 |
+
+With 4 MB bands the two pairs were 34 frames over 8 ms to none, and 14 to
+four. The one after run with frames over 8 ms had the load rising under
+it; the same code profiled twice more with every GL call timed had one
+frame over 6 ms in the whole flight, a band at 8.4 ms. A held, settled
+frame at 30 s is the same on the ground before and after; only the
+drifting cloud differs.
+
+**Checked.** `npm run check`: 596 tests (a near image sent every row
+once, over the frames its bytes take, held and its mips rebuilt only at
+its last; started again from the first row when its layer takes another
+tile or image; the frame's bytes shared, what one array sends the next
+not having; a picture's band picked out by the unpack rows, put back to 0
+for three), and the film validates.
