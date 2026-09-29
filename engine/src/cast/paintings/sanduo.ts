@@ -17,7 +17,7 @@ const NEAR_FORE = [{ at: [950, 945], r: 70 }, { at: [1040, 945], r: 70 }] as con
 
 /**
  * Its life (D96): a proud walk, knees lifted high, each hoof's puff of
- * cloud carried and pressed, the head nodding with the forelegs. The
+ * cloud carried and pressed and a print of it left behind, the head nodding with the forelegs. The
  * pennant flies from the spear, the long tail streams and the mane stirs;
  * the horse is white, so only its puffs of cloud churn.
  */
@@ -44,6 +44,7 @@ registerPainting("sanduo", {
             { foot: "near-fore", line: [[870, 640], [960, 790], [1010, 895]], radius: 50, painted: 0.8, cloud: NEAR_FORE },
           ],
           head: { regions: [{ at: [980, 290], r: 110 }], nod: 10 },
+          prints: true,
         }),
         serpent({ spine: [[640, 160], [500, 210], [350, 250], [200, 300], [40, 355]], radius: 60, reach: 110, waves: 1.3, swing: 0.04, bob: 0 }),
         serpent({ spine: [[440, 500], [350, 560], [250, 620], [150, 690], [60, 760]], radius: 60, reach: 120, waves: 1, swing: 0.04, bob: 0 }),

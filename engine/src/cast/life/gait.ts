@@ -27,8 +27,19 @@
  * apart from the one beside it (a turtle's far flipper against the near)
  * may be painted all the way back, so it swings only forward, behind the
  * near one, and never uncovers the edge of it it carries.
+ *
+ * A far leg the painting hides (under a robe, behind a near leg) may be
+ * borrowed from the one that shows: that leg again, a little way off and in
+ * the body's shadow, drawn behind everything and stepping on its own beat,
+ * so it shows wherever the picture leaves a gap, as a far leg does.
+ *
+ * A beast walking the air on a puff of cloud under each foot may leave its
+ * prints (`prints`): as a foot lifts, a copy of the cloud it stood on, below
+ * the hoof, stays where the foot left it and goes on back at the pace the
+ * foot pushed it, spreading, sinking a little and thinning away before the
+ * foot lifts again. Its way is marked behind it in the air.
  */
-import { cadence, inCircles, insideLayer, registerLife, shareOf, smoothstep, whose, type Body, type Circle, type Layer, type Life, type LifeRig, type Px, type Stride, type Who } from "../life.js";
+import { cadence, inCircles, insideLayer, layerShare, registerLife, shareOf, smoothstep, whose, type Body, type Circle, type Layer, type Life, type LifeRig, type Px, type Stride, type Who } from "../life.js";
 
 export type Foot = "near-hind" | "near-fore" | "far-hind" | "far-fore" | "near" | "far";
 
@@ -56,6 +67,13 @@ export interface Leg {
   readonly swing?: number;
   /** Where in a stride it comes down, a share after the near hind's, if not as its foot's in a walk: a turtle's hind flippers stroke together. */
   readonly beat?: number;
+  /**
+   * Not painted, but borrowed from a leg that is: the picture within its
+   * `line` and `radius` (that leg as painted) drawn again `shift` pixels
+   * away, behind everything, keeping `shade` of its light, and only above
+   * row `above` if the leg's foot is sunk in what it stands in.
+   */
+  readonly borrow?: { readonly shift: Px; readonly shade?: number; readonly above?: number };
 }
 
 export interface GaitRig extends LifeRig {
@@ -73,6 +91,8 @@ export interface GaitRig extends LifeRig {
   readonly head?: { readonly regions: readonly Circle[]; readonly nod: number };
   /** Which walker it is, in a picture of several. */
   readonly who?: Who;
+  /** Each foot with a cloud leaves a print of it as it lifts. */
+  readonly prints?: boolean;
 }
 
 /** The share of a stride each foot bears the body: a walk's, over half. */
@@ -84,6 +104,22 @@ export const PRESS = 0.1;
 export const SPRING = 0.07;
 /** How far past a leg's shape the body about it partly goes with it, a share of its radius. */
 export const SOFT = 0.5;
+/**
+ * A print: the share of a stride it lasts, gone before its foot lifts
+ * again; how much it grows by then, a share of itself; how far it sinks, a
+ * share of its cloud's reach, so it passes under the clouds of the feet
+ * behind rather than through them; the part of the cloud it copies, circles
+ * lower and smaller than the cloud's by shares of their reach; where it is
+ * kept clear of the hoof above it, a share of the leg's radius below the
+ * foot; and how softly, pixels.
+ */
+export const PRINT_LIFE = 0.75;
+export const PRINT_SPREAD = 0.5;
+export const PRINT_SINK = 0.4;
+export const PRINT_LOW = 0.3;
+export const PRINT_SIZE = 0.65;
+export const PRINT_SOLE = 0.3;
+export const PRINT_FEATHER = 28;
 
 export function gait(rig: Omit<GaitRig, "kind">): GaitRig {
   return { kind: "gait", ...rig };
@@ -119,6 +155,35 @@ export function legLayer(foot: Foot, who?: Who): string {
 
 /** A leg's layer is feathered narrowly: its edge lies in the sky, and a wide one would take in the clouds of the legs beside it. */
 export const LEG_FEATHER = 16;
+/** How much of its light a borrowed leg keeps when the rig says not. */
+export const FAR_SHADE = 0.65;
+
+/** A foot's print as a layer, one of several walkers' if `who` says which. */
+export function printLayer(foot: Foot, who?: Who): string {
+  return whose(`print-${foot}`, who);
+}
+
+/**
+ * A foot's print: a copy of the lower part of its cloud, round as a puff
+ * and clear of the hoof, drawn behind everything.
+ */
+function printOf(leg: Leg, who?: Who): Layer {
+  const circles = leg.cloud!.map((c) => ({ at: [c.at[0], c.at[1] + PRINT_LOW * c.r] as const, r: PRINT_SIZE * c.r }));
+  return { name: printLayer(leg.foot, who), circles, below: leg.line[2][1] + PRINT_SOLE * leg.radius, feather: PRINT_FEATHER, behind: true, copy: true };
+}
+
+/** How far a leg's foot has gone from where it is painted, turned `turn` at the hip and folded `bend` at the knee, pixels. */
+function footMove([[hx, hy], [kx, ky], [fx, fy]]: Leg["line"], turn: number, bend: number): [number, number] {
+  const c = Math.cos(turn);
+  const s = Math.sin(turn);
+  const kx1 = hx + (kx - hx) * c + (ky - hy) * s;
+  const ky1 = hy - (kx - hx) * s + (ky - hy) * c;
+  const fx0 = hx + (fx - hx) * c + (fy - hy) * s - kx1;
+  const fy0 = hy - (fx - hx) * s + (fy - hy) * c - ky1;
+  const cb = Math.cos(bend);
+  const sb = Math.sin(bend);
+  return [kx1 + fx0 * cb + fy0 * sb - fx, ky1 - fx0 * sb + fy0 * cb - fy];
+}
 
 /**
  * A leg's layer. A far leg's is drawn behind the body, and the lower of two
@@ -128,6 +193,8 @@ export const LEG_FEATHER = 16;
  */
 function shapeOf(leg: Leg, who?: Who): Layer {
   const behind = leg.foot.startsWith("far");
+  const b = leg.borrow;
+  if (b) return { name: legLayer(leg.foot, who), bands: [{ line: leg.line, radius: leg.radius }], circles: leg.with ?? [], feather: LEG_FEATHER, behind: true, copy: true, shade: b.shade ?? FAR_SHADE, ...(b.above === undefined ? {} : { above: b.above }) };
   if (leg.inPicture) return { name: legLayer(leg.foot, who), bands: [{ line: leg.line, radius: leg.radius }], circles: [...(leg.cloud ?? []), ...(leg.with ?? [])], behind };
   const circles = [...(leg.cloud ?? []), ...(leg.with ?? [])].map((c) => (behind ? { at: c.at, r: Math.max(c.r / 2, c.r - LEG_FEATHER) } : c));
   return { name: legLayer(leg.foot, who), bands: [{ line: leg.line, radius: leg.radius }], circles, feather: LEG_FEATHER, behind };
@@ -137,6 +204,9 @@ function shapeOf(leg: Leg, who?: Who): Layer {
 interface Bound {
   readonly leg: Leg;
   readonly beat: number;
+  /** Where it is drawn from where its picture is, pixels: a borrowed leg's shift, else nothing. */
+  readonly sx: number;
+  readonly sy: number;
   readonly verts: Int32Array;
   /**
    * Each vertex's share of the turn at the hip and of the fold at the knee;
@@ -151,6 +221,8 @@ interface Bound {
   /** The middle of its cloud, pixels, which it presses flat about. */
   readonly cx: number;
   readonly cy: number;
+  /** Its print: its layer, the vertices of it that move, and the middle it spreads about. */
+  readonly print: { readonly layer: number; readonly verts: Int32Array; readonly cx: number; readonly cy: number; readonly sink: number } | null;
 }
 
 /**
@@ -179,10 +251,13 @@ class Gait implements Life {
   /** How much of each vertex is the walker, in a picture of several. */
   private readonly share: Float32Array | null;
   private readonly dir: number;
+  /** Its prints' layers, which keep out of its rise. */
+  private readonly printed: ReadonlySet<string>;
 
   constructor(private readonly body: Body, private readonly rig: GaitRig, seed: number) {
     this.phase = ((seed >>> 12) % 1000) / 1000;
     this.dir = body.faces === "right" ? 1 : -1;
+    this.printed = new Set(rig.prints ? rig.legs.map((l) => printLayer(l.foot, rig.who)) : []);
     const count = body.rest.length / 2;
     const rest = body.rest;
     const picture = body.layers[0]!;
@@ -194,6 +269,8 @@ class Gait implements Life {
       // A leg in the picture holds all of it within its line's reach, and bends what is about it over as far again.
       const [from, to] = leg.inPicture ? [-leg.radius, 0] : [-LEG_FEATHER / 2 - (LEG_FEATHER / 2 + SOFT * leg.radius), -LEG_FEATHER / 2];
       const w = new Float32Array(picture.count);
+      // A borrowed leg bends nothing of the picture: it is not in it.
+      if (leg.borrow) return w;
       for (let v = 0; v < picture.count; v++) {
         const i = picture.start + v;
         w[v] = smoothstep(from, to, insideLayer(rest[2 * i]!, rest[2 * i + 1]!, shape));
@@ -245,11 +322,12 @@ class Gait implements Life {
         cx = leg.cloud.reduce((s, c) => s + c.at[0], 0) / leg.cloud.length;
         cy = leg.cloud.reduce((s, c) => s + c.at[1], 0) / leg.cloud.length;
       }
-      return { leg, beat: leg.beat ?? BEAT[leg.foot], verts: Int32Array.from(verts), atHip, atKnee, held: Float32Array.from(held), level, cx, cy };
+      const [sx, sy] = leg.borrow?.shift ?? [0, 0];
+      return { leg, beat: leg.beat ?? BEAT[leg.foot], sx, sy, verts: Int32Array.from(verts), atHip, atKnee, held: Float32Array.from(held), level, cx, cy, print: this.bindPrint(leg, cell) };
     });
     // The back rocks between the hips and the shoulders.
     // A person's legs rise the body as a beast's hind legs do: all of it together.
-    const xs = (end: "hind" | "fore") => rig.legs.filter((l) => l.foot.endsWith("fore") === (end === "fore")).map((l) => l.line[0][0]);
+    const xs = (end: "hind" | "fore") => rig.legs.filter((l) => l.foot.endsWith("fore") === (end === "fore")).map((l) => l.line[0][0] + (l.borrow?.shift[0] ?? 0));
     const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
     const hinds = xs("hind");
     const fores = xs("fore");
@@ -264,6 +342,20 @@ class Gait implements Life {
       for (let v = 0; v < count; v++) head[v] = inCircles(rest[2 * v]!, rest[2 * v + 1]!, rig.head.regions);
       this.head = head;
     }
+  }
+
+  /** A foot's print bound to its layer: every vertex a drawn cell of it may use, out past its feather. */
+  private bindPrint(leg: Leg, cell: number): Bound["print"] {
+    if (!this.rig.prints || !leg.cloud?.length) return null;
+    const layer = this.body.layers.findIndex((l) => l.name === printLayer(leg.foot, this.rig.who));
+    if (layer < 0) return null;
+    const span = this.body.layers[layer]!;
+    const shape = printOf(leg, this.rig.who);
+    const wide: Layer = { ...shape, feather: PRINT_FEATHER + 4 * cell };
+    const verts: number[] = [];
+    for (let v = span.start; v < span.start + span.count; v++) if (layerShare(this.body.rest[2 * v]!, this.body.rest[2 * v + 1]!, wide) > 0) verts.push(v);
+    const mean = (f: (c: Circle) => number) => shape.circles!.reduce((m, c) => m + f(c), 0) / shape.circles!.length;
+    return { layer, verts: Int32Array.from(verts), cx: mean((c) => c.at[0]), cy: mean((c) => c.at[1]), sink: (PRINT_SINK * mean((c) => c.r)) / PRINT_SIZE };
   }
 
   move(st: Stride, out: Float32Array): void {
@@ -294,7 +386,7 @@ class Gait implements Life {
       const bend = -this.dir * fold * liftAt(p);
       const q = p - Math.floor(p);
       const press = PRESS * reach * Math.exp(-q / SPRING);
-      const [[hx, hy], [kx, ky], [fx, fy]] = b.leg.line;
+      const [[hx, hy], [kx, ky]] = b.leg.line;
       // Where the knee has gone with the leg's turn at the hip, and the foot with that and the fold.
       const c = Math.cos(turn);
       const s = Math.sin(turn);
@@ -302,10 +394,8 @@ class Gait implements Life {
       const sb = Math.sin(bend);
       const kx1 = hx + (kx - hx) * c + (ky - hy) * s;
       const ky1 = hy - (kx - hx) * s + (ky - hy) * c;
-      const fx0 = hx + (fx - hx) * c + (fy - hy) * s - kx1;
-      const fy0 = hy - (fx - hx) * s + (fy - hy) * c - ky1;
-      const footX = kx1 + fx0 * cb + fy0 * sb - fx;
-      const footY = ky1 - fx0 * sb + fy0 * cb - fy;
+      const [footX, footY] = footMove(b.leg.line, turn, bend);
+      if (b.print) this.leave(b, q, reach, out);
       for (let i = 0; i < b.verts.length; i++) {
         const v = b.verts[i]!;
         const x = rest[2 * v]!;
@@ -336,8 +426,8 @@ class Gait implements Life {
         }
         // Its cloud carried level with the foot, and spread and flattened as the foot comes down on it.
         const m = press * l * h;
-        out[2 * v]! += dx + l * h * footX + m * (x - b.cx);
-        out[2 * v + 1]! += dy + l * h * footY - m * (y - b.cy);
+        out[2 * v]! += dx + l * h * footX + m * (x - b.cx) + b.sx;
+        out[2 * v + 1]! += dy + l * h * footY - m * (y - b.cy) + b.sy;
       }
     }
     // The body's rise: y is down, so up is less.
@@ -347,10 +437,41 @@ class Gait implements Life {
     const f = fores ? fr : hr;
     const nod = rig.head ? 0.5 * rig.head.nod * reach * Math.cos(4 * Math.PI * (this.phase + foreBeat - DUTY / 2) - 1) : 0;
     const share = this.share;
-    for (let v = 0; v < this.fore.length; v++) {
-      const k = this.fore[v]!;
-      out[2 * v + 1]! -= (k * f + (1 - k) * hr) * (share ? share[v]! : 1);
-      if (this.head) out[2 * v + 1]! += nod * this.head[v]!;
+    // Its prints stay where they were left, and do not rise and fall with it.
+    for (const span of this.body.layers) {
+      if (this.printed.has(span.name)) continue;
+      for (let v = span.start; v < span.start + span.count; v++) {
+        const k = this.fore[v]!;
+        out[2 * v + 1]! -= (k * f + (1 - k) * hr) * (share ? share[v]! : 1);
+        if (this.head) out[2 * v + 1]! += nod * this.head[v]!;
+      }
+    }
+  }
+
+  /**
+   * A foot's print, `q` of a stride after the foot came down: from where
+   * its cloud was as the foot lifted, on back at the pace the foot pushed
+   * it, spreading and sinking, and thinning to nothing.
+   */
+  private leave(b: Bound, q: number, reach: number, out: Float32Array): void {
+    const p = b.print!;
+    const age = q >= DUTY ? q - DUTY : q + 1 - DUTY;
+    const u = age / PRINT_LIFE;
+    const fade = u < 1 ? (1 - u) ** 1.5 : 0;
+    this.body.fade[p.layer] = fade;
+    if (fade === 0) return;
+    const swing = (b.leg.swing ?? this.rig.swing) * reach;
+    const [liftX, liftY] = footMove(b.leg.line, this.dir * swing * (-1 - b.leg.painted), 0);
+    const [landX] = footMove(b.leg.line, this.dir * swing * (1 - b.leg.painted), 0);
+    // Slowing a little as it goes, as a puff does in still air.
+    const dx = liftX + ((liftX - landX) / DUTY) * age * (1 - 0.3 * u);
+    const dy = liftY + p.sink * u;
+    const grow = PRINT_SPREAD * u;
+    const rest = this.body.rest;
+    for (let i = 0; i < p.verts.length; i++) {
+      const v = p.verts[i]!;
+      out[2 * v]! += dx + grow * (rest[2 * v]! - p.cx);
+      out[2 * v + 1]! += dy + grow * (rest[2 * v + 1]! - p.cy);
     }
   }
 }
@@ -367,6 +488,13 @@ function checkLeg(leg: Leg, width: number, height: number): void {
   if (leg.swing !== undefined && !(leg.swing > 0 && leg.swing < 0.8)) throw new Error(`the ${leg.foot} leg's swing must be above nought and under 0.8 radians`);
   if (leg.beat !== undefined && !(leg.beat >= 0 && leg.beat < 1)) throw new Error(`the ${leg.foot} leg's beat must be a share of a stride, 0 to 1`);
   for (const c of [...(leg.cloud ?? []), ...(leg.with ?? [])]) if (!(c.r > 0)) throw new Error(`the ${leg.foot} leg's circles must have a radius above nought`);
+  const b = leg.borrow;
+  if (b) {
+    if (!leg.foot.startsWith("far")) throw new Error(`the ${leg.foot} leg is borrowed, so it must be a far one, drawn behind`);
+    if (leg.inPicture || leg.cloud?.length) throw new Error(`the ${leg.foot} leg is borrowed: it is in no picture and treads no cloud of its own`);
+    if (!(Math.hypot(...b.shift) > 0 && Math.hypot(...b.shift) < 0.2 * Math.max(width, height))) throw new Error(`the ${leg.foot} leg is borrowed from a little way off, not from where it is or far from it`);
+    if (b.shade !== undefined && !(b.shade > 0 && b.shade <= 1)) throw new Error(`the ${leg.foot} leg's shade must be above nought and at most 1`);
+  }
 }
 
 registerLife<GaitRig>("gait", {
@@ -386,7 +514,9 @@ registerLife<GaitRig>("gait", {
     if (rig.head && !(rig.head.regions.length > 0)) throw new Error("a gait's head needs a region");
     if (rig.who && rig.who.within.length === 0) throw new Error(`${rig.who.name}'s gait needs a circle to keep within`);
     if (rig.legs.some((l) => TWO.includes(l.foot)) && rig.legs.some((l) => !TWO.includes(l.foot))) throw new Error("a gait is a beast's four feet or a person's two, not both");
+    if (rig.prints && !rig.legs.some((l) => l.cloud?.length)) throw new Error("a gait leaves prints only of the cloud under its feet, and has none");
   },
-  layers: (rig) => rig.legs.filter((leg) => !leg.inPicture).map((leg) => shapeOf(leg, rig.who)),
+  // Prints first, so a far leg drawn behind the body is drawn over any print that drifts behind it.
+  layers: (rig) => [...(rig.prints ? rig.legs.filter((leg) => leg.cloud?.length).map((leg) => printOf(leg, rig.who)) : []), ...rig.legs.filter((leg) => !leg.inPicture).map((leg) => shapeOf(leg, rig.who))],
   build: (body, rig, seed) => new Gait(body, rig, seed),
 });

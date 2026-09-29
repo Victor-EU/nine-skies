@@ -15,7 +15,8 @@ const FORE = [{ at: [1030, 785], r: 105 }, { at: [1150, 780], r: 105 }, { at: [1
 /**
  * Its life (D96): a prowl, the near hind, near fore and far hind stepping
  * in turn (the far fore is tucked behind the near one and steps with it),
- * each foot's puff of cloud carried with it and pressed as it lands. The
+ * each foot's puff of cloud carried with it, pressed as it lands and
+ * leaving a print of itself behind as it lifts. The
  * back rocks, the head dips, and the long tail swings.
  */
 registerPainting("tiger", {
@@ -40,6 +41,7 @@ registerPainting("tiger", {
             { foot: "near-fore", line: [[1010, 420], [1140, 660], [1180, 740]], radius: 80, painted: 0.8, cloud: FORE, with: [{ at: [1010, 690], r: 80 }] },
           ],
           head: { regions: [{ at: [1230, 330], r: 170 }], nod: 6 },
+          prints: true,
         }),
         serpent({ spine: [[420, 270], [370, 320], [310, 380], [240, 430], [160, 460], [90, 450], [45, 420]], radius: 35, reach: 80, waves: 0.8, swing: 0.05, bob: 0 }),
         churn({ swirl: 6, within: [...HIND, ...FAR_HIND, ...FORE] }),

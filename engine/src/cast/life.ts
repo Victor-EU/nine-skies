@@ -54,6 +54,19 @@ export interface Layer {
   readonly circles?: readonly Circle[];
   readonly feather?: number;
   readonly behind: boolean;
+  /** Only the picture below this row, pixels, feathered across it: the cloud under a hoof and not the hoof. */
+  readonly below?: number;
+  /** Only the picture above this row, pixels, feathered across it: a leg and not the cloud its foot is sunk in. */
+  readonly above?: number;
+  /**
+   * A copy of the picture inside its shape rather than a part taken from
+   * it: the picture keeps what it shows there, and the copy, drawn behind
+   * it, is moved and faded on its own (`Body.fade`), as a print a foot
+   * leaves behind it, or a part the painting hides borrowed from its twin.
+   */
+  readonly copy?: boolean;
+  /** How much of its light a copy keeps, 0 to 1: a far part borrowed from a near one is in the body's shadow. */
+  readonly shade?: number;
 }
 
 /** The picture within `radius` pixels of a line: a limb. */
@@ -94,6 +107,8 @@ export interface Body {
    * premultiplied; null until the picture has loaded and been read.
    */
   readonly colour: Float32Array | null;
+  /** How much of each layer is drawn this frame, 0 to 1, as `layers` lists them: a life fades a copy it lays in and out; 1 for the rest. */
+  readonly fade: Float32Array;
 }
 
 /** How the figure goes this frame, as its lives read it. */
@@ -288,5 +303,8 @@ export function insideLayer(x: number, y: number, layer: Layer): number {
 /** How much of a layer a point of the picture is, 0 to 1: its shape feathered half inside and half out. */
 export function layerShare(x: number, y: number, layer: Layer): number {
   const f = layer.feather ?? FEATHER;
-  return smoothstep(-f / 2, f / 2, insideLayer(x, y, layer));
+  let share = smoothstep(-f / 2, f / 2, insideLayer(x, y, layer));
+  if (layer.below !== undefined) share *= smoothstep(layer.below - f / 2, layer.below + f / 2, y);
+  if (layer.above !== undefined) share *= smoothstep(layer.above + f / 2, layer.above - f / 2, y);
+  return share;
 }

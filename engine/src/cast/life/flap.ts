@@ -14,6 +14,11 @@
  * whenever it dives and beats whenever it climbs, and beats quicker the
  * harder it works. Since the hinge is the seam, what a wing uncovers is
  * sky and the body behind it is the body as painted: nothing is painted in.
+ *
+ * A far wing the painting hides behind the body may be borrowed from the
+ * near one: the near wing again, a little way off and in the body's
+ * shadow, drawn behind everything and beating with it, so it shows past
+ * the body and the near wing as a bird's far wing does.
  */
 import { cadence, FEATHER, insideBy, registerLife, shareOf, whose, type Body, type Layer, type Life, type LifeRig, type Px, type Stride, type Who } from "../life.js";
 
@@ -41,10 +46,16 @@ export interface Wing {
   readonly front?: boolean;
 }
 
+/** A far wing the painting hides: the near wing again, `shift` pixels from it and keeping `shade` of its light. */
+export interface BorrowedWing {
+  readonly borrow: Px;
+  readonly shade?: number;
+}
+
 export interface FlapRig extends LifeRig {
   readonly kind: "flap";
   readonly near: Wing;
-  readonly far?: Wing;
+  readonly far?: Wing | BorrowedWing;
   /** Wingbeats a second keeping pace with the flight. */
   readonly beatHz: number;
   /** Beats in a burst, and seconds it glides between bursts: none flaps on. */
@@ -68,6 +79,12 @@ export const TAKE_S = 0.25;
 
 export const NEAR = "wing-near";
 export const FAR = "wing-far";
+/** How much of its light a borrowed far wing keeps when the rig says not. */
+export const FAR_SHADE = 0.7;
+
+function borrowed(far: FlapRig["far"]): far is BorrowedWing {
+  return !!far && "borrow" in far;
+}
 
 export function flap(rig: Omit<FlapRig, "kind">): FlapRig {
   return { kind: "flap", ...rig };
@@ -89,6 +106,9 @@ export function reachAt(wing: Wing, stroke: number, beating: number): number {
 /** A wing bound to the vertices of its layer that may show: on its side of its hinge, and within a few cells of its outline. */
 interface Bound {
   readonly wing: Wing;
+  /** Where it is drawn from where its picture is, pixels: a borrowed wing's shift, else nothing. */
+  readonly sx: number;
+  readonly sy: number;
   readonly verts: Int32Array;
   readonly nx: number;
   readonly ny: number;
@@ -97,7 +117,7 @@ interface Bound {
   readonly out: Float32Array;
 }
 
-function bind(body: Body, wing: Wing, name: string): Bound | null {
+function bind(body: Body, wing: Wing, name: string, [sx, sy]: Px = [0, 0]): Bound | null {
   const span = body.layers.find((l) => l.name === name);
   if (!span) return null;
   const [[ax, ay], [bx, by]] = wing.hinge;
@@ -130,7 +150,7 @@ function bind(body: Body, wing: Wing, name: string): Bound | null {
     across.push(b);
     out.push(Math.min(1, (side * b) / reach));
   }
-  return { wing, verts: Int32Array.from(verts), nx, ny, across: Float32Array.from(across), out: Float32Array.from(out) };
+  return { wing, sx, sy, verts: Int32Array.from(verts), nx, ny, across: Float32Array.from(across), out: Float32Array.from(out) };
 }
 
 class Flap implements Life {
@@ -144,7 +164,8 @@ class Flap implements Life {
 
   constructor(body: Body, private readonly rig: FlapRig, seed: number) {
     this.phase = ((seed >>> 8) % 1000) / 1000;
-    this.wings = [bind(body, rig.near, whose(NEAR, rig.who)), rig.far ? bind(body, rig.far, whose(FAR, rig.who)) : null].filter((w): w is Bound => w !== null);
+    const far = rig.far ? (borrowed(rig.far) ? bind(body, rig.near, whose(FAR, rig.who), rig.far.borrow) : bind(body, rig.far, whose(FAR, rig.who))) : null;
+    this.wings = [bind(body, rig.near, whose(NEAR, rig.who)), far].filter((w): w is Bound => w !== null);
     const share = shareOf(body, rig.who);
     this.mine = null;
     if (share) {
@@ -180,8 +201,8 @@ class Flap implements Life {
         const f = reachAt(w.wing, strokeAt(this.phase - TIP_LAG * u), beating);
         const d = (f - 1) * w.across[k]!;
         const v = w.verts[k]!;
-        out[2 * v]! += d * w.nx;
-        out[2 * v + 1]! += d * w.ny;
+        out[2 * v]! += d * w.nx + w.sx;
+        out[2 * v + 1]! += d * w.ny + w.sy;
       }
     }
     // The body lowest as the wings come over the top, highest as they finish the downstroke.
@@ -207,7 +228,11 @@ function checkWing(wing: Wing, width: number, height: number, which: string): vo
 registerLife<FlapRig>("flap", {
   check(rig, width, height) {
     checkWing(rig.near, width, height, "near");
-    if (rig.far) checkWing(rig.far, width, height, "far");
+    if (borrowed(rig.far)) {
+      const [x, y] = rig.far.borrow;
+      if (!(Math.hypot(x, y) > 0 && Math.hypot(x, y) < 0.2 * Math.max(width, height))) throw new Error("a borrowed far wing lies a little way off the near one, not on it or far from it");
+      if (rig.far.shade !== undefined && !(rig.far.shade > 0 && rig.far.shade <= 1)) throw new Error("a borrowed far wing's shade must be above nought and at most 1");
+    } else if (rig.far) checkWing(rig.far, width, height, "far");
     if (!(rig.beatHz > 0)) throw new Error("a flap's beats a second must be above nought");
     if ((rig.burst === undefined) !== (rig.rest === undefined)) throw new Error("a flap's burst and rest go together");
     if (rig.who && rig.who.within.length === 0) throw new Error(`${rig.who.name}'s flap needs a circle to keep within`);
@@ -215,6 +240,8 @@ registerLife<FlapRig>("flap", {
   layers(rig): Layer[] {
     const near: Layer = { name: whose(NEAR, rig.who), outline: rig.near.outline, behind: false, ...(rig.near.feather ? { feather: rig.near.feather } : {}) };
     if (!rig.far) return [near];
+    // A borrowed wing is a copy of the near one, drawn behind everything; the picture keeps the near wing.
+    if (borrowed(rig.far)) return [near, { ...near, name: whose(FAR, rig.who), behind: true, copy: true, shade: rig.far.shade ?? FAR_SHADE }];
     return [near, { name: whose(FAR, rig.who), outline: rig.far.outline, behind: !rig.far.front, ...(rig.far.feather ? { feather: rig.far.feather } : {}) }];
   },
   build: (body, rig, seed) => new Flap(body, rig, seed),

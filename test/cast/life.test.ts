@@ -18,7 +18,7 @@ import "../../engine/src/cast/life/index.js";
 import { churn, cloudiness } from "../../engine/src/cast/life/churn.js";
 import { DOWN, flap, reachAt, strokeAt } from "../../engine/src/cast/life/flap.js";
 import { flutter } from "../../engine/src/cast/life/flutter.js";
-import { BEAT, DUTY, gait, legLayer, liftAt, swingAt as strideAt, type Leg } from "../../engine/src/cast/life/gait.js";
+import { BEAT, DUTY, gait, legLayer, liftAt, printLayer, swingAt as strideAt, type Leg } from "../../engine/src/cast/life/gait.js";
 import { noseUp, pitch } from "../../engine/src/cast/life/pitch.js";
 import { leanAt, sway } from "../../engine/src/cast/life/sway.js";
 import { serpent, swingAt } from "../../engine/src/cast/life/serpent.js";
@@ -38,7 +38,7 @@ function grid(w: number, h: number, n: number, m: number, colour?: (x: number, y
       if (c && colour) c.set(colour(rest[2 * v]!, rest[2 * v + 1]!), 4 * v);
     }
   }
-  return { width: w, height: h, rest, across, layers: [{ name: "picture", start: 0, count: rest.length / 2 }], origin: [w / 2, h / 2], faces: "right", colour: c };
+  return { width: w, height: h, rest, across, layers: [{ name: "picture", start: 0, count: rest.length / 2 }], origin: [w / 2, h / 2], faces: "right", colour: c, fade: new Float32Array([1]) };
 }
 
 /** The vertex of a body nearest a point of the picture. */
@@ -216,7 +216,7 @@ describe("wings", () => {
     const n = one.rest.length / 2;
     const rest = new Float32Array(2 * n * 3);
     for (let l = 0; l < 3; l++) rest.set(one.rest, 2 * n * l);
-    return { ...one, rest, layers: [{ name: "picture", start: 0, count: n }, ...layers.map((layer, k) => ({ name: layer.name, start: (k + 1) * n, count: n }))] };
+    return { ...one, rest, layers: [{ name: "picture", start: 0, count: n }, ...layers.map((layer, k) => ({ name: layer.name, start: (k + 1) * n, count: n }))], fade: new Float32Array(1 + layers.length).fill(1) };
   }
 
   it("beat down in the longer part of a beat and up in the rest", () => {
@@ -255,6 +255,26 @@ describe("wings", () => {
     expect(Math.abs(out[2 * at(1, 500, 0) + 1]! - bob)).toBeGreaterThan(1);
     expect(out[2 * at(1, 500, 300) + 1]! - bob).toBeCloseTo(0, 6);
     expect(out[2 * at(1, 500, 0)]).toBeCloseTo(0, 6);
+  });
+
+  it("borrow a far wing the painting hides from the near one: drawn again behind all, a little way off and in shadow, beating with it", () => {
+    const hidden = flap({ ...rig, far: { borrow: [30, -10], shade: 0.7 } });
+    const [front, back] = lifeModule("flap")!.layers!(hidden);
+    expect(back).toMatchObject({ name: "wing-far", outline: near.outline, behind: true, copy: true, shade: 0.7 });
+    const body = layered();
+    const life = lifeModule("flap")!.build(body, hidden, 0);
+    const n = body.layers[0]!.count;
+    const at = (layer: number, x: number, y: number) => n * layer + nearest(grid(1000, 600, 20, 12), x, y);
+    for (let f = 0; f < 10; f++) {
+      const out = new Float32Array(body.rest.length);
+      life.move(stride(1, 0.05), out);
+      // The copy of the wing's tip goes as the tip does, shifted.
+      expect(out[2 * at(2, 500, 0)]).toBeCloseTo(out[2 * at(1, 500, 0)]! + 30, 3);
+      expect(out[2 * at(2, 500, 0) + 1]).toBeCloseTo(out[2 * at(1, 500, 0) + 1]! - 10, 3);
+    }
+    expect(front!.name).toBe("wing-near");
+    expect(() => lifeModule("flap")!.check(flap({ ...rig, far: { borrow: [0, 0] } }), 1000, 600)).toThrow(/borrowed/);
+    expect(() => lifeModule("flap")!.check(flap({ ...rig, far: { borrow: [20, 0], shade: 0 } }), 1000, 600)).toThrow(/shade/);
   });
 
   it("may be drawn in front for a far wing painted over something beside the bird, reaching no less far than painted", () => {
@@ -319,7 +339,7 @@ describe("legs", () => {
   function layered(faces: Body["faces"] = "right"): Body {
     const rest = new Float32Array(2 * n * (1 + layers.length));
     for (let l = 0; l <= layers.length; l++) rest.set(one.rest, 2 * n * l);
-    return { ...one, faces, rest, layers: [{ name: "picture", start: 0, count: n }, ...layers.map((layer, k) => ({ name: layer.name, start: (k + 1) * n, count: n }))] };
+    return { ...one, faces, rest, layers: [{ name: "picture", start: 0, count: n }, ...layers.map((layer, k) => ({ name: layer.name, start: (k + 1) * n, count: n }))], fade: new Float32Array(1 + layers.length).fill(1) };
   }
   /** A point of the picture in a leg's own layer. */
   const on = (body: Body, foot: Leg["foot"], x: number, y: number) => body.layers.find((l) => l.name === legLayer(foot))!.start + nearest(one, x, y);
@@ -441,6 +461,98 @@ describe("legs", () => {
     for (let k = 1; k + 1 < ys.length; k++) if (ys[k]! < ys[k - 1]! && ys[k]! <= ys[k + 1]!) lows++;
     expect(lows).toBe(2);
     expect(() => lifeModule("gait")!.check(gait({ ...person, legs: [leg("near", 400), leg("far-fore", 600)] }), 1000, 600)).toThrow(/a person's two/);
+  });
+
+  it("leave a print of the cloud under each foot as it lifts, drifting back behind it and gone before the foot lifts again", () => {
+    const printing = gait({ ...rig, prints: true });
+    const all = lifeModule("gait")!.layers!(printing);
+    const print = all.find((l) => l.name === printLayer("near-hind"))!;
+    expect(print).toMatchObject({ copy: true, behind: true });
+    // Of the cloud below the hoof only: the foot, at 540, is not in it.
+    expect(layerShare(200, 530, print)).toBe(0);
+    expect(layerShare(200, 585, print)).toBeGreaterThan(0.5);
+    const rest = new Float32Array(2 * n * (1 + all.length));
+    for (let l = 0; l <= all.length; l++) rest.set(one.rest, 2 * n * l);
+    const body: Body = { ...one, rest, layers: [{ name: "picture", start: 0, count: n }, ...all.map((layer, k) => ({ name: layer.name, start: (k + 1) * n, count: n }))], fade: new Float32Array(1 + all.length).fill(1) };
+    const layer = body.layers.findIndex((l) => l.name === printLayer("near-hind"));
+    const v = body.layers[layer]!.start + nearest(one, 200, 585);
+    const life = lifeModule("gait")!.build(body, printing, 0);
+    // The picture moves as it would with no prints at all.
+    const plain = layered();
+    const without = lifeModule("gait")!.build(plain, rig, 0);
+    const cloud = nearest(one, 200, 585);
+    const runs: Array<Array<[number, number]>> = [];
+    let shown = false;
+    for (let t = 0; t < 3; t += 0.01) {
+      const out = new Float32Array(body.rest.length);
+      life.move(stride(1, 0.01), out);
+      const other = new Float32Array(plain.rest.length);
+      without.move(stride(1, 0.01), other);
+      expect(out[2 * cloud]).toBeCloseTo(other[2 * cloud]!, 9);
+      expect(out[2 * cloud + 1]).toBeCloseTo(other[2 * cloud + 1]!, 9);
+      const fade = body.fade[layer]!;
+      if (fade > 0.02) {
+        if (!shown) runs.push([]);
+        runs[runs.length - 1]!.push([out[2 * v]!, out[2 * v + 1]!]);
+      }
+      shown = fade > 0.02;
+    }
+    // A print a stride, each gone before the next is left.
+    expect(runs.length).toBeGreaterThanOrEqual(3);
+    for (const run of runs.slice(1, -1)) {
+      for (let k = 1; k < run.length; k++) {
+        // Back, against the way it faces, and sinking: never rising and falling with the body.
+        expect(run[k]![0]).toBeLessThanOrEqual(run[k - 1]![0] + 1e-6);
+        expect(run[k]![1]).toBeGreaterThanOrEqual(run[k - 1]![1] - 1e-6);
+      }
+      expect(run[0]![0] - run[run.length - 1]![0]).toBeGreaterThan(30);
+    }
+    expect(() => lifeModule("gait")!.check(gait({ ...printing, legs: legs.map((l) => ({ ...l, cloud: undefined as never })) }), 1000, 600)).toThrow(/prints/);
+  });
+
+  it("borrow a far leg the painting hides from one that shows: drawn again behind all, a little way off and in shadow, on its own beat", () => {
+    const source = legs[0]!;
+    // A borrowed leg treads no cloud of its own.
+    const { cloud: _, ...bare } = source;
+    const far: Leg = { ...bare, foot: "far-hind", borrow: { shift: [40, -10], shade: 0.5, above: 560 } };
+    const borrowing = gait({ ...rig, legs: [source, far, legs[2]!, legs[3]!] });
+    const shape = lifeModule("gait")!.layers!(borrowing).find((l) => l.name === legLayer("far-hind"))!;
+    expect(shape).toMatchObject({ copy: true, behind: true, shade: 0.5, above: 560 });
+    // Of the leg only, not what its foot stands in.
+    expect(layerShare(200, 450, shape)).toBe(1);
+    expect(layerShare(200, 590, shape)).toBe(0);
+    const all = lifeModule("gait")!.layers!(borrowing);
+    const rest = new Float32Array(2 * n * (1 + all.length));
+    for (let l = 0; l <= all.length; l++) rest.set(one.rest, 2 * n * l);
+    const body: Body = { ...one, rest, layers: [{ name: "picture", start: 0, count: n }, ...all.map((layer, k) => ({ name: layer.name, start: (k + 1) * n, count: n }))], fade: new Float32Array(1 + all.length).fill(1) };
+    const life = lifeModule("gait")!.build(body, borrowing, 0);
+    // The same walker with its far hind painted, elsewhere: the picture about the borrowed leg moves just as it does.
+    const plain = layered();
+    const painting = lifeModule("gait")!.build(plain, rig, 0);
+    const copy = body.layers.find((l) => l.name === legLayer("far-hind"))!.start + nearest(one, 200, 540);
+    const painted = body.layers.find((l) => l.name === legLayer("near-hind"))!.start + nearest(one, 200, 540);
+    const picture = nearest(one, 240, 540);
+    const xs: number[] = [];
+    const gaps: number[] = [];
+    for (let t = 0; t < 2; t += 0.02) {
+      const out = new Float32Array(body.rest.length);
+      life.move(stride(1, 0.02), out);
+      const other = new Float32Array(plain.rest.length);
+      painting.move(stride(1, 0.02), other);
+      // Shifted, it swings on its own, half a stride from the leg it is borrowed from.
+      xs.push(out[2 * copy]! - 40);
+      gaps.push(out[2 * copy]! - 40 - out[2 * painted]!);
+      // And bends none of the picture about it (the body rises over it as over any leg).
+      expect(out[2 * picture]).toBeCloseTo(other[2 * picture]!, 6);
+    }
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(40);
+    expect(Math.max(...gaps.map(Math.abs))).toBeGreaterThan(40);
+    const m = lifeModule("gait")!;
+    expect(() => m.check(gait({ ...rig, legs: [{ ...source, borrow: { shift: [40, 0] } }] }), 1000, 600)).toThrow(/far one/);
+    expect(() => m.check(gait({ ...rig, legs: [{ ...far, borrow: { shift: [0, 0] } }] }), 1000, 600)).toThrow(/little way off/);
+    expect(() => m.check(gait({ ...rig, legs: [{ ...far, inPicture: true }] }), 1000, 600)).toThrow(/in no picture/);
+    expect(() => m.check(gait({ ...rig, legs: [{ ...far, cloud: source.cloud! }] }), 1000, 600)).toThrow(/no cloud/);
+    expect(() => m.check(borrowing, 1000, 600)).not.toThrow();
   });
 
   it("are refused two legs for a foot, a leg painted past its swing, or a swing past what a leg can do", () => {
@@ -701,6 +813,39 @@ describe("a living painting", () => {
     // Three draws, far parts, picture, near parts, each held apart from the next in depth.
     expect(card.geometry.groups.map((g) => g.materialIndex)).toEqual([0, 1, 2]);
     expect(card.material).toHaveLength(3);
+    figure.dispose();
+  });
+
+  it("draws a walker's prints as copies behind all, holding no depth, and leaves the picture whole under them", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { figureBuilder } = await import("../../engine/src/cast/figure.js");
+    const { lanternSkin } = await import("../../engine/src/cast/skin.js");
+    const { DEFAULT_SCALE } = await import("../../engine/src/sim/scale.js");
+    const legOf = (foot: Leg["foot"], x: number): Leg => ({ foot, line: [[x, 250], [x, 380], [x, 430]], radius: 25, painted: 0, cloud: [{ at: [x, 460], r: 30 }] });
+    const legs = [legOf("near-hind", 200), legOf("far-hind", 400), legOf("far-fore", 600), legOf("near-fore", 800)];
+    const walking = { ...living, name: "walking", life: [gait({ strideHz: 1, swing: 0.2, bob: 5, legs })] };
+    const printing = { ...living, name: "printing", life: [gait({ strideHz: 1, swing: 0.2, bob: 5, prints: true, legs })] };
+    registerPainting("carp", { views: [walking, printing] });
+    type Card = { material: Array<{ depthWrite: boolean }>; geometry: { groups: Array<{ materialIndex: number }>; getAttribute(n: string): { array: Float32Array }; userData: { grid: Int32Array } } };
+    const build = (variant: string) => figureBuilder("carp")!({ skin: lanternSkin(), variant, scale: DEFAULT_SCALE });
+    const plain = build("walking");
+    const figure = build("printing");
+    const card = figure.group.children[0] as unknown as Card;
+    expect(card.geometry.groups.map((g) => g.materialIndex)).toEqual([3, 0, 1, 2]);
+    expect(card.material).toHaveLength(4);
+    expect(card.material[3]!.depthWrite).toBe(false);
+    // The picture keeps the cloud a print is a copy of: it is drawn as it is with no prints at all.
+    const grid = 65 * 33;
+    const pictureOf = (c: Card) => {
+      const alpha = new Float32Array(grid);
+      const colour = c.geometry.getAttribute("color").array;
+      c.geometry.userData.grid.forEach((v, k) => {
+        if (v < grid) alpha[v] = colour[4 * k + 3]!;
+      });
+      return alpha;
+    };
+    expect(pictureOf(card)).toEqual(pictureOf(plain.group.children[0] as unknown as Card));
+    plain.dispose();
     figure.dispose();
   });
 });

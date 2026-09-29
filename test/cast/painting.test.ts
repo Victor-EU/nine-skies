@@ -11,7 +11,7 @@ import { Color } from "three";
 import { describe, expect, it } from "vitest";
 import "../../engine/src/cast/figures/index.js";
 import { figureBuilder, madeBuilder } from "../../engine/src/cast/figure.js";
-import { heldTo, MIRROR_AT, MOST_TALL_RAD, mirrored, paintedLight, registerPainting, registeredPaintings, viewFor, viewSize, type Painting, type PaintingView } from "../../engine/src/cast/painting.js";
+import { heldTo, MIRROR_AT, MOST_TALL_RAD, mirrored, paintedLight, registerPainting, registeredPaintings, sideOfTurn, TURNED_WIDTH, viewFor, viewSize, type Painting, type PaintingView } from "../../engine/src/cast/painting.js";
 import { lanternSkin } from "../../engine/src/cast/skin.js";
 import { DEFAULT_SCALE } from "../../engine/src/sim/scale.js";
 
@@ -45,6 +45,33 @@ describe("the card's mirror", () => {
     const near = MIRROR_AT * 0.9;
     expect(mirrored(near, "right", true)).toBe(true);
     expect(mirrored(-near, "right", false)).toBe(false);
+  });
+});
+
+describe("a card turning round", () => {
+  it("is one side or the other at either end of its turn", () => {
+    expect(sideOfTurn(-1, -1)).toEqual({ width: 1, show: 1 });
+    expect(sideOfTurn(-1, 1).show).toBe(0);
+    expect(sideOfTurn(1, 1)).toEqual({ width: 1, show: 1 });
+    expect(sideOfTurn(1, -1).show).toBe(0);
+  });
+
+  it("narrows as it turns but is never a picture edge on, nor seen through as the one side gives way to the other", () => {
+    for (let turn = -1; turn <= 1; turn += 0.01) {
+      const painted = sideOfTurn(turn, -1);
+      const mirror = sideOfTurn(turn, 1);
+      // Where the two overlap, drawn one over the other: never less than 95 per cent there.
+      expect(1 - (1 - painted.show) * (1 - mirror.show)).toBeGreaterThan(0.95);
+      for (const side of [painted, mirror]) expect(side.width).toBeGreaterThanOrEqual(TURNED_WIDTH);
+      if (turn > -0.95 && turn < 0.95) expect(Math.max(painted.width, mirror.width)).toBeLessThan(1);
+    }
+    const middle = sideOfTurn(0, 1);
+    expect(middle.width).toBe(TURNED_WIDTH);
+    expect(middle.show).toBeGreaterThan(0.75);
+    expect(middle.show).toBe(sideOfTurn(0, -1).show);
+    // Either side drawn only near the middle of the turn.
+    expect(sideOfTurn(-0.3, 1).show).toBe(0);
+    expect(sideOfTurn(0.3, -1).show).toBe(0);
   });
 });
 

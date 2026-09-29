@@ -14,7 +14,7 @@
  * cast off carries none of this. A figure with a painting registers it too,
  * from `paintings/index.ts`, and the painting is drawn in its place.
  */
-import type { Group, Object3D, Vector3 } from "three";
+import type { Group, Object3D, Vector3, WebGLRenderer } from "three";
 import type { WorldScale } from "../sim/scale.js";
 import type { CastLight } from "./cast.js";
 import { isFigureKind, type FigureKind } from "./kinds.js";
@@ -71,6 +71,12 @@ export interface Figure {
   readonly heads?: readonly Head[];
   /** Dress every part again from a skin, for a swap. */
   setSkin(skin: Skin): void;
+  /**
+   * Hand what it has loaded to the GPU before it is first drawn, so the
+   * frame it comes on does not wait for it (F123): true if there was
+   * anything to hand. Absent for a figure made in code.
+   */
+  warm?(renderer: WebGLRenderer): boolean;
   dispose(): void;
 }
 

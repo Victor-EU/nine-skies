@@ -17,7 +17,7 @@ const NEAR_FORE = [{ at: [920, 910], r: 90 }, { at: [1060, 905], r: 100 }] as co
 /**
  * Its life (D96): a slow, short-stepped walk, the great body rising and
  * settling over each leg, each foot's cloud pressed flat under its
- * weight. The trunk sways, the ear stirs, and the tail swings its tassel.
+ * weight and a print of it left behind as the foot lifts. The trunk sways, the ear stirs, and the tail swings its tassel.
  */
 registerPainting("elephant", {
   views: [
@@ -42,6 +42,7 @@ registerPainting("elephant", {
             { foot: "near-fore", line: [[820, 480], [930, 720], [970, 830]], radius: 85, painted: 0.8, cloud: NEAR_FORE },
           ],
           head: { regions: [{ at: [1000, 250], r: 170 }], nod: 5 },
+          prints: true,
         }),
         serpent({ spine: [[1050, 380], [1090, 470], [1170, 530], [1260, 520], [1330, 450], [1330, 360], [1270, 320], [1240, 350]], radius: 40, reach: 70, waves: 0.7, swing: 0.03, bob: 0 }),
         serpent({ spine: [[260, 460], [200, 540], [150, 590], [100, 670], [70, 760]], radius: 35, reach: 70, waves: 0.8, swing: 0.06, bob: 0 }),

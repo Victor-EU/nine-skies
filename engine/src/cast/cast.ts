@@ -25,7 +25,7 @@
  * with a head turns it where its pose says to look, after it has moved
  * itself.
  */
-import { DirectionalLight, Fog, Group, HemisphereLight, Vector3, type Color, type Scene as ThreeScene } from "three";
+import { DirectionalLight, Fog, Group, HemisphereLight, Vector3, type Color, type Scene as ThreeScene, type WebGLRenderer } from "three";
 import { castLineAt, type CastCue, type Scene } from "../film/scene.js";
 import { projectAlbers } from "../terrain/worldGrid.js";
 import { toWorldH, type WorldScale } from "../sim/scale.js";
@@ -188,6 +188,8 @@ export class CastLayer {
   plan: Plan | null = null;
   /** Whether the pass draws; `frameCost` switches it off to price it. */
   visible = true;
+  private renderer: WebGLRenderer | null = null;
+  private readonly unhook: () => void;
 
   constructor(private readonly options: CastLayerOptions) {
     this.seed = (options.seed ?? hashSeed(Date.now())) >>> 0;
@@ -196,6 +198,16 @@ export class CastLayer {
     this.group.name = "cast";
     options.scene.add(this.group, this.sun, this.sky);
     options.scene.fog = this.fog;
+    // The renderer, from the scene as it is drawn, so the figures' pictures can be handed to the GPU as they arrive (F123).
+    const scene = options.scene;
+    const before = scene.onBeforeRender;
+    this.unhook = () => {
+      scene.onBeforeRender = before;
+    };
+    scene.onBeforeRender = (renderer, ...rest) => {
+      this.renderer = renderer;
+      before.call(scene, renderer, ...rest);
+    };
   }
 
   /** The figures on stage now. */
@@ -318,6 +330,8 @@ export class CastLayer {
     this.eye.copy(f.eye);
     this.altitudeM = f.altitudeM;
     const view = f.view ?? DEFAULT_VIEW;
+    // A picture a frame, handed to the GPU before its figure first comes on.
+    if (this.renderer) for (const p of this.placed) if (p.figure.warm?.(this.renderer)) break;
     const pose = this.pose;
     for (const p of this.placed) {
       const g = p.figure.group;
@@ -416,6 +430,7 @@ export class CastLayer {
 
   dispose(): void {
     this.clear();
+    this.unhook();
     const s = this.options.scene;
     s.remove(this.group, this.sun, this.sky);
     if (s.fog === this.fog) s.fog = null;

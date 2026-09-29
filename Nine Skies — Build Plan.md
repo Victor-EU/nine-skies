@@ -195,7 +195,10 @@ Everything else in the repository served the version-1 game and goes.
   (F120). A person keeps their balance over their feet, leaning a little
   one way and the other; a picture of several gives each its own life
   (F121). A leg painted sunk in its cloud is bent with the picture rather
-  than drawn on its own, so it wades and leaves no hole (F122). A video model is not the way: OpenAI's closed on
+  than drawn on its own, so it wades and leaves no hole (F122). A card turning
+  round narrows to a third of its width and gives way to its mirror, never
+  a picture edge on; a walker's feet leave prints of their cloud; a part
+  the painting hides may be borrowed from its twin, in shadow (F123). A video model is not the way: OpenAI's closed on
   24 September 2026, this machine cannot run an open one, and a loop keeps
   its own tempo whatever the figure's path does.
 

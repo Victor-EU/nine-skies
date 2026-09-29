@@ -15,8 +15,8 @@ const NEAR_FORE = [{ at: [1150, 955], r: 70 }, { at: [1240, 950], r: 70 }] as co
 
 /**
  * Its life (D96): a high-stepping walk, each hoof lifting its puff of
- * cloud and pressing it as it lands, the flames at its hocks carried with
- * its legs. Its mane, its beard and long whisker, and its plumed tail
+ * cloud and pressing it as it lands, and leaving a print of it behind in
+ * the air as it lifts, the flames at its hocks carried with its legs. Its mane, its beard and long whisker, and its plumed tail
  * stream and stir; its antlers and face keep still.
  */
 registerPainting("qilin", {
@@ -42,6 +42,7 @@ registerPainting("qilin", {
             { foot: "near-fore", line: [[1040, 600], [1150, 800], [1210, 915]], radius: 55, painted: 0.8, cloud: NEAR_FORE },
           ],
           head: { regions: [{ at: [1110, 220], r: 160 }], nod: 6 },
+          prints: true,
         }),
         flutter({ root: [980, 300], stir: 8, regions: [{ at: [860, 280], r: 130 }, { at: [1000, 360], r: 110 }], stiff: [{ at: [850, 110], r: 130 }, { at: [1130, 210], r: 90 }] }),
         flutter({ root: [1210, 230], stir: 10, regions: [{ at: [1280, 360], r: 100 }, { at: [1190, 380], r: 80 }] }),

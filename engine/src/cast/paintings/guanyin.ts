@@ -11,8 +11,9 @@ import { registerPainting } from "../painting.js";
 
 /**
  * Its life (D96): the seat is empty and keeps still (`LIVING_FAITHS`); the
- * white parrot hovers over it, beating its raised wing (the far one is
- * hidden behind its body), its tail fanning and crest lifting; the willow
+ * white parrot hovers over it, beating both wings (the far one, hidden
+ * behind its body in the painting, borrowed from the near one), its tail
+ * fanning and crest lifting; the willow
  * in the vase sways, and the cloud under the throne boils. The throne and the
  * vase are pale, so only the cloud churns.
  */
@@ -31,9 +32,10 @@ registerPainting("guanyin", {
           beatHz: 3.2,
           bob: 10,
           near: { hinge: [[235, 228], [312, 158]], outline: [[312, 158], [312, 122], [276, 76], [224, 29], [167, -4], [123, -6], [103, 22], [104, 76], [124, 134], [160, 191], [200, 215], [235, 228]], top: 1, bottom: -0.35, feather: 14 },
+          // Its far wing is hidden behind the body: the near one again, a little forward and up, in shadow.
+          far: { borrow: [30, -10], shade: 0.7 },
           who: { name: "parrot", within: [{ at: [290, 220], r: 170 }] },
         }),
-        // The far wing is hidden behind the body; the tail fans and the crest lifts.
         flutter({ root: [300, 250], stir: 8, regions: [{ at: [240, 310], r: 70 }, { at: [290, 320], r: 50 }] }),
         flutter({ root: [370, 175], stir: 5, regions: [{ at: [395, 145], r: 30 }, { at: [375, 150], r: 25 }] }),
         flutter({ root: [460, 430], stir: 10, regions: [{ at: [520, 330], r: 90 }, { at: [620, 330], r: 90 }, { at: [680, 450], r: 80 }, { at: [700, 560], r: 70 }, { at: [480, 370], r: 60 }], stiff: [{ at: [455, 470], r: 45 }] }),

@@ -16,7 +16,7 @@ const NEAR_FORE = [{ at: [1180, 875], r: 80 }, { at: [1270, 875], r: 85 }, { at:
 
 /**
  * Its life (D96): an unhurried walk, each paw's puff of cloud carried and
- * pressed, the back rocking under the bowl, the head held high and dipping
+ * pressed and a print of it left behind as the paw lifts, the back rocking under the bowl, the head held high and dipping
  * a little. The tail swings its curled tip.
  */
 registerPainting("miyolangsangma", {
@@ -42,6 +42,7 @@ registerPainting("miyolangsangma", {
             { foot: "near-fore", line: [[1100, 560], [1230, 760], [1270, 830]], radius: 70, painted: 0.8, cloud: NEAR_FORE },
           ],
           head: { regions: [{ at: [1200, 120], r: 170 }], nod: 5 },
+          prints: true,
         }),
         serpent({ spine: [[330, 400], [280, 520], [220, 630], [140, 690], [60, 660], [40, 600], [70, 540]], radius: 40, reach: 85, waves: 0.8, swing: 0.05, bob: 0 }),
         churn({ swirl: 6, within: [...NEAR_HIND, ...FAR_HIND, ...FAR_FORE, ...NEAR_FORE] }),

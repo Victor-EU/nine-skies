@@ -3984,3 +3984,88 @@ rather than being drawn apart, a person's two feet half a stride apart
 rising the body twice a stride, a far wing drawn in front never reaching
 less than painted, a finer mesh, and a leg's own swing and beat refused
 past what a leg can do), and the film validates.
+
+## F123 — The cast turns round, leaves prints, borrows what is hidden, and comes on without a stall (D96), 29 September 2026
+
+**Asked.** "Continue" with what F122 left: a figure turning round flipped
+like a card, the walkers left no wake in the cloud they walked on, a few
+parts kept still because the painting hides them, and the film had not
+been watched whole with the cast on.
+
+**Turning round.** A card mirrored as its figure turned the other way by
+squeezing to a line and out again in 0.4 s: a picture seen edge on, the
+one moment that says it is flat. Sketched offline on the Peng
+(`turnproto.py`): turned whole about its upright, with perspective, it is
+still a line halfway; turned head first, the tail after, the picture
+creases like a folded page. What reads as a figure turning is narrowing
+it only to a third of its width, as a bird coming round toward the eye
+is foreshortened, giving way there to its mirror, and widening again. The
+card is now two, as painted and mirrored, on one geometry
+(`sideOfTurn`, `TURNED_WIDTH` 0.3, `TURN_S` 0.7); only the side the turn
+is past the middle toward writes depth. The two sides cross over `CROSS`,
+0.15 of the turn either side of its middle, about a tenth of a second,
+and overlap there, each still four fifths drawn at the middle: crossed
+evenly, half and half, the Peng was a ghost the sky showed through. The
+pilgrims turning in front of the camera over the Karst (325 px tall) and
+the Peng over the grassland (305 px) now wheel round, with a wingtip
+doubled for a frame.
+
+**Prints.** A walker treads a puff of cloud under each foot. As a foot
+lifts, a copy of the lower part of its cloud, round and clear of the hoof,
+stays where it was and goes on back at the pace the foot pushed it,
+growing, sinking a little and thinning away before the foot lifts again
+(`prints` on a gait; `PRINT_*`). A copy is a new kind of layer (`copy`):
+the picture keeps what it shows, and the copy is faded frame by frame
+(`Body.fade`) and drawn first, in a draw of its own that writes no depth:
+in one draw with the far legs, a print fought them for their pixels where
+it passed behind them and speckled their clouds. Cut level under the hoof,
+a print had a hard flat top and stretched into a grey shelf; round and
+growing evenly, it is a puff. The qilin, elephant, tiger, the tigress, the
+white horse and the monk's horse leave them; the Bull Demon King has no
+puff traced under his hooves. A walker costs a fifth more a frame
+(0.20 ms for the qilin, 0.34 for Sanduo's white horse, the heaviest).
+
+**Borrowed parts.** A part the painting hides may be borrowed from its
+twin: the near one again, a little way off, in the body's shadow (`shade`
+on a copy), drawn behind everything and moving on its own beat. The
+parrot's far wing (the shape behind its head is its crest, not a wing)
+beats with the near one and shows past it at the top of the stroke
+(`far: { borrow }`). Sha's far leg, under his robe, steps out in front of
+the near one and back behind it (`borrow` on a leg, clipped `above` the
+road it wades in). The horse's far hind cannot be borrowed: the monk's
+robe hangs over its hindquarters nearly to the road, and a far leg drawn
+where it could show would hang from its belly.
+
+**Coming on.** Headless, a figure's first frame held the film 30 to 100
+ms: its picture decoded, flipped and premultiplied on that frame, then
+sent to the GPU. A painting is now fetched as a bitmap decoded off the
+page's thread, flipped and premultiplied as it is made
+(`createImageBitmap`), and the layer hands one picture a frame to the GPU
+as they arrive, before any is on (`Figure.warm`, the renderer taken from
+the scene's `onBeforeRender`). Building the programs ahead as well
+(`compileAsync`) could not be shown to help under the machine's load, and
+was left out.
+
+**Watched whole.** The film played headless from Huangshan to the Wall
+with the cast on (seed 1, 1280 by 720, the M3's GPU through ANGLE Metal),
+every frame logged (`watch.mjs`): 18.1 minutes, nothing thrown or warned.
+Every scene held 60 frames a second at the 95th percentile. The cast's
+own work was 0.0 to 0.3 ms a frame at the median and at most 1.2 ms at
+the 95th, three figures at most in the picture at once (the south king,
+Wukong and Nezha over Huangshan, 32 thousand triangles). In a first run,
+before the pictures were decoded ahead, frames over the Karst were held
+100 to 550 ms about figures coming on, some of it other work loading the
+machine; in this one the Karst never went past 16.8 ms. One frame over
+Below the Sea, 81 s in, held 750 ms: it holds there with the cast off too
+(62 ms, the ground or water arriving), so it is the scene's, not the
+cast's, and is left for its own look. Twenty-two cards turned round, all
+but one in view, most of them the pilgrims, Guanyin's seat and Wukong's
+blinks; the largest, Guanyin's seat at 366 px.
+
+**Checked.** `npm run check`: 589 tests (a card turning narrows but never
+to an edge nor seen through; prints are copies of the cloud below the
+hoof, drifting back, gone before the foot lifts again, never rising with
+the body, leaving the picture as it was and drawn first with no depth;
+a borrowed wing and leg go as their twin does, shifted, bending nothing of
+the picture, and are refused when near, in the picture or treading
+cloud), and the film validates.

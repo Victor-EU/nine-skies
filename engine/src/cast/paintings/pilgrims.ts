@@ -31,12 +31,15 @@ const HORSE = { name: "horse", within: [{ at: [1150, 300], r: 330 }, { at: [1300
  * in the road, so they wade: each leg bends the picture about it, the
  * cloud stretching about the foot, rather than being drawn on its own and
  * leaving a hole in the road. Only the horse's near foreleg, which stands
- * clear of the road, strides on its own.
+ * clear of the road, strides on its own. Sha's far leg, under his robe in
+ * the painting, is borrowed from his near one and shows in front of it as
+ * it steps forward. The horse has no far hind: the monk's robe hangs over
+ * its hindquarters nearly to the road, so there is nowhere for one to show.
  *
  * The monk alone (D96): the white horse walks, each hoof's puff of cloud
- * carried and pressed, its head nodding; its tail swings, its mane and the
- * red tassels of its harness stir. The horse is white, so only its puffs
- * of cloud churn.
+ * carried and pressed and a print of it left behind, its head nodding; its
+ * tail swings, its mane and the red tassels of its harness stir. The horse
+ * is white, so only its puffs of cloud churn.
  */
 registerPainting("pilgrims", {
   views: [
@@ -51,8 +54,18 @@ registerPainting("pilgrims", {
       life: [
         sway({ feet: [330, 665], crown: 115, lean: 8, who: SHA }),
         sway({ feet: [640, 690], crown: 185, lean: 8, who: BAJIE }),
-        // Sha's far leg is under his robe; the near one wades.
-        gait({ strideHz: 0.55, swing: 0.13, fold: 0.15, bob: 8, legs: [{ foot: "near", line: [[375, 500], [388, 585], [430, 665]], radius: 28, painted: 0.6, inPicture: true }], who: SHA }),
+        // Sha's near leg wades; his far one, under his robe in the painting, is the near one again, showing in front of it as it steps forward.
+        gait({
+          strideHz: 0.55,
+          swing: 0.13,
+          fold: 0.15,
+          bob: 8,
+          legs: [
+            { foot: "near", line: [[375, 500], [388, 585], [430, 665]], radius: 28, painted: 0.6, inPicture: true },
+            { foot: "far", line: [[375, 500], [388, 585], [430, 665]], radius: 28, painted: 0.6, borrow: { shift: [6, -8], shade: 0.55, above: 648 } },
+          ],
+          who: SHA,
+        }),
         gait({
           strideHz: 0.5,
           swing: 0.13,
@@ -106,6 +119,7 @@ registerPainting("pilgrims", {
             { foot: "near-fore", line: [[570, 720], [615, 835], [690, 950]], radius: 34, painted: 0.7, cloud: MONK_NEAR_FORE },
           ],
           head: { regions: [{ at: [780, 380], r: 110 }], nod: 6 },
+          prints: true,
         }),
         serpent({ spine: [[210, 500], [150, 560], [110, 650], [90, 740], [80, 800]], radius: 60, reach: 110, waves: 1, swing: 0.04, bob: 0 }),
         flutter({ root: [740, 250], stir: 6, regions: [{ at: [650, 300], r: 80 }, { at: [620, 360], r: 55 }] }),
