@@ -48,9 +48,9 @@ look:
   grade: cold
 
 # The cast (D91): the crossing (ch. 98). From Rongbuk the party goes over
-# the wall ahead of the camera, high and small against the last light, on
-# the way to the Western Heaven: the film crosses into Nepal, the novel
-# into India. Silhouettes only, and nothing else over Chomolungma. The
+# the wall ahead of the camera, Wukong leading it (F128), high and small
+# against the last light, on the way to the Western Heaven: the film
+# crosses into Nepal, the novel into India. Silhouettes only, and nothing else over Chomolungma. The
 # mountain's own goddess, Miyolangsangma, is drawn as a living faith's is
 # drawn here (F107): her golden tigress with the saddle empty and the
 # bowl of her giving on it, walking the air below the camera on the
@@ -79,6 +79,15 @@ cast:
     name_zh: 西天
     line: "The last crossing, into the Western Heaven, over the wall."
     line_at: 70
+  # With the party, ahead of the horse, whenever it comes (F128).
+  - figure: wukong
+    variant: still
+    role: companion
+    offset: { ahead_m: 2400, right_m: 380, up_m: 320 }
+    size_m: 375
+    facing_deg: 200
+    from: 60
+    until: 114
 
 captions:
   - { at: 24, text: "Tingri, {4300 m}. The wall ahead is the Himalaya." }

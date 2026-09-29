@@ -25,8 +25,13 @@
  * - a monument that does not surface stands for its whole cue, as it did;
  * - a monument that surfaces comes up where the flight is looking more
  *   often than not, when the scene's rail is known;
- * - a figure whose temperament chases another, when both are cast, follows
- *   the leader's visits a second behind;
+ * - a figure whose temperament chases others follows the visits of the
+ *   first of them cast for some of the same seconds, a second behind, if
+ *   that one goes its own way (F129: Nezha after the Bull Demon King at
+ *   the Flaming Mountains, after Wukong in Heaven);
+ * - a figure whose temperament escorts another, when both are cast at once,
+ *   comes with every visit of the other's and no other (F128): Wukong with
+ *   the pilgrims;
  * - an omen comes only when there is a witness on stage for it, or one the
  *   omen may bring on, and never cuts a figure's line short or turns its
  *   head from the lens while its line is on;
@@ -158,11 +163,23 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
     return list;
   };
 
-  const leaderOf = (i: number): number | null => {
-    const chases = temperament(cues[i]!.figure).chases;
-    if (!chases || cues[i]!.motions) return null;
-    const j = cues.findIndex((c, k) => k !== i && cast[k] && c.figure === chases && c.role === "companion");
+  // The figure a cue goes with (F128): one its temperament escorts, cast for some of the same seconds.
+  const escortOf = (i: number): number | null => {
+    const c = cues[i]!;
+    const escorts = temperament(c.figure).escorts;
+    if (!escorts || c.motions || c.role !== "companion") return null;
+    const j = cues.findIndex((d, k) => k !== i && cast[k] && d.figure === escorts.figure && d.role === "companion" && d.fromS < c.untilS && c.fromS < d.untilS);
     return j >= 0 ? j : null;
+  };
+  // The figure a cue chases: the first its temperament names that is cast for some of the same seconds and goes its own way, not escorting another.
+  const leaderOf = (i: number): number | null => {
+    const c = cues[i]!;
+    if (c.motions) return null;
+    for (const kind of temperament(c.figure).chases) {
+      const j = cues.findIndex((d, k) => k !== i && cast[k] && d.figure === kind && d.role === "companion" && d.fromS < c.untilS && c.fromS < d.untilS && escortOf(k) === null);
+      if (j >= 0) return j;
+    }
+    return null;
   };
   const rises = (i: number) => among(repertoire(cues[i]!, temperament(cues[i]!.figure)), WORLD_TRANSIT_MOTIONS);
   const surfacing = (i: number) => cast[i] && cues[i]!.role === "monument" && cues[i]!.at !== null && Object.keys(rises(i)).length > 0;
@@ -306,7 +323,7 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
         // hovering in the picture when it takes fright, which cuts its
         // way short.
         const until = endS ?? atS + 3;
-        const idle = (k: number) => answers(k) && drafts[k]!.every((w) => w.motion !== "hold") && cues[k]!.fromS <= atS - 7 && cues[k]!.untilS >= until && apart(k, atS - 7, until);
+        const idle = (k: number) => answers(k) && escortOf(k) === null && drafts[k]!.every((w) => w.motion !== "hold") && cues[k]!.fromS <= atS - 7 && cues[k]!.untilS >= until && apart(k, atS - 7, until);
         const pick = omens.pick(Object.fromEntries(cues.map((_, k) => [String(k), idle(k) ? 1 : 0])));
         const k = pick === null ? -1 : Number(pick);
         const tk = k < 0 ? null : temperament(cues[k]!.figure);
@@ -336,18 +353,29 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
   // A monument's coming is foretold before the companions take up their seconds, so a witness can be brought on for it.
   foretell("world");
 
-  // Then the rest of each cue's seconds, leaders before those who chase them, in an order of the seed's.
+  // Then the rest of each cue's seconds, leaders before those who chase or escort them, in an order of the seed's.
   const order = shuffled(
     cues.map((_, i) => i).filter((i) => cast[i] && cues[i]!.role === "companion" && drafts[i]!.every((v) => v.motion !== "hold")),
     "order",
   );
-  order.sort((x, y) => Number(leaderOf(x) !== null) - Number(leaderOf(y) !== null));
+  const follows = (i: number) => Number(leaderOf(i) !== null || escortOf(i) !== null);
+  order.sort((x, y) => follows(x) - follows(y));
 
   for (const i of order) {
     const c = cues[i]!;
     const rng = rngs[i]!;
     const t = temperament(c.figure);
     const own = drafts[i]!;
+    const escorted = escortOf(i);
+    if (escorted !== null) {
+      // With the one it escorts: each of its visits, the same seconds, turning to the lens while it is named.
+      for (const lv of drafts[escorted]!) {
+        if (lv.fromS < c.fromS || lv.untilS > c.untilS) continue;
+        if (own.some((v) => v.fromS < lv.untilS + 1 && lv.fromS < v.untilS + 1)) continue;
+        own.push({ ...base(i, "escort", lv.fromS, lv.untilS), leader: escorted, named: lv.named, dwell: lv.dwell });
+      }
+      continue;
+    }
     const lead = leaderOf(i);
     if (lead !== null) {
       // After the leader: each of its visits, a second or so behind, where the chaser's cue allows.
@@ -395,7 +423,7 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
   const sided: Draft[] = [];
   for (const { v, i } of all) {
     const authored = Math.sign(cues[i]!.offset?.rightM ?? 0);
-    const other = sided.find((w) => w.fromS < v.untilS && v.fromS < w.untilS && w.motion !== "chase");
+    const other = sided.find((w) => w.fromS < v.untilS && v.fromS < w.untilS && w.motion !== "chase" && w.motion !== "escort");
     v.side = v.named && authored !== 0 ? (authored as -1 | 1) : other ? (-other.side as -1 | 1) : rngs[i]!.sign();
     sided.push(v);
   }

@@ -229,7 +229,14 @@ export class CastLayer {
         const make = motionBuilder(visit.motion);
         if (!make) return [];
         const leader = visit.leader;
-        const context = (v: Visit): MotionContext => ({ cue, visit: v, temperament, rng: new Rng(v.seed), leader: leader === null ? null : (t, view, out) => this.poseOf(leader, t, view, out) });
+        const context = (v: Visit): MotionContext => ({
+          cue,
+          visit: v,
+          temperament,
+          rng: new Rng(v.seed),
+          leader: leader === null ? null : (t, view, out) => this.poseOf(leader, t, view, out),
+          leaderCue: leader === null ? null : (scene?.cast[leader] ?? null),
+        });
         // A visit an omen reacts in: the omen's module lays the figure's own motion and takes over from it.
         const r = visit.reaction;
         const wrap = r ? omenWrap(r.omen) : null;

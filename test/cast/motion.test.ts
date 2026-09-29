@@ -10,7 +10,9 @@ import { Color, Scene as ThreeScene, Vector3 } from "three";
 import { cueFromRaw } from "../../content/cast.ts";
 import { FIGURE_KINDS, LIVING_FAITHS } from "../../engine/src/cast/kinds.js";
 import { CUE_MOTIONS, MOTION_KINDS, TRANSIT_MOTIONS, WORLD_TRANSIT_MOTIONS, motionSuits, type MotionKind } from "../../engine/src/cast/moves.js";
-import { DEFAULT_VIEW, facingAlong, frameToPicture, inPicture, motionBuilder, newPose, pictureToFrame, registeredMotions, type MotionContext, type View, type Visit } from "../../engine/src/cast/motion.js";
+import { DEFAULT_VIEW, SIDE_AT, facingAlong, frameToPicture, inPicture, motionBuilder, newPose, pictureToFrame, registeredMotions, type MotionContext, type PoseOf, type View, type Visit } from "../../engine/src/cast/motion.js";
+import { ESCORT_CROWDED_X, ESCORT_KEEP_X, ESCORT_KEEP_Y, ESCORT_NEARER, risen } from "../../engine/src/cast/motions/escort.js";
+import { CHASE_APART } from "../../engine/src/cast/motions/chase.js";
 import "../../engine/src/cast/motions/index.js";
 import "../../engine/src/cast/figures/index.js";
 import { hashSeed, Rng } from "../../engine/src/cast/random.js";
@@ -60,6 +62,7 @@ describe("the motions", () => {
   it("are the kinds the gate knows, no more and no fewer", () => {
     expect([...registeredMotions()].sort()).toEqual([...MOTION_KINDS].sort());
     expect(CUE_MOTIONS).not.toContain("chase");
+    expect(CUE_MOTIONS).not.toContain("escort");
     expect(motionSuits("anchor", "monument")).toBe(true);
     expect(motionSuits("anchor", "companion")).toBe(false);
     expect(motionSuits("cross", "monument")).toBe(false);
@@ -134,6 +137,148 @@ describe("the motions", () => {
     expect(at("overtake", 22) * deg).toBeLessThan(60);
   });
 
+  it("keep an escort ahead of the one it goes with, on the side it faces, and over it while it comes straight on (F128)", () => {
+    const leaderCue = cue({ figure: "pilgrims", size_m: 700 });
+    const him = cue({ figure: "wukong", size_m: 250 });
+    const e = temperamentOf("wukong").escorts!;
+    const leaderAt = (at: { ahead: number; right: number; up: number }, yaw: number, presence = 1): PoseOf => (_t, _view, out) => {
+      out.space = "frame";
+      out.world = null;
+      Object.assign(out.at, at);
+      out.yaw = yaw;
+      out.presence = presence;
+      return true;
+    };
+    const escort = (leader: PoseOf) => motionBuilder("escort")!({ ...contextOf(him, visitOf("escort", 1, { leader: 0 })), leader, leaderCue });
+    // In the middle of the picture, where there is room either side.
+    const at = { ahead: 2400, right: 0, up: -420 };
+    for (const yawDeg of [90, 235, -60, 180, 10]) {
+      for (const presence of [1, 0.5, 0]) {
+        const yaw = (yawDeg * Math.PI) / 180;
+        const pose = newPose();
+        expect(escort(leaderAt(at, yaw, presence)).pose(25, DEFAULT_VIEW, pose)).toBe(true);
+        // A hair nearer the lens, the same in the picture: taken back out to measure.
+        const k = 1 / (1 - ESCORT_NEARER);
+        const back = { ahead: pose.at.ahead * k, right: pose.at.right * k, up: pose.at.up * k };
+        const d = { ahead: back.ahead - at.ahead, right: back.right - at.right };
+        // Across the line of sight, level, by its share of the other's size as drawn, on the side the other heads.
+        const drawn = 700 * (0.6 + 0.4 * presence) * presence;
+        const side = Math.max(-1, Math.min(1, Math.sin(yaw) / SIDE_AT));
+        expect(d.ahead * at.ahead + d.right * at.right).toBeCloseTo(0, 6);
+        expect(Math.hypot(d.ahead, d.right), `${yawDeg}° ${presence}`).toBeCloseTo(e.ahead * drawn * Math.abs(side), 6);
+        const x = frameToPicture(pose.at, DEFAULT_VIEW).x - frameToPicture(at, DEFAULT_VIEW).x;
+        if (Math.abs(side) > 0.5 && presence > 0) expect(Math.sign(x), `${yawDeg}°`).toBe(Math.sign(Math.sin(yaw)));
+        expect(back.up - at.up).toBeCloseTo(drawn * (e.above + e.over * risen(e.ahead * Math.abs(side), e.rise)), 6);
+        expect(pose.yaw).toBe(yaw);
+        expect(pose.presence).toBe(presence);
+      }
+    }
+    // Walking toward the near edge, wide or tall: in the picture while the other is, closing in and rising over it, and out with it.
+    for (const view of [DEFAULT_VIEW, TALL]) {
+      let lastUp = -Infinity;
+      for (let x = 0; x <= 1.3; x += 0.05) {
+        const near = pictureToFrame({ x, y: -0.5, d: 1500 }, view);
+        const pose = newPose();
+        escort(leaderAt(near, Math.PI / 2)).pose(25, view, pose);
+        // Over the other is a little across from it in a pitched picture.
+        const p = frameToPicture(pose.at, view);
+        expect(p.x, `${x}`).toBeLessThanOrEqual(Math.max(ESCORT_KEEP_X, x + 0.05));
+        expect(p.x, `${x}`).toBeGreaterThanOrEqual(x - 0.05);
+        expect(pose.at.up, `${x}`).toBeGreaterThanOrEqual(lastUp - 1e-6);
+        lastUp = pose.at.up;
+      }
+    }
+    // High in the picture and coming straight on: it rises over the other no further than keeps its top in the picture.
+    for (const view of [DEFAULT_VIEW, TALL]) {
+      for (let y = 0; y <= 0.8; y += 0.1) {
+        const high = pictureToFrame({ x: 0, y, d: 1500 }, view);
+        const pose = newPose();
+        escort(leaderAt(high, Math.PI)).pose(25, view, pose);
+        const top = frameToPicture({ ...pose.at, up: pose.at.up + 250 * 1.15 }, view).y;
+        const lowest = frameToPicture({ ...high, up: high.up + 700 * e.above + 250 * 1.15 }, view).y;
+        expect(top, `${y}`).toBeLessThanOrEqual(Math.max(ESCORT_KEEP_Y, lowest) + 0.01);
+        expect(frameToPicture(pose.at, view).y, `${y}`).toBeGreaterThan(y);
+      }
+    }
+    // High and near the edge, with room neither ahead nor over: further ahead, part way past the edge, but not out.
+    for (const view of [DEFAULT_VIEW, TALL]) {
+      for (let x = 0.3; x <= 0.9; x += 0.1) {
+        const near = pictureToFrame({ x, y: 0.6, d: 1500 }, view);
+        const pose = newPose();
+        escort(leaderAt(near, Math.PI / 2)).pose(25, view, pose);
+        const p = frameToPicture(pose.at, view);
+        expect(p.x, `${x}`).toBeLessThanOrEqual(Math.max(ESCORT_CROWDED_X, x + 0.05));
+        expect(p.x, `${x}`).toBeGreaterThanOrEqual(x - 0.05);
+      }
+    }
+    // Over the pilgrims his cloud clears their painting's outline: what must be under his feet, measured from
+    // pilgrims-default.webp with his cloud's reach either side, in the party's size, by his middle ahead of theirs (F129).
+    const outline: readonly (readonly [number, number])[] = [[0, 0.461], [0.08, 0.437], [0.12, 0.535], [0.16, 0.545], [0.24, 0.582], [0.4, 0.582], [0.44, 0.44], [0.52, 0.439], [0.56, 0.328], [0.6, 0]];
+    for (let side = 0; side <= 1; side += 0.01) {
+      const ahead = e.ahead * side;
+      const feet = e.above + e.over * risen(ahead, e.rise);
+      const under = Math.max(...outline.filter(([c]) => Math.abs(c - ahead) <= 0.04).map(([, n]) => n), 0);
+      expect(feet - under, `side ${side.toFixed(2)}`).toBeGreaterThanOrEqual(0.02);
+    }
+    // With the other off stage, so is it.
+    expect(escort(() => false).pose(25, DEFAULT_VIEW, newPose())).toBe(false);
+  });
+
+  it("keep a chaser a body's length behind the one it chases, across the picture, and over it straight on (F129)", () => {
+    const bull = cue({ figure: "niumowang", size_m: 850 });
+    const nezha = cue({ figure: "nezha", size_m: 310 });
+    const at = { ahead: 1500, right: 0, up: -300 };
+    for (const yawDeg of [90, -90, 235, 180]) {
+      const yaw = (yawDeg * Math.PI) / 180;
+      // Paused for its line: a second ago it stood where it stands.
+      const leader: PoseOf = (_t, _view, out) => {
+        out.space = "frame";
+        out.world = null;
+        Object.assign(out.at, at);
+        out.yaw = yaw;
+        out.presence = 1;
+        return true;
+      };
+      const m = motionBuilder("chase")!({ ...contextOf(nezha, visitOf("chase", 3, { leader: 0, lagS: 1.2 })), leader, leaderCue: bull });
+      const pose = newPose();
+      expect(m.pose(25, DEFAULT_VIEW, pose)).toBe(true);
+      const side = Math.max(-1, Math.min(1, Math.sin(yaw) / SIDE_AT));
+      const x = frameToPicture(pose.at, DEFAULT_VIEW).x - frameToPicture(at, DEFAULT_VIEW).x;
+      // Behind it: the other way from the way it faces, by at least the two half-lengths less the jitter across.
+      if (Math.abs(side) > 0.5) expect(Math.sign(x), `${yawDeg}°`).toBe(-Math.sign(side));
+      const across = Math.abs(pose.at.right - at.right);
+      expect(across + 0.08 * Math.hypot(at.ahead, at.up), `${yawDeg}°`).toBeGreaterThanOrEqual(CHASE_APART * (850 + 310) * Math.abs(side) - 1e-6);
+      if (Math.abs(side) < 1) expect(pose.at.up - at.up, `${yawDeg}°`).toBeGreaterThan(0.5 * 850 * (1 - Math.abs(side)));
+    }
+  });
+
+  it("keep a chaser off the one it chases where it comes straight at the lens, close, with no room over it (F129)", () => {
+    const wukong = cue({ figure: "wukong", size_m: 130 });
+    const nezha = cue({ figure: "nezha", size_m: 240 });
+    for (const view of [DEFAULT_VIEW, TALL]) {
+      for (const side of [-1, 1] as const) {
+        for (const ahead of [500, 700, 1000]) {
+          const at = { ahead, right: 0, up: -40 };
+          const leader: PoseOf = (_t, _view, out) => {
+            out.space = "frame";
+            out.world = null;
+            Object.assign(out.at, at);
+            out.yaw = Math.PI;
+            out.presence = 1;
+            return true;
+          };
+          const pose = newPose();
+          motionBuilder("chase")!({ ...contextOf(nezha, visitOf("chase", 3, { leader: 0, lagS: 1.2, side })), leader, leaderCue: wukong }).pose(25, view, pose);
+          const h = Math.hypot(at.ahead, at.right);
+          const across = Math.abs((pose.at.right - at.right) * (at.ahead / h) - (pose.at.ahead - at.ahead) * (at.right / h));
+          const rise = pose.at.up - at.up;
+          // Beside it by the most of the two half-widths, or over it, never on it.
+          expect(across >= 0.25 * (130 + 240) || rise >= 0.9 * 130, `${ahead} m, side ${side}: across ${across.toFixed(0)}, rise ${rise.toFixed(0)}`).toBe(true);
+        }
+      }
+    }
+  });
+
   it("keep a thing on the wind broadside to the lens the whole way", () => {
     const flags = cue({ figure: "lungta", facing_deg: 20 });
     for (const motion of TRANSIT_MOTIONS) {
@@ -185,13 +330,15 @@ describe("the temperaments", () => {
     for (const [kind, t] of Object.entries(TEMPERAMENTS)) {
       expect(FIGURE_KINDS as readonly string[]).toContain(kind);
       for (const m of Object.keys(t!.moves)) expect([...TRANSIT_MOTIONS, ...WORLD_TRANSIT_MOTIONS] as readonly string[], `${kind} ${m}`).toContain(m);
-      if (t!.chases) expect(FIGURE_KINDS as readonly string[]).toContain(t!.chases);
+      for (const k of t!.chases) expect(FIGURE_KINDS as readonly string[]).toContain(k);
+      if (t!.escorts) expect(FIGURE_KINDS as readonly string[]).toContain(t!.escorts.figure);
       if (kind !== "wukong") expect(t!.moves.blink ?? 0, kind).toBe(0);
       expect(t!.band[0]).toBeLessThan(t!.band[1]);
     }
     for (const kind of LIVING_FAITHS) expect(temperamentOf(kind).stately, kind).toBe(true);
     expect(temperamentOf("no-such-figure")).toBe(GENERIC);
-    expect(temperamentOf("nezha").chases).toBe("wukong");
+    expect(temperamentOf("nezha").chases).toEqual(["niumowang", "wukong"]);
+    expect(temperamentOf("wukong").escorts?.figure).toBe("pilgrims");
     expect(temperamentOf("lungta").facesPath).toBe(false);
   });
 });
@@ -258,7 +405,7 @@ describe("the director", () => {
             expect(v.untilS, `${s.id} ${c.figure}`).toBeLessThanOrEqual(c.untilS);
             expect(v.untilS).toBeGreaterThan(v.fromS);
             if (k > 0) expect(v.fromS, `${s.id} ${c.figure} seed ${seed}`).toBeGreaterThan(vs[k - 1]!.untilS);
-            if (v.motion !== "chase" && v.motion !== "hold") passing.push(v);
+            if (v.motion !== "chase" && v.motion !== "escort" && v.motion !== "hold") passing.push(v);
           });
         });
         for (let t = 0; t < 114; t += 0.25) {
@@ -282,7 +429,7 @@ describe("the director", () => {
           s.cast.forEach((c, i) => {
             if (i === j || c.role !== "companion") return;
             for (const v of plan.cues[i]!.visits) {
-              if (v.named || v.motion === "chase" || v.motion === "hold" || v.reaction) continue;
+              if (v.named || v.motion === "chase" || v.motion === "escort" || v.motion === "hold" || v.reaction) continue;
               expect(v.untilS <= from || v.fromS >= until, `${s.id} ${c.figure} across ${named.figure}'s line, seed ${seed}`).toBe(true);
             }
           });
@@ -320,6 +467,50 @@ describe("the director", () => {
       }
     }
     expect(chases).toBeGreaterThan(SEEDS.length);
+  });
+
+  it("sends Nezha after the Bull Demon King at the Flaming Mountains, where he comes to help Wukong, not after Wukong (F129)", () => {
+    const turpan = film.scenes.find((s) => s.id === "below-the-sea")!;
+    const nezha = turpan.cast.findIndex((c) => c.figure === "nezha");
+    const bull = turpan.cast.findIndex((c) => c.figure === "niumowang");
+    let chases = 0;
+    for (const seed of SEEDS) {
+      for (const v of planScene(turpan, seed).cues[nezha]!.visits.filter((x) => x.motion === "chase")) {
+        chases++;
+        expect(v.leader).toBe(bull);
+      }
+    }
+    expect(chases).toBeGreaterThan(SEEDS.length / 2);
+  });
+
+  it("sends Wukong with the pilgrims wherever both are cast, for each of their visits and no other (F128)", () => {
+    let escorts = 0;
+    for (const s of film.scenes) {
+      const pilgrims = s.cast.findIndex((c) => c.figure === "pilgrims");
+      if (pilgrims < 0) continue;
+      const p = s.cast[pilgrims]!;
+      const withThem = s.cast.flatMap((c, i) => (c.figure === "wukong" && c.fromS < p.untilS && p.fromS < c.untilS ? [i] : []));
+      // The monk rides out of Chang'an alone (the Loess): the monkey is the first disciple, taken on later.
+      if (p.variant === "monk") {
+        expect(withThem, s.id).toEqual([]);
+        continue;
+      }
+      expect(withThem.length, `${s.id}: the pilgrims without Wukong`).toBe(1);
+      const w = s.cast[withThem[0]!]!;
+      expect(w.fromS, s.id).toBeLessThanOrEqual(p.fromS);
+      expect(w.untilS, s.id).toBeGreaterThanOrEqual(p.untilS);
+      // A monkey on foot is Sha's height or a little under: about a third of the party's length.
+      expect(w.sizeM / p.sizeM, s.id).toBeGreaterThan(0.33);
+      expect(w.sizeM / p.sizeM, s.id).toBeLessThan(0.4);
+      for (const seed of SEEDS) {
+        const plan = planScene(s, seed, temperamentOf, sightOf(s));
+        const theirs = plan.cues[pilgrims]!.visits;
+        const his = plan.cues[withThem[0]!]!.visits;
+        expect(his.map((v) => [v.motion, v.fromS, v.untilS, v.leader, v.named]), `${s.id} seed ${seed}`).toEqual(theirs.map((v) => ["escort", v.fromS, v.untilS, pilgrims, v.named]));
+        escorts += his.length;
+      }
+    }
+    expect(escorts).toBeGreaterThan(SEEDS.length * 5);
   });
 
   it("casts a figure with a chance in about that share of viewings, and a cue's own motions over its temperament", () => {

@@ -39,7 +39,9 @@ look:
   grade: clear
 
 # The cast (D91): the pilgrims crossing the Tongtian River (ch. 47-49)
-# beside the camera, the upper Yangtze from Tuotuohe, a key on this rail;
+# beside the camera, Wukong ahead of them (F128), named near the middle
+# of the picture so there is room ahead of them for him either way they
+# walk (F129), the upper Yangtze from Tuotuohe, a key on this rail;
 # and black-necked cranes, the plateau's own, over the first leg from
 # Qinghai Lake; from the Hoh Xil a qilin walking the air, as asked, and
 # the old turtle of the Tongtian swimming it beside the party. The
@@ -73,7 +75,7 @@ cast:
   - figure: pilgrims
     variant: still
     role: companion
-    offset: { ahead_m: 760, right_m: 240, up_m: -40 }
+    offset: { ahead_m: 760, right_m: 60, up_m: -40 }
     size_m: 540
     facing_deg: 215
     from: 8
@@ -81,6 +83,15 @@ cast:
     name_zh: 通天河
     line: "The pilgrims, bound for the Tongtian, the river that reaches heaven."
     line_at: 68
+  # With the party, ahead of the horse, whenever it comes (F128).
+  - figure: wukong
+    variant: still
+    role: companion
+    offset: { ahead_m: 760, right_m: 60, up_m: -40 }
+    size_m: 195
+    facing_deg: 215
+    from: 8
+    until: 110
   - figure: qilin
     variant: still
     role: companion

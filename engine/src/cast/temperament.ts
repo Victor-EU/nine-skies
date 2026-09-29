@@ -9,7 +9,12 @@
  * mesh. The weights are how often each motion is drawn against the others.
  *
  * The rules the table keeps:
- * - playfulness is Wukong's and Nezha's alone: the somersault and the chase;
+ * - playfulness is Wukong's and Nezha's alone: the somersault and the chase,
+ *   Nezha after the monkey in Heaven and after the Bull Demon King at the
+ *   Flaming Mountains (F129);
+ * - Wukong goes ahead of his master wherever the pilgrims are cast with
+ *   him (F128): the painting of the pilgrims is the monk, Bajie and Sha,
+ *   and he is his own figure;
  * - figures of living faiths and the Queen Mother move slowly and are never
  *   drawn close (`stately`): they approach, cross and descend;
  * - birds and dragons may pitch with their path; walkers stay nearly level;
@@ -37,8 +42,19 @@ export interface Temperament {
   readonly gapS: readonly [number, number];
   /** Never drawn close to the lens, never hurried. */
   readonly stately: boolean;
-  /** A figure it goes after when both are cast in a scene. */
-  readonly chases: FigureKind | null;
+  /** Figures it goes after, the first of them cast in a scene at the same time as it (F129). */
+  readonly chases: readonly FigureKind[];
+  /**
+   * A figure it goes with when both are cast at once (F128): whenever the
+   * other comes, it comes too, `ahead` of the other's size in front of the
+   * other's middle, on the side the other faces in the picture, and
+   * `above` of it over the other's feet. Closer in than that it rises, by
+   * `over` more, over the other: from `rise[0]` ahead of the other's middle,
+   * where it begins to be over the other's front, to `rise[1]`, where it is
+   * over the other's highest (F129), all of it while the other comes
+   * straight at the lens or goes straight away.
+   */
+  readonly escorts: { readonly figure: FigureKind; readonly ahead: number; readonly above: number; readonly over: number; readonly rise: readonly [number, number] } | null;
   /**
    * Whether it faces the way it goes. A creature does; a thing carried on
    * the wind keeps the facing its cue gives it, broadside to the lens, or a
@@ -60,7 +76,8 @@ const base: Temperament = {
   maxPitchDeg: 15,
   gapS: [8, 24],
   stately: false,
-  chases: null,
+  chases: [],
+  escorts: null,
   facesPath: true,
   curiosity: 0.35,
   skittish: false,
@@ -76,11 +93,26 @@ export const TEMPERAMENTS: Readonly<Partial<Record<FigureKind, Temperament>>> = 
   // Serpents of the cloud: they break the surface below, arc and go under;
   // standing, they come up out of the cloud sea and go down into it again.
   dragon: t({ moves: { rise: 3, cross: 2, oncoming: 1, surface: 1 }, band: [-0.6, 0.3], pace: 1.2, maxPitchDeg: 35, curiosity: 0.5, omens: { scatter: 3, look: 1 } }),
-  // Sent to bring the monkey in (ch. 4): after him wherever he goes.
-  nezha: t({ moves: { overtake: 2, cross: 2, stoop: 1 }, band: [-0.3, 0.5], pace: 0.8, maxPitchDeg: 20, chases: "wukong", curiosity: 0.4 }),
+  // Sent to bring the monkey in (ch. 4): after him wherever he goes. At
+  // the Flaming Mountains he is sent to help him (ch. 61) and goes after
+  // the Bull Demon King instead, and it is he who ends the fight.
+  nezha: t({ moves: { overtake: 2, cross: 2, stoop: 1 }, band: [-0.3, 0.5], pace: 0.8, maxPitchDeg: 20, chases: ["niumowang", "wukong"], curiosity: 0.4 }),
   // A somersault is 108,000 li: he is never where he was.
   // He looks at you. He always looks at you.
-  wukong: t({ moves: { blink: 3, circle: 1, cross: 1 }, band: [-0.4, 0.5], pace: 0.9, gapS: [4, 14], curiosity: 0.65 }),
+  // With the pilgrims he leads the way on his cloud, just past the horse's
+  // nose (the painting's nose is 0.48 of its size ahead of its middle, and
+  // his staff reaches back 0.13), a little over their road. Over them, his
+  // cloud (0.094 either side of his feet, 0.066 under them) clears the
+  // painting's outline: the horse's ears, 0.44 with the cloud, from 0.52
+  // ahead of its middle in, and the monk's staff, 0.58, the highest (F129).
+  wukong: t({
+    moves: { blink: 3, circle: 1, cross: 1 },
+    band: [-0.4, 0.5],
+    pace: 0.9,
+    gapS: [4, 14],
+    curiosity: 0.65,
+    escorts: { figure: "pilgrims", ahead: 0.7, above: 0.1, over: 0.52, rise: [0.665, 0.525] },
+  }),
   pilgrims: t({ moves: { cross: 3, oncoming: 2 }, band: [-0.7, 0], pace: 1.5, maxPitchDeg: 4, curiosity: 0.3 }),
   xiwangmu: t({ moves: { cross: 2, oncoming: 1, stoop: 1 }, band: [-0.2, 0.5], pace: 1.4, maxPitchDeg: 8, stately: true, curiosity: 0.25, omens: { look: 1 } }),
   cranes: t({ moves: { cross: 3, overtake: 2, oncoming: 1 }, band: [-0.5, 0.4], maxPitchDeg: 20, curiosity: 0.3, skittish: true }),

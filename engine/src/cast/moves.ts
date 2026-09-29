@@ -45,6 +45,12 @@ export const MOTIONS = {
    */
   chase: { space: "frame", transit: false, cueable: false, naturalS: 0, arriveS: 0 },
   /**
+   * With another figure, a little ahead of it, for each of its visits
+   * (F128): Wukong leading the pilgrims. The director casts it from a
+   * figure's temperament; a cue cannot name it.
+   */
+  escort: { space: "frame", transit: false, cueable: false, naturalS: 0, arriveS: 0 },
+  /**
    * A monument's that comes and goes (D93): up out of what lies under its
    * place - the cloud sea, the water - to stand there a while, and down
    * again, on its own timing. The rise and the dive are its natural length;
@@ -62,7 +68,7 @@ const kinds = (test: (t: MotionTraits) => boolean): readonly MotionKind[] => MOT
 /** The motions that place a figure in the world rather than in the camera's frame. */
 export const WORLD_MOTIONS: readonly MotionKind[] = kinds((t) => t.space === "world");
 
-/** The motions a cue may name: `chase` needs a leader, which only the director knows. */
+/** The motions a cue may name: `chase` and `escort` need a leader, which only the director knows. */
 export const CUE_MOTIONS: readonly MotionKind[] = kinds((t) => t.cueable);
 
 /** The motions that pass through the picture and leave: what the director draws a companion's visit from. */

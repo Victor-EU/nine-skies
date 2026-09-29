@@ -4416,3 +4416,147 @@ bytes put them; every scene's palette with its own river colour; the
 shader grading a river as the ground and drawing a river's surface as its
 photograph, leaving lakes and the sea their colour, the glitter's width
 and peak, the walls in the mirror), and the film validates.
+
+## F128 — Wukong goes with the pilgrims, 29 September 2026
+
+**Asked.** With the cast on, the Monkey King was missing from most of the
+scenes with Xuanzang: over the Wall, the monk on the white horse, Bajie
+and Sha, and no Wukong.
+
+**What it was.** The painting of the pilgrims (D94) is the monk, Bajie and
+Sha; Wukong is his own figure. He was cued in two of the five scenes that
+cast the party, the First Bend and Below the Sea, and in those the
+director (D92) sent him on visits of his own, somersaults and circles at
+seconds of their own, so he was seldom in the picture with them. At the
+Karst, the Roof and the Wall he was not cast at all. The First Bend's line
+said "Wukong ahead, the monk on the white horse, Bajie and Sha behind"
+over a picture without him in it more often than not.
+
+**Rule.** A temperament may escort another figure (`escorts`, beside
+Nezha's `chases`): when both are cast for some of the same seconds, the
+director gives the escort a visit for each of the other's, the same
+seconds, turning to the lens when the other is named, and no visits of
+its own; a chaser goes after only a leader that goes its own way. The new
+motion `escort` (director-only, like `chase`) is the other's pose moved
+across the line of sight toward the way the other faces in the picture:
+Wukong's middle 0.64 of the party's size ahead of theirs, past the horse's
+nose (0.47) and clear of it with his staff (0.13), his feet a tenth of it
+over their road. Lifted over them instead while they come straight at the
+lens or go straight away, and as he closes in on them (wholly over by
+0.6 of his lead). He comes out of them as they come into the picture, and
+goes back into them as they leave. Ahead put him past the edge whenever
+the party walks toward the nearer one, which a line's pause often does
+(the Karst's, the First Bend's, and half the viewings of Below the Sea's
+and the Roof's), so he keeps his middle within 0.8 of the half width
+while they are in the picture, closing in and rising over them; he rises
+no higher than keeps his top under 0.95 of the half height (the Roof's
+party rides at the horizon), and where there is no room over them either
+he keeps further ahead, to 0.95, part way past the edge, rather than
+stand in front of the monk. He stands 1 % nearer the lens than they do,
+the same in the picture, so where the two overlap he is cleanly in front.
+Wukong is cued with the party at the Karst, the Roof, the Wall and Below
+the Sea's Flowing Sands (a second cue; his first stays with Nezha over
+the Flaming Mountains), at 0.36 of the party's size, Sha's height or a
+little under; the First Bend's cue goes from 420 m to 400. The Loess has
+none: the monk rides out of Chang'an alone, and the monkey is taken on
+later (ch. 14).
+
+**Seen.** Held at the party's lines with seed 7, and seed 123 where the
+party walks toward the edge, headless: at the Wall and the Roof (seed 7)
+and Below the Sea he leads on his cloud ahead of the horse, facing their
+way; at the First Bend ahead of them, rising over the monk at the edge; at
+the Karst over the monk's crown, scouting; at the Roof (seed 123) at the
+horse's head, then part way past the edge. Over 60 seeds, of the seconds
+the party is well in the picture he is never out of it; his top is past
+the frame's in 2 % of the Roof's and 3 % of the Wall's, where the party
+itself rides near the top, and in none of the others'.
+
+**Cost.** Not measured: one more painted card in the picture while the
+party is, as when he visited on his own.
+
+**Left.** Nezha still chases Wukong over the Flaming Mountains (ch. 61),
+where the novel has him come to help. Straight on, or closing in, Wukong
+over the party can overlap the monk's staff.
+
+**Checked.** `npm run check`: 613 tests (the escort ahead of the one it
+goes with on the side it faces, by its share, level with it across the
+line of sight, over it straight on, out of it only as it comes in; kept in
+the picture wide and tall as the other nears the edge, under the top when
+it rides high, further ahead when crowded; with the party wherever both
+are cast, for each of its visits and no other, none with the monk alone,
+at a third of its size), and the film validates.
+
+## F129 — Nezha after the Bull Demon King; followers beside the ones they follow, not on them; what the escort costs, 29 September 2026
+
+**Asked.** F128's three leftovers: Nezha still chased Wukong over the
+Flaming Mountains, where the novel sends him to help; Wukong over the
+pilgrims could overlap the monk's staff; the escort's cost was not
+measured.
+
+**Nezha.** A temperament's `chases` is now a list, the first of it cast
+for some of the same seconds taken: Nezha's is the Bull Demon King, then
+Wukong. At the Flaming Mountains he goes after the Bull, as he does to
+end the fight (ch. 61); over Huangshan, with no Bull, after the monkey
+(ch. 4). Held at the Bull's line, the chase showed what a chase had always
+been: a second behind on a path that pauses for a line is where the leader
+stands, and Nezha stood inside the Bull, nearly three times his size, his
+head over its back. Over 60 viewings the old chase had the two covering
+each other for 93 % of Huangshan's chase seconds and all of Turpan's. So a
+chaser now keeps a body's length behind the other across the picture as
+well (0.55 of the two sizes, centre to centre), and over it, by its size,
+while it comes straight at the lens or goes away, rising until it is clear
+of it across (0.55 of the way out). It keeps in the picture as the escort
+does. Covering fell to 2.0 % at Huangshan and 0 at Turpan; Nezha off the
+picture while Wukong is well in it, 9.2 % to 3.3 %; his head past the top,
+25 % to 21 % (Wukong rides high, and Nezha is the taller).
+
+**One rule for both.** The escort's and the chaser's placing is one
+function, `keptBeside` in `motion.ts`, with `sideFacing` and
+`acrossSight`: as far out across the picture as keeps the figure's middle
+within 0.8 of the half width; rising no higher than keeps its top under
+0.95; and where there is no room over the other, out only as far as leaves
+room for the rise it has there (a search, not a guess from the shortfall,
+which stood Nezha half over and half beside Wukong), up to 0.95, part way
+past the edge. Where the other comes nearly straight at the lens and has no
+side to go out to, it goes out to its visit's side: close over Huangshan,
+Nezha over Wukong had no room and hid him whole.
+
+**The staff.** Measured from the painting's outline, with Wukong's cloud
+0.094 of the party's size either side of his feet and 0.066 under them:
+the monk's staff needs his feet 0.58 over the party's road, the horse's
+ears 0.44 from 0.52 ahead of the party's middle in. His full rise was
+0.55, and he began rising only as he closed in, after he was over the
+horse's head. Now he leads at 0.70 (0.64), 0.09 clear of the nose with his
+staff, and rises by how far ahead he is: from 0.665, where his cloud
+reaches the nose, to 0.525, over the head, wholly, to 0.62 (0.55). The
+margin over the outline is 0.038 at the least; a test holds the numbers.
+The Roof's and Below the Sea's parties were cut into for 47 % and 37 % of
+their lines: big in the picture, they are named off centre and walk to the
+nearer edge, with room for him neither ahead nor over them. Named at 60 m
+right of the middle (from 240 and 360), 3.4 % and 2.6 %; overall, of the
+party's seconds well in the picture, 1 to 7 % by scene.
+
+**Cost.** The escort's pose, in a loop: 1–3 µs, 46 µs at the most, 4 a
+frame. Held at the Roof's line, headless at 1920 × 1080, Wukong shown and
+hidden in turns of 10 frames over 400: his figure's update 0.3–0.4 ms a
+frame (the painting bent by its lives, as the pilgrims' own), 2 draw calls
+and 29,700 triangles; the frame's GPU time 7.9 and 8.1 ms, then 7.4 and
+7.2 (shown, hidden): within the timer's noise both times.
+
+**Seen.** Headless, seeds 7, 123 and 5: the Karst's and the First Bend's
+Wukong over the monk, clear of the staff; the Roof's and Below the Sea's
+parties near the middle with him ahead; Nezha above and behind the Bull
+through the Bull's line; Nezha beside Wukong where Wukong comes at the
+lens over Huangshan.
+
+**Left.** Over the Flaming Mountains Wukong is seen in 8 % of viewings,
+0.4 s a viewing, as he was before F128: the seconds there are taken by
+four lines, which a passing figure keeps out of. Wukong's head can go past
+the top of the frame at the Roof and the Wall while the party rides high
+(2–3 % of their seconds).
+
+**Checked.** `npm run check`: 616 tests (Nezha after the Bull at the
+Flaming Mountains; a chaser behind the one it chases by a body's length,
+over it straight on, and off it close and straight on in a wide frame and
+a tall one; the escort's rise clear of the pilgrims' outline at every
+side), and the film validates.

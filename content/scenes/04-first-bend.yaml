@@ -88,11 +88,12 @@ look:
 # his standard: the white horse riderless, the white spear at the saddle,
 # high on the right where Jade Dragon stands as the rail leaves the gorge.
 cast:
+  # With the party, ahead of the horse, whenever it comes (F128).
   - figure: wukong
     variant: still
     role: companion
     offset: { ahead_m: 1900, right_m: -120, up_m: -620 }
-    size_m: 420
+    size_m: 400
     facing_deg: 190
     from: 10
     until: 112

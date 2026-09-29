@@ -147,7 +147,7 @@ export interface Visit {
   readonly named: boolean;
   /** The side of the picture it favours, so two figures at once keep apart. */
   readonly side: -1 | 1;
-  /** For a chase, the index of the cue it follows and how far behind it is, seconds. */
+  /** For a chase or an escort, the index of the cue it follows, and how far behind it is, seconds. */
   readonly leader: number | null;
   readonly lagS: number;
   readonly seed: number;
@@ -166,8 +166,10 @@ export interface MotionContext {
   readonly temperament: Temperament;
   /** The visit's own dice, from its seed. */
   readonly rng: Rng;
-  /** The leader's pose, for a chase; null otherwise. */
+  /** The leader's pose, for a chase or an escort; null otherwise. */
   readonly leader: PoseOf | null;
+  /** The leader's cue, for its size: what an escort keeps ahead of it by. */
+  readonly leaderCue?: CastCue | null;
 }
 
 export interface Motion {
@@ -223,6 +225,135 @@ export function facingAlong(namedYaw: number, pathYaw: number): number {
 
 /** How far across the picture a path must head, the sine of its yaw, for a facing to be kept to its side. */
 export const ACROSS = 0.25;
+
+/** How far across the picture a figure must head, the sine of its yaw, to face wholly that way (F128). */
+export const SIDE_AT = 0.4;
+
+/** The side of the picture a figure faces, -1 left to 1 right, from its yaw: wholly once it heads `SIDE_AT` across, neither straight at the lens or away. */
+export function sideFacing(yaw: number): number {
+  return Math.max(-1, Math.min(1, Math.sin(yaw) / SIDE_AT));
+}
+
+/**
+ * For a figure placed beside another across the picture (an escort ahead
+ * of it, a chaser behind it; F128, F129): the side it may keep, the full
+ * one or less, where `place` puts it at a side, 0 being over the other. As
+ * far out as leaves its middle `keep` across the picture, or over the other
+ * once the other is further out than that, so it goes out of the picture
+ * with the other and not before. Over the other is not quite level with it
+ * across a pitched picture, so that is measured where it would be.
+ * `scratch` is written.
+ */
+export function keptAcross(side: number, keep: number, view: View, place: (side: number, at: FramePoint) => void, scratch: Pose): number {
+  if (side === 0) return 0;
+  const dir = Math.sign(side);
+  place(0, scratch.at);
+  // Beside or behind the lens there is no picture to keep to.
+  if (frameToPicture(scratch.at, view).d <= 0) return side;
+  const x = (s: number): number => {
+    place(s, scratch.at);
+    const p = frameToPicture(scratch.at, view);
+    return p.d > 0 ? dir * p.x : Infinity;
+  };
+  const bound = Math.max(keep, x(0));
+  if (x(side) <= bound) return side;
+  // Nearer the other is further in: halve toward the side that keeps it there.
+  let lo = 0;
+  let hi = side;
+  for (let k = 0; k < 16; k++) {
+    const mid = 0.5 * (lo + hi);
+    if (x(mid) <= bound) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** Where a figure beside another may go (F128, F129): its middle across the picture, of the half width, before it closes in on the other; how far when there is no room over the other; and its top up the picture. */
+export interface Keep {
+  readonly x: number;
+  readonly crowdedX: number;
+  readonly y: number;
+}
+
+/**
+ * For a figure placed beside another across the picture: the side it keeps,
+ * and the share it may rise of the way it would over the other, where
+ * `place(side, over, at)` puts it, 0 being over the other and `over` 1 its
+ * whole rise. As far out as `keep.x` allows (`keptAcross`); then rising no
+ * higher than keeps its top, `top` metres over its feet, `keep.y` up the
+ * picture; and where that leaves it short of the way over, further out
+ * instead, as far as leaves room for the rise it has there, up to
+ * `keep.crowdedX`, part way past the edge, rather than in front of the
+ * other. Where the other comes nearly straight at the lens, so that it has
+ * no side of its own to go out to, it goes out to `lean`, its visit's side
+ * of the picture: a chaser over Wukong as he came at the lens over
+ * Huangshan had no room there and hid him (F129). A figure's `place` must
+ * rise less the further out it is. `scratch` is written.
+ */
+export function keptBeside(wholly: number, keep: Keep, top: number, lean: -1 | 1, view: View, place: (side: number, over: number, at: FramePoint) => void, scratch: Pose): { side: number; over: number } {
+  let side = keptAcross(wholly, keep.x, view, (s, at) => place(s, 1, at), scratch);
+  let over = keptUnder(keep.y, top, view, (o, at) => place(side, o, at), scratch);
+  if (over < 1) {
+    const crowded = (1 - over) * keep.crowdedX + over * keep.x;
+    // Out the way it faces, or, nearly straight on, to its visit's side, the one giving way to the other in between.
+    const own = smooth((Math.abs(wholly) - 0.3) / 0.3);
+    const toward = Math.max(-1, Math.min(1, (1 - own) * lean + own * Math.sign(wholly)));
+    const along = (u: number): number => wholly + u * (toward - wholly);
+    // The least way out that leaves room for its whole rise there, or all of it.
+    const fits = (u: number): boolean => keptUnder(keep.y, top, view, (o, at) => place(along(u), o, at), scratch) >= 1;
+    let lo = 0;
+    let hi = 1;
+    if (fits(1)) {
+      for (let k = 0; k < 16; k++) {
+        const mid = 0.5 * (lo + hi);
+        if (fits(mid)) hi = mid;
+        else lo = mid;
+      }
+    }
+    side = keptAcross(along(hi), crowded, view, (s, at) => place(s, 1, at), scratch);
+    over = keptUnder(keep.y, top, view, (o, at) => place(side, o, at), scratch);
+  }
+  return { side, over };
+}
+
+/**
+ * How far over the other it may rise, all the way or less: as far as keeps
+ * its top, `top` metres over its feet, `keepY` up the picture, and none of
+ * the way when even that is too high. `scratch` is written.
+ */
+function keptUnder(keepY: number, top: number, view: View, place: (over: number, at: FramePoint) => void, scratch: Pose): number {
+  const y = (over: number): number => {
+    place(over, scratch.at);
+    scratch.at.up += top;
+    const p = frameToPicture(scratch.at, view);
+    return p.d > 0 ? p.y : -Infinity;
+  };
+  if (y(1) <= keepY) return 1;
+  if (y(0) > keepY) return 0;
+  let lo = 0;
+  let hi = 1;
+  for (let k = 0; k < 16; k++) {
+    const mid = 0.5 * (lo + hi);
+    if (y(mid) <= keepY) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/**
+ * A frame point moved `by` metres level across the line of sight to it,
+ * toward the picture's right when positive, into `out`: beside it in the
+ * picture, as far from the lens. A painted card stands face on whichever
+ * way it heads, so this is ahead of it or behind it as drawn (F128).
+ */
+export function acrossSight(at: FramePoint, by: number, out: FramePoint): FramePoint {
+  const h = Math.hypot(at.ahead, at.right) || 1;
+  const ahead = at.ahead - (at.right / h) * by;
+  out.right = at.right + (at.ahead / h) * by;
+  out.ahead = ahead;
+  out.up = at.up;
+  return out;
+}
 
 export interface PathOptions {
   /** The way it faces while it is named, from the flight, radians; NaN for its path. */
