@@ -210,10 +210,11 @@ class TestWhatWasSitedWithIt(unittest.TestCase):
         """The build plan left this open and F51 closed it: the ground reading
         steps by the grids' disagreement wherever hero cover starts or stops,
         so three areas down one reach would be six of those steps instead of
-        two. One area costs eleven more tiles, which is 0.37 MB."""
+        two. One area costs eleven more tiles, which is 0.37 MB. It grew east
+        and south over the start of scene 2's rail (F132), and is still one."""
         area = hero.BY_ID["three-gorges"]
-        self.assertEqual((area.tiles_x, area.tiles_y), (12, 3))
-        self.assertEqual(area.count, 36)
+        self.assertEqual((area.tiles_x, area.tiles_y), (17, 4))
+        self.assertEqual(area.count, 68)
 
 
 if __name__ == "__main__":

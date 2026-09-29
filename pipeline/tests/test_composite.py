@@ -183,6 +183,87 @@ class TestTheComposite(unittest.TestCase):
                 composite.load_tone(root)
 
 
+@unittest.skipUnless(HAVE_NUMPY and HAVE_RASTERIO, "numpy and rasterio")
+class TestAGrownArea(unittest.TestCase):
+    """An area grown past the ground its composite was read for keeps that
+    composite as it was and is composited on from parts (F132)."""
+
+    #: Two 90 m hero tiles at Tiger Leaping Gorge: the old one west, the new ground east.
+    area = imagery.Area("t", "hero", 11_520, 256, 89, 2, 1) if HAVE_NUMPY else None
+
+    def setUp(self):
+        self.saved = dict(composite.PARTS)
+        composite.PARTS["t"] = (("t", (256, 89, 257, 90)), ("t-east", (256, 89, 258, 90)))
+
+    def tearDown(self):
+        composite.PARTS.clear()
+        composite.PARTS.update(self.saved)
+
+    def write(self, root, part, value, unseen_rows=0):
+        """A composite over the part's grid, `value` everywhere, no views in its first `unseen_rows`."""
+        g = composite.utm_grid(part, EPSG, composite.READ_M)
+        views = np.full((g.height, g.width), 9, np.uint8)
+        views[:unseen_rows] = 0
+        path = composite.composite_path(part.key, root)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        profile = dict(driver="GTiff", width=g.width, height=g.height, count=4, dtype="uint8",
+                       crs=f"EPSG:{EPSG}", transform=g.transform())
+        with rasterio.open(path, "w", **profile) as ds:
+            ds.write(np.full((3, g.height, g.width), value, np.uint8), [1, 2, 3])
+            ds.write(views, 4)
+        return g
+
+    def test_the_first_part_is_the_area_as_it_was_read(self):
+        own, east = composite.parts(self.area)
+        self.assertEqual((own.key, own.tx0, own.tiles_x), ("t", 256, 1))
+        self.assertEqual((east.key, east.tx0, east.tiles_x), ("t-east", 256, 2))
+        self.assertEqual(own.cells, self.area.cells)
+        other = imagery.Area("u", "hero", 11_520, 256, 89, 1, 1)
+        self.assertEqual(composite.parts(other), [other])
+
+    def test_the_first_fades_only_toward_the_ground_it_grew_past(self):
+        own, east = composite.parts(self.area)
+        f = imagery.fade_inside(self.area, own, [east], feather_m=1_500)
+        self.assertEqual(f[128, 0], 1.0)  # the area's own edge: nothing past it
+        self.assertEqual(f[128, 200], 1.0)  # 2.5 km inside the edge it grew past
+        self.assertEqual(f[128, 256], 0.0)  # on it
+        self.assertTrue(0 < f[128, 245] < 1)
+        self.assertEqual(f[0, 100], 1.0)  # north and south are the area's own edges
+        # A fine tile on the old ground, whose own east edge that is, fades as the area does.
+        fine = self.area.fine(256, 89)
+        g = imagery.fade_inside(fine, composite.parts(fine)[0], composite.parts(fine)[1:], feather_m=1_500)
+        self.assertEqual(g[576, fine.width - 1], 0.0)
+        self.assertAlmostEqual(float(g[576, fine.width - 1 - 75]), float(f[128, 256 - 17]), delta=0.03)  # 750 m in
+        self.assertEqual(g[576, 0], 1.0)
+
+    def test_the_parts_blend_where_both_see_and_nowhere_else(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            own, east = composite.parts(self.area)
+            self.write(root, own, 100)
+            g = self.write(root, east, 200, unseen_rows=0)
+            rgb, seen = imagery.composite_on(self.area, root)
+            self.assertTrue(seen.all())
+            self.assertAlmostEqual(float(rgb[0, 128, 60]), 100, delta=0.5)  # the old ground, as it was
+            self.assertAlmostEqual(float(rgb[0, 128, 400]), 200, delta=0.5)  # the new
+            self.assertTrue(110 < float(rgb[0, 128, 245]) < 190)  # blended across the old edge
+            self.assertAlmostEqual(float(rgb[0, 128, 258]), 200, delta=0.5)
+            # Where the new part sees nothing, the old ground goes right to its edge.
+            self.write(root, east, 200, unseen_rows=g.height // 2)
+            rgb, seen = imagery.composite_on(self.area, root)
+            self.assertAlmostEqual(float(rgb[0, 20, 250]), 100, delta=0.5)
+            self.assertFalse(seen[20, 300])
+            # A part is read only within its window, though its grid reaches past it.
+            wide = imagery.Area("t", "hero", 11_520, 256, 88, 2, 2)  # a row south of both windows
+            self.write(root, east, 200)
+            _rgb, seen = imagery.composite_on(wide, root)
+            self.assertFalse(seen[-5, :].any())
+            self.assertTrue(seen[5, :].all())
+            # And an area read alone is read as before.
+            alone = imagery.composite_on(imagery.Area("t-east", "hero", 11_520, 256, 89, 2, 1), root)
+            np.testing.assert_array_equal(alone[1], imagery.composite_read(self.area, composite.composite_path("t-east", root))[1])
+
+
 @unittest.skipUnless(HAVE_NUMPY, "numpy")
 class TestTheSeam(unittest.TestCase):
     def test_the_archives_tones_become_the_mosaics(self):

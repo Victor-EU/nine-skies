@@ -693,10 +693,84 @@ EDGE_BLUR_M = 1_000
 
 def composite_on(area: Area, root: Path | None = None) -> tuple[np.ndarray, np.ndarray] | None:
     """The area's Sentinel-2 composite on its colour grid, if it has one:
-    (float32 rgb 0-255, where enough views stand behind it)."""
-    from .composite import MIN_VIEWS, composite_path
+    (float32 rgb 0-255, where enough views stand behind it).
 
-    path = composite_path(area.key, root)
+    An area grown past the ground its composite was read for (F132) is read
+    from its parts (`composite.PARTS`), each within its window and over those
+    after it: the first fades out over `FEATHER_M` toward the edges it grew
+    past, but only where a later part sees the ground under it, so the two
+    blend there and meet nothing else anywhere."""
+    from .composite import PARTS, composite_path, parts
+
+    if area.lattice == "country":
+        return None
+    if area.key not in PARTS:
+        return composite_read(area, composite_path(area.key, root))
+    pieces = parts(area)
+    # Each part only over its own window: a composite's UTM grid reaches past
+    # it in wedges, which the colour past the parts does not use (`colour_of`).
+    got = [composite_read(area, composite_path(p.key, root)) for p in pieces]
+    got = [None if g is None else (g[0], g[1] & inside(area, p)) for p, g in zip(pieces, got)]
+    if all(g is None for g in got):
+        return None
+    total = np.zeros((3, area.height, area.width), np.float32)
+    weight = np.zeros((area.height, area.width), np.float32)
+    uncovered = np.ones((area.height, area.width), np.float32)
+    for k, (piece, g) in enumerate(zip(pieces, got)):
+        if g is None:
+            continue
+        rgb, seen = g
+        alpha = seen.astype(np.float32)
+        under = np.zeros(seen.shape, bool)
+        for later in got[k + 1 :]:
+            if later is not None:
+                under |= later[1]
+        alpha = np.where(under, alpha * fade_inside(area, piece, pieces[k + 1 :]), alpha)
+        w = uncovered * alpha
+        total += rgb * w[None]
+        weight += w
+        uncovered *= 1 - alpha
+    return total / np.maximum(weight, 1e-6)[None], weight > 0.5
+
+
+def fade_inside(area: Area, part: Area, later: list[Area], feather_m: float = FEATHER_M) -> np.ndarray:
+    """On `area`'s grid: 1 more than `feather_m` inside `part`, smoothly to 0
+    at those of its edges a `later` part reaches past (nothing lies past the
+    others to fade into). From the parts' windows and the samples' positions,
+    not `area`'s edges, so a fine tile fades exactly as its area does."""
+    pw, ps, pe, pn = part.bounds_m()
+    past = [p.bounds_m() for p in later]
+    xs, ys = sample_positions(area)
+    far_x, far_y = np.full(xs.shape, np.inf), np.full(ys.shape, np.inf)
+    dx = np.minimum(
+        xs - pw if any(b[0] < pw for b in past) else far_x, pe - xs if any(b[2] > pe for b in past) else far_x
+    )
+    dy = np.minimum(
+        ys - ps if any(b[1] < ps for b in past) else far_y, pn - ys if any(b[3] > pn for b in past) else far_y
+    )
+    d = np.minimum(dy[:, None], dx[None, :])
+    f = np.clip(d / feather_m, 0, 1)
+    return (f * f * (3 - 2 * f)).astype(np.float32)
+
+
+def sample_positions(area: Area) -> tuple[np.ndarray, np.ndarray]:
+    """Albers metres of the area's sample columns (x) and rows (y)."""
+    t = area.transform()
+    return t.c + (np.arange(area.width) + 0.5) * t.a, t.f + (np.arange(area.height) + 0.5) * t.e
+
+
+def inside(area: Area, part: Area) -> np.ndarray:
+    """On `area`'s grid, the samples within `part`'s bounds."""
+    pw, ps, pe, pn = part.bounds_m()
+    xs, ys = sample_positions(area)
+    return ((ys >= ps) & (ys <= pn))[:, None] & ((xs >= pw) & (xs <= pe))[None, :]
+
+
+def composite_read(area: Area, path: Path) -> tuple[np.ndarray, np.ndarray] | None:
+    """One composite file on the area's colour grid: (float32 rgb 0-255,
+    where enough views stand behind it), or None if it has none there."""
+    from .composite import MIN_VIEWS
+
     if area.lattice == "country" or not path.exists():
         return None
     import rasterio
@@ -948,10 +1022,20 @@ def colour_of(area: Area, root: Path | None = None) -> Cut | None:
     else:
         composite = composite_on(area, root)
         if composite is not None:
-            from .composite import load_tone
+            from .composite import PARTS, load_tone, parts
 
             archive, seen = composite
             archive = fill(apply_tone(archive, load_tone(root)), ~seen)
+            if area.key in PARTS and country is not None:
+                # Ground a grown area's parts do not reach (F132) is the
+                # country's own archive, as it was before the area grew,
+                # eased into over a sample or two, not the parts' edge smeared.
+                reach = np.zeros(seen.shape, bool)
+                for part in parts(area):
+                    reach |= inside(area, part)
+                ease = box_mean(reach.astype(np.float32), np.ones(seen.shape, np.float32), 2)[None]
+                archive = np.where(country[1][None], archive * ease + country[0] * (1 - ease), archive)
+                seen = seen | (country[1] & ~reach)
             # The edge meets the country's colour: the archive's own where the
             # country round the area is composited too, else the mosaic's.
             target, target_ok = rgb, ~hole

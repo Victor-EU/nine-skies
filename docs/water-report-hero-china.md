@@ -53,9 +53,9 @@ sample more than 20 m over it is wall rather than shore.
 
 ## Qutang, Wu and Xiling gorges
 
-`three-gorges` · 1537 × 385 samples at 90 m · 25 of 36 tiles carry water
+`three-gorges` · 2177 × 513 samples at 90 m · 35 of 68 tiles carry water
 
-**1 channel(s)** over 2,317 samples; the drawn
+**1 channel(s)** over 3,235 samples; the drawn
 line lies a median 10 m from a channel sample and at most 64 m. 0 lake samples of 0 inside an outline; 0 of sea.
 
 ### A river's own surface
@@ -66,18 +66,22 @@ on ground stage 3 did not raise, and not sea or inside a lake's outline
 (F73). A channel sample counts only beside one off the channel; a river one
 sample wide is the ribbon's to draw.
 
-**11,947 samples** of 90 m, 96.8 km², in 8 pieces; 1,848 of them are channel samples.
+**17,906 samples** of 90 m, 145.0 km², in 20 pieces; 2,597 of them are channel samples.
 
 | samples | level, m | river | lat | lon |
 | ---: | ---: | --- | ---: | ---: |
-| 5,761 | 157.50 | Yangtze | 31.00 N | 110.60 E |
-| 5,468 | 157.50 | Yangtze | 31.01 N | 109.65 E |
+| 5,757 | 157.50 | Yangtze | 31.00 N | 110.60 E |
+| 5,471 | 157.50 | Yangtze | 31.01 N | 109.65 E |
+| 3,222 | 155.00 | Yangtze | 30.86 N | 110.97 E |
+| 1,141 | 62.50 | Yangtze | 30.83 N | 111.06 E |
+| 756 | 62.00 | Yangtze | 30.76 N | 111.28 E |
 | 350 | 157.50 | Yangtze | 31.02 N | 110.02 E |
-| 143 | 157.50 | Yangtze | 31.03 N | 110.11 E |
-| 89 | 156.00 | Yangtze | 30.89 N | 110.84 E |
-| 72 | 155.50 | Yangtze | 30.89 N | 110.86 E |
-| 42 | 157.00 | Yangtze | 30.90 N | 110.83 E |
-| 22 | 157.50 | Yangtze | 31.03 N | 110.08 E |
+| 215 | 38.50 | Yangtze | 30.69 N | 111.28 E |
+| 159 | 40.00 | Yangtze | 30.73 N | 111.27 E |
+| 152 | 39.50 | Yangtze | 30.72 N | 111.26 E |
+| 141 | 157.50 | Yangtze | 31.03 N | 110.11 E |
+| 127 | 62.00 | Yangtze | 30.78 N | 111.15 E |
+| 124 | 39.00 | Yangtze | 30.70 N | 111.27 E |
 
 ### What a ribbon would be drawn on
 
@@ -86,11 +90,11 @@ sample more than 20 m over it is wall rather than shore.
 
 | within | samples | median | 90th | highest | wall |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 45 m | 1,563 | 0.0 m | 0.0 m | 0.0 m | 0.0 % |
-| 90 m | 4,098 | 0.0 m | 12.8 m | 110.7 m | 6.2 % |
-| 150 m | 6,194 | 0.0 m | 27.3 m | 177.0 m | 13.6 % |
-| 300 m | 12,384 | 0.0 m | 103.8 m | 441.9 m | 30.6 % |
-| 600 m | 24,100 | 13.4 m | 235.7 m | 696.6 m | 47.8 % |
+| 45 m | 2,177 | 0.0 m | 0.0 m | 0.0 m | 0.0 % |
+| 90 m | 5,723 | 0.0 m | 12.1 m | 110.5 m | 5.9 % |
+| 150 m | 8,650 | 0.0 m | 24.6 m | 176.5 m | 12.3 % |
+| 300 m | 17,272 | 0.0 m | 95.8 m | 438.1 m | 28.8 % |
+| 600 m | 33,637 | 10.5 m | 218.5 m | 696.4 m | 46.0 % |
 
 ## Everest and the Rongbuk glacier
 

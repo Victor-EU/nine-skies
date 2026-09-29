@@ -244,9 +244,9 @@ AREAS: tuple[HeroArea, ...] = (
         id="three-gorges",
         name="Qutang, Wu and Xiling gorges",
         hx0=336,
-        hy0=129,
-        tiles_x=12,
-        tiles_y=3,
+        hy0=128,
+        tiles_x=17,
+        tiles_y=4,
         holds=("qutang-gorge", "wu-gorge", "xiling-gorge"),
         why="The GDD's *thread a gorge at low speed* wants a gorge the "
         "aeroplane can be flown down, and this is 190 km of one. At 1 km the "
@@ -258,7 +258,10 @@ AREAS: tuple[HeroArea, ...] = (
         "crossings: the ground reading steps by the grids' disagreement "
         "wherever hero cover starts or stops (F51), and a flight down this "
         "reach would take six of those instead of two. Sized on the same "
-        "8 km margin as the gorge above.",
+        "8 km margin as the gorge above; then grown five tiles east and one "
+        "south (F132), because scene 2's rail starts at Yichang, 40 km east "
+        "of where the area ended, and flew its first 44 km (Xiling's lower "
+        "reach and the dam, 26 s) over the 1 km grid's rounded hills.",
     ),
     HeroArea(
         id="everest",

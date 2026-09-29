@@ -337,9 +337,10 @@ describe("the scene packs' relief", () => {
       for (let k = 0; k < flat.length; k += 2) listed.add(tileKey(flat[k]!, flat[k + 1]!));
       const along = nearTiles(buildRail(scene.rail), NEAR_TILE_M, RELIEF_REACH.near!.goneM, { ...DEFAULT_REACH, maxOffsetM: 0 });
       expect(listed.size, scene.id).toBeGreaterThan(0);
-      // All of them, but for those a hero area covers whole, where the country is not drawn.
+      // All of them, but for those a hero area covers whole, where the country is not drawn:
+      // at most 23 of the Three Gorges' 78 since its area grew over Yichang (F132).
       const missing = [...along].filter((key) => !listed.has(key));
-      expect(missing.length, scene.id).toBeLessThan(along.size / 4);
+      expect(missing.length, scene.id).toBeLessThan(along.size / 3);
       for (const key of missing) expect(scene.hero, `${scene.id} ${tileOfKey(key)}`).toBeTruthy();
       for (const key of listed) expect(along.has(key), `${scene.id} ${tileOfKey(key)}`).toBe(true);
     }

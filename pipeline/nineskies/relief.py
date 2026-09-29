@@ -175,11 +175,14 @@ def padded_transform(area: Area):
 def source_cells(area: Area) -> list[tuple[int, int, Path]]:
     """The one-degree GLO-30 cells under the area and its margin that are on disk.
 
-    A cell that is not in the mirror is open ocean, and reads as 0 m. Cells
-    north of 50 N are thinned in longitude, and the mosaic stretches them
-    before reading (`mosaic.one_grid`); no scene flies near one, so they are
-    refused here rather than read squeezed.
+    A cell that is not in the mirror is open ocean, and reads as 0 m. A cell
+    the mirror has and the disk does not is refused: read as ocean it cut
+    every tile flat, and the cut then deleted the real ones as orphans
+    (F132). Cells north of 50 N are thinned in longitude, and the mosaic
+    stretches them before reading (`mosaic.one_grid`); no scene flies near
+    one, so they are refused here rather than read squeezed.
     """
+    from .acquire import parse_tile_list
     from .imagery import boundary_lonlat
     from .mosaic import SOURCE_CELLS, source_columns
 
@@ -187,11 +190,17 @@ def source_cells(area: Area) -> list[tuple[int, int, Path]]:
     south, north = int(np.floor(lats.min())), int(np.floor(lats.max())) + 1
     west, east = int(np.floor(lons.min())), int(np.floor(lons.max())) + 1
     root = data_root() / "source" / "cop30"
+    listing = data_root() / "source" / "tileList.txt"
+    if not listing.exists():
+        raise SystemExit(f"no {listing}: without the mirror's list, a missing cell cannot be told from ocean (`make acquire`)")
+    mirror = parse_tile_list(listing.read_text())
     found = []
     for lat in range(south, north):
         for lon in range(west, east):
             path = root / f"{tile_name(lat, lon)}.tif"
             if not path.exists():
+                if (lat, lon) in mirror:
+                    raise SystemExit(f"{area.key}: {path.name} is land and not on disk; `make acquire` fetches it")
                 continue
             if source_columns(lat) != SOURCE_CELLS:
                 raise SystemExit(f"{area.key}: {path.name} is thinned in longitude; relief does not stretch it")
@@ -316,13 +325,20 @@ def cut_area(area: Area, out_dir: Path, only: set[tuple[int, int]] | None = None
     return {"tiles": tiles, "names": names, "bytes": total}
 
 
-def cut(areas: list[Area], out_dir: Path, near: list[tuple[Area, set[tuple[int, int]]]] = ()) -> dict:
+def cut(areas: list[Area], out_dir: Path, near: list[tuple[Area, set[tuple[int, int]]]] = (), merge: bool = False) -> dict:
+    """Cut every area and every country tile's `near` sub-tiles, and write the
+    index. A partial cut (`merge`) updates the index it finds and deletes
+    nothing; a whole one replaces it and clears files no longer named."""
     import time
 
     out_dir.mkdir(parents=True, exist_ok=True)
     country: dict[str, str] = {}
     hero: dict[str, dict] = {}
     near_names: dict[str, str] = {}
+    path = out_dir / "index.json"
+    if merge and path.exists():
+        before = json.loads(path.read_text())
+        country, hero, near_names = before["country"], before["hero"], before["near"]["tiles"]
     total = 0
     started = time.monotonic()
     jobs = [(a, None) for a in areas] + list(near)
@@ -352,12 +368,13 @@ def cut(areas: list[Area], out_dir: Path, near: list[tuple[Area, set[tuple[int, 
         "hero": hero,
         "near": {"tileM": NEAR_TILE_M, "tiles": near_names},
     }
-    (out_dir / "index.json").write_text(json.dumps(index, indent=1) + "\n")
+    path.write_text(json.dumps(index, indent=1) + "\n")
     # Files no tile names any more: a re-cut leaves no orphans to be packed or shipped.
     kept = set(country.values()) | {n for h in hero.values() for n in h["tiles"]} | set(near_names.values())
-    for path in (out_dir / "files").glob("relief-*.webp"):
-        if path.stem not in kept:
-            path.unlink()
+    if not merge:
+        for file in (out_dir / "files").glob("relief-*.webp"):
+            if file.stem not in kept:
+                file.unlink()
     return {"areas": len(jobs), "tiles": len(kept), "near": len(near_names), "bytes": total}
 
 
@@ -366,7 +383,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("command", choices=["cut", "plan"])
     parser.add_argument("--world", default="china")
     parser.add_argument("--packs", default=str(REPO / "app" / "public" / "packs" / "index.json"))
-    parser.add_argument("--only", help="comma-separated area keys (tx_ty or a hero id), for a trial")
+    parser.add_argument("--only", help="comma-separated area keys (tx_ty or a hero id); updates the index, deletes nothing")
     args = parser.parse_args(argv)
     world = REPO / "dist-world" / args.world
     areas = plan(world, Path(args.packs))
@@ -383,7 +400,7 @@ def main(argv: list[str] | None = None) -> int:
     if not areas and not near:
         print("nothing to cut: `make scenes` lists the country tiles near each camera first", file=sys.stderr)
         return 1
-    done = cut(areas, world / "relief", near)
+    done = cut(areas, world / "relief", near, merge=args.only is not None)
     print(f"relief: {done['tiles']} files ({done['near']} near sub-tiles), {done['bytes'] / 1e6:.1f} MB, in {world / 'relief'}")
     return 0
 

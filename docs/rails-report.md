@@ -9,7 +9,7 @@ The flight is 114 s; a viewer at double speed needs twice that of rail.
 | Scene | Rail | At authored speed | Over hero grid | Off world | Above ground | Altitude | Ground ahead | Worst ahead | At floor | At ceiling |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | huangshan | 89 km | 242 s | 100 % | 0 | 150–1381 m | 972–2309 m | 1 % | 143 m | 2 % | 0 % |
-| three-gorges | 576 km | 384 s | 25 % | 0 | 120–900 m | 456–1691 m | 1 % | 228 m | 0 % | 1 % |
+| three-gorges | 576 km | 384 s | 34 % | 0 | 120–900 m | 456–1691 m | 1 % | 229 m | 0 % | 1 % |
 | karst | 139 km | 234 s | 52 % | 0 | 149–800 m | 368–1007 m | 0 % | 0 m | 0 % | 0 % |
 | first-bend | 199 km | 239 s | 47 % | 0 | 773–1600 m | 3122–4723 m | 0 % | 0 m | 0 % | 9 % |
 | loess | 714 km | 238 s | 0 % | 0 | 533–796 m | 934–1748 m | 0 % | 0 m | 0 % | 0 % |

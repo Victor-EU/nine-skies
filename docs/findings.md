@@ -4704,3 +4704,64 @@ words. The film's stills and every scene file are untouched.
 **Left.** The cards' captions name the place, not its sky; 苍天 and the
 rest are on the title card only while the cast is on (F104). The cover
 needs signing off (D77).
+
+## F132 — The Three Gorges' hero grid from the scene's first second, 29 September 2026
+
+**Asked.** A frame 9 s into the Three Gorges: "the second scene beginning
+needs some more details on the landscape." Rounded green hills, their
+colour drawn down the slopes in stripes.
+
+**What it was.** The scene's rail starts at Yichang, 40 km east and 8 km
+south of where the 90 m hero area ended, so its first 26 s (F126) flew the
+1 km country grid: the 500 m spline level, its 31 m relief and 10 m colour
+stretched six times up walls that grid cannot hold. From 26 s on, over the
+hero grid, the same gorge has ridges and photographed rock walls (F92).
+
+**The area.** `three-gorges` grew from 12 by 3 hero tiles to 17 by 4 (68,
+196 by 46 km): five east, over Xiling's lower reach, the dam and Yichang,
+and a row south, so the rail starts 3.4 km inside it. Still one area (F51):
+the only rim the camera crosses is the west one, as before. Cut from the
+source like the rest (`make hero`): the six other areas came out
+byte-identical. Stage 3 cut 3 cells, at most 9 m, where the Yangtze
+crosses the dam at 90 m (30.83 N 111.01 E); the water lies at 157.5 m on
+the reservoir, 62 m between the two dams and 38-40 m at Yichang; the
+seam against the country grid stands worst 274 m (330 before) against
+900 m of skirt. Over the hero grid: 34 % of the rail (25 %).
+
+**The colour, in parts.** The area's Sentinel-2 median was read for the
+old box, and its cached passes, its median and its share of the tone line
+are kept as they were: an area that grows is composited in parts
+(`composite.PARTS`), its own first over its old window, then the new
+ground under its own key (`three-gorges-yichang`, reaching a tile back
+over the old), read and built like any area's, 50 passes a Sentinel-2
+tile. `imagery.composite_on` lays each part only within its window, the
+first over the later ones, fading out over 1.5 km toward the edges they
+reach past (from the parts' windows, so a 10 m tile fades as its area
+does). Ground no part reaches (the row south of the old area, 16 km and
+more from the rail) is the country's own archive at 160 m (F90), as it
+was before the area grew. The tone line refitted byte-identical.
+
+**The relief, and what nearly went.** The source GLO-30 was deleted to
+free disk while this was built, and `make relief` then read every cell as
+ocean: it cut every tile flat and deleted the 1,665 real ones as orphans.
+All but seven were taken back out of the scene packs (each checked against
+the hash that names it); the seven were sub-tiles along this rail that the
+grown area now covers, which no pack lists. `relief.source_cells` now
+refuses a cell the mirror has and the disk has not, and `--only` updates
+the index and deletes nothing. The six cells under the gorges were fetched
+again (274 MB) and the area cut again at 30 m: its old 36 tiles differ in
+1.4 % of samples by more than 2 levels, GDAL's average warp over a larger
+grid (the old box cut alone is identical).
+
+**Seen.** Headless at 1280 by 720, held at 3, 12, 22, 34 and 45 s: to
+22 s the gorge now has the hero grid's ridges and rock walls, the reservoir
+level behind the dam; 34 and 45 s as before. Three Gorges pack 106.4 to
+111.5 MB; the film 1,075.5 MB of 2,000.
+
+**Left.** The Yichang part's colour is built from the first 51 of its 200
+passes; the rest are coming at 1 MB/s. Until they are in, its three
+eastern columns are filled from round them, flat green where the camera
+starts. Then: build, cut, `make scenes`, the Gorges cover card (18 s) and
+still 02 retaken for sign-off (D77). A test bound moved: a quarter of a
+rail's near sub-tiles may lie under its hero area, now a third (23 of the
+Gorges' 78). Frame cost not measured.

@@ -73,7 +73,7 @@ import sys
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -99,6 +99,21 @@ COMPOSITED = (*SOUTH, "everest", "changbai")
 #: sun allows. Changbai's crater keeps its snow, and its lake its ice, into
 #: June, and April and May would lay both on the scene's August (F99).
 MONTHS = {"changbai": (6, 7, 8)}
+#: A hero area grown past the ground its composite was read for (F132) is
+#: composited in parts, each a key and the hero window (hx0, hy0, hx1, hy1)
+#: its passes are read over. The first is the area's own, as it was read:
+#: its key, its cached passes, its median and its share of the tone line stay
+#: what they were. Each later part is new ground, reaching a tile back over
+#: the ground before it so the two can be blended (`imagery.composite_on`).
+#: The Three Gorges' area grew east over Yichang and the dam, and a row
+#: south; the part is Yichang's, and the row west of it is left to the
+#: country's own archive (F90), 16 km and more from the rail.
+PARTS: dict[str, tuple[tuple[str, tuple[int, int, int, int]], ...]] = {
+    "three-gorges": (
+        ("three-gorges", (336, 129, 348, 132)),
+        ("three-gorges-yichang", (347, 128, 353, 132)),
+    ),
+}
 #: Metres a pixel the source is read at: the true colour's own 10 m, which the
 #: finest colour tiles are cut at (`imagery.FINE_CELLS`).
 READ_M = 10
@@ -151,6 +166,15 @@ def composite_path(area: str, root: Path | None = None) -> Path:
 
 def tone_path(root: Path | None = None) -> Path:
     return (root or data_root()) / "work" / "composite" / "tone.json"
+
+
+def parts(area: imagery.Area) -> list[imagery.Area]:
+    """What an area is composited from: itself, or its `PARTS`, each on the
+    area's own lattice and cells."""
+    return [
+        replace(area, key=key, tx0=hx0, ty0=hy0, tiles_x=hx1 - hx0, tiles_y=hy1 - hy0)
+        for key, (hx0, hy0, hx1, hy1) in PARTS.get(area.key, ((area.key, (area.tx0, area.ty0, area.tx0 + area.tiles_x, area.ty0 + area.tiles_y)),))
+    ]
 
 
 # --- the grid ----------------------------------------------------------------
@@ -919,7 +943,10 @@ def fit_tones(areas: list[imagery.Area], root: Path | None = None) -> list[dict]
     archive: list[list[np.ndarray]] = [[], [], []]
     mosaic: list[list[np.ndarray]] = [[], [], []]
     for area in areas:
-        composite = imagery.composite_on(area, root)
+        # Its own composite over its own ground: an area's later parts (F132)
+        # are toned by the line, not fitted into it.
+        area = parts(area)[0]
+        composite = imagery.composite_read(area, composite_path(area.key, root))
         if composite is None:
             continue
         rgb, valid = imagery.reproject_area(area, root)
@@ -961,15 +988,17 @@ def main(argv: list[str] | None = None) -> int:
 
     keys = args.only.split(",") if args.only else [*COMPOSITED, COUNTRY, NEAR]
     areas = {a.key: a for a in imagery.hero_areas(args.world)}
+    # An area names all its parts; a part's own key, that part alone (F132).
+    pieces = {p.key: [p] for a in areas.values() for p in parts(a)} | {k: parts(a) for k, a in areas.items()}
     with_country = COUNTRY in keys
     with_near = NEAR in keys
     keys = [k for k in keys if k not in (COUNTRY, NEAR)]
-    missing = [k for k in keys if k not in areas]
+    missing = [k for k in keys if k not in pieces]
     if missing:
         print(f"no hero area {', '.join(missing)} in {args.world}", file=sys.stderr)
         return 1
-    for key in keys:
-        area = areas[key]
+    for area in [p for k in keys for p in pieces[k]]:
+        key = area.key
         if args.step == "plan":
             items = catalogue(area)
             res = READ_M
