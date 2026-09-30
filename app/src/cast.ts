@@ -1,16 +1,15 @@
 /**
  * The cast's switch (D91): off unless the viewer asks, and nothing of it is
- * fetched until they do. Asked by the bar's button, the key J, `?cast` in
- * the address so a shared link carries it, or a choice remembered in this
- * browser. On, the layer's code arrives as its own chunk and the current
+ * fetched until they do. Asked by the bar's button, the key J, or `?cast` in
+ * the address so a shared link carries it. The choice lasts the viewing:
+ * every visit opens without the cast, as the film's first viewers asked
+ * (F146). On, the layer's code arrives as its own chunk and the current
  * scene's figures are built; off again, they are freed.
  *
  * The shell holds the layer through `current`, and calls it at the two
  * points the film has: a scene starting, and a frame after the look.
  */
 import type { CastLayer, CastLayerOptions } from "../../engine/src/cast/cast.js";
-
-const STORAGE_KEY = "nineskies.cast";
 
 export interface CastSwitchOptions {
   readonly button: HTMLButtonElement;
@@ -37,11 +36,10 @@ export function paintingsWanted(search: string): boolean {
   return new URLSearchParams(search).get("paint") !== "off";
 }
 
-/** The viewer's choice as the page opened: the address first, then this browser's memory. */
-export function wantedAtStart(search: string, stored: string | null): boolean {
+/** Whether the page opens with the cast: only when the address asks. */
+export function wantedAtStart(search: string): boolean {
   const params = new URLSearchParams(search);
-  if (params.has("cast")) return params.get("cast") !== "off";
-  return stored === "on";
+  return params.has("cast") && params.get("cast") !== "off";
 }
 
 export class CastSwitch {
@@ -54,13 +52,7 @@ export class CastSwitch {
   constructor(private readonly options: CastSwitchOptions) {
     options.button.hidden = !options.hasCast;
     options.button.addEventListener("click", () => this.toggle());
-    let stored: string | null = null;
-    try {
-      stored = localStorage.getItem(STORAGE_KEY);
-    } catch {
-      stored = null;
-    }
-    if (options.hasCast && wantedAtStart(location.search, stored)) void this.set(true);
+    if (options.hasCast && wantedAtStart(location.search)) void this.set(true);
     this.show();
   }
 
@@ -75,11 +67,6 @@ export class CastSwitch {
   async set(on: boolean): Promise<void> {
     if (on === this.wanted) return;
     this.wanted = on;
-    try {
-      localStorage.setItem(STORAGE_KEY, on ? "on" : "off");
-    } catch {
-      // A private window: the choice lasts the page.
-    }
     this.show();
     if (on) {
       if (this.loading) return;

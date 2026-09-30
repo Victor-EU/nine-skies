@@ -405,11 +405,11 @@ describe("the layer", () => {
 });
 
 describe("the switch", () => {
-  it("is off unless the address or this browser says otherwise", () => {
-    expect(wantedAtStart("", null)).toBe(false);
-    expect(wantedAtStart("", "off")).toBe(false);
-    expect(wantedAtStart("", "on")).toBe(true);
-    expect(wantedAtStart("?cast", null)).toBe(true);
-    expect(wantedAtStart("?cast=off", "on")).toBe(false);
+  it("is off unless the address asks (F146)", () => {
+    expect(wantedAtStart("")).toBe(false);
+    expect(wantedAtStart("?castseed=1")).toBe(false);
+    expect(wantedAtStart("?cast")).toBe(true);
+    expect(wantedAtStart("?cast=on")).toBe(true);
+    expect(wantedAtStart("?cast=off")).toBe(false);
   });
 });

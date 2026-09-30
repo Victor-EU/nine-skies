@@ -6,10 +6,9 @@
  * server.
  *
  * `npm run cover -- frames [scene[@seconds] ...]`: the cover's own frames,
- * one a card, from the running film (`npm run dev`) with the cast on (D91),
- * each where a figure of the scene's sky is in the picture (FRAMES), into
- * docs/cover/, then `npm run cover` again. The film's stills are drawn
- * without the cast, as signed off (D77), and are not touched.
+ * one a card, from the running film (`npm run dev`) with the cast off, as
+ * the film opens (F146), into docs/cover/, then `npm run cover` again. The
+ * film's stills (D77) are not touched.
  *
  * Chrome's own --screenshot writes the file and then, on this Mac, does not
  * always exit, so the file is what is waited for, and Chrome is stopped.
@@ -28,48 +27,34 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * Where on its own rail the cover takes each scene: seconds of flight at the
  * authored speed, and the height over the ground where it is not the rail's
- * own. Each is a second with a figure of the scene's sky in the picture, so
- * the card shows the sky as well as the ground: nine figures, one a card.
- * Most are in the figure's line, when the director holds it where its cue
- * puts it (D92); where that spot is under the card's caption, a second of
- * its visit in the cover's viewing (CAST_SEED). `scene@seconds+metres` on
+ * own. The seconds were chosen for the cast's figures (F131) and kept where
+ * the ground holds the card without them (F146). `scene@seconds+metres` on
  * the command line tries another.
  */
 const FRAMES: Record<string, { at: number; aboveGroundM?: number }> = {
-  // Wukong on his cloud over the cloud sea, the peaks beside him. The
-  // film's still is at 20 s, 150 m over the southern peaks, where the
-  // granite's photograph shows its blocks on a card (F92).
-  huangshan: { at: 34 },
-  // The White Dragon of Eagle Grief Stream coming up the gorge. In his
-  // line (30 s) he is in the slot below the camera, under the caption.
+  // The granite rising out of the cloud sea, ahead of the camera. Later in
+  // the visit the camera is kept over the peaks (F143) and the card is
+  // cloud; the film's still is at 20 s.
+  huangshan: { at: 12 },
+  // Down the gorge to the river under its mist.
   "three-gorges": { at: 18 },
-  // The elephant of heaven that stayed to drink, over the towers and the Li.
+  // The towers along the Li, and the valley between them.
   karst: { at: 8 },
-  // The tiger over the gorge it is said to have jumped.
+  // Over the walls of Tiger Leaping Gorge.
   "first-bend": { at: 66 },
-  // The carp leaping for the Dragon Gate over the Yellow River, before its
-  // line (62 s), which holds it low on the right, under the caption.
+  // The Yellow River winding through the loess.
   loess: { at: 54 },
-  // The magpie with the red fruit over the crater and its lake. On the
-  // rail, 300 m up, the flank fills the picture until the magpie has gone;
-  // at 1,500 m, inside the scene's band, the lake is below it.
+  // The crater and its lake. On the rail, 300 m up, the flank fills the
+  // picture; at 1,500 m, inside the scene's band, the lake is below it.
   "grassland-to-heaven-lake": { at: 106, aboveGroundM: 1500 },
-  // The Bull Demon King at the Flaming Mountains, Nezha's fire wheel on his
-  // horn, Nezha in his way and Wukong after him (F130).
+  // The Flaming Mountains in the evening.
   "below-the-sea": { at: 46 },
-  // The old turtle of the Tongtian over the plateau.
+  // The plateau, ranges to the horizon.
   "the-roof": { at: 86 },
-  // The party crossing over the face to the Western Heaven, the film's end.
   // Over the glacier with the north face ahead and Nepal beyond it, drawn at
   // the Wall's own exaggeration of three (F97).
   "the-wall": { at: 72 },
 };
-/**
- * The viewing the frames are taken in (`?castseed=`, D92): where a figure
- * is between its lines, and whether one that comes by chance comes, is the
- * seed's, so the cover draws the same viewing every time it is taken.
- */
-const CAST_SEED = 1;
 /** Drawn at 1920 × 1080: a card is 666 pixels wide at twice the cover's size. */
 const FRAME_W = 1920;
 const FRAME_H = 1080;
@@ -175,33 +160,28 @@ async function drawFrames(wanted: string[]): Promise<void> {
       return m.result?.result?.value;
     };
     await send("Emulation.setDeviceMetricsOverride", { width: FRAME_W, height: FRAME_H, deviceScaleFactor: 1, mobile: false });
-    // The cast on, in the cover's own viewing; the profile is new, so no choice remembered in it says otherwise.
+    // The film as a visitor opens it: the ground and its sky, without the cast (F146).
     const url = new URL(URL_);
-    url.searchParams.set("cast", "");
-    url.searchParams.set("castseed", String(CAST_SEED));
+    url.searchParams.set("cast", "off");
     await send("Page.navigate", { url: url.href });
     let ready = false;
     for (let k = 0; k < 300 && !ready; k++) {
       await sleep(200);
-      ready = (await run("typeof window.__ns === 'object' && typeof window.__ns.hold === 'function' && !!window.__ns.cast").catch(() => false)) === true;
+      ready = (await run("typeof window.__ns === 'object' && typeof window.__ns.hold === 'function'").catch(() => false)) === true;
     }
-    if (!ready) throw new Error(`the film and its cast did not start at ${url.href}: is \`npm run dev\` running?`);
+    if (!ready) throw new Error(`the film did not start at ${url.href}: is \`npm run dev\` running?`);
     for (const t of takes) {
       await run(`__ns.hold(${t.i}, ${t.seconds})`);
       // The held camera is placed at this height over the ground every frame, within the scene's band.
       if (t.aboveGroundM !== null) await run(`__ns.pinned().aboveGroundM = ${t.aboveGroundM}`);
       const settled = await run("__ns.settled()");
-      // The figures' pictures go to the GPU one a frame (F123): thirty frames more, so every one on stage is drawn.
-      await run("new Promise((done) => { let n = 30; const f = () => (--n > 0 ? requestAnimationFrame(f) : done(true)); requestAnimationFrame(f); })");
-      const figures = (await run("__ns.cast.figures.filter((f) => f.group.visible).length")) as number;
       // Drawn and read in one task, so the frame read is the one just drawn.
       const data = (await run("(__ns.rig.render(), document.getElementById('view').toDataURL('image/png'))")) as string;
       const png = Buffer.from(data.slice(data.indexOf(",") + 1), "base64");
       const out = `docs/cover/${t.id}.png`;
       writeFileSync(out, png);
       const height = t.aboveGroundM === null ? "" : `, ${t.aboveGroundM} m up`;
-      const notes = [settled ? "" : "the ground had not settled in 45 s", figures ? "" : "no figure on stage"].filter(Boolean);
-      console.log(`${out}: ${t.seconds} s${height}, ${FRAME_W} × ${FRAME_H}, ${figures} figures on stage${notes.length ? `  (${notes.join("; ")})` : ""}`);
+      console.log(`${out}: ${t.seconds} s${height}, ${FRAME_W} × ${FRAME_H}${settled ? "" : "  (the ground had not settled in 45 s)"}`);
     }
     ws.close();
   });

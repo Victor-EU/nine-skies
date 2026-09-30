@@ -5469,3 +5469,34 @@ speed test 1.50 MB/s; the site's own files from Vercel 0.30 MB/s).
 **Left.** Telbase's storage status still read 0 objects after the upload
 (its usage lags). Not played on a phone yet (stage 6's "done when"). The
 link is the telbase.ai one; no domain of its own.
+
+## F146 — The cast off at every visit, and the cover without it, 30 September 2026
+
+**Asked.** The film's first viewers, on the site: the figures should be
+off by default. They were already off for a first visit (D91): a fresh
+browser at https://nine-skies.telbase.ai opened with the switch up and
+none of the cast's code or paintings fetched. They came on from the start
+only by a link with `?cast`, or in a browser where the viewer had once
+brought them on, since the switch remembered the choice there
+(`nineskies.cast`). And the cover, the picture a shared link shows, had a
+figure on every card (F131), so the film looked like it was about them
+before it opened.
+
+**Built.** The switch no longer remembers: every visit opens without the
+cast, the lantern and J bring it on for that viewing, and only `?cast` in
+the address opens with it (`wantedAtStart` reads the address alone; a
+stored choice from before is ignored). The cover's frames are taken with
+the cast off (`npm run cover -- frames` opens `?cast=off`), at the seconds
+F131 chose, which hold without their figures, but for Huangshan: at 34 s
+the camera is kept over the peaks (F143) and the card was cloud, so it is
+taken at 12 s, the granite rising out of the cloud sea ahead. The sheet
+(`app/public/cover.png`) and the postcards drawn again; the cards' words
+say what ground they show.
+
+**Checked.** The switch's test: off with no address, on with `?cast` or
+`?cast=on`, off with `?cast=off`. The nine frames looked at on the sheet
+and the postcards.
+
+**Left.** Apps that showed a link already keep their old preview for a
+while (they cache it). The site's `og:image` is `./cover.png`, relative;
+some apps want a full address.

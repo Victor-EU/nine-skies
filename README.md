@@ -1,6 +1,6 @@
 # Nine Skies
 
-![The nine scenes as nine cards, each with a figure of its sky: Wukong over Huangshan's cloud sea, the White Dragon in the Three Gorges, the elephant of heaven over the karst, the tiger at the First Bend, the carp over the loess, the magpie at Heaven Lake, the Bull Demon King at Turpan, the old turtle on the plateau, the pilgrims crossing Everest](app/public/cover.png)
+![The nine scenes as nine cards: Huangshan's peaks over the cloud sea, the Three Gorges, the karst along the Li, the First Bend, the Yellow River through the loess, Heaven Lake in its crater, the Flaming Mountains at Turpan, the plateau, and Everest's north face](app/public/cover.png)
 
 Eighteen minutes over real ground: nine scenes of China, two minutes each,
 flown over open elevation data, from Huangshan's granite above the clouds
@@ -40,9 +40,9 @@ A chapter's name in the address starts the film there (`#karst`), and a
 scene whose ground has not arrived holds on its title card until it has.
 Phones play in landscape.
 
-The cast, the figures on the cover, is off until asked: `J` or the lantern
-on the bar brings it on, the browser remembers the choice, and `?cast` in
-the address carries it in a link.
+The cast, the figures from Chinese myth in the sky, is off until asked:
+`J` or the lantern on the bar brings it on for the viewing, and `?cast` in
+the address carries it in a link. Every visit opens without it.
 
 ## Running it
 
@@ -74,9 +74,8 @@ scene, `await __ns.settled()` waits for its ground to land,
 `npm run cover` draws the cover, the nine scenes as nine cards, from
 `tools/cover.html` with a headless Chrome: `app/public/cover.png`, and the
 postcards in `docs/cover-postcards.png`. Every card is the cover's own frame
-in `docs/cover/`, the scene with the cast on and one of its figures in the
-picture, taken again with `npm run cover -- frames` while the dev server
-runs; the stills are drawn without the cast.
+in `docs/cover/`, the scene as the film opens, without the cast, taken
+again with `npm run cover -- frames` while the dev server runs.
 `?frametime` shows the frame time by wall clock, for a phone, and
 `?without=fine,near,rock,relief` flies without those layers, to measure
 what each costs.

@@ -122,6 +122,9 @@ Everything else in the repository served the version-1 game and goes.
   cast speaks in its own register, outside the film's forty lines (F105).
   Figures of living faiths are drawn without a body, by mount, seat,
   standard or the faith's own object (decided 27 September 2026, F107).
+  Every visit opens without the cast: the choice lasts the viewing and is
+  not remembered, and the cover shows the ground alone (decided 30
+  September 2026 on its first viewers' word, F146).
 - **D92** The cast moves on its own, and differently each viewing (decided
   27 September 2026, F113). A companion visits rather than rides beside
   the lens: it comes into the picture from off it, passes or pauses, and
