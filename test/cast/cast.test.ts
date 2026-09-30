@@ -207,9 +207,9 @@ describe("the figures", () => {
     skin.dispose();
   });
 
-  it("draw the figures of living faiths without a body: a mount, a seat, a standard, a flag, and nothing of skin", () => {
+  it("draw the figures of living faiths without a body: a mount, a seat, a standard, and nothing of skin", () => {
     const skin = lanternSkin();
-    expect(LIVING_FAITHS.length).toBe(3);
+    expect(LIVING_FAITHS.length).toBe(2);
     for (const kind of LIVING_FAITHS) {
       expect(FIGURE_KINDS).toContain(kind);
       const f = figureBuilder(kind)!({ skin, variant: null, scale: DEFAULT_SCALE });

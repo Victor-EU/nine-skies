@@ -62,12 +62,6 @@ export interface Temperament {
    * straight at the lens or goes straight away.
    */
   readonly escorts: { readonly figure: FigureKind; readonly ahead: number; readonly above: number; readonly over: number; readonly rise: readonly [number, number] } | null;
-  /**
-   * Whether it faces the way it goes. A creature does; a thing carried on
-   * the wind keeps the facing its cue gives it, broadside to the lens, or a
-   * string of flags crossing the picture is a stick seen end-on.
-   */
-  readonly facesPath: boolean;
   /** How often a visit of its turns its head to the lens on the way, 0 to 1 (D93). */
   readonly curiosity: number;
   /** It takes fright at an arrival that scatters the birds. */
@@ -87,7 +81,6 @@ const base: Temperament = {
   blocks: [],
   attends: [],
   escorts: null,
-  facesPath: true,
   curiosity: 0.35,
   skittish: false,
   omens: {},
@@ -149,10 +142,10 @@ export const TEMPERAMENTS: Readonly<Partial<Record<FigureKind, Temperament>>> = 
   egrets: t({ moves: { cross: 3, overtake: 1, rise: 1 }, band: [-0.6, 0.2], maxPitchDeg: 20, curiosity: 0.25, skittish: true, attends: ["phoenix"] }),
   sanduo: t({ moves: { cross: 2, oncoming: 2 }, band: [-0.4, 0.2], pace: 1.2, maxPitchDeg: 8, stately: true, curiosity: 0.2, omens: { look: 1 } }),
   guanyin: t({ moves: { oncoming: 2, stoop: 1, cross: 1 }, band: [-0.1, 0.5], pace: 1.6, maxPitchDeg: 5, stately: true, curiosity: 0, omens: { look: 2 } }),
-  // The flags go where the wind takes them.
-  lungta: t({ moves: { cross: 3, overtake: 1 }, band: [-0.1, 0.6], maxPitchDeg: 10, stately: true, facesPath: false, curiosity: 0 }),
   // The old sage on his green ox, going west at an ox's pace, the purple air before him: everything turns to look.
   laozi: t({ moves: { cross: 3, oncoming: 1 }, band: [-0.5, 0.2], pace: 1.6, maxPitchDeg: 5, stately: true, curiosity: 0.2, omens: { look: 1 } }),
+  // Rising with the stone to mend the sky: everything turns to look.
+  nuwa: t({ moves: { cross: 3, rise: 1, overtake: 1 }, band: [0, 0.6], pace: 1.3, maxPitchDeg: 15, stately: true, curiosity: 0.2, omens: { look: 1 } }),
   miyolangsangma: t({ moves: { cross: 2, oncoming: 1 }, band: [-0.5, 0.1], pace: 1.3, maxPitchDeg: 8, stately: true, curiosity: 0.2, omens: { look: 1 } }),
 };
 

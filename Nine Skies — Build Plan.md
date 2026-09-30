@@ -211,6 +211,15 @@ Everything else in the repository served the version-1 game and goes.
   end of the Loess, going west as the monk does. The Naxi god of the snow
   mountain, the wind horse and the goddess of Chomolungma stay without a
   body.
+- **D98** The wind horse leaves the cast, and Nüwa takes its place
+  (decided by the user 30 September 2026, F140). Its prayer flags over the
+  Roof's first leg meant nothing to a Chinese viewer: the user, a native,
+  did not know what they were. The cast is the Chinese sky's, so a figure
+  has to be one its viewers know. Nüwa rising with her stone of five
+  colours to mend the sky is known to every Chinese child, and belongs to
+  this sky: the Huainanzi, whose nine fields are the film's nine skies,
+  says the sky broke and tilted to the north-west, the Roof's own. She is
+  drawn in her body, woman and serpent, as the Han reliefs show her.
 
 
 ## What each part of the repository becomes

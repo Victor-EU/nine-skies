@@ -400,8 +400,6 @@ export interface PathOptions {
   readonly namedYaw: number;
   /** The seconds it is named, when it is. */
   readonly namedS: readonly [number, number] | null;
-  /** A facing it keeps the whole way, from the flight, radians; NaN to face along its path. */
-  readonly fixedYaw?: number;
   /** Seconds it takes to turn to the lens and back at a named dwell's ends. */
   readonly turnS?: number;
   readonly maxPitchRad: number;
@@ -516,8 +514,7 @@ export class KeyPath implements Motion {
     const pathYaw = Math.atan2(v0.right, v0.ahead);
     const nextYaw = Math.atan2(v1.right, v1.ahead);
     out.yaw = pathYaw;
-    if (o.fixedYaw !== undefined && Number.isFinite(o.fixedYaw)) out.yaw = o.fixedYaw;
-    else if (this.namedWindow) {
+    if (this.namedWindow) {
       const [a, b] = this.namedWindow;
       const turn = o.turnS ?? 1.2;
       const w = smooth(Math.min((flightS - a) / turn, (b - flightS) / turn));

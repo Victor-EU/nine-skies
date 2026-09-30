@@ -49,7 +49,6 @@ export function pathOptions(ctx: MotionContext): PathOptions {
   return {
     namedYaw: visit.named && cue.facingDeg !== 0 ? (cue.facingDeg * Math.PI) / 180 : NaN,
     namedS: visit.named ? visit.dwell : null,
-    fixedYaw: temperament.facesPath ? NaN : (cue.facingDeg * Math.PI) / 180,
     maxPitchRad: (temperament.maxPitchDeg * Math.PI) / 180,
     maxBankRad: temperament.maxPitchDeg > 12 ? 0.45 : 0.1,
     bob: 0.01,

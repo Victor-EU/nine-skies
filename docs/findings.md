@@ -5116,3 +5116,49 @@ river's load in the last century (about 1.6 billion tonnes); since the
 dams and the soil conservation it carries a fraction of that. The Loess's
 still and the cover need signing off (D77). Frame cost not measured: the
 river's rule is a loop of 61 on water fragments only.
+
+## F140 — The wind horse out of the Roof, and Nüwa in its place, 30 September 2026
+
+**Asked.** A frame of the Roof at 14:37 with the flags named: "Remove this
+thing … as a Chinese native, I have no idea what this is." The line of
+prayer flags between two clouds, 风马旗, is Tibetan; a Chinese viewer
+reads it as bunting in the sky, and the line did not help. Offered four
+figures of Chinese myth for the slot (Nüwa mending the sky, the heavenly
+horse, the Torch Dragon, Yinglong), the user chose Nüwa (D98).
+
+**Changed.** The flags are gone, and the figure with them:
+`figures/lungta.ts`, its kind, its temperament, and its place in
+`LIVING_FAITHS`, which keeps the Naxi god and the goddess of Chomolungma.
+The one thing only the flags used goes too: a temperament's `facesPath`
+and the path's `fixedYaw`, which held a thing on the wind broadside to the
+lens; every figure left faces the way it goes.
+
+Nüwa takes the flags' cue: over the first leg from Qinghai Lake, on the
+left, 22–60 s, named at 30 s, "Nüwa, who mended the broken sky with stones
+of five colours." (女娲补天). Painted (`content/paintings/nuwa.yaml`, four
+drafts at high, the first kept, $0.18) as the Han reliefs show her, a
+woman to the waist in a Han robe and a serpent below, rising with both
+hands holding up the glowing stone, the five colours in it. Her life
+(`paintings/nuwa.ts`): the serpent swims a slow wave down to its curled
+tail and carries the wisps at its coils; she rides the head of the wave
+and keeps almost still; ribbon, hair, hanging sleeve and robe stir; the
+clouds clear of her coils and the stone's smoke boil, spared the scales
+and the stone; she noses into her climb. A code-made figure for
+`?paint=off` (`figures/nuwa.ts`), the serpent a tapered tube rebuilt each
+frame. Temperament stately, mostly crossing, high in the band; her coming
+turns heads (`look`). The cast is 24 kinds again.
+
+**What showed.** At the flags' spot, 260 m up, her stone was cut by the top
+of the picture through her named pause: a flag line is thin, and she
+stands half her height over her middle. At 120 m up she is whole from 28
+to 40 s, above the horizon with the stone in the sky, and leaves off the
+left edge.
+
+**Checked.** Held at seed 1, 28–44 s, a frame every 3 s: whole, no tear in
+the ribbon, the body or the cloud. The other figures of the Roof keep the
+plans they had with the flags at seed 1 (Nüwa takes the flags' place in
+the director's draws), so the Roof's cover (F131, 86 s, the turtle) stands.
+Cast and film tests and `content:validate` pass.
+
+**Left.** Her second visit in a viewing, and her look in a tall picture,
+are not looked at.

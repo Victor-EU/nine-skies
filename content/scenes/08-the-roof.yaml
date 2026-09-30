@@ -44,11 +44,13 @@ look:
 # walk (F129), the upper Yangtze from Tuotuohe, a key on this rail;
 # and black-necked cranes, the plateau's own, over the first leg from
 # Qinghai Lake; from the Hoh Xil a qilin walking the air, as asked, and
-# the old turtle of the Tongtian swimming it beside the party. The
-# Tibetan sky's own figure is the wind horse, drawn as a living faith's
-# is drawn here (F107): the prayer flags themselves, a line of them
-# between two clouds on the left over the first leg. The qilin is the
-# rarest of the good omens; it misses one viewing in four (D93).
+# the old turtle of the Tongtian swimming it beside the party. Over the
+# first leg, on the left, Nüwa rises with her stone of five colours to
+# mend the sky: this is the north-west, where the Huainanzi says it
+# broke, and the sky's name on the card is its own (D98). She took the
+# place of the wind horse's prayer flags, which no Chinese viewer knew
+# (F140). The qilin is the rarest of the good omens; it misses one
+# viewing in four (D93).
 cast:
   - figure: cranes
     variant: still
@@ -61,16 +63,16 @@ cast:
     name_zh: 黑颈鹤
     line: "Black-necked cranes, the plateau's own."
     line_at: 20
-  - figure: lungta
+  - figure: nuwa
     variant: still
     role: companion
-    offset: { ahead_m: 1000, right_m: -250, up_m: 260 }
-    size_m: 420
-    facing_deg: 20
+    offset: { ahead_m: 1000, right_m: -250, up_m: 120 }
+    size_m: 520
+    facing_deg: 70
     from: 22
     until: 60
-    name_zh: 风马旗
-    line: "Wind horses: five-coloured flags that carry prayers on the wind."
+    name_zh: 女娲补天
+    line: "Nüwa, who mended the broken sky with stones of five colours."
     line_at: 30
   - figure: pilgrims
     variant: still
@@ -88,6 +90,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 760, right_m: 60, up_m: -40 }
+    paused: [pilgrim-crouch]
     size_m: 195
     facing_deg: 215
     from: 8

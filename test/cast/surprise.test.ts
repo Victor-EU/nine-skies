@@ -183,7 +183,7 @@ describe("a glance", () => {
         });
       }
     }
-    for (const figure of ["lungta", "guanyin", "carp"]) expect(tally.get(figure)?.[1] ?? 0, figure).toBe(0);
+    for (const figure of ["guanyin", "carp"]) expect(tally.get(figure)?.[1] ?? 0, figure).toBe(0);
     const [n, g] = tally.get("wukong")!;
     expect(g / n).toBeGreaterThan(0.45);
     expect(g / n).toBeLessThan(0.8);
@@ -217,7 +217,7 @@ describe("a glance", () => {
     for (const kind of FIGURE_KINDS) {
       const f = figureBuilder(kind)!({ skin: SKINS.lantern!(), variant: null, scale: DEFAULT_SCALE });
       const heads = f.heads ?? [];
-      if (["carp", "lungta"].includes(kind)) expect(heads, kind).toHaveLength(0);
+      if (kind === "carp") expect(heads, kind).toHaveLength(0);
       else expect(heads.length, kind).toBeGreaterThan(0);
       for (const h of heads) {
         let inside = false;

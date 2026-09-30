@@ -380,18 +380,6 @@ describe("the motions", () => {
     }
   });
 
-  it("keep a thing on the wind broadside to the lens the whole way", () => {
-    const flags = cue({ figure: "lungta", facing_deg: 20 });
-    for (const motion of TRANSIT_MOTIONS) {
-      const m = motionBuilder(motion)!(contextOf(flags, visitOf(motion, 9)));
-      const pose = newPose();
-      for (const t of [21, 25, 29]) {
-        m.pose(t, DEFAULT_VIEW, pose);
-        expect(pose.yaw, `${motion} at ${t}`).toBeCloseTo((20 * Math.PI) / 180, 6);
-      }
-    }
-  });
-
   it("pause where the author put a named figure, turned as the author turned it, for its line", () => {
     const c = cue({ facing_deg: 210, line: "Cranes over the cloud.", line_at: 24, from: 10, until: 60 });
     const off = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
@@ -444,7 +432,6 @@ describe("the temperaments", () => {
     expect(temperamentOf("wukong").chases).toEqual(["niumowang"]);
     expect(temperamentOf("wukong").escorts?.figure).toBe("pilgrims");
     expect(temperamentOf("egrets").attends).toEqual(["phoenix"]);
-    expect(temperamentOf("lungta").facesPath).toBe(false);
   });
 });
 

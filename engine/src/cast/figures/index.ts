@@ -25,6 +25,6 @@ import "./elephant.js";
 import "./egrets.js";
 import "./sanduo.js";
 import "./guanyin.js";
-import "./lungta.js";
 import "./miyolangsangma.js";
 import "./laozi.js";
+import "./nuwa.js";

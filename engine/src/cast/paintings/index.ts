@@ -24,3 +24,4 @@ import "./qilin.js";
 import "./turtle.js";
 import "./miyolangsangma.js";
 import "./laozi.js";
+import "./nuwa.js";
