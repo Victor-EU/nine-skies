@@ -60,7 +60,10 @@ export interface PaintingView {
    * crown for one that stands (shares of the height, so plumes and the
    * cloud under it are over and above), or its length across the picture
    * for one that walks or flies (a share of the width, nose to tail or
-   * wingtip to wingtip).
+   * wingtip to wingtip). A pose of a figure drawn in several (F139) is
+   * measured as its first is, so each is drawn the same size: a crouch's
+   * crown is where it would be standing, over the top of the picture, and
+   * a party halted close together is longer than its picture is wide.
    */
   readonly size: { readonly crown: number } | { readonly across: number };
   /** The picture's size as kept, pixels: what its lives' rigs are traced in. Needed with `life`. */
@@ -463,6 +466,8 @@ class PaintedFigure implements Figure {
   /** Its picture has been handed to the GPU. */
   private warmed = false;
   private isMirrored = false;
+  /** How much of it the figure it is a pose of draws, while it gives way to another (F139). */
+  private readonly presented = { width: 1, show: 1, leads: true };
   /** -1 as painted to 1 mirrored, through nought as the card turns round. */
   private turn = -1;
   private lastS: number | null = null;
@@ -557,17 +562,23 @@ class PaintedFigure implements Figure {
     const side = this.isMirrored ? 1 : -1;
     const step = (2 * dt) / TURN_S;
     this.turn = Math.abs(side - this.turn) <= step ? side : this.turn + Math.sign(side - this.turn) * step;
-    const k = heldTo(g.scale.y, g.scale.x * this.view.aspect, f.eye.distanceTo(g.position));
+    // Its own group is scaled where it is one pose of several, drawn to the first's size (F139); alone, it is the group
+    // the layer scaled, counted once.
+    const own = this.group === g ? 1 : this.group.scale.y;
+    const k = heldTo(g.scale.y * own, g.scale.x * own * this.view.aspect, f.eye.distanceTo(g.position));
+    const p = this.presented;
     this.cards.forEach((card, n) => {
       const s = n === 0 ? -1 : 1;
-      const { width, show } = sideOfTurn(this.turn, s);
+      const turned = sideOfTurn(this.turn, s);
+      const width = turned.width * p.width;
+      const show = turned.show * p.show;
       card.visible = this.texture !== null && show > 1e-3;
       if (!card.visible) return;
       card.quaternion.copy(g.quaternion).invert().multiply(this.want);
       card.scale.set(this.view.aspect * s * width * k, k, 1);
       // Premultiplied, so the side giving way thins its colour with its alpha; only the side the turn is past the middle
       // toward holds its depth, or the one would hide the other where the two lie in one plane.
-      const leads = this.turn * s > 0 || (this.turn === 0 && s > 0);
+      const leads = p.leads && (this.turn * s > 0 || (this.turn === 0 && s > 0));
       for (const m of this.materials[n]!) {
         m.color.copy(this.tint).multiplyScalar(show);
         m.opacity = show;
@@ -586,6 +597,12 @@ class PaintedFigure implements Figure {
 
   setSkin(): void {
     // A painting is its own substance.
+  }
+
+  present(width: number, show: number, leads: boolean): void {
+    this.presented.width = width;
+    this.presented.show = show;
+    this.presented.leads = leads;
   }
 
   warm(renderer: WebGLRenderer): boolean {
@@ -641,12 +658,15 @@ export function registeredPaintings(): ReadonlyMap<string, Painting> {
   return paintings;
 }
 
+/** The most of its picture a view's size may be: a pose more compact than the figure as it is measured (F139), a crouch under half its height, not a slip. */
+const MOST_MEASURE = 2;
+
 function check(kind: string, v: PaintingView): void {
   const where = `the painting of "${kind}", ${v.name}`;
   if (!(v.aspect > 0)) throw new Error(`${where}: its aspect must be a width over a height`);
   if (!(v.feet >= 0 && v.feet < 1)) throw new Error(`${where}: its feet must be inside the picture`);
-  if ("crown" in v.size ? !(v.size.crown > v.feet && v.size.crown <= 1) : !(v.size.across > 0 && v.size.across <= 1)) {
-    throw new Error(`${where}: its size must be a crown above its feet, or a share of its width`);
+  if ("crown" in v.size ? !(v.size.crown > v.feet && v.size.crown <= MOST_MEASURE) : !(v.size.across > 0 && v.size.across <= MOST_MEASURE)) {
+    throw new Error(`${where}: its size must be a crown above its feet, or a share of its width, at most ${MOST_MEASURE} of the picture`);
   }
   if (!v.life?.length) return;
   const px = v.pixels;

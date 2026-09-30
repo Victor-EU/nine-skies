@@ -152,7 +152,10 @@ describe("the motions", () => {
       out.presence = presence;
       return true;
     };
-    const escort = (leader: PoseOf) => motionBuilder("escort")!({ ...contextOf(him, visitOf("escort", 1, { leader: 0 })), leader, leaderCue });
+    // Where it keeps, before a visit's own range and drift (F139), which the next test holds.
+    const { roam: _roam, ...unroamed } = e;
+    const kept = { ...temperamentOf("wukong"), escorts: unroamed };
+    const escort = (leader: PoseOf) => motionBuilder("escort")!({ ...contextOf(him, visitOf("escort", 1, { leader: 0 })), temperament: kept, leader, leaderCue });
     // In the middle of the picture, where there is room either side.
     const at = { ahead: 2400, right: 0, up: -420 };
     for (const yawDeg of [90, 235, -60, 180, 10]) {
@@ -230,6 +233,49 @@ describe("the motions", () => {
     expect(escort(() => false).pose(25, DEFAULT_VIEW, newPose())).toBe(false);
   });
 
+
+  it("keep an escort ranging ahead of the one it goes with, each visit its own way and drifting, never nearer than before (F139)", () => {
+    const leaderCue = cue({ figure: "pilgrims", size_m: 700 });
+    const him = cue({ figure: "wukong", size_m: 250 });
+    const e = temperamentOf("wukong").escorts!;
+    const roam = e.roam!;
+    const at = { ahead: 2400, right: 0, up: -420 };
+    const leader: PoseOf = (_t, _view, out) => {
+      out.space = "frame";
+      out.world = null;
+      Object.assign(out.at, at);
+      out.yaw = Math.PI / 2;
+      out.presence = 1;
+      return true;
+    };
+    const aheadOf = (seed: number, t: number): number => {
+      const pose = newPose();
+      motionBuilder("escort")!({ ...contextOf(him, visitOf("escort", seed, { leader: 0 })), leader, leaderCue }).pose(t, DEFAULT_VIEW, pose);
+      const k = 1 / (1 - ESCORT_NEARER);
+      return Math.hypot(pose.at.ahead * k - at.ahead, pose.at.right * k - at.right) / 700;
+    };
+    const seen = SEEDS.slice(0, 16).map((seed) => [20, 22, 24, 26, 28, 30].map((t) => aheadOf(seed, t)));
+    for (const run of seen) {
+      for (const a of run) {
+        expect(a).toBeGreaterThanOrEqual(e.ahead - 1e-9);
+        expect(a).toBeLessThanOrEqual(e.ahead + roam.ahead + roam.drift + 1e-9);
+      }
+      // It drifts within a visit.
+      expect(Math.max(...run) - Math.min(...run)).toBeGreaterThan(0.02);
+    }
+    // Visits keep their own distances: not all at the horse's nose.
+    const means = seen.map((run) => run.reduce((a, b) => a + b, 0) / run.length);
+    expect(Math.max(...means) - Math.min(...means)).toBeGreaterThan(roam.ahead / 3);
+    // The same visit keeps the same way.
+    expect(aheadOf(SEEDS[3]!, 24.5)).toBe(aheadOf(SEEDS[3]!, 24.5));
+    // A named visit keeps where its author put it, for the line.
+    for (const seed of SEEDS.slice(0, 8)) {
+      const pose = newPose();
+      motionBuilder("escort")!({ ...contextOf(him, visitOf("escort", seed, { leader: 0, named: true })), leader, leaderCue }).pose(25, DEFAULT_VIEW, pose);
+      const k = 1 / (1 - ESCORT_NEARER);
+      expect(Math.hypot(pose.at.ahead * k - at.ahead, pose.at.right * k - at.right) / 700).toBeCloseTo(e.ahead, 9);
+    }
+  });
   it("keep a chaser a body's length behind the one it chases, across the picture, and over it straight on (F129)", () => {
     const bull = cue({ figure: "niumowang", size_m: 850 });
     const nezha = cue({ figure: "nezha", size_m: 310 });

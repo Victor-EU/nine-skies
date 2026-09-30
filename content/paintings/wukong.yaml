@@ -1,7 +1,9 @@
 # Sun Wukong, as the Ming novel dresses him in the years of the havoc in
-# heaven: the crown and plumes, not the golden fillet he wears as a
-# pilgrim, since Nezha is sent after him over Huangshan (01) and he is
-# still the rebel at the First Bend (04) and over Turpan (07).
+# heaven: the crown and plumes, over Huangshan (01), where Nezha is sent
+# after him, and at the Flaming Mountains (07), where he fights the Bull
+# Demon King. With the pilgrims (F139) he is dressed as the novel dresses
+# the monk's disciple: the golden fillet, the plain tunic and the
+# tiger-skin kilt, in the `pilgrim` views, which bring that subject.
 
 figure: wukong
 
@@ -26,3 +28,67 @@ views:
     into the far distance past the viewer's right. Weight on one leg,
     poised and alert, the other foot light on the cloud. Full length,
     crown plumes to cloud.
+  # Over Huangshan, the rebel taunting the one sent after him.
+  fight: >-
+    Striding across his cloud toward the right of the picture, the staff
+    held out level at arm's length in one hand, while he looks back over
+    his shoulder with a wide, mocking grin and beckons with the other hand
+    to whoever is coming after him: come and catch me. Three-quarter view,
+    the plumes streaming back. Full length, crown plumes to cloud.
+  # At the Flaming Mountains (ch. 59-61), with the Rakshasi's fan.
+  fan: >-
+    At the Flaming Mountains, swinging the great plantain fan of the
+    Rakshasi across his body in both hands, with his whole weight, as if to
+    beat out a fire, toward the right of the picture: a huge stiff palm-leaf
+    fan, green-gold and veined, on a short thick handle bound in red, as tall
+    as he is. His staff is tucked through his belt. Three-quarter view, the
+    plumes streaming. Full length, the whole fan and the cloud in the
+    picture.
+  # With the pilgrims: the monk's disciple (F139).
+  pilgrim:
+    subject: &pilgrim >-
+      Sun Wukong, the Monkey King of the Ming novel Journey to the West, as
+      the monk's disciple on the road west. The same lean, wiry, powerful
+      monkey with realistic golden-brown fur, a bare weathered face with
+      sharp amber eyes and a fierce, knowing intelligence. On his head only
+      the golden fillet, a plain narrow band of gold fitted round his brow
+      over the fur, which the Bodhisattva gave the monk to rein him in: no
+      crown, no plumes, no feathers, no helmet. He wears a plain monk's
+      tunic of undyed white cotton, the one the monk gave him, the sleeves
+      bound at the wrist and the hem at the knee, belted with a cord, worn
+      and dusty from the road; over it, at the waist, the kilt he made from
+      the skin of the tiger he killed on the mountain; cloth leggings and
+      straw-soled shoes. No armour of any kind. His staff is a heavy black
+      iron rod banded with gold at both ends. He stands on his somersault
+      cloud, a small, dense, luminous knot of real white cloud whose edges
+      fray into wisps and vanish.
+    pose: >-
+      Seen from slightly below, three-quarter view, body turned toward the
+      viewer. One hand raised flat to his brow, shading his eyes, scouting
+      into the far distance past the viewer's right; the staff over the
+      other shoulder. Weight on one leg, poised and alert, the other foot
+      light on the cloud. Full length, head to cloud.
+  pilgrim-strike:
+    subject: *pilgrim
+    pose: >-
+      Springing to strike toward the right of the picture: both hands high
+      on the staff, swung up over his head and back, about to bring it down;
+      his body coiled, knees bent, teeth bared, eyes blazing. Three-quarter
+      side view. Full length, both ends of the staff and the cloud whole in
+      the picture.
+  pilgrim-crouch:
+    subject: *pilgrim
+    size: 1024x1024
+    pose: >-
+      Crouched on his heels on the cloud like a monkey, knees up, the staff
+      laid across the backs of his shoulders with both wrists hooked over it,
+      peering down over the edge of the cloud at something far below, head
+      cocked, curious. Three-quarter view, facing the picture's right. The
+      whole figure, the staff's ends and the cloud in the picture.
+  pilgrim-bow:
+    subject: *pilgrim
+    pose: >-
+      Standing quietly on the cloud, facing toward the right of the picture,
+      three-quarter view, the staff upright in the crook of one arm, palms
+      pressed together before his chest, head bowed, eyes lowered: for once
+      entirely still and reverent. Full length, head to cloud.

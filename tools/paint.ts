@@ -6,7 +6,9 @@
  * each picture of it is posed (`views`), each view a pose, or a pose and
  * the picture's size when it is not the portrait default. `_style.yaml` wraps every one in
  * the house style, so a prompt is the style's preamble, the subject, the
- * view and the style's rules, in that order. `--dry` prints it and what it
+ * view and the style's rules, in that order. A view may bring a subject of
+ * its own, for a figure dressed otherwise in it: Wukong the pilgrim in the
+ * golden fillet, where the rebel wears the crown. `--dry` prints it and what it
  * would cost, and calls nothing.
  *
  * Pictures land in `.scratch/paint/<figure>/`, which git ignores; the ones
@@ -59,7 +61,7 @@ interface Style {
   /** What the picture is drawn on: the cast's cards are transparent, a map is opaque. */
   background?: "transparent" | "opaque";
 }
-type View = string | { pose: string; size?: string };
+type View = string | { pose: string; size?: string; subject?: string };
 interface Brief {
   figure: string;
   subject: string;
@@ -114,14 +116,14 @@ function load<T>(file: string): T {
   return parse(readFileSync(file, "utf8")) as T;
 }
 
-function viewOf(brief: Brief, view: string): { pose: string; size: string } {
+function viewOf(brief: Brief, view: string): { pose: string; size: string; subject: string } {
   const v = brief.views[view] ?? fail(`${brief.figure} has no view ${view}; it has ${Object.keys(brief.views).join(", ")}`);
-  return typeof v === "string" ? { pose: v, size: "1024x1536" } : { pose: v.pose, size: v.size ?? "1024x1536" };
+  return typeof v === "string" ? { pose: v, size: "1024x1536", subject: brief.subject } : { pose: v.pose, size: v.size ?? "1024x1536", subject: v.subject ?? brief.subject };
 }
 
-/** The prompt: the house preamble, the figure, the pose, the house rules. */
-function promptFor(style: Style, brief: Brief, pose: string): string {
-  return [style.preamble, brief.subject, pose, style.rules].map((s) => s.trim()).join("\n\n");
+/** The prompt: the house preamble, the figure as the view dresses it, the pose, the house rules. */
+function promptFor(style: Style, subject: string, pose: string): string {
+  return [style.preamble, subject, pose, style.rules].map((s) => s.trim()).join("\n\n");
 }
 
 function estimateUsd(a: Args & { size: string }, prompt: string): number {
@@ -219,7 +221,7 @@ const named = args.set === "paintings" ? args.figure : `${args.set}/${args.figur
 const view = args.view ?? Object.keys(brief.views)[0] ?? fail(`${args.figure} has no views`);
 const posed = viewOf(brief, view);
 const a = { ...args, size: args.size ?? posed.size };
-const prompt = promptFor(style, brief, posed.pose);
+const prompt = promptFor(style, posed.subject, posed.pose);
 const estimate = estimateUsd(a, prompt);
 const spent = spentUsd();
 

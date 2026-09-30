@@ -93,6 +93,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1900, right_m: -120, up_m: -620 }
+    poses: [pilgrim]
+    paused: [pilgrim-strike]
     size_m: 400
     facing_deg: 190
     from: 10
@@ -101,6 +103,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1500, right_m: -360, up_m: -720 }
+    poses: [default]
+    paused: [tiger]
     size_m: 1120
     facing_deg: 215
     from: 10

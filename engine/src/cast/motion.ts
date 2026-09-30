@@ -177,6 +177,8 @@ export interface MotionContext {
 export interface Motion {
   /** The pose at a second of the visit; false when the figure is off stage then. */
   pose(flightS: number, view: View, out: Pose): boolean;
+  /** Seconds of the visit its way hides a change of picture in (F139): a somersault from spot to spot. None if absent. */
+  swaps?(): readonly number[];
 }
 
 export type MotionBuilder = (ctx: MotionContext) => Motion;
@@ -354,6 +356,19 @@ function keptDown(at: FramePoint, top: number, keepY: number, view: View): numbe
   if (d <= 0 || yc <= k * d) return 0;
   // Down by h: yc - h c = k (d + h s).
   return (yc - k * d) / (c + k * s);
+}
+
+/** How far a figure at `at` may rise, metres, and keep its top, `top` over it, `keepY` up the picture: none when it may not (F139). */
+export function roomUp(at: FramePoint, top: number, keepY: number, view: View): number {
+  const c = Math.cos(view.pitchRad);
+  const s = Math.sin(view.pitchRad);
+  const up = at.up + top;
+  const d = at.ahead * c - up * s;
+  const yc = at.ahead * s + up * c;
+  const k = keepY * view.tanHalfY;
+  if (d <= 0) return 0;
+  // Up by h: yc + h c = k (d - h s).
+  return Math.max(0, (k * d - yc) / (c + k * s));
 }
 
 /**

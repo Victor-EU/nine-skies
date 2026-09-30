@@ -220,6 +220,19 @@ Everything else in the repository served the version-1 game and goes.
   this sky: the Huainanzi, whose nine fields are the film's nine skies,
   says the sky broke and tilted to the north-west, the Roof's own. She is
   drawn in her body, woman and serpent, as the Han reliefs show her.
+- **D99** The pilgrims and Wukong are drawn in a moment of the novel for
+  each scene they come in, and change pose within it; Wukong wears the
+  golden fillet while he travels with the pilgrims (decided by the user
+  30 September 2026, F139). One picture of the party in five scenes and one
+  of the monkey in six was wallpaper by the third. Each scene takes its own
+  chapter: the tiger at the First Bend, the raft of skulls over the Flowing
+  Sands, the frozen Tongtian, the arrival in the West; each figure may be
+  drawn in several pictures, one at a time, changing where it stops or
+  where its motion hides a change. The crown and plumes of the havoc years
+  stay for the rebel, over Huangshan and at the Flaming Mountains; the
+  fillet, plain tunic and tiger-skin kilt, as the novel dresses the monk's
+  disciple, go with the party, where the first painting (F116) had him
+  crowned everywhere.
 
 
 ## What each part of the repository becomes

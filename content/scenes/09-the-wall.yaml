@@ -72,6 +72,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 2400, right_m: 380, up_m: 320 }
+    poses: [default]
+    paused: [arrival]
     size_m: 1040
     facing_deg: 200
     from: 60
@@ -84,6 +86,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 2400, right_m: 380, up_m: 320 }
+    poses: [pilgrim]
+    paused: [pilgrim-bow]
     size_m: 375
     facing_deg: 200
     from: 60

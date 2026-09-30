@@ -72,6 +72,12 @@ export interface Figure {
   /** Dress every part again from a skin, for a swap. */
   setSkin(skin: Skin): void;
   /**
+   * How much of it to draw while it gives way to another picture of itself
+   * or takes over from one (F139, `poses.ts`): its width and how drawn, as
+   * shares, and whether it holds its depth. Until told otherwise, all of it.
+   */
+  present?(width: number, show: number, leads: boolean): void;
+  /**
    * Hand what it has loaded to the GPU before it is first drawn, so the
    * frame it comes on does not wait for it (F123): true if there was
    * anything to hand. Absent for a figure made in code.

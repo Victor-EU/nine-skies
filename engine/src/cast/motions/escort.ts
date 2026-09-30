@@ -6,7 +6,8 @@
  *
  * It is the other's pose, moved across the line of sight toward the way
  * the other faces in the picture by a share of the other's size (the
- * temperament's `escorts`), and lifted a little over its road; lifted over
+ * temperament's `escorts`), and lifted a little over its road, each visit
+ * by its own share, drifting about it (F139); lifted over
  * the other instead while it comes straight at the lens or goes straight
  * away, when ahead of it would be on top of it. The painted cards stand
  * face on whichever way a figure heads, so ahead is across the picture, not
@@ -27,7 +28,7 @@
  * picture, so where the two overlap it is cleanly in front. The director
  * casts it; a cue cannot name it.
  */
-import { acrossSight, glanceAt, keptBeside, newPose, registerMotion, sideFacing, type FramePoint } from "../motion.js";
+import { acrossSight, glanceAt, keptBeside, newPose, registerMotion, roomUp, sideFacing, type FramePoint } from "../motion.js";
 /** How far across the picture its middle may go, of the half width, before it closes in: its own half width short of the edge. */
 export const ESCORT_KEEP_X = 0.8;
 /** How far it may go when there is no room over the other: part way past the edge. */
@@ -43,9 +44,18 @@ const TOP = 1.15;
 export const ESCORT_NEARER = 0.01;
 
 registerMotion("escort", (ctx) => {
-  const { visit, leader, leaderCue, temperament } = ctx;
+  const { visit, leader, leaderCue, temperament, rng } = ctx;
   const e = temperament.escorts;
   const lead = newPose();
+  // How far ahead and over the road this visit keeps, and its drift about that (F139); where it has no room, it closes in.
+  // A named visit keeps where its author put it, beside the other for the line.
+  const roam = visit.named ? undefined : e?.roam;
+  const ahead0 = (e?.ahead ?? 0) + (roam ? rng.range(0, roam.ahead) : 0);
+  const above0 = (e?.above ?? 0) + (roam ? rng.range(0, roam.above) : 0);
+  const period = roam ? rng.range(...roam.driftS) : 1;
+  const phase = rng.range(0, 2 * Math.PI);
+  let ahead = ahead0;
+  let above = above0;
   return {
     pose(flightS, view, out) {
       if (!leader || !leaderCue || !e || flightS < visit.fromS || flightS > visit.untilS) return false;
@@ -53,16 +63,23 @@ registerMotion("escort", (ctx) => {
       // Its size as the layer draws it, and no way out of it until it is in the picture.
       const size = leaderCue.sizeM * (0.6 + 0.4 * lead.presence) * lead.presence;
       const top = ctx.cue.sizeM * (0.6 + 0.4 * lead.presence) * TOP;
+      if (roam) {
+        const w = (2 * Math.PI * (flightS - visit.fromS)) / period + phase;
+        ahead = Math.max(e.ahead, ahead0 + roam.drift * Math.sin(w));
+        above = Math.max(e.above, above0 + 0.5 * roam.drift * Math.sin(1.7 * w + 1));
+      }
       // At a side of the other, rising that share of the way over it.
       const place = (side: number, over: number, at: FramePoint): void => {
-        acrossSight(lead.at, e.ahead * size * side, at);
-        at.up += size * (e.above + e.over * risen(e.ahead * Math.abs(side), e.rise) * over);
+        acrossSight(lead.at, ahead * size * side, at);
+        at.up += size * (e.above + e.over * risen(ahead * Math.abs(side), e.rise) * over);
       };
       const { side, over, lower } = keptBeside(sideFacing(lead.yaw), KEEP, top, visit.side, view, place, out);
       out.space = "frame";
       out.world = null;
       place(side, over, out.at);
       out.at.up -= lower;
+      // Higher over the road this visit only where there is room for it under the top of the picture: never pushed out of it.
+      if (lower === 0 && above > e.above) out.at.up += Math.min((above - e.above) * size, roomUp(out.at, top, KEEP.y, view));
       out.at.ahead *= 1 - ESCORT_NEARER;
       out.at.right *= 1 - ESCORT_NEARER;
       out.at.up *= 1 - ESCORT_NEARER;

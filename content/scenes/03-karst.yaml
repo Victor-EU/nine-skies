@@ -68,6 +68,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 900, right_m: 320, up_m: -420 }
+    poses: [default]
+    paused: [rest]
     size_m: 700
     facing_deg: 235
     from: 10
@@ -80,6 +82,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 900, right_m: 320, up_m: -420 }
+    poses: [pilgrim, pilgrim-crouch]
+    paused: [pilgrim-crouch]
     size_m: 250
     facing_deg: 235
     from: 10

@@ -60,8 +60,7 @@ export const RISEN = 3;
 export const LINE_PAD_S = 0.4;
 /** Seconds before another figure's line, and after it, that a passing companion keeps out of the picture (D94). */
 export const LINE_ALONE_S = [2, 1] as const;
-/** How often a visit with no line pauses in the picture, and for how long. */
-const PAUSE_CHANCE = 0.35;
+/** How long a visit with no line pauses in the picture, when its temperament has it pause. */
 const PAUSE_S = [2, 4.5] as const;
 /** Seconds to come in before a line and to go after it. */
 const ENTRY_S = [2, 3.5] as const;
@@ -409,7 +408,7 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
     while (cursor < c.untilS) {
       const motion = rng.pick(moves);
       if (!motion) break;
-      const pause = rng.chance(PAUSE_CHANCE) ? rng.range(...PAUSE_S) * t.pace : 0;
+      const pause = rng.chance(t.pauses) ? rng.range(...PAUSE_S) * t.pace : 0;
       const length = MOTIONS[motion].naturalS * t.pace * rng.range(0.85, 1.2) + pause;
       let placed = false;
       for (let from = cursor; from + length <= c.untilS; from += 1.5) {

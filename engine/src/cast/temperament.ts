@@ -43,6 +43,8 @@ export interface Temperament {
   readonly maxPitchDeg: number;
   /** Seconds of empty sky between its visits, least and most. */
   readonly gapS: readonly [number, number];
+  /** How often a visit with no line pauses in the picture: where it stops, it may take another of its pictures (F139). */
+  readonly pauses: number;
   /** Never drawn close to the lens, never hurried. */
   readonly stately: boolean;
   /** Figures it goes after, the first of them cast in a scene at the same time as it and going its own way (F129). */
@@ -61,7 +63,20 @@ export interface Temperament {
    * over the other's highest (F129), all of it while the other comes
    * straight at the lens or goes straight away.
    */
-  readonly escorts: { readonly figure: FigureKind; readonly ahead: number; readonly above: number; readonly over: number; readonly rise: readonly [number, number] } | null;
+  readonly escorts: {
+    readonly figure: FigureKind;
+    readonly ahead: number;
+    readonly above: number;
+    readonly over: number;
+    readonly rise: readonly [number, number];
+    /**
+     * How far past `ahead` and `above` a visit of its may keep, drawn for
+     * each, and how far it drifts about that, ranging ahead and dropping
+     * back, over `driftS` (F139): a companion a few lengths ahead of the
+     * road, not one nailed to the horse's nose.
+     */
+    readonly roam?: { readonly ahead: number; readonly above: number; readonly drift: number; readonly driftS: readonly [number, number] };
+  } | null;
   /** How often a visit of its turns its head to the lens on the way, 0 to 1 (D93). */
   readonly curiosity: number;
   /** It takes fright at an arrival that scatters the birds. */
@@ -76,6 +91,7 @@ const base: Temperament = {
   pace: 1,
   maxPitchDeg: 15,
   gapS: [8, 24],
+  pauses: 0.35,
   stately: false,
   chases: [],
   blocks: [],
@@ -115,9 +131,12 @@ export const TEMPERAMENTS: Readonly<Partial<Record<FigureKind, Temperament>>> = 
     gapS: [4, 14],
     curiosity: 0.65,
     chases: ["niumowang"],
-    escorts: { figure: "pilgrims", ahead: 0.7, above: 0.1, over: 0.52, rise: [0.665, 0.525] },
+    // He ranges: a visit may keep him up to half the party's length further ahead and a third of it higher, and he drifts
+    // about that, out ahead to scout and back again, as the monkey never keeps still (F139); for a line, he keeps close.
+    escorts: { figure: "pilgrims", ahead: 0.7, above: 0.1, over: 0.52, rise: [0.665, 0.525], roam: { ahead: 0.5, above: 0.35, drift: 0.12, driftS: [7, 12] } },
   }),
-  pilgrims: t({ moves: { cross: 3, oncoming: 2 }, band: [-0.7, 0], pace: 1.5, maxPitchDeg: 4, curiosity: 0.3 }),
+  // The party stops on the road more often than not: to rest, at the tiger, at the journey's end (F139).
+  pilgrims: t({ moves: { cross: 3, oncoming: 2 }, band: [-0.7, 0], pace: 1.5, maxPitchDeg: 4, pauses: 0.7, curiosity: 0.3 }),
   xiwangmu: t({ moves: { cross: 2, oncoming: 1, stoop: 1 }, band: [-0.2, 0.5], pace: 1.4, maxPitchDeg: 8, stately: true, curiosity: 0.25, omens: { look: 1 } }),
   cranes: t({ moves: { cross: 3, overtake: 2, oncoming: 1 }, band: [-0.5, 0.4], maxPitchDeg: 20, curiosity: 0.3, skittish: true }),
   // Seen once in an age, and everything stops to see it.

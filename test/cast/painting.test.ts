@@ -108,7 +108,7 @@ describe("registering a painting", () => {
   it("refuses one with no views, feet not below the crown, or no size", () => {
     expect(() => registerPainting("wukong", { views: [] })).toThrow();
     expect(() => registerPainting("wukong", { views: [{ ...stand, feet: 0.8, size: { crown: 0.2 } }] })).toThrow();
-    expect(() => registerPainting("wukong", { views: [{ ...stand, size: { crown: 1.2 } }] })).toThrow();
+    expect(() => registerPainting("wukong", { views: [{ ...stand, size: { crown: 2.2 } }] })).toThrow();
     expect(() => registerPainting("wukong", { views: [{ ...fly, size: { across: 0 } }] })).toThrow();
     expect(() => registerPainting("wukong", { views: [{ ...stand, aspect: 0 }] })).toThrow();
   });

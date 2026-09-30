@@ -37,7 +37,8 @@ import { figureBuilder, type CastFrame, type Figure, type Pace } from "./figure.
 import { restHeads, turnHead } from "./gaze.js";
 import { angleTo, DEFAULT_VIEW, motionBuilder, newPose, type Motion, type MotionContext, type Pose, type View, type Visit } from "./motion.js";
 import { omenWrap } from "./omens.js";
-import { paintedHeight } from "./painting.js";
+import { paintedHeight, registeredPaintings } from "./painting.js";
+import { planPoses, poseAt, PosedFigure, poseNames } from "./poses.js";
 import { hashSeed, Rng } from "./random.js";
 import { sightOf } from "./sight.js";
 import { DEFAULT_SKIN, SKINS, type Skin } from "./skin.js";
@@ -165,6 +166,11 @@ export function figureYaw(cue: Pick<CastCue, "role" | "facingDeg">, headingRad: 
   return cue.role === "companion" ? headingRad + facing : facing;
 }
 
+/** The views a cue's figure is drawn in by turns (F139), where its painting is drawn; null for its variant alone. */
+function namesOf(cue: CastCue): string[] | null {
+  return registeredPaintings().has(cue.figure) ? poseNames(cue) : null;
+}
+
 export class CastLayer {
   readonly group = new Group();
   readonly sun = new DirectionalLight(0xffffff, 2);
@@ -251,7 +257,7 @@ export class CastLayer {
           rng: new Rng(v.seed),
           leader: leader === null ? null : (t, view, out) => this.poseOf(leader, t, view, out),
           leaderCue: leader === null ? null : (scene?.cast[leader] ?? null),
-          heightOf: (c) => paintedHeight(c.figure, c.variant) ?? 1,
+          heightOf: (c) => Math.max(...(namesOf(c) ?? [c.variant]).map((n) => paintedHeight(c.figure, n) ?? 1)),
         });
         // A visit an omen reacts in: the omen's module lays the figure's own motion and takes over from it.
         const r = visit.reaction;
@@ -262,7 +268,25 @@ export class CastLayer {
             : make(context(visit));
         return motion ? [{ visit, motion }] : [];
       });
-      const figure = build({ skin: this.skin, variant: cue.variant, scale: this.scale });
+      // The pictures it is drawn in by turns (F139): each visit's, from its own dice, going on from the last.
+      const names = namesOf(cue);
+      const make = (variant: string | null) => build({ skin: this.skin, variant, scale: this.scale });
+      let figure: Figure;
+      if (names && names.length > 1) {
+        let last: number | null = null;
+        const keys = visits.map(({ visit, motion }) => {
+          const k = planPoses(cue, names, visit, motion.swaps?.() ?? [], new Rng(hashSeed(visit.seed, "pose")), last);
+          last = k[k.length - 1]!.pose;
+          return k;
+        });
+        figure = new PosedFigure(
+          names.map((n) => make(n)),
+          (t) => {
+            const k = visits.findIndex(({ visit }) => t >= visit.fromS && t <= visit.untilS);
+            return k < 0 ? null : poseAt(keys[k]!, t);
+          },
+        );
+      } else figure = make(names?.[0] ?? cue.variant);
       figure.group.visible = false;
       figure.group.rotation.order = "YXZ";
       this.group.add(figure.group);

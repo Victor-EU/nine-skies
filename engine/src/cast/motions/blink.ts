@@ -1,7 +1,8 @@
 /**
  * The somersault cloud (D92): Wukong drops in from over the frame, pauses,
  * and is gone in half a second — up and over — to be somewhere else in the
- * picture, two or three times, before he leaves the way he came. A named
+ * picture, two or three times, before he leaves the way he came; he may
+ * land in another of his pictures (F139). A named
  * visit's pause is at the author's spot, while his line is on.
  */
 import { KeyPath, registerMotion, type FramePoint, type PathKey, type PicturePoint } from "../motion.js";
@@ -46,8 +47,11 @@ registerMotion("blink", (ctx) => {
     keys.push({ t: b, at });
   }
   keys.push({ t: visit.untilS, at: { x: -x, y: 1.08, d, pad } });
-  return new KeyPath(
+  const path = new KeyPath(
     keys.filter((k, i) => i === 0 || k.t > keys[i - 1]!.t + 0.05),
     { ...pathOptions(ctx), maxBankRad: 0.3, edgeS: 0.2 },
   );
+  // He may land from a hop in another stance (F139): each hop between two spots, not the last, which leaves.
+  const hops = pauses.slice(0, -1).map(([, b]) => b);
+  return Object.assign(path, { swaps: () => hops });
 });

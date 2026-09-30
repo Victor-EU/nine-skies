@@ -5117,6 +5117,93 @@ dams and the soil conservation it carries a fraction of that. The Loess's
 still and the cover need signing off (D77). Frame cost not measured: the
 river's rule is a loop of 61 on water fragments only.
 
+## F139 — The pilgrims and Wukong in a moment of each scene, and in more than one picture, 30 September 2026
+
+**Asked.** A frame of the Karst at 4:30, the party and Wukong: "the motion
+lacks variation, it's kind of boring. Either we change the outfit a bit
+and/or how they move and/or how they pose." The party was one painting in
+five scenes (3, 4, 7, 8, 9), single file on its road, and Wukong one
+picture, scouting, in six, kept just past the horse's nose. Offered a
+moment of the novel for each scene, the user chose that with the figures
+changing pose within a scene, and Wukong in the golden fillet while he
+travels with the pilgrims (D99).
+
+**Painted.** Eleven views, four drafts each at high from the kept pictures
+as references ($2.64; $9.14 of the $30 spent). The party halted to rest,
+the monk turned in the saddle and Bajie leaning on his planted rake; stopped
+short at the tiger, weapons out, the horse shying; on the raft of Sha's nine
+skulls and Guanyin's gourd over the Flowing Sands (ch. 22); over the frozen
+Tongtian in winter cloaks, the hooves bound in straw and Bajie's rake
+carried crosswise (ch. 48); arrived in the West, the monk off the horse with
+his palms together and the two kneeling. Wukong the rebel taunting whoever
+comes after him, and swinging the Rakshasi's plantain fan (ch. 59-61);
+Wukong the pilgrim, in the fillet, plain tunic and tiger-skin kilt,
+scouting, striking, crouched on his cloud and bowing. A brief's view may
+bring a subject of its own for that (`tools/paint.ts`). Each is measured
+as its figure's first picture is, eye to sole or by the horse and the
+three, so a figure is one size in all of them; a view's size may now reach
+past its picture, to twice it, for a crouch or a party halted close. Each
+is alive: every person keeps their balance, robes, ribbons, manes, plumes
+and the fan stir, the horses' tails swing, the cloud and the golden dust
+boil, the raft rocks, and the party walks on the ice.
+
+**The pose axis.** `cast/poses.ts`, the cast's eighth plug axis. A cue
+names the views its figure goes in (`poses`) and those it stops in
+(`paused`). From each visit's own seed: its first visit comes in the first
+it goes in, the author's; every other in one it goes in other than the one
+the last left in; where it stops it takes one it stops in, the author's
+first for a line; where it goes on, one it goes in, or keeps the one it
+stopped in if that is one (0.4); and at a moment its motion hides a change
+in (`Motion.swaps`: a hop of Wukong's somersault), half the time another,
+having held the one it has 2 s. A change is drawn as the card's own turn:
+the one picture narrows to 0.3 of its width and gives way to the other over
+0.7 s (`Figure.present`). `PosedFigure` holds a figure a picture, each
+scaled to the first, and only those drawn are in its group, for the
+layer's box (F137). A follower stops when its leader does, so Wukong
+changes with the party: he crouches on his cloud while they rest, raises
+his staff when they stop at the tiger, bows when they arrive. Only a
+painted figure has poses; `?paint=off` draws its variant as before.
+
+| Scene | The party goes / stops | Wukong goes / stops |
+|---|---|---|
+| 1 Huangshan | — | scout, taunting |
+| 3 Karst | the road / halted to rest | pilgrim, crouched / crouched |
+| 4 First Bend | the road / the tiger | pilgrim / striking |
+| 7 Turpan | the raft | the fan, scout (Flaming Mountains); pilgrim, crouched / crouched (Flowing Sands) |
+| 8 The Roof | the ice | pilgrim, crouched / crouched |
+| 9 The Wall | the road / arrived | pilgrim / bowing |
+
+**Motion.** The party stops on the road more often than not: a
+temperament's `pauses` (0.35 for all, as before; the party's 0.7). Wukong
+ranges: each escort visit keeps him up to half the party's length further
+ahead and a third of it higher, drifting about that by 0.12 over 7 to
+12 s, out ahead and back. The height only where there is room for it under
+the top of the picture: at the Wall and the Flowing Sands, where the party
+rides high, it had pushed him out to the edge, as an escort with no room
+over the party is. A named visit keeps him where his author put him, beside
+the party for the line.
+
+**A slip.** The card's size cap first took its own group's scale as a
+pose's, which for a figure drawn alone is the layer's scale again: every
+card came out 20 to 60 times smaller. The session placing Nüwa found it;
+fixed, and a test draws a card alone where the slip shows.
+
+**Checked.** Seed 1: in the Karst the party stops to rest at 25.6, 52.5
+and 96.0 s, at the First Bend at the tiger at 29.6 and 97.2 s, at the Wall
+it arrives for its line at 69.6 s; the Flaming Mountains Wukong comes with
+the fan. Held at twelve moments across the scenes, the pictures are whole
+and the figures in the picture; stepped through the Karst's change at
+25.5-26.5 s, the party and Wukong narrow together and open again at rest
+and crouched. Every new picture labbed 24 frames: no tear. The cover's
+frames retaken: Turpan (Wukong after the Bull with the fan) and the Wall
+(the party arrived, Wukong bowing beside it) changed and are kept, the sheet
+and postcards redrawn; the other seven showed the same picture and stand.
+The stills are drawn without the cast. Tests and `content:validate` pass.
+
+**Left.** The Loess's monk alone and the party's walk on the road are still
+one picture each. The cast layer's frame cost with two pictures of a
+figure bent at once, for 0.7 s at a change, is not measured.
+
 ## F140 — The wind horse out of the Roof, and Nüwa in its place, 30 September 2026
 
 **Asked.** A frame of the Roof at 14:37 with the flags named: "Remove this

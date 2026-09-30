@@ -31,3 +31,88 @@ views:
       toward the right of the picture, three-quarter side view, the horse's
       hooves on small drifts of cloud. Horse and rider whole in the
       picture.
+  # A moment of the road for each scene the party comes in (F139): halted
+  # to rest, stopped by the tiger at the First Bend, on the raft over the
+  # Flowing Sands, over the frozen Tongtian, and arrived in the West.
+  rest:
+    size: 1536x1024
+    pose: >-
+      The party halted on the road to rest, in single file toward the right
+      of the picture, three-quarter side view, on a long flat drift of
+      cloud. Tang Sanzang the monk, young and resolute, in the patched red
+      and gold kasaya and the five-leaf Vairocana crown, sits the white
+      horse, which stands still with its head low; he has turned in the
+      saddle to look back at his disciples, the nine-ringed staff upright in
+      his hand. Behind him Zhu Bajie, the pig spirit, heavy and
+      round-bellied with a pig's snout and great flapping ears, in a black
+      monk's robe, has planted the nine-toothed iron rake teeth-down in the
+      cloud and leans his whole weight on its handle, puffing, one hand on
+      his belly. Last Sha Wujing, tall and gaunt, with a wild red beard and
+      hair and a necklace of nine skulls, has set the luggage and its pole
+      down on the cloud by his feet and stands leaning on his
+      crescent-bladed staff, looking back the way they came. The whole
+      party in the picture.
+  tiger:
+    size: 1536x1024
+    pose: >-
+      The party stopped short in alarm, every one of them turned toward the
+      right of the picture, where a tiger is coming; three-quarter side
+      view, on a long flat drift of cloud. The white horse shies, its head
+      flung up, its forelegs braced; Tang Sanzang the monk, in the patched
+      red and gold kasaya and the five-leaf Vairocana crown, hauls on the
+      reins, pale, the nine-ringed staff clutched to him. Zhu Bajie, the pig
+      spirit, heavy and round-bellied with a pig's snout and great ears, in
+      a black monk's robe, has swung the nine-toothed iron rake down off his
+      shoulder and holds it ready in both hands, crouched; Sha Wujing, tall
+      and gaunt, red-bearded, the necklace of nine skulls on his chest, has
+      dropped the luggage and holds the crescent-bladed staff across his
+      body, ready to strike. Braced, every weapon out. The whole party in
+      the picture.
+  raft:
+    size: 1536x1024
+    pose: >-
+      Crossing the Flowing Sands (ch. 22): the party afloat on the raft of
+      the Law, made of nine great bleached skulls strung together in a
+      ring, the skulls of Sha Wujing's necklace grown huge, with a big
+      red-lacquered gourd lashed at its centre; the raft rides a slow
+      stream of pale golden dust-cloud. Tang Sanzang the monk sits
+      cross-legged on the raft by the gourd, palms together, in the patched
+      red and gold kasaya and the five-leaf Vairocana crown; the white horse
+      stands on the raft behind him. Zhu Bajie, the pig spirit, kneels at
+      the raft's front with his nine-toothed rake, peering ahead; Sha
+      Wujing, tall and gaunt, red-bearded, his necklace gone because its
+      skulls are the raft, stands at the back poling it along with his
+      crescent-bladed staff. Travelling toward the right of the picture,
+      three-quarter side view. The whole raft and party in the picture.
+  ice:
+    size: 1536x1024
+    pose: >-
+      Crossing the frozen Tongtian River in deep winter (ch. 48), in single
+      file toward the right of the picture, three-quarter side view, on a
+      long flat drift of frost-white cloud. All of them in heavy padded
+      winter cloaks with hoods over their usual dress, rimed with frost,
+      their breath steaming. Tang Sanzang rides the white horse wrapped in a
+      thick quilted cloak over his red and gold kasaya, the five-leaf crown
+      on his head, the nine-ringed staff in his hand; the horse's hooves are
+      bound in straw so it will not slip. Behind him Zhu Bajie, the pig
+      spirit, his hood over his great ears, carries the nine-toothed iron
+      rake crosswise over his shoulders, so that if the ice breaks it will
+      catch across the hole. Last Sha Wujing, cloaked, his red beard
+      frosted, carries the luggage on its pole and the crescent-bladed
+      staff. Careful footing, heads down against the cold. The whole party
+      in the picture.
+  arrival:
+    size: 1536x1024
+    pose: >-
+      Arrived in the Western Heaven at the journey's end: the party at rest
+      on a drift of cloud, facing toward the right of the picture,
+      three-quarter side view. Tang Sanzang the monk has dismounted and
+      stands at the front, palms pressed together before his chest, head
+      bowed in reverence, in the patched red and gold kasaya and the
+      five-leaf Vairocana crown, the nine-ringed staff in the crook of his
+      arm; behind him the white horse stands with its head lowered. Behind
+      the horse Zhu Bajie, the pig spirit, and Sha Wujing, red-bearded with
+      the necklace of nine skulls, kneel side by side, palms together, heads
+      bowed, the rake and the crescent staff laid down beside them and the
+      luggage set down. Stillness, awe and gratitude. The whole party in
+      the picture.

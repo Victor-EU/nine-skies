@@ -126,8 +126,24 @@ export function cueFromRaw(raw: unknown, add: Add): CastCue | null {
     if (!isNum(raw.chance) || raw.chance <= 0 || raw.chance > 1) fail("chance", "the share of viewings that see it, above 0 and at most 1");
     else chance = raw.chance;
   }
+  // The pictures it takes by turns (F139): names of its painting's views, which the cast's tests hold to the paintings.
+  const names = (field: "poses" | "paused"): string[] | null => {
+    const list = raw[field];
+    if (list === undefined) return null;
+    if (!Array.isArray(list) || list.length === 0 || !list.every(isStr)) {
+      fail(field, "a list of its painting's views");
+      return null;
+    }
+    const out = list.map((n) => n.trim());
+    if (new Set(out).size !== out.length) fail(field, "names each view once");
+    return out;
+  };
+  const poses = names("poses");
+  const paused = names("paused");
+  if (paused && !poses) fail("paused", "the pictures it stops in go with the ones it goes in: name `poses` too");
+  if (poses && role === "monument") fail("poses", "a companion's: a monument stands as it is");
   if (!ok) return null;
-  return { figure, variant, role: role!, at, offset, sizeM, facingDeg, fromS, untilS, line, nameZh, lineAtS, motions, chance };
+  return { figure, variant, role: role!, at, offset, sizeM, facingDeg, fromS, untilS, line, nameZh, lineAtS, motions, chance, poses, paused };
 }
 
 /** Read a scene's `cast:` block: a list of cues, or nothing. */

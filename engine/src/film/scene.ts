@@ -89,6 +89,14 @@ export interface CastCue {
   readonly motions: readonly string[] | null;
   /** How often it is cast at all, 0 to 1: under 1, some viewings never see it. */
   readonly chance: number;
+  /**
+   * The pictures of it this scene draws it in by turns (F139): views of its
+   * painting (`engine/src/cast/poses.ts`), the one it goes in and, in
+   * `paused`, the ones it takes when it stops; absent, or for a figure made
+   * in code, it is drawn as its variant alone.
+   */
+  readonly poses?: readonly string[] | null;
+  readonly paused?: readonly string[] | null;
 }
 
 /** Seconds a line of the cast stays, as a caption does. */

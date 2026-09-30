@@ -129,6 +129,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 600, right_m: -170, up_m: -10 }
+    poses: [default, fight]
     size_m: 130
     facing_deg: 150
     from: 12
