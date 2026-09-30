@@ -72,7 +72,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 2400, right_m: 380, up_m: 320 }
-    poses: [default]
+    poses: [road-on-foot, default]
     paused: [arrival]
     size_m: 1040
     facing_deg: 200

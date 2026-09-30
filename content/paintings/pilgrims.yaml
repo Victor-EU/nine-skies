@@ -116,3 +116,72 @@ views:
       bowed, the rake and the crescent staff laid down beside them and the
       luggage set down. Stillness, awe and gratitude. The whole party in
       the picture.
+  # More of the road (F141): the party as the novel walks it, Sha leading
+  # the horse and Bajie under the luggage; and the monk on foot, sparing the
+  # horse, in the pilgrim's bamboo hat.
+  road-led:
+    size: 1536x1024
+    pose: >-
+      The pilgrims on the road, walking in single file toward the right of
+      the picture, three-quarter side view, on a long flat drift of cloud.
+      At the front Sha Wujing, tall and gaunt, with a wild red beard and
+      hair and a necklace of nine skulls, leads the white horse by its
+      bridle, the crescent-bladed staff over his other shoulder. Tang
+      Sanzang the monk, young and resolute, in the patched red and gold
+      kasaya and the five-leaf Vairocana crown, rides the horse, telling
+      the beads of a rosary in one hand, the nine-ringed staff in the crook
+      of his arm, his eyes on the road ahead. Last Zhu Bajie, the pig
+      spirit, heavy and round-bellied with a pig's snout and great flapping
+      ears, in a black monk's robe, carries the luggage on a pole across his
+      shoulders, the nine-toothed iron rake thrust through its ropes,
+      sweating and grumbling. The whole party in the picture.
+  road-on-foot:
+    size: 1536x1024
+    pose: >-
+      The pilgrims on the road, walking in single file toward the right of
+      the picture, three-quarter side view, on a long flat drift of cloud.
+      Tang Sanzang the monk, young and resolute, has dismounted to spare the
+      horse and walks at the front on foot in the patched red and gold
+      kasaya, a broad woven bamboo pilgrim's hat on his head in place of
+      the crown, the nine-ringed staff in one hand and the white horse's
+      bridle in the other, the horse following him with no rider. Behind the
+      horse Zhu Bajie, the pig spirit, heavy and round-bellied with a pig's
+      snout and great flapping ears, in a black monk's robe, the
+      nine-toothed iron rake on his shoulder; last Sha Wujing, tall and
+      gaunt, red-bearded, the necklace of nine skulls on his chest, with the
+      crescent-bladed staff and the luggage on its pole. The whole party in
+      the picture.
+  # The monk alone setting out from Chang'an (F141): leading the horse on
+  # foot; halted to look back at the city he leaves; praying for the road.
+  monk-led:
+    size: 1536x1024
+    pose: >-
+      Tang Sanzang alone, the monk setting out from Chang'an: young, calm and
+      resolute, in a patched red and gold kasaya and the five-leaf Vairocana
+      crown, walking on foot toward the right of the picture, the
+      nine-ringed staff in one hand, leading the white horse by its bridle
+      with the other, the horse following him saddled and riderless.
+      Three-quarter side view, his feet and the horse's hooves on small
+      drifts of cloud. Man and horse whole in the picture.
+  monk-farewell:
+    size: 1536x1024
+    pose: >-
+      Tang Sanzang alone on the white horse, the monk setting out from
+      Chang'an: young, calm and resolute, in a patched red and gold kasaya
+      and the five-leaf Vairocana crown. The horse has halted, facing the
+      right of the picture; he has turned in the saddle to look back the way
+      he came, toward the city he is leaving, one hand raised in farewell,
+      the nine-ringed staff upright in the other. Three-quarter side view,
+      the horse's hooves on small drifts of cloud. Horse and rider whole in
+      the picture.
+  monk-pray:
+    size: 1536x1024
+    pose: >-
+      Tang Sanzang alone, the monk setting out from Chang'an: young, calm and
+      resolute, in a patched red and gold kasaya and the five-leaf Vairocana
+      crown. He has dismounted and stands facing the right of the picture,
+      palms pressed together before his chest, head bowed, praying for the
+      long road ahead, the nine-ringed staff in the crook of his arm; the
+      saddled white horse stands close behind him, its head lowered.
+      Three-quarter side view, his feet and the horse's hooves on small
+      drifts of cloud. Man and horse whole in the picture.

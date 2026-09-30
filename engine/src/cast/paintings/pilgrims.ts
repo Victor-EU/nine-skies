@@ -26,6 +26,16 @@ const HORSE = { name: "horse", within: [{ at: [1150, 300], r: 330 }, { at: [1300
 const ICE_SHA = { name: "sha", within: circlesAlong([[290, 200], [290, 640]], 210) } as const;
 const ICE_BAJIE = { name: "bajie", within: circlesAlong([[680, 260], [680, 660]], 200) } as const;
 const ICE_HORSE = { name: "horse", within: [{ at: [1180, 420], r: 330 }, { at: [1350, 560], r: 200 }, { at: [1000, 560], r: 200 }] } as const;
+/** The road led by Sha, and on foot, and the monk leading his horse alone (F141). */
+const LED_BAJIE = { name: "bajie", within: circlesAlong([[380, 250], [380, 700]], 210) } as const;
+const LED_SHA = { name: "sha", within: circlesAlong([[1330, 250], [1330, 700]], 200) } as const;
+const LED_HORSE = { name: "horse", within: [{ at: [850, 430], r: 290 }, { at: [1000, 600], r: 180 }, { at: [640, 620], r: 170 }] } as const;
+const FOOT_SHA = { name: "sha", within: circlesAlong([[300, 200], [300, 620]], 200) } as const;
+const FOOT_BAJIE = { name: "bajie", within: circlesAlong([[670, 250], [670, 640]], 190) } as const;
+const FOOT_MONK = { name: "monk", within: circlesAlong([[1310, 230], [1310, 660]], 180) } as const;
+const FOOT_HORSE = { name: "horse", within: [{ at: [980, 420], r: 200 }, { at: [960, 600], r: 150 }] } as const;
+const LED_MONK = { name: "monk", within: circlesAlong([[1050, 200], [1050, 830]], 200) } as const;
+const LED_HORSE_ALONE = { name: "horse", within: [{ at: [450, 480], r: 330 }, { at: [650, 700], r: 200 }, { at: [260, 700], r: 200 }] } as const;
 
 /**
  * The pilgrims on the road (D96): Sha and Bajie each walk, keeping their
@@ -271,6 +281,205 @@ registerPainting("pilgrims", {
         flutter({ root: [960, 300], stir: 4, regions: [{ at: [960, 300], r: 90 }, { at: [1060, 400], r: 60 }] }),
         flutter({ root: [1200, 130], stir: 5, regions: circlesAlong([[1180, 170], [1120, 340]], 40) }),
         churn({ swirl: 6, within: circlesAlong([[40, 830], [1500, 830]], 130), spare: [{ at: [850, 700], r: 40 }, { at: [960, 710], r: 40 }, { at: [1100, 690], r: 40 }] }),
+      ],
+    },
+    // More of the road (F141), measured as the road is. Sha leads the horse, the monk telling his beads, Bajie under the
+    // luggage: each walks, the horse too, their feet wading in the road; the horse's head nods and its tail swings.
+    {
+      name: "road-led",
+      url: "cast/pilgrims-road-led.webp",
+      faces: "right",
+      aspect: 1536 / 982,
+      feet: 0.195,
+      size: { across: 1.024 },
+      pixels: [1536, 982],
+      life: [
+        sway({ feet: [370, 765], crown: 230, lean: 8, who: LED_BAJIE }),
+        sway({ feet: [1320, 790], crown: 175, lean: 8, who: LED_SHA }),
+        gait({
+          strideHz: 0.5,
+          swing: 0.12,
+          fold: 0.15,
+          bob: 9,
+          legs: [
+            { foot: "near", line: [[390, 630], [420, 690], [490, 760]], radius: 34, painted: 0.6, inPicture: true },
+            { foot: "far", line: [[300, 640], [275, 690], [235, 745]], radius: 30, painted: -0.5, inPicture: true },
+          ],
+          who: LED_BAJIE,
+        }),
+        gait({
+          strideHz: 0.55,
+          swing: 0.13,
+          fold: 0.15,
+          bob: 8,
+          legs: [
+            { foot: "near", line: [[1330, 640], [1390, 700], [1470, 790]], radius: 34, painted: 0.6, inPicture: true },
+            { foot: "far", line: [[1250, 640], [1200, 700], [1170, 765]], radius: 30, painted: -0.5, inPicture: true },
+          ],
+          who: LED_SHA,
+        }),
+        gait({
+          strideHz: 0.55,
+          swing: 0.16,
+          fold: 0.4,
+          bob: 6,
+          legs: [
+            { foot: "near-fore", line: [[950, 560], [1020, 670], [1070, 785]], radius: 26, painted: 0.5, inPicture: true },
+            { foot: "far-fore", line: [[880, 540], [860, 650], [870, 760]], radius: 26, painted: -0.2, inPicture: true },
+            { foot: "near-hind", line: [[640, 600], [630, 680], [620, 750]], radius: 26, painted: -0.3, inPicture: true },
+          ],
+          head: { regions: [{ at: [1050, 340], r: 90 }], nod: 5 },
+          who: LED_HORSE,
+        }),
+        serpent({ spine: [[560, 450], [520, 550], [500, 640], [495, 700]], radius: 45, reach: 80, waves: 1, swing: 0.04, bob: 0 }),
+        flutter({ root: [665, 150], stir: 5, regions: circlesAlong([[655, 190], [610, 400]], 26) }),
+        flutter({ root: [1300, 420], stir: 5, regions: [{ at: [1180, 620], r: 60 }, { at: [1440, 600], r: 55 }] }),
+        flutter({ root: [380, 440], stir: 5, regions: [{ at: [250, 640], r: 60 }, { at: [500, 620], r: 55 }] }),
+        churn({ swirl: 6, within: circlesAlong([[40, 860], [1500, 860]], 110), spare: [{ at: [1070, 785], r: 40 }, { at: [870, 760], r: 35 }, { at: [620, 750], r: 35 }] }),
+      ],
+    },
+    // The monk on foot in his bamboo hat, leading the horse, which walks unridden; Bajie and Sha behind.
+    {
+      name: "road-on-foot",
+      url: "cast/pilgrims-road-on-foot.webp",
+      faces: "right",
+      aspect: 1516 / 932,
+      feet: 0.25,
+      size: { across: 1.018 },
+      pixels: [1516, 932],
+      life: [
+        sway({ feet: [310, 690], crown: 80, lean: 8, who: FOOT_SHA }),
+        sway({ feet: [670, 700], crown: 165, lean: 8, who: FOOT_BAJIE }),
+        sway({ feet: [1320, 735], crown: 110, lean: 7, who: FOOT_MONK }),
+        gait({
+          strideHz: 0.55,
+          swing: 0.13,
+          fold: 0.15,
+          bob: 8,
+          legs: [
+            { foot: "near", line: [[320, 560], [380, 620], [450, 690]], radius: 32, painted: 0.6, inPicture: true },
+            { foot: "far", line: [[230, 560], [190, 610], [160, 670]], radius: 30, painted: -0.5, inPicture: true },
+          ],
+          who: FOOT_SHA,
+        }),
+        gait({
+          strideHz: 0.5,
+          swing: 0.12,
+          fold: 0.15,
+          bob: 9,
+          legs: [
+            { foot: "near", line: [[680, 560], [740, 630], [800, 700]], radius: 34, painted: 0.6, inPicture: true },
+            { foot: "far", line: [[600, 560], [560, 620], [540, 690]], radius: 30, painted: -0.5, inPicture: true },
+          ],
+          who: FOOT_BAJIE,
+        }),
+        gait({
+          strideHz: 0.55,
+          swing: 0.12,
+          fold: 0.15,
+          bob: 6,
+          legs: [
+            { foot: "near", line: [[1330, 580], [1380, 650], [1430, 735]], radius: 30, painted: 0.6, inPicture: true },
+            { foot: "far", line: [[1270, 580], [1230, 640], [1210, 715]], radius: 28, painted: -0.5, inPicture: true },
+          ],
+          who: FOOT_MONK,
+        }),
+        gait({
+          strideHz: 0.55,
+          swing: 0.16,
+          fold: 0.4,
+          bob: 6,
+          legs: [
+            { foot: "near-fore", line: [[1060, 560], [1070, 630], [1080, 700]], radius: 24, painted: 0.5, inPicture: true },
+            { foot: "far-fore", line: [[1000, 560], [990, 630], [985, 690]], radius: 24, painted: -0.2, inPicture: true },
+            { foot: "near-hind", line: [[870, 560], [855, 620], [840, 680]], radius: 26, painted: -0.3, inPicture: true },
+          ],
+          head: { regions: [{ at: [1150, 290], r: 80 }], nod: 5 },
+          who: FOOT_HORSE,
+        }),
+        serpent({ spine: [[840, 470], [810, 550], [795, 620], [790, 660]], radius: 40, reach: 70, waves: 1, swing: 0.04, bob: 0 }),
+        flutter({ root: [1295, 200], stir: 4, regions: circlesAlong([[1300, 250], [1295, 470]], 22) }),
+        flutter({ root: [300, 400], stir: 5, regions: [{ at: [170, 560], r: 60 }, { at: [410, 540], r: 55 }] }),
+        flutter({ root: [660, 420], stir: 5, regions: [{ at: [530, 560], r: 60 }, { at: [780, 560], r: 55 }] }),
+        churn({ swirl: 6, within: circlesAlong([[40, 790], [1480, 790]], 110), spare: [{ at: [985, 690], r: 35 }, { at: [1080, 700], r: 35 }, { at: [840, 680], r: 35 }] }),
+      ],
+    },
+    // The monk alone setting out (F141), measured as he rides out, by the horse. On foot leading the horse, both walking;
+    // halted, turned in the saddle to look back at Chang'an, a hand raised; on foot, praying for the road, the horse's
+    // head low beside him. The horse's tail and mane and the harness's tassels stir; the cloud under them boils.
+    {
+      name: "monk-led",
+      url: "cast/pilgrims-monk-led.webp",
+      faces: "right",
+      aspect: 1474 / 1024,
+      feet: 0.09,
+      size: { across: 0.537 },
+      pixels: [1474, 1024],
+      life: [
+        sway({ feet: [1020, 930], crown: 70, lean: 7, who: LED_MONK }),
+        gait({
+          strideHz: 0.55,
+          swing: 0.12,
+          fold: 0.15,
+          bob: 6,
+          legs: [
+            { foot: "near", line: [[1060, 700], [1110, 820], [1160, 930]], radius: 34, painted: 0.6, inPicture: true },
+            { foot: "far", line: [[980, 700], [930, 800], [880, 885]], radius: 30, painted: -0.5, inPicture: true },
+          ],
+          who: LED_MONK,
+        }),
+        gait({
+          strideHz: 0.55,
+          swing: 0.16,
+          fold: 0.4,
+          bob: 6,
+          legs: [
+            { foot: "near-fore", line: [[600, 650], [640, 760], [700, 890]], radius: 30, painted: 0.5, inPicture: true },
+            { foot: "far-fore", line: [[540, 650], [560, 760], [560, 860]], radius: 28, painted: -0.2, inPicture: true },
+            { foot: "near-hind", line: [[330, 650], [330, 770], [350, 860]], radius: 30, painted: -0.3, inPicture: true },
+            { foot: "far-hind", line: [[250, 620], [250, 760], [180, 860]], radius: 28, painted: -0.7, inPicture: true },
+          ],
+          head: { regions: [{ at: [770, 300], r: 100 }], nod: 6 },
+          who: LED_HORSE_ALONE,
+        }),
+        serpent({ spine: [[210, 420], [140, 500], [90, 600], [70, 720]], radius: 55, reach: 100, waves: 1, swing: 0.04, bob: 0 }),
+        flutter({ root: [1080, 170], stir: 5, regions: circlesAlong([[1100, 230], [1110, 560]], 35) }),
+        flutter({ root: [500, 540], stir: 6, regions: [{ at: [590, 600], r: 45 }, { at: [650, 620], r: 40 }, { at: [240, 540], r: 40 }, { at: [760, 480], r: 35 }] }),
+        churn({ swirl: 6, within: circlesAlong([[40, 900], [1440, 900]], 110), spare: [{ at: [700, 890], r: 40 }, { at: [560, 860], r: 35 }, { at: [350, 860], r: 35 }, { at: [180, 860], r: 35 }, { at: [880, 885], r: 40 }, { at: [1160, 930], r: 45 }] }),
+      ],
+    },
+    {
+      name: "monk-farewell",
+      url: "cast/pilgrims-monk-farewell.webp",
+      faces: "right",
+      aspect: 965 / 1024,
+      feet: 0.087,
+      size: { across: 0.826 },
+      pixels: [965, 1024],
+      life: [
+        sway({ feet: [430, 650], crown: 60, lean: 5, who: { name: "monk", within: [{ at: [380, 250], r: 170 }, { at: [400, 480], r: 150 }] } }),
+        serpent({ spine: [[200, 480], [140, 560], [90, 680], [60, 800]], radius: 55, reach: 100, waves: 1, swing: 0.04, bob: 0 }),
+        flutter({ root: [760, 240], stir: 5, regions: [{ at: [800, 330], r: 80 }, { at: [720, 300], r: 60 }] }),
+        flutter({ root: [620, 560], stir: 6, regions: [{ at: [660, 640], r: 55 }, { at: [800, 600], r: 45 }, { at: [860, 490], r: 35 }] }),
+        flutter({ root: [440, 150], stir: 5, regions: circlesAlong([[450, 200], [460, 420]], 35) }),
+        churn({ swirl: 6, within: circlesAlong([[40, 920], [920, 920]], 110) }),
+      ],
+    },
+    {
+      name: "monk-pray",
+      url: "cast/pilgrims-monk-pray.webp",
+      faces: "right",
+      aspect: 1422 / 1022,
+      feet: 0.105,
+      size: { across: 0.547 },
+      pixels: [1422, 1022],
+      life: [
+        sway({ feet: [960, 930], crown: 55, lean: 5, who: { name: "monk", within: circlesAlong([[960, 150], [960, 850]], 180) } }),
+        serpent({ spine: [[230, 330], [170, 450], [140, 580], [140, 700]], radius: 55, reach: 100, waves: 1, swing: 0.03, bob: 0 }),
+        flutter({ root: [560, 260], stir: 4, regions: [{ at: [620, 310], r: 90 }] }),
+        flutter({ root: [990, 170], stir: 4, regions: circlesAlong([[990, 220], [1000, 420]], 30) }),
+        flutter({ root: [500, 430], stir: 5, regions: [{ at: [440, 470], r: 45 }, { at: [530, 520], r: 45 }, { at: [580, 560], r: 40 }] }),
+        churn({ swirl: 6, within: circlesAlong([[40, 900], [1380, 900]], 110), spare: [{ at: [330, 850], r: 45 }, { at: [560, 870], r: 45 }] }),
       ],
     },
   ],

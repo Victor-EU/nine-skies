@@ -110,6 +110,8 @@ cast:
     variant: monk
     role: companion
     offset: { ahead_m: 1000, right_m: 300, up_m: -380 }
+    poses: [monk, monk-led]
+    paused: [monk-farewell, monk-pray]
     size_m: 250
     facing_deg: 215
     from: 8

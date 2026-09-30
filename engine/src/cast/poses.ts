@@ -18,6 +18,9 @@
  *   one it goes in again, or keeps the one it stopped in if that is one;
  * - a named visit stops for its line in the first picture it stops in, the
  *   author's;
+ * - a long stop, with more than one picture to stop in, takes another
+ *   halfway (F141): the monk waves farewell to Chang'an, then prays for
+ *   the road;
  * - at a moment its motion hides a change in (Wukong's somersault from spot
  *   to spot), it may change, if it has held the one it has a while.
  *
@@ -45,6 +48,8 @@ export const HOLD_S = 2;
 export const SWAP_CHANCE = 0.5;
 /** How often it keeps the picture it stopped in as it goes on, where that is one it goes in. */
 export const KEEP_CHANCE = 0.4;
+/** The shortest stop that takes a second picture halfway, where it has one to take: each held a while. */
+export const LONG_STOP_S = 2 * HOLD_S + 2 * POSE_S;
 
 /** A change of picture: from `atS` on, the figure is drawn in `names[pose]`. */
 export interface PoseKey {
@@ -92,11 +97,13 @@ export function planPoses(
   };
   const dwell = visit.dwell;
   const free = (s: number) => !dwell || s < dwell[0] - HOLD_S || s > dwell[1] + HOLD_S;
-  const events: Array<{ atS: number; stop: 0 | 1 | null }> = swaps.filter(free).map((atS) => ({ atS, stop: null }));
+  const events: Array<{ atS: number; stop: 0 | 0.5 | 1 | null }> = swaps.filter(free).map((atS) => ({ atS, stop: null }));
   if (dwell) events.push({ atS: dwell[0], stop: 0 }, { atS: dwell[1], stop: 1 });
+  if (dwell && stopping.length > 1 && dwell[1] - dwell[0] >= LONG_STOP_S) events.push({ atS: (dwell[0] + dwell[1]) / 2, stop: 0.5 });
   events.sort((a, b) => a.atS - b.atS);
   for (const e of events) {
     if (e.stop === 0) change(e.atS, visit.named ? stopping[0]! : stopping.includes(pose) && stopping.length === 1 ? pose : other(stopping, pose), POSE_S);
+    else if (e.stop === 0.5) change(e.atS, other(stopping, pose), HOLD_S);
     else if (e.stop === 1) change(e.atS, going.includes(pose) && rng.chance(KEEP_CHANCE) ? pose : other(going, pose), POSE_S);
     else if (rng.chance(SWAP_CHANCE)) change(e.atS, other(going, pose), HOLD_S);
   }

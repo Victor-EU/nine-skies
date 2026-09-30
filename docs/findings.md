@@ -5249,3 +5249,39 @@ Cast and film tests and `content:validate` pass.
 
 **Left.** Her second visit in a viewing, and her look in a tall picture,
 are not looked at.
+
+## F141 — The road in three pictures, and the monk alone in four, 30 September 2026
+
+**Asked.** After F139: "Give the Loess monk and the road walk more poses
+too." The party's walk on the road and the monk riding out of Chang'an
+were still one picture each.
+
+**Painted.** Five views, four drafts each at high from the kept pictures
+as references ($1.04; $10.16 of the $30 spent). The road led by Sha, the
+monk on the horse telling his beads, Bajie last under the luggage with the
+rake through its ropes; the road on foot, the monk leading in a bamboo
+pilgrim's hat, the horse unridden behind him. The monk alone: on foot
+leading the horse; halted, turned in the saddle with a hand raised to the
+city he leaves; dismounted and praying, the horse's head low beside him.
+Each measured as the picture it goes with, by the walkers' heights and the
+horse, and alive: every walker and the horses step, their feet wading, the
+heads nod, tails, ribbons, tassels and robes stir, the cloud boils.
+
+**Cast.** The Karst's party goes in three pictures of the road, the First
+Bend's in two, and the Wall's comes in on foot and arrives, then goes on
+riding. The Loess's monk goes riding or leading the horse and stops to
+look back and to pray. A long stop, with more than one picture to stop
+in, takes the second halfway (`poses.ts`, `LONG_STOP_S`, 5.4 s): the monk
+is named at 24 s as he waves farewell to Chang'an, then prays for the
+road, and goes on.
+
+**Checked.** Seed 1: the Loess monk comes riding at 19.8 s, waves at 23.6,
+prays at 27.4 and leads the horse off at 31.2; the Karst's three visits
+come in the road, led by Sha, and on foot. Held in the film at each, the
+pictures whole and one size with the ones they follow. Every new picture
+labbed 24 frames: no tear. The cover frames of the Karst, the First Bend,
+the Loess and the Wall, retaken, show the same pictures and stand. Tests
+and `content:validate` pass.
+
+**Left.** The Loess monk's second visit, where a viewing has one, may
+stop in either picture; not looked at.

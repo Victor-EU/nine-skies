@@ -44,6 +44,18 @@ describe("a figure's poses", () => {
     for (const seed of SEEDS) expect(poseOf(planPoses(party, names, visit({ dwell: [25, 29], named: true }), [], new Rng(seed), null), 27)).toBe("rest");
   });
 
+  it("take a second picture it stops in halfway through a long stop, and not a short one (F141)", () => {
+    const monk = { poses: ["monk", "monk-led"], paused: ["monk-farewell", "monk-pray"] };
+    const his = poseNames(monk)!;
+    for (const seed of SEEDS) {
+      const long = planPoses(monk, his, visit({ dwell: [23, 31], named: true }), [], new Rng(seed), null);
+      expect(his[poseAt(long, 25)!.to]).toBe("monk-farewell");
+      expect(his[poseAt(long, 29)!.to]).toBe("monk-pray");
+      const short = planPoses(monk, his, visit({ dwell: [23, 27], named: true }), [], new Rng(seed), null);
+      expect(his[poseAt(short, 26.5)!.to]).toBe("monk-farewell");
+    }
+  });
+
   it("come first in the first picture it goes in, the author's", () => {
     const wukong = { poses: ["fan", "default"] };
     for (const seed of SEEDS) expect(planPoses(wukong, poseNames(wukong)!, visit(), [], new Rng(seed), null)[0]!.pose).toBe(0);
