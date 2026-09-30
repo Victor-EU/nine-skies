@@ -21,6 +21,7 @@ import {
   type ScenePalette,
 } from "../terrain/palette.js";
 import type { SceneLook } from "../film/scene.js";
+import { projectAlbers } from "../terrain/worldGrid.js";
 import type { CloudMap } from "./clouds.js";
 
 export interface SkyPreset {
@@ -56,6 +57,19 @@ export interface PalettePreset {
   readonly sea?: Rgb;
   readonly lake?: Rgb;
   readonly river?: Rgb;
+  /**
+   * Its river's colour where it was measured along its course, where one
+   * colour is wrong for much of it (F138); `river` stays the colour away
+   * from them all. See `riverColourAt`.
+   */
+  readonly riverAlong?: readonly RiverSample[];
+}
+
+/** A river's colour where it was measured: the median of its water's pixels in the photograph (F138). */
+export interface RiverSample {
+  readonly lat: number;
+  readonly lon: number;
+  readonly srgb: Rgb;
 }
 
 export interface MistPreset {
@@ -128,7 +142,10 @@ export const SKY_PRESETS: Readonly<Record<string, SkyPreset>> = {
   "gorge-afternoon": { hazeDensityPerM: 4.5e-6, scaleHeightM: 2500, hazeTint: [0.92, 0.97, 1.0], turbidity: 1.1, glow: 0.8, glowPower: 8, zenithDepth: 0.7, blue: 0.8 },
   "karst-mist": { hazeDensityPerM: 7e-6, scaleHeightM: 1500, hazeTint: [0.95, 1.0, 0.98], turbidity: 1.2, glow: 0.7, glowPower: 6, zenithDepth: 0.5, blue: 0.6 },
   "noon-hard": { hazeDensityPerM: 2.2e-6, scaleHeightM: 5000, hazeTint: WHITE, turbidity: 0.8, glow: 0.5, glowPower: 12, zenithDepth: 1.0, blue: 0.7 },
-  "dust-afternoon": { hazeDensityPerM: 5e-6, scaleHeightM: 3000, hazeTint: [1.0, 0.86, 0.66], turbidity: 1.6, glow: 1.0, glowPower: 5, zenithDepth: 0.45, blue: 0.1 },
+  // October on the Loess Plateau, the year's least dusty month: what haze
+  // there is is fine and grey, the ridges fade blue-grey for tens of
+  // kilometres (F138; it had been a dust storm's ochre, which is April's).
+  "autumn-afternoon": { hazeDensityPerM: 2.75e-6, scaleHeightM: 4000, hazeTint: [0.98, 0.97, 0.96], turbidity: 1.1, glow: 0.9, glowPower: 8, zenithDepth: 0.75, blue: 0.55 },
   "steppe-evening": { hazeDensityPerM: 2.5e-6, scaleHeightM: 4000, hazeTint: [1.0, 0.93, 0.84], turbidity: 1.2, glow: 1.2, glowPower: 8, zenithDepth: 0.8, blue: 0.45 },
   "desert-evening": { hazeDensityPerM: 3e-6, scaleHeightM: 3000, hazeTint: [1.0, 0.82, 0.62], turbidity: 1.7, glow: 1.5, glowPower: 6, zenithDepth: 0.7, blue: 0.15 },
   "plateau-dusk": { hazeDensityPerM: 2e-6, scaleHeightM: 6000, hazeTint: [0.9, 0.95, 1.0], turbidity: 0.7, glow: 0.6, glowPower: 14, zenithDepth: 1.0, blue: 0.6 },
@@ -198,6 +215,74 @@ export const PALETTE_PRESETS: Readonly<Record<string, PalettePreset>> = {
     rock: [0.55, 0.45, 0.35],
     // The Yellow River, khaki (F127).
     river: [0.52, 0.47, 0.33],
+    // ...silt off the Hetao at Hekou, jade in the Wanjiazhai and Longkou
+    // reservoirs, grey-green down past Fugu, then khaki and tan to Tongguan:
+    // at each rail point, the median of the river's water in the 10 m
+    // photograph, the water as ESA WorldCover 2021 has it less its ponds
+    // (F138; `pipeline/nineskies/rivercolour.py`).
+    riverAlong: [
+      { lat: 40.2081, lon: 111.1848, srgb: [0.518, 0.475, 0.318] }, // 0 km
+      { lat: 40.1567, lon: 111.3003, srgb: [0.545, 0.486, 0.325] }, // 11 km
+      { lat: 40.0709, lon: 111.3769, srgb: [0.557, 0.482, 0.329] }, // 23 km
+      { lat: 39.9724, lon: 111.415, srgb: [0.62, 0.502, 0.345] }, // 34 km
+      { lat: 39.8727, lon: 111.4141, srgb: [0.455, 0.455, 0.306] }, // 45 km
+      { lat: 39.7734, lon: 111.3644, srgb: [0.376, 0.447, 0.314] }, // 57 km
+      { lat: 39.6826, lon: 111.4178, srgb: [0.22, 0.29, 0.235] }, // 68 km
+      { lat: 39.6219, lon: 111.4247, srgb: [0.227, 0.329, 0.259] }, // 75 km
+      { lat: 39.518, lon: 111.4149, srgb: [0.251, 0.333, 0.278] }, // 87 km
+      { lat: 39.4362, lon: 111.3285, srgb: [0.224, 0.306, 0.255] }, // 98 km
+      { lat: 39.4261, lon: 111.1905, srgb: [0.31, 0.353, 0.275] }, // 110 km
+      { lat: 39.3678, lon: 111.1398, srgb: [0.29, 0.325, 0.259] }, // 118 km
+      { lat: 39.3056, lon: 111.2253, srgb: [0.314, 0.349, 0.271] }, // 128 km
+      { lat: 39.2068, lon: 111.1777, srgb: [0.408, 0.392, 0.302] }, // 140 km
+      { lat: 39.1056, lon: 111.1362, srgb: [0.227, 0.314, 0.251] }, // 152 km
+      { lat: 39.0286, lon: 111.0498, srgb: [0.392, 0.388, 0.306] }, // 163 km
+      { lat: 38.9525, lon: 110.9852, srgb: [0.369, 0.388, 0.306] }, // 173 km
+      { lat: 38.8507, lon: 110.987, srgb: [0.282, 0.333, 0.275] }, // 185 km
+      { lat: 38.7511, lon: 110.9448, srgb: [0.373, 0.384, 0.294] }, // 196 km
+      { lat: 38.6549, lon: 110.8905, srgb: [0.463, 0.427, 0.325] }, // 208 km
+      { lat: 38.5582, lon: 110.9, srgb: [0.4, 0.38, 0.298] }, // 219 km
+      { lat: 38.4599, lon: 110.8543, srgb: [0.459, 0.424, 0.329] }, // 230 km
+      { lat: 38.3949, lon: 110.7579, srgb: [0.471, 0.455, 0.349] }, // 241 km
+      { lat: 38.3157, lon: 110.669, srgb: [0.471, 0.455, 0.353] }, // 253 km
+      { lat: 38.2582, lon: 110.5737, srgb: [0.459, 0.435, 0.333] }, // 264 km
+      { lat: 38.1815, lon: 110.5045, srgb: [0.533, 0.482, 0.361] }, // 274 km
+      { lat: 38.0778, lon: 110.5008, srgb: [0.533, 0.486, 0.369] }, // 286 km
+      { lat: 37.9731, lon: 110.5139, srgb: [0.545, 0.486, 0.365] }, // 297 km
+      { lat: 37.9027, lon: 110.5989, srgb: [0.592, 0.498, 0.369] }, // 308 km
+      { lat: 37.8077, lon: 110.6599, srgb: [0.514, 0.451, 0.333] }, // 320 km
+      { lat: 37.7383, lon: 110.7478, srgb: [0.498, 0.439, 0.329] }, // 331 km
+      { lat: 37.6795, lon: 110.7761, srgb: [0.561, 0.471, 0.349] }, // 338 km
+      { lat: 37.5892, lon: 110.7818, srgb: [0.553, 0.482, 0.361] }, // 348 km
+      { lat: 37.4913, lon: 110.7503, srgb: [0.537, 0.467, 0.349] }, // 359 km
+      { lat: 37.4304, lon: 110.6497, srgb: [0.604, 0.502, 0.373] }, // 370 km
+      { lat: 37.355, lon: 110.6872, srgb: [0.537, 0.486, 0.369] }, // 379 km
+      { lat: 37.2634, lon: 110.6389, srgb: [0.576, 0.506, 0.38] }, // 390 km
+      { lat: 37.1752, lon: 110.564, srgb: [0.565, 0.49, 0.365] }, // 402 km
+      { lat: 37.091, lon: 110.4885, srgb: [0.6, 0.51, 0.392] }, // 414 km
+      { lat: 37.0235, lon: 110.4379, srgb: [0.584, 0.502, 0.38] }, // 423 km
+      { lat: 36.9867, lon: 110.3952, srgb: [0.592, 0.502, 0.373] }, // 428 km
+      { lat: 36.8971, lon: 110.3788, srgb: [0.627, 0.545, 0.408] }, // 438 km
+      { lat: 36.8105, lon: 110.4163, srgb: [0.612, 0.502, 0.365] }, // 448 km
+      { lat: 36.7439, lon: 110.4135, srgb: [0.643, 0.525, 0.38] }, // 456 km
+      { lat: 36.6986, lon: 110.3933, srgb: [0.647, 0.518, 0.369] }, // 461 km
+      { lat: 36.6123, lon: 110.4635, srgb: [0.682, 0.522, 0.357] }, // 473 km
+      { lat: 36.5126, lon: 110.4993, srgb: [0.631, 0.529, 0.396] }, // 484 km
+      { lat: 36.4084, lon: 110.4768, srgb: [0.643, 0.522, 0.373] }, // 496 km
+      { lat: 36.3044, lon: 110.4652, srgb: [0.624, 0.525, 0.388] }, // 508 km
+      { lat: 36.2018, lon: 110.4493, srgb: [0.627, 0.549, 0.416] }, // 519 km
+      { lat: 36.0973, lon: 110.4607, srgb: [0.573, 0.498, 0.388] }, // 531 km
+      { lat: 35.9942, lon: 110.4929, srgb: [0.635, 0.529, 0.408] }, // 542 km
+      { lat: 35.8892, lon: 110.5101, srgb: [0.639, 0.525, 0.392] }, // 554 km
+      { lat: 35.8082, lon: 110.5647, srgb: [0.659, 0.545, 0.4] }, // 565 km
+      { lat: 35.703, lon: 110.58, srgb: [0.616, 0.537, 0.435] }, // 576 km
+      { lat: 35.5104, lon: 110.5576, srgb: [0.541, 0.506, 0.392] }, // 600 km
+      { lat: 35.3332, lon: 110.4437, srgb: [0.714, 0.592, 0.42] }, // 622 km
+      { lat: 35.2492, lon: 110.3672, srgb: [0.659, 0.569, 0.424] }, // 634 km
+      { lat: 34.9449, lon: 110.2595, srgb: [0.616, 0.518, 0.38] }, // 669 km
+      { lat: 34.8425, lon: 110.256, srgb: [0.655, 0.561, 0.4] }, // 681 km
+      { lat: 34.7397, lon: 110.2405, srgb: [0.694, 0.573, 0.412] }, // 692 km
+    ],
     lake: [0.45, 0.5, 0.45],
   },
   "sage-to-tan": {
@@ -264,10 +349,7 @@ export const CLOUD_PRESETS: Readonly<Record<string, CloudPreset>> = {
     mist: { topM: 190, densityPerM: 7e-5, tint: [0.98, 0.99, 1.0], bankKm: 8 },
     layers: [{ ...CUMULUS, altitudeM: 2600, coverage: 0.5, scaleKm: 22 }],
   },
-  "dust-haze": {
-    mist: { topM: 1500, densityPerM: 5e-5, tint: [1.0, 0.9, 0.72], bankKm: 40, tailM: 900 },
-    layers: [{ ...CIRRUS, coverage: 0.35, density: 0.3, bearingDeg: -15 }],
-  },
+  "thin-cirrus": { mist: null, layers: [{ ...CIRRUS, coverage: 0.35, density: 0.3, bearingDeg: -15 }] },
   "cloud-sea": {
     mist: null,
     layers: [
@@ -340,5 +422,6 @@ export function scenePalette(preset: PalettePreset, latDeg: number): ScenePalett
     seaSrgb: preset.sea ?? DEFAULT_PALETTE.seaSrgb,
     lakeSrgb: preset.lake ?? DEFAULT_PALETTE.lakeSrgb,
     riverSrgb: preset.river ?? DEFAULT_PALETTE.riverSrgb,
+    riverAlong: (preset.riverAlong ?? []).map((p) => ({ ...projectAlbers(p.lat, p.lon), srgb: p.srgb })),
   };
 }

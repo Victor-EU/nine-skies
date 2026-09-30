@@ -1089,8 +1089,10 @@ export class Terrain {
     };
 
     const cameraWorld = this.toWorld(eastM, northM, altitudeM);
+    const c = this.options.scale.horizontalCompression;
     for (const m of this.materials) {
       (m.uniforms.uCameraWorld!.value as Vector3).copy(cameraWorld);
+      (m.uniforms.uWorldOrigin?.value as Vector3 | undefined)?.set(this.originEastM, this.originNorthM, c);
     }
     return cameraWorld;
   }

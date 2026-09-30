@@ -85,11 +85,12 @@ rail:
 band: { above_ground_m: [300, 1500] }
 corridor_deg: 60
 
+# October, the plateau's clearest month: its dust is April's (F138).
 look:
-  sky: dust-afternoon
+  sky: autumn-afternoon
   palette: loess-ochre
-  cloud: dust-haze
-  grade: warm
+  cloud: thin-cirrus
+  grade: clear
 
 # The cast (D91): the Journey begins at the film's midpoint. The monk
 # rides out of Chang'an alone on the white horse (ch. 12-13), beside the

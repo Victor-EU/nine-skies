@@ -26,6 +26,8 @@
  * level, and the place that does is Ayding Lake, which the pipeline has a
  * golden probe for and the renderer had never drawn.
  */
+import type { RiverPoint } from "./water.js";
+
 export const COLOR_SPACE_GLSL = /* glsl */ `
 vec3 srgbToLinear(vec3 c) {
   vec3 lo = c / 12.92;
@@ -301,6 +303,8 @@ export interface ScenePalette {
   readonly seaSrgb: readonly [number, number, number];
   readonly lakeSrgb: readonly [number, number, number];
   readonly riverSrgb: readonly [number, number, number];
+  /** Its river's colour where measured along its course, if it changes along it (F138); empty for one colour. */
+  readonly riverAlong: readonly RiverPoint[];
 }
 
 /**
@@ -323,6 +327,7 @@ export const DEFAULT_PALETTE: ScenePalette = {
   seaSrgb: [0.15, 0.27, 0.38],
   lakeSrgb: [0.2, 0.4, 0.5],
   riverSrgb: [0.42, 0.66, 0.84],
+  riverAlong: [],
 };
 
 /** The palette's constants, for the fragment shader that draws it. */

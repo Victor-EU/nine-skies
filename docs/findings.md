@@ -5023,3 +5023,96 @@ on at 90 s (headless, the M3).
 
 **Left.** A companion drawn nearer is fogged a little less, as the cast's
 fog is by distance; not measured.
+
+## F138 — The Loess in October's clear air, and the Yellow River the colour it is where it runs, 30 September 2026
+
+**Asked.** Watching the Loess at 8:07, the user could not tell what they
+were looking at: "the landscape is not greatly drawn … why it looks so
+foggy, because it's a desert?" Then: check how the Loess actually looks on
+satellite images and in real photographs; then remove the dust haze and
+fix the river colour.
+
+**What was on screen.** 8:07 is the scene's first second: Hekou, where the
+Yellow River comes off the Hetao plain past Togtoh's power station, its
+industrial park, a town and irrigated fields, with the Kubuqi's last dunes
+across the river. The gullied loess begins about 30 km on. All of it was
+under the scene's look as the design table had it, "Afternoon, dust": a
+sky of nearly twice the default haze tinted ochre (`dust-afternoon`,
+5e-6 a metre, tint 1.0, 0.86, 0.66, `blue` 0.1), a dust slab to 1,500 m
+with a 900 m tail that the camera, 600 m over ground at 1,000 to 1,200 m,
+flew inside (`dust-haze`, 5e-5 a metre), and the warm grade. The river was
+the palette's one colour, khaki (F127).
+
+**What the place looks like.** The satellite along the rail (EOX
+Sentinel-2 cloudless, 2016, which the film's ground is, and 2023 to
+compare): olive-khaki ground cut everywhere into fine dendritic gullies,
+with tan exposures; not desert. The river is silt-brown at Hekou, dark
+jade through the Wanjiazhai and Longkou reservoirs from about 70 km,
+grey-green past Fugu, khaki and tan from Jiaxian down. The air (research,
+with sources): dust is a spring thing, four fifths of Shaanxi's dust
+storms from March to May; sun-photometer aerosol optical depth at Yulin
+(CARSNET, 2002–2013) is at its lowest of the year in October, 0.21 at
+440 nm against 0.45 in April, and fine particles then (Ångström about 1),
+so what haze there is is grey-white, not ochre; MODIS over north-west
+China agrees, autumn the cleanest season, and the air has cleared since
+2013. Photographs of the gorge in early October show a pale-blue sky,
+ridges fading blue-grey for tens of kilometres, the river blue-grey and
+clear at Hequ and jade at Laoniuwan, and milky tan at Qiankun Bay and
+Hukou. Seven October afternoons of MODIS true colour over the route: two
+overcast, two partly cloudy, three clear, no yellow dust on any.
+
+**The air.** The Loess's look is now `autumn-afternoon` (the default's
+density, 2.75e-6, over a 4,000 m scale height; a grey tint, 0.98, 0.97,
+0.96; `blue` 0.55, so near ridges blue before far ones whiten; turbidity
+1.1), `thin-cirrus` (the cirrus the dust had, with no mist under it) and
+the `clear` grade. `dust-afternoon` and `dust-haze` are gone: no other
+scene named them. The mist's tail (`tailM`) stays in the engine, unused.
+The low October sun at 16:00 warms the loess by itself.
+
+**The river's colour along its course.** A palette may now list its
+river's colour where it was measured along it (`riverAlong`, latitude,
+longitude, colour); `river` stays the colour away from them. At a point
+of water the colour is the measured points', each weighted by the inverse
+fourth power of its distance softened by a kilometre, so a point's colour
+holds round it and gives way to the next about halfway between; past
+12 km from every point it fades back to `river` by 25 km, for a
+tributary or another river (`riverColourAt` in `water.ts`, and the shader's
+`riverAlong`: the points as constants, in kilometres from the first, the
+fragment's metres from a new uniform, `uWorldOrigin`, the terrain's origin
+and horizontal compression, set every frame beside the camera). A palette
+without points compiles to its one colour as before.
+
+The Loess's points are measured by `python -m nineskies.rivercolour
+<scene>`: at each rail point, the film's own 10 m photograph round it,
+3 km across; the pixels ESA WorldCover 2021 (10 m, CC BY 4.0, read a
+window at a time over the network) calls permanent water, less every
+patch under 15 ha (the lotus ponds of the Qiachuan wetland by Heyang read
+as a green Yellow River otherwise); their median. A point whose water is
+under 3 % of its crop is left out (six of 67: dry reaches, or the line off
+the river). 61 points, from 0.518, 0.475, 0.318 at Hekou, to 0.22–0.25,
+0.29–0.33, 0.24–0.28 in the reservoirs, about 0.3–0.4, 0.33–0.39, 0.26–0.31
+past Fugu, and 0.53–0.68, 0.47–0.59, 0.36–0.43 from Jiaxian to Tongguan.
+
+**Seen.** Headless at 1, 30, 60 and 90 s against the shipped frames and
+the satellite: the town and fields at Hekou, the reservoir jade at 30 s
+where it had been khaki, grey-green at 60 s with the sky in it, khaki at
+90 s; ridges to the horizon where the dust had stopped the eye at about
+20 km. The Loess's still (60 s) was taken again, and the cover's Loess
+card (54 s) and the cover drawn again.
+
+**Checked.** `npm run check`: 638 tests (a river's colour its measured
+point's at it, their mean halfway, the scene's own away from them, and
+the shader's rule the same; the Loess's air no thicker than the default's
+and grey, with no mist; the Yellow River silt at Hekou and Qikou and jade
+at Wanjiazhai), and the film validates.
+
+**Left.** The gullies are still the 1 km country grid's, drawn at six
+times their height: the relief normals (F93, F94) shade them, but the
+ground's shape is broad corrugated hills, where the place is a flat-topped
+plateau cut by a maze of narrow gullies a few hundred metres deep. The
+scene opens on its least typical ground, Hekou's plain and power station.
+The third caption, "It carries a billion tonnes of soil a year", was the
+river's load in the last century (about 1.6 billion tonnes); since the
+dams and the soil conservation it carries a fraction of that. The Loess's
+still and the cover need signing off (D77). Frame cost not measured: the
+river's rule is a loop of 61 on water fragments only.

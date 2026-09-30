@@ -16,6 +16,8 @@ import {
   scenePalette,
 } from "../../engine/src/look/presets.js";
 import { ELEVATION_STOPS, snowLineForLatitude } from "../../engine/src/terrain/palette.js";
+import { riverColourAt } from "../../engine/src/terrain/water.js";
+import { projectAlbers } from "../../engine/src/terrain/worldGrid.js";
 import { loadFilm } from "../../tools/film.ts";
 
 describe("the names", () => {
@@ -49,8 +51,8 @@ describe("the skies", () => {
     expect(density("gorge-afternoon")).toBeLessThan(density("karst-mist"));
   });
 
-  it("tint the dust ochre and nothing blue", () => {
-    const dust = SKY_PRESETS["dust-afternoon"]!.hazeTint;
+  it("tint the desert's evening air ochre and nothing blue", () => {
+    const dust = SKY_PRESETS["desert-evening"]!.hazeTint;
     expect(dust[0]).toBeGreaterThan(dust[2]);
     for (const p of Object.values(SKY_PRESETS)) expect(Math.max(...p.hazeTint)).toBeLessThanOrEqual(1);
   });
@@ -83,6 +85,35 @@ describe("the palettes", () => {
     const yangtze = PALETTE_PRESETS["limestone-green"]!.river!;
     expect(Math.min(...jinsha)).toBeGreaterThan(Math.max(...yangtze) - 0.05);
     expect(yangtze[1]).toBeGreaterThan(yangtze[0]);
+  });
+
+  it("draw the Loess in October's clear air, not a dust storm's (F138)", () => {
+    const { film } = loadFilm();
+    const loess = film.scenes.find((s) => s.id === "loess")!;
+    expect(loess.month).toBe(10);
+    const sky = SKY_PRESETS[loess.look.sky]!;
+    // No thicker than the default air, and grey, not ochre.
+    expect(sky.hazeDensityPerM).toBeLessThanOrEqual(SKY_PRESETS.default!.hazeDensityPerM);
+    expect(sky.hazeTint[0] - sky.hazeTint[2]).toBeLessThan(0.05);
+    expect(CLOUD_PRESETS[loess.look.cloud]!.mist).toBeNull();
+  });
+
+  it("colour the Yellow River where it runs: silt at Hekou and Qikou, jade in the Wanjiazhai reservoir (F138)", () => {
+    const p = scenePalette(PALETTE_PRESETS["loess-ochre"]!, 38);
+    expect(p.riverAlong.length).toBeGreaterThan(50);
+    const at = (lat: number, lon: number) => {
+      const w = projectAlbers(lat, lon);
+      return riverColourAt(p, w.eastM, w.northM);
+    };
+    const hekou = at(40.2081, 111.1848);
+    const wanjiazhai = at(39.6219, 111.4247);
+    const qikou = at(37.6795, 110.7761);
+    for (const silt of [hekou, qikou]) {
+      expect(silt[0]).toBeGreaterThan(silt[1]);
+      expect(silt[1]).toBeGreaterThan(silt[2]);
+    }
+    expect(wanjiazhai[1]).toBeGreaterThan(wanjiazhai[0]);
+    expect(wanjiazhai[1]).toBeGreaterThan(wanjiazhai[2]);
   });
 
   it("colour the Yellow River yellow and the plateau's lakes turquoise", () => {
@@ -143,7 +174,8 @@ describe("the clouds and the grades", () => {
       expect(sky.blue).toBeGreaterThanOrEqual(0);
       expect(sky.blue).toBeLessThanOrEqual(1);
     }
-    expect(SKY_PRESETS["dust-afternoon"]!.blue).toBeLessThan(SKY_PRESETS["gorge-afternoon"]!.blue);
+    expect(SKY_PRESETS["desert-evening"]!.blue).toBeLessThan(SKY_PRESETS["gorge-afternoon"]!.blue);
+    expect(SKY_PRESETS["desert-evening"]!.blue).toBeLessThan(SKY_PRESETS["autumn-afternoon"]!.blue);
     expect(SKY_PRESETS["desert-evening"]!.blue).toBeLessThan(SKY_PRESETS["plateau-dusk"]!.blue);
   });
 

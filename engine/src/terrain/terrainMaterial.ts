@@ -765,6 +765,8 @@ export function createTerrainMaterial(
         uWaterReachM: { value: water.reachM },
         uWaterZero: { value: water.offsetZero },
         uWaterRibbonMaxM: { value: water.ribbonMaxM ?? NO_RIBBON_CAP_M },
+        // The terrain's origin, east and north, and its horizontal compression: a river's colour along its course (F138).
+        uWorldOrigin: { value: new Vector3(0, 0, 1) },
       }
     : {};
   const fine = values.colour ? values.fine : undefined;

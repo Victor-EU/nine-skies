@@ -700,10 +700,90 @@ export interface WaterColours {
   readonly seaSrgb: readonly [number, number, number];
   readonly lakeSrgb: readonly [number, number, number];
   readonly riverSrgb: readonly [number, number, number];
+  /** A river's colour where it was measured along it, if it changes along its course; see `riverColourAt`. */
+  readonly riverAlong?: readonly RiverPoint[];
 }
 
 /** The defaults above, as one palette. */
 export const DEFAULT_WATER_COLOURS: WaterColours = { seaSrgb: SEA_SRGB, lakeSrgb: LAKE_SRGB, riverSrgb: RIVER_SRGB };
+
+/** A river's colour measured at a place on it, in the world's metres (F138). */
+export interface RiverPoint {
+  readonly eastM: number;
+  readonly northM: number;
+  readonly srgb: readonly [number, number, number];
+}
+
+/** How far a measured colour holds before the next one's takes over, as a softening of the distance. */
+export const RIVER_ALONG_SOFT_KM = 1;
+/** Beyond this from every measured point a river's colour starts back to the scene's own. */
+export const RIVER_ALONG_NEAR_KM = 12;
+/** ...and is the scene's own from here. */
+export const RIVER_ALONG_FAR_KM = 25;
+
+/**
+ * A river's colour at a point (F138). A scene's rivers are one colour, the
+ * palette's; where the palette also lists the colour measured at places
+ * along its river, the colour is theirs, each weighted by the inverse fourth
+ * power of its distance softened by `RIVER_ALONG_SOFT_KM`, so a point's
+ * colour holds round it and gives way to the next about halfway between
+ * them, and past `RIVER_ALONG_NEAR_KM` from them all it goes back to the
+ * palette's, a tributary's or a river elsewhere. The Yellow River is the
+ * silt of the Hetao at Hekou, jade in the Wanjiazhai reservoir 70 km on,
+ * and tan again below Fugu: one colour had drawn the reservoir as silt.
+ * The shader's `riverAlong` is this.
+ */
+export function riverColourAt(colours: WaterColours, eastM: number, northM: number): [number, number, number] {
+  const fallback = colours.riverSrgb;
+  const along = colours.riverAlong ?? [];
+  if (along.length === 0) return [...fallback];
+  const sum = [0, 0, 0];
+  let weights = 0;
+  let nearest = Infinity;
+  for (const p of along) {
+    const d2 = ((p.eastM - eastM) / 1000) ** 2 + ((p.northM - northM) / 1000) ** 2;
+    nearest = Math.min(nearest, Math.sqrt(d2));
+    const w = 1 / (d2 + RIVER_ALONG_SOFT_KM ** 2) ** 2;
+    for (let c = 0; c < 3; c++) sum[c]! += w * p.srgb[c]!;
+    weights += w;
+  }
+  const t = smoothstep(RIVER_ALONG_NEAR_KM, RIVER_ALONG_FAR_KM, nearest);
+  return [0, 1, 2].map((c) => (sum[c]! / weights) * (1 - t) + fallback[c]! * t) as [number, number, number];
+}
+
+/**
+ * `riverColourAt` in the shader: the measured points as constants, the
+ * fragment's world metres from `uWorldOrigin` (the terrain's origin, east
+ * and north, and its horizontal compression). Kilometres from the first
+ * point, so the float keeps its metres. Nothing when a palette lists none.
+ */
+function riverAlongGlsl(colours: WaterColours): string {
+  const along = colours.riverAlong ?? [];
+  if (along.length === 0) return "vec3 riverAlong(vec3 world) { return " + glslVec3(colours.riverSrgb) + "; }";
+  const o = along[0]!;
+  const at = along.map((p) => `vec2(${glslFloats([(p.eastM - o.eastM) / 1000, (p.northM - o.northM) / 1000])})`);
+  return /* glsl */ `
+uniform vec3 uWorldOrigin;
+const vec2 RIVER_ALONG_AT[${along.length}] = vec2[](${at.join(", ")});
+const vec3 RIVER_ALONG_SRGB[${along.length}] = vec3[](${along.map((p) => glslVec3(p.srgb)).join(", ")});
+vec3 riverAlong(vec3 world) {
+  vec2 km = ((world.xz * uWorldOrigin.z + uWorldOrigin.xy) - vec2(${glslFloats([o.eastM, o.northM])})) * 0.001;
+  vec3 sum = vec3(0.0);
+  float weights = 0.0;
+  float nearest = 1e9;
+  for (int i = 0; i < ${along.length}; i++) {
+    vec2 d = RIVER_ALONG_AT[i] - km;
+    float d2 = dot(d, d);
+    nearest = min(nearest, d2);
+    float w = 1.0 / pow(d2 + ${glslFloats([RIVER_ALONG_SOFT_KM ** 2])}, 2.0);
+    sum += w * RIVER_ALONG_SRGB[i];
+    weights += w;
+  }
+  float t = smoothstep(${glslFloats([RIVER_ALONG_NEAR_KM, RIVER_ALONG_FAR_KM])}, sqrt(nearest));
+  return mix(sum / weights, ${glslVec3(colours.riverSrgb)}, t);
+}
+`;
+}
 
 export function waterGlsl(samples: number, colours: WaterColours = DEFAULT_WATER_COLOURS, photographed = false): string {
   const minPx = Array.from({ length: RIVER_CLASSES }, (_, k) => riverMinPx(k));
@@ -717,6 +797,7 @@ ${waterSharedGlsl()}
 const float RIVER_MIN_PX[${RIVER_CLASSES}] = float[](${glslFloats(minPx)});
 const float GLINT_SLOPE_VARIANCE = ${glslFloats([GLINT_SLOPE_VARIANCE])};
 const float GLINT_PEAK = ${glslFloats([GLINT_PEAK])};
+${riverAlongGlsl(colours)}
 
 // cover - x: standing water's, y: a ribbon's, z: whether the standing water
 // is a lake, w: whether it is a river's own surface. level: the water's own
@@ -843,8 +924,9 @@ vec3 withWater(vec3 lit, vec3 sun, vec3 sunColor, float shadow, vec2 texel, floa
   tilt += vec2(vnoise(p2) - 0.5, vnoise(p2 * 1.3 + 7.0) - 0.5) * 0.03;
   vec3 n = normalize(vec3(tilt.x, 1.0, tilt.y));
 
-  // A river's colour is its photograph's, graded as the ground's is (F127).
-  vec3 river = srgbToLinear(${glslVec3(colours.riverSrgb)});
+  // A river's colour is its photograph's, graded as the ground's is (F127),
+  // where it is along its course (F138).
+  vec3 river = srgbToLinear(riverAlong(at));
 ${photographed ? "  if (photo.a > 0.5) river = imageryGrade(river);" : ""}
   vec3 body = mix(srgbToLinear(${glslVec3(colours.seaSrgb)}), river, cover.w);
   body = mix(body, srgbToLinear(${glslVec3(colours.lakeSrgb)}), cover.z);

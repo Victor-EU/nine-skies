@@ -33,6 +33,8 @@ import {
   OFFSET_ZERO,
   REACH_M,
   RESOLVED_RIBBON_SAMPLES,
+  RIVER_ALONG_FAR_KM,
+  RIVER_ALONG_NEAR_KM,
   RIM_CLEAR_SAMPLES,
   WATER_LAKE,
   WATER_LAND,
@@ -44,6 +46,7 @@ import {
   ribbonHalfWidthM,
   rimTaper,
   riverAt,
+  riverColourAt,
   riverHalfWidthM,
   riverLevelM,
   riverMinPx,
@@ -449,6 +452,53 @@ describe("rivers the colour of their photograph (F127)", () => {
   it("mirrors a gorge's walls as steep as its banks stand", () => {
     expect(waterBedGlsl()).toContain("out float vWallTan;");
     expect(waterGlsl(TILE_SAMPLES)).toContain("in float vWallTan;");
+  });
+});
+
+describe("a river's colour along its course (F138)", () => {
+  const silt = [0.52, 0.47, 0.33] as const;
+  const jade = [0.22, 0.33, 0.26] as const;
+  const scene = [0.5, 0.5, 0.5] as const;
+  // Two measured points 11 km apart on a river running north, as the Loess's rail points are.
+  const colours = {
+    seaSrgb: [0, 0, 0] as const,
+    lakeSrgb: [0, 0, 0] as const,
+    riverSrgb: scene,
+    riverAlong: [
+      { eastM: 0, northM: 0, srgb: silt },
+      { eastM: 0, northM: 11_000, srgb: jade },
+    ],
+  };
+  const close = (a: readonly number[], b: readonly number[], within = 1e-3) => a.forEach((v, c) => expect(Math.abs(v - b[c]!)).toBeLessThan(within));
+
+  it("is the scene's one colour where none is measured", () => {
+    expect(riverColourAt({ ...colours, riverAlong: [] }, 5_000, 5_000)).toEqual([...scene]);
+  });
+
+  it("is a measured point's own colour at it, and the mean halfway to the next", () => {
+    close(riverColourAt(colours, 0, 0), silt);
+    close(riverColourAt(colours, 0, 11_000), jade);
+    close(riverColourAt(colours, 0, 5_500), [0, 1, 2].map((c) => (silt[c]! + jade[c]!) / 2));
+    // A quarter of the way along, still mostly the nearer point's.
+    const quarter = riverColourAt(colours, 0, 2_750);
+    expect(Math.abs(quarter[1] - silt[1])).toBeLessThan(Math.abs(quarter[1] - jade[1]));
+  });
+
+  it("goes back to the scene's colour away from every measured point", () => {
+    // Short of the fade, the nearer point's, with a little of the one twice as far.
+    close(riverColourAt(colours, 0, 11_000 + (RIVER_ALONG_NEAR_KM - 0.5) * 1000), jade, 0.03);
+    close(riverColourAt(colours, 0, 11_000 + RIVER_ALONG_FAR_KM * 1000), scene);
+  });
+
+  it("is the shader's own rule, and the shader has none of it for a palette without points", () => {
+    const glsl = waterGlsl(TILE_SAMPLES, colours, true);
+    expect(glsl).toContain("uniform vec3 uWorldOrigin;");
+    expect(glsl).toContain("const vec2 RIVER_ALONG_AT[2] = vec2[](vec2(0.0, 0.0), vec2(0.0, 11.0));");
+    expect(glsl).toContain("vec3 river = srgbToLinear(riverAlong(at));");
+    expect(glsl).toContain(`smoothstep(${RIVER_ALONG_NEAR_KM}.0, ${RIVER_ALONG_FAR_KM}.0, sqrt(nearest))`);
+    const plain = waterGlsl(TILE_SAMPLES);
+    expect(plain).not.toContain("uWorldOrigin");
+    expect(plain).toContain("vec3 riverAlong(vec3 world) { return vec3(0.32, 0.42, 0.42); }");
   });
 });
 
