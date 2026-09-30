@@ -51,6 +51,8 @@ export const SCENES_IN_A_FILM = 9;
 export const DEFAULT_PITCH_DEG = 6;
 /** The look-ahead a scene may ask for, real km: shorter reads as a wall, longer as a map. */
 export const LOOK_AHEAD_RANGE_KM = [0.5, 30] as const;
+/** The clearance a scene may name, real metres (F143). */
+export const CLEAR_RANGE_M = [0, 3000] as const;
 /** The sun may be this far below the horizon at the scene's first key: civil twilight. */
 export const MIN_SUN_ELEVATION_DEG = -6;
 
@@ -150,6 +152,12 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     else add("look_ahead_km", `real kilometres the altitude reads ahead, ${LOOK_AHEAD_RANGE_KM[0]} to ${LOOK_AHEAD_RANGE_KM[1]}`);
   }
 
+  let clearM = 0;
+  if (raw.clear_m !== undefined) {
+    if (isNum(raw.clear_m) && raw.clear_m >= CLEAR_RANGE_M[0] && raw.clear_m <= CLEAR_RANGE_M[1]) clearM = raw.clear_m;
+    else add("clear_m", `real metres the camera keeps from ground as high as it, ${CLEAR_RANGE_M[0]} to ${CLEAR_RANGE_M[1]}`);
+  }
+
   // The film's six unless the scene asks for less, or more, within the
   // range the drama A/B was ever to offer (F97).
   let exaggeration = apparentExaggeration(DEFAULT_SCALE);
@@ -238,6 +246,7 @@ export function sceneFromRaw(raw: unknown, name: string): { scene: Scene | null;
     corridorDeg,
     pitchDeg,
     lookAheadKm,
+    clearM,
     exaggeration,
     look,
     captions,

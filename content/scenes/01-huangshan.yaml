@@ -49,6 +49,12 @@ band: { above_ground_m: [150, 1500] }
 pitch_deg: 10
 corridor_deg: 90
 look_ahead_km: 1.5
+# Reading only the line ahead, the camera passed granite faces at its own
+# height 200-450 m off (16-27 s), which the horizontal compression draws
+# 25-55 m off: the viewer saw it fly into the mountain (F143). It keeps
+# 400 m from ground as high as it, round it and either side of its way
+# ahead, and climbs over what is nearer; 600 m flew the same.
+clear_m: 400
 
 look:
   sky: huangshan-dawn

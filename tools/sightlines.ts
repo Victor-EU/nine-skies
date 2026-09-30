@@ -79,7 +79,7 @@ function sightlinesOf(scene: Scene): Sightlines["scenes"][string] {
   for (let tick = 0; tick * TICK_S <= SCENE_S + 1e-9; tick++) {
     const s = tick * TICK_S;
     const fix = railAtKm(rail, kmAt(s));
-    const altitudeM = controller.update(tick === 0 ? 0 : TICK_S, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, scene.band, ground, scene.lookAheadKm);
+    const altitudeM = controller.update(tick === 0 ? 0 : TICK_S, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, scene.band, ground, scene.lookAheadKm, scene.clearM);
     if (Math.abs(s / STEP_S - Math.round(s / STEP_S)) > 1e-6) continue;
     const eye = { eastM: fix.eastM, northM: fix.northM, altitudeM };
     for (const at of places) {

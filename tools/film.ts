@@ -31,9 +31,15 @@ export interface Sightlines {
   readonly scenes: Record<string, { readonly rail: string; readonly places: Record<string, readonly (readonly [number, number])[]> }>;
 }
 
-/** What a scene's sightlines were worked out from, besides the ground and the places: its rail, its band and how far ahead the camera reads. */
-export function railDigest(scene: Pick<Scene, "rail" | "band" | "lookAheadKm">): string {
-  return createHash("sha256").update(JSON.stringify([scene.rail, scene.band, scene.lookAheadKm])).digest("hex").slice(0, 16);
+/**
+ * What a scene's sightlines were worked out from, besides the ground and the
+ * places: its rail, its band, how far ahead the camera reads and how near it
+ * keeps from the rock round it (F143; only where the scene names one, so the
+ * scenes that name none keep the sightlines they have).
+ */
+export function railDigest(scene: Pick<Scene, "rail" | "band" | "lookAheadKm" | "clearM">): string {
+  const flown = scene.clearM > 0 ? [scene.rail, scene.band, scene.lookAheadKm, scene.clearM] : [scene.rail, scene.band, scene.lookAheadKm];
+  return createHash("sha256").update(JSON.stringify(flown)).digest("hex").slice(0, 16);
 }
 
 /**

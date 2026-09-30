@@ -4,7 +4,7 @@
  * leave the scene's band.
  */
 import { describe, expect, it } from "vitest";
-import { AltitudeController, DEFAULT_ALTITUDE, lookAheadSamplesKm } from "../../engine/src/film/altitude.js";
+import { AltitudeController, DEFAULT_ALTITUDE, clearanceSamplesM, lookAheadSamplesKm } from "../../engine/src/film/altitude.js";
 
 const band = { minM: 100, maxM: 2000 };
 const north = 0;
@@ -36,6 +36,23 @@ describe("the altitude controller", () => {
     expect(near.update(0, 0, 0, north, 300, band, ridge, 1.5)).toBe(400);
     // Reads under the camera and at even steps out to the distance.
     expect(lookAheadSamplesKm(8)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  it("keeps a scene's clearance from ground as high as it, round it and beside its way ahead, and reads the line alone without one (F143)", () => {
+    // A granite face 1,000 m high, 300 m east of the camera's line north.
+    const face = (e: number) => (e >= 250 && e <= 350 ? 1000 : 100);
+    expect(new AltitudeController().update(0, 0, 0, north, 150, band, face, 1.5)).toBe(250);
+    expect(new AltitudeController().update(0, 0, 0, north, 150, band, face, 1.5, 400)).toBe(1150);
+    // Further off than the clearance, it is the picture beside the way, as a gorge's walls are.
+    expect(new AltitudeController().update(0, 0, 0, north, 150, band, face, 1.5, 200)).toBe(250);
+    // A spire 300 m across that is not beside it yet but will be, 1 km ahead and 350 m off the line: climbed for before it arrives.
+    const spire = (e: number, n: number) => (Math.hypot(e + 350, n - 1000) <= 150 ? 1000 : 100);
+    expect(new AltitudeController().update(0, 0, 0, north, 150, band, spire, 1.5, 400)).toBe(1150);
+    // Rings round the camera, a bearing every twenty degrees, the outer one at the clearance.
+    const round = clearanceSamplesM(600);
+    expect(round).toHaveLength(54);
+    expect(Math.max(...round.map(([e, n]) => Math.hypot(e, n)))).toBeCloseTo(600, 6);
+    expect(clearanceSamplesM(0)).toEqual([]);
   });
 
   it("never moves faster than the rate cap", () => {

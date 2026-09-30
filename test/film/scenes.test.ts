@@ -117,6 +117,13 @@ describe("what the gate refuses", () => {
     expect(problemsOf(good({ look_ahead_km: "far" })).map((p) => p.field)).toEqual(["look_ahead_km"]);
   });
 
+  it("a clearance off its range; none unless the scene says (F143)", () => {
+    expect(sceneFromRaw(good(), "gorges").scene!.clearM).toBe(0);
+    expect(sceneFromRaw(good({ clear_m: 400 }), "gorges").scene!.clearM).toBe(400);
+    expect(problemsOf(good({ clear_m: -1 })).map((p) => p.field)).toEqual(["clear_m"]);
+    expect(problemsOf(good({ clear_m: "wide" })).map((p) => p.field)).toEqual(["clear_m"]);
+  });
+
   it("an exaggeration off the drama's range; the film's six unless the scene says (F97)", () => {
     expect(sceneFromRaw(good(), "gorges").scene!.exaggeration).toBe(6);
     expect(sceneFromRaw(good({ exaggeration: 3 }), "gorges").scene!.exaggeration).toBe(3);

@@ -5285,3 +5285,43 @@ and `content:validate` pass.
 
 **Left.** The Loess monk's second visit, where a viewing has one, may
 stop in either picture; not looked at.
+
+## F143 — Huangshan's camera kept off the granite, 30 September 2026
+
+**Asked.** A frame of Huangshan under its first caption: "we are colliding
+with the mountains". A granite face filled half the picture beside the lens.
+
+**Found.** Not a drawing fault: the ground the altitude reads and the ground
+drawn agree to the metre (the hero area answers under the camera; a ray
+marched through the frame meets the sampled ground where the picture shows
+rock). The camera reads the ground only along its heading, 1.5 km ahead
+(F81), so it flies among the spires rather than over them. It was flying
+past them too near. Played headless at 10 Hz, it passed ground as high as
+itself 200–450 m off between 16 and 27 s, which the horizontal compression
+(eight) draws 25–55 m off. The played frames at 18–23 s are rock to the
+lens; a hold at 16 s is inside a face.
+
+**Changed.** A scene may name a clearance, `clear_m`: the altitude reads
+the ground round the camera out to it (three rings, a bearing every 20°)
+and that far either side of its way ahead, at each look-ahead sample, as
+it reads the ground ahead, so it climbs for a face beside its way before it
+is beside it. Nought, the film's, reads the line alone as before, so the
+gorges' walls stay beside the camera (F81's refusal of a swath to the
+frame's edges stands). Huangshan names 400 m. The sightlines' digest takes
+the clearance where a scene names one, so the scenes that name none keep
+theirs; Huangshan's were worked out again (its kings are behind the ground
+for less of the flight), and its frame-cost station flies at 1,402 m (from
+1,242).
+
+**Checked.** Played headless, the nearest ground as high as the camera is
+now 1.15 km off (145 drawn units; it was 200 m), and nothing comes within
+60 units at any second of the scene. Played frames at 16–30 s: the massif
+whole ahead to 20 s, then the camera over the southern peaks. 600 m flew
+the same. The cast's plan at seed 1 is unchanged; at the cover's moment
+(34 s) the camera is 94 m higher. 652 tests pass.
+
+**Left.** Over the southern peaks (23–30 s) the massif is under the frame's
+foot and the picture is mostly the cloud sea: the rail flies over the peaks
+there, and the clearance now keeps it high enough to. A rail that threads
+between them would give the picture back. The other scenes are not
+surveyed for near passes; only Huangshan names a clearance.

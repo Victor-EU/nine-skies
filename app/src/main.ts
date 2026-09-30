@@ -793,7 +793,7 @@ function recordFrame(dt: number): void {
   r.northM += Math.cos(r.headingRad) * ms * dt;
   const s = film?.scenes[current] ?? null;
   const band = s?.band ?? { minM: 50, maxM: 6000 };
-  const alt = altitude.update(dt, r.eastM, r.northM, r.headingRad, r.aboveGroundM, band, groundAt, s?.lookAheadKm);
+  const alt = altitude.update(dt, r.eastM, r.northM, r.headingRad, r.aboveGroundM, band, groundAt, s?.lookAheadKm, s?.clearM);
   placeAt(r.eastM, r.northM, alt, r.headingRad, 0);
   const { latDeg, lonDeg } = unprojectAlbers(r.eastM, r.northM);
   el("recorder").textContent =
@@ -875,7 +875,7 @@ function frame(now: number): void {
       const band = scene?.band ?? { minM: 50, maxM: 6000 };
       // Placed afresh, not eased: a zero step would hold the first frame's guess.
       altitude.reset();
-      pinned.altitudeM = altitude.update(0, pinned.eastM, pinned.northM, pinned.headingRad, pinned.aboveGroundM, band, groundAt, scene?.lookAheadKm);
+      pinned.altitudeM = altitude.update(0, pinned.eastM, pinned.northM, pinned.headingRad, pinned.aboveGroundM, band, groundAt, scene?.lookAheadKm, scene?.clearM);
     }
     placeAt(pinned.eastM, pinned.northM, pinned.altitudeM, pinned.headingRad, 0, pinned.clockMinutes, pinned.pitchDeg);
     rig.render();
@@ -932,7 +932,7 @@ function frame(now: number): void {
     // Turpan, the flank of Bogda filling the left of the frame. Forgetting
     // the height each frame puts the camera where the landed ground says.
     altitude.reset();
-    const alt = altitude.update(0, start.eastM, start.northM, start.headingRad, start.aboveGroundM, s.band, groundAt, s.lookAheadKm);
+    const alt = altitude.update(0, start.eastM, start.northM, start.headingRad, start.aboveGroundM, s.band, groundAt, s.lookAheadKm, s.clearM);
     placeAt(start.eastM, start.northM, alt, start.headingRad, 0, clockNow(), start.pitchDeg);
     setCurtain(1 - smooth(pos.t / DIP_IN_S));
     shown("title", true);
@@ -960,7 +960,7 @@ function frame(now: number): void {
     );
     lastState = state;
     lastFlightS = pos.flightS;
-    const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt, s.lookAheadKm);
+    const alt = altitude.update(held ? 0 : dt, state.eastM, state.northM, state.headingRad, state.aboveGroundM, s.band, groundAt, s.lookAheadKm, s.clearM);
     placeAt(state.eastM, state.northM, alt, state.headingRad, state.bankRad, clockNow(), state.pitchDeg);
     showCaption(captionAt(s, pos.flightS));
     showCastLine(cast?.lineAt(pos.flightS) ?? null);
@@ -1081,7 +1081,7 @@ if (import.meta.env.DEV) {
       const fix = railAtKm(rail, km);
       const s = film!.scenes[i]!;
       altitude.reset();
-      const alt = altitude.update(0, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, s.band, groundAt, s.lookAheadKm);
+      const alt = altitude.update(0, fix.eastM, fix.northM, fix.headingRad, fix.aboveGroundM, s.band, groundAt, s.lookAheadKm, s.clearM);
       pinned = {
         eastM: fix.eastM,
         northM: fix.northM,

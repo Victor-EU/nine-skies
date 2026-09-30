@@ -142,6 +142,15 @@ export interface Scene {
    */
   readonly lookAheadKm: number;
   /**
+   * How near the camera may come to ground as high as it, real metres:
+   * the altitude reads the ground round it out to this, as it reads the
+   * ground ahead (F143). Nought, the film's, reads the heading line only,
+   * so a gorge's walls stand beside the camera; a scene flown among spires
+   * names one, or the horizontal compression draws a face it passes as the
+   * camera flying into it.
+   */
+  readonly clearM: number;
+  /**
    * The relief's apparent exaggeration, `A` (`sim/scale.ts`): six, the
    * film's, unless the scene says otherwise. Six was measured on the 1 km
    * country grid, whose samples flatten real slopes (F14). Ground seen on a
