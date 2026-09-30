@@ -4768,7 +4768,7 @@ gorge, clear of the caption; the sheet is drawn again with F138's Loess
 card. Still 02 (60 s, the old ground) retaken: 7.5 % of its ground pixels
 moved by more than 8 levels (two takes of one build differ by 0.75 %), as
 fine shading along the slopes, the old tiles' relief cut again over the
-larger grid. Both need signing off (D77).
+larger grid. Both signed off by the user on 30 September (D77).
 
 **Left.** A test bound moved: a quarter of a rail's near sub-tiles may lie
 under its hero area, now a third (23 of the Gorges' 78). Frame cost not
