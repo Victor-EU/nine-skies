@@ -4889,6 +4889,102 @@ line comes on at 17 s of play with him under it. `npm run typecheck`;
 no longer asks for (the painting tests use it as the variant with no view).
 Cranes, egrets and the wind-horse flags are still made in code.
 
+## F135 — Laozi on his green ox, and Guanyin herself, 30 September 2026
+
+**Asked.** "We are missing the Chinese phoenix (king of all birds), and
+Daode Tianzun (太上老君)." Asked where they fit, and told that the phoenix
+was already cast over the Karst, but in one viewing in two (F114's
+`chance: 0.5`) and so the least seen figure of the cast (in 49 % of 2,000
+viewings, 12 s a viewing, against 17–42 s for the rest), and that Laozi
+would fit the Loess, the user decided (D97): "draw the body, and change
+Guanyin to real body as well. Old sage riding the ox, OK."
+
+**Laozi.** The Loess is the Journey's start, the monk riding west out of
+Chang'an; Laozi went west too, out through the Hangu Pass on his green ox,
+when the keeper saw a purple cloud come from the east and knew a sage was
+coming (紫气东来), and left the Daodejing there. The pass is downstream past
+the flight's end, as the carp's Dragon Gate is. Painted as the painters show
+him, not as the enthroned Daode Tianzun of the altar: a very old man with a
+long white beard, a whisk over his shoulder and a gourd at his side, seated
+sideways on a slate blue-green ox walking a bank of violet cloud
+(`content/paintings/laozi.yaml`; four drafts, $0.17, the third kept). His
+life: the ox walks slowly, its hooves painted sunk in the bank, so each
+leg wades (`inPicture`) rather than leaving a hole; its head nods under the
+horns and its tail swings; the whisk's horsetail and the robe's loose end
+stir; the bank boils, the hooves spared. A figure made in code too, for
+`?paint=off`. Temperament: stately, an ox's pace (1.6), everything turns to
+look. Cued at 70–114 s, 1,400 m ahead, 560 m, named 太上老君, "Laozi on his
+green ox, going west, a purple cloud before him." at 102 s, the Loess's last
+line, between the caption at 95 s and the flight's end; Jingwei's is at 78.
+
+**Guanyin.** Painted as the novel (ch. 8) and the temples show Guanyin of
+the South Sea: white robe and hood, pearls and blue beads, the vase in her
+left hand, the willow in her right, standing on a lotus on cloud, the white
+parrot by her shoulder (four drafts, $0.17, the third kept). Her life: she
+leans a little over her feet; the willow's leaves and her sleeves' ends
+stir; the parrot's raised wing beats behind its body and the lowered one in
+front reaches a little further on each downstroke and never less than
+painted, so it never uncovers the hood beside it; its tail fans; the cloud
+under the lotus boils, the lotus spared. The figure made in code stands on
+its lotus now, with a head. `LIVING_FAITHS` is three: Sanduo, the wind
+horse, Miyolangsangma. Her card is sized feet to hood (350 m) and set lower
+(`up_m` 80), since at 180 her hood touched the top of the frame; her line
+is now the novel's: "Guanyin of the South Sea, who comes when the pilgrims
+cannot win."
+
+**Checked.** Held with the cast on (seed 1): Guanyin at 75 s whole over the
+horizon, the parrot at her shoulder; Laozi at 104 s coming on over the
+Yellow River's valley, 25 % of the frame high (at `up_m` −320 his cloud sat
+on the ridge behind him, so he was lifted to −170 and enlarged from 460 m).
+The cover's frames at seed 1 plan the same visits as before (the elephant
+at the Karst's 8 s, the carp at the Loess's 54 s). `npm run typecheck`;
+`npm run content:validate` (film ok, 36 lines of 40); tests 638 of 638.
+Paint spent $6.50 of $30.
+
+**Left.** Laozi comes once in most viewings, for his line: Jingwei's line
+and the crowd keep the Loess's sky full until 97 s.
+
+## F136 — The phoenix always comes, and the egrets fly in its train, 30 September 2026
+
+**Asked.** For the phoenix, the user chose the fuller of the two offered:
+act out 百鸟朝凤, the hundred birds paying court to the king of birds, by
+having the Karst's egrets fly in a train behind it whenever it comes.
+
+**Changed.** The phoenix is cast every viewing (its `chance` gone) and named
+"The phoenix, king of birds, seen when the world is at peace." A new motion,
+`train` (`motions/train.ts`), the fourth that follows another: for each of
+the leader's visits, on its path 1.2–2.2 s behind, and behind it across the
+picture by 0.45 of the two sizes, past the plumes, 2–6 % of its distance
+below the leader's line, as the plumes fall; kept in the picture as the
+chaser is (`keptBeside`), over the leader where it comes straight on. A
+chaser goes after most visits of its leader (0.8); a train after every one.
+Temperament `attends` (egrets → phoenix), looked for after `escorts` and
+before `blocks` and `chases`. `moves.ts` gains `FOLLOW_MOTIONS` (the
+director's own motions that are not holds), which the director's sides and
+the tests use where they named chase, escort and block one by one. The
+egrets' line moved from 50 to 84 s: at 50 their named visit overlapped the
+phoenix's at 40, and a follower keeps off its own named visit.
+
+**What showed.** Held at 43 s, the egrets were there and not seen: a white
+fleck at the horizon. Nine egrets abreast in a chevron, crossing the picture
+side-on, are nine birds one behind another. They fly in echelon now, each a
+little behind, aside and below the one before, so the line strings out
+seen from the side or from behind; and the cue is 700 m (from 440), the
+birds 60 m across, since the flock's size is its loop's reach and the birds
+are small in it. Held at 43 s, the line of egrets streams behind the plumes.
+
+**Checked.** Stepped a second at a time through the phoenix's named visit
+(seed 1, 37–54 s): the egrets come in off the edge at 39 s behind it, keep
+0.43 of the half width behind it while it pauses for its line, and go out
+after it at 52 s, never jumping. Over 2,000 viewings the phoenix comes 2.2
+times for 22.6 s (from 12.1), and 89 % of its visits have their train, its
+named visit always; the rest fall on the egrets' own line or past their
+cue. The egrets are on for 35 s a viewing (from 23). At their own line
+(88 s) the echelon reads as a line of birds.
+
+**Left.** The egrets are still made in code, as are the cranes; beside the
+painted phoenix they are small white birds, which a court should be.
+
 ## F137 — Companions out of the rock: drawn nearer, the same in the picture, 30 September 2026
 
 **Asked.** A frame of the Three Gorges 52 s in, the White Dragon's body cut

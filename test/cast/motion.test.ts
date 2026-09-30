@@ -9,10 +9,11 @@ import { describe, expect, it } from "vitest";
 import { Color, Scene as ThreeScene, Vector3 } from "three";
 import { cueFromRaw } from "../../content/cast.ts";
 import { FIGURE_KINDS, LIVING_FAITHS } from "../../engine/src/cast/kinds.js";
-import { CUE_MOTIONS, MOTION_KINDS, TRANSIT_MOTIONS, WORLD_TRANSIT_MOTIONS, motionSuits, type MotionKind } from "../../engine/src/cast/moves.js";
+import { CUE_MOTIONS, FOLLOW_MOTIONS, MOTION_KINDS, TRANSIT_MOTIONS, WORLD_TRANSIT_MOTIONS, motionSuits, type MotionKind } from "../../engine/src/cast/moves.js";
 import { DEFAULT_VIEW, SIDE_AT, facingAlong, frameToPicture, inPicture, motionBuilder, newPose, pictureToFrame, registeredMotions, type MotionContext, type PoseOf, type View, type Visit } from "../../engine/src/cast/motion.js";
 import { ESCORT_CROWDED_X, ESCORT_KEEP_X, ESCORT_KEEP_Y, ESCORT_NEARER, risen } from "../../engine/src/cast/motions/escort.js";
 import { CHASE_APART, CHASE_CLEAR, CHASE_KEEP } from "../../engine/src/cast/motions/chase.js";
+import { TRAIN_APART, TRAIN_BELOW } from "../../engine/src/cast/motions/train.js";
 import "../../engine/src/cast/motions/index.js";
 import "../../engine/src/cast/figures/index.js";
 import { hashSeed, Rng } from "../../engine/src/cast/random.js";
@@ -63,6 +64,8 @@ describe("the motions", () => {
     expect([...registeredMotions()].sort()).toEqual([...MOTION_KINDS].sort());
     expect(CUE_MOTIONS).not.toContain("chase");
     expect(CUE_MOTIONS).not.toContain("escort");
+    expect([...FOLLOW_MOTIONS].sort()).toEqual(["block", "chase", "escort", "train"]);
+    for (const m of FOLLOW_MOTIONS) expect(CUE_MOTIONS).not.toContain(m);
     expect(motionSuits("anchor", "monument")).toBe(true);
     expect(motionSuits("anchor", "companion")).toBe(false);
     expect(motionSuits("cross", "monument")).toBe(false);
@@ -255,6 +258,42 @@ describe("the motions", () => {
     }
   });
 
+  it("keep a train behind the one it attends, past its length across the picture and below its line, and never on it straight on (F136)", () => {
+    const phoenix = cue({ figure: "phoenix", size_m: 670 });
+    const egrets = cue({ figure: "egrets", size_m: 440 });
+    const at = { ahead: 1500, right: 0, up: -300 };
+    for (const yawDeg of [90, -90, 60, 180]) {
+      const yaw = (yawDeg * Math.PI) / 180;
+      const leader: PoseOf = (_t, _view, out) => {
+        out.space = "frame";
+        out.world = null;
+        Object.assign(out.at, at);
+        out.yaw = yaw;
+        out.presence = 1;
+        return true;
+      };
+      const m = motionBuilder("train")!({ ...contextOf(egrets, visitOf("train", 3, { leader: 0, lagS: 1.6 })), leader, leaderCue: phoenix });
+      const pose = newPose();
+      expect(m.pose(25, DEFAULT_VIEW, pose)).toBe(true);
+      expect(pose.yaw, `${yawDeg}°`).toBe(yaw);
+      const side = Math.max(-1, Math.min(1, Math.sin(yaw) / SIDE_AT));
+      const x = frameToPicture(pose.at, DEFAULT_VIEW).x - frameToPicture(at, DEFAULT_VIEW).x;
+      if (Math.abs(side) > 0.5) expect(Math.sign(x), `${yawDeg}°`).toBe(-Math.sign(side));
+      const reach = Math.hypot(at.ahead, at.right, at.up);
+      if (Math.abs(side) === 1) {
+        // Wholly across: behind it past both half-lengths, and below its line.
+        expect(Math.abs(pose.at.right - at.right) + 0.04 * reach, `${yawDeg}°`).toBeGreaterThanOrEqual(TRAIN_APART * (670 + 440) - 1e-6);
+        expect(pose.at.up - at.up, `${yawDeg}°`).toBeLessThanOrEqual(-TRAIN_BELOW[0] * reach + 1e-6);
+        expect(pose.at.up - at.up, `${yawDeg}°`).toBeGreaterThanOrEqual(-TRAIN_BELOW[1] * reach - 1e-6);
+      } else if (Math.abs(side) < 0.2) {
+        // Straight on: over it, or beside it where there is no room over it, never on it.
+        const across = Math.abs(pose.at.right - at.right);
+        const rise = pose.at.up - at.up;
+        expect(across >= 0.25 * (670 + 440) || rise >= 0.3 * 670, `${yawDeg}°: across ${across.toFixed(0)}, rise ${rise.toFixed(0)}`).toBe(true);
+      }
+    }
+  });
+
   it("keep a chaser off the one it chases where it comes straight at the lens, close, with no room over it (F129)", () => {
     const wukong = cue({ figure: "wukong", size_m: 130 });
     const nezha = cue({ figure: "nezha", size_m: 240 });
@@ -393,6 +432,7 @@ describe("the temperaments", () => {
       expect(FIGURE_KINDS as readonly string[]).toContain(kind);
       for (const m of Object.keys(t!.moves)) expect([...TRANSIT_MOTIONS, ...WORLD_TRANSIT_MOTIONS] as readonly string[], `${kind} ${m}`).toContain(m);
       for (const k of [...t!.chases, ...t!.blocks]) expect(FIGURE_KINDS as readonly string[]).toContain(k);
+      for (const k of t!.attends) expect(FIGURE_KINDS as readonly string[]).toContain(k);
       if (t!.escorts) expect(FIGURE_KINDS as readonly string[]).toContain(t!.escorts.figure);
       if (kind !== "wukong") expect(t!.moves.blink ?? 0, kind).toBe(0);
       expect(t!.band[0]).toBeLessThan(t!.band[1]);
@@ -403,6 +443,7 @@ describe("the temperaments", () => {
     expect(temperamentOf("nezha").blocks).toEqual(["niumowang"]);
     expect(temperamentOf("wukong").chases).toEqual(["niumowang"]);
     expect(temperamentOf("wukong").escorts?.figure).toBe("pilgrims");
+    expect(temperamentOf("egrets").attends).toEqual(["phoenix"]);
     expect(temperamentOf("lungta").facesPath).toBe(false);
   });
 });
@@ -469,7 +510,7 @@ describe("the director", () => {
             expect(v.untilS, `${s.id} ${c.figure}`).toBeLessThanOrEqual(c.untilS);
             expect(v.untilS).toBeGreaterThan(v.fromS);
             if (k > 0) expect(v.fromS, `${s.id} ${c.figure} seed ${seed}`).toBeGreaterThan(vs[k - 1]!.untilS);
-            if (v.motion !== "chase" && v.motion !== "escort" && v.motion !== "block" && v.motion !== "hold") passing.push(v);
+            if (!FOLLOW_MOTIONS.includes(v.motion) && v.motion !== "hold") passing.push(v);
           });
         });
         for (let t = 0; t < 114; t += 0.25) {
@@ -493,7 +534,7 @@ describe("the director", () => {
           s.cast.forEach((c, i) => {
             if (i === j || c.role !== "companion") return;
             for (const v of plan.cues[i]!.visits) {
-              if (v.named || v.motion === "chase" || v.motion === "escort" || v.motion === "block" || v.motion === "hold" || v.reaction) continue;
+              if (v.named || FOLLOW_MOTIONS.includes(v.motion) || v.motion === "hold" || v.reaction) continue;
               expect(v.untilS <= from || v.fromS >= until, `${s.id} ${c.figure} across ${named.figure}'s line, seed ${seed}`).toBe(true);
             }
           });
@@ -566,6 +607,39 @@ describe("the director", () => {
     // Wukong was over the Flaming Mountains in one viewing in twelve, crowded out by the lines there.
     expect(blocked).toBeGreaterThan(0.6 * SEEDS.length);
     expect(chased).toBeGreaterThan(0.6 * SEEDS.length);
+  });
+
+  it("sends the egrets in the phoenix's train, a moment behind every visit of its that their cue holds, and always for its line (F136)", () => {
+    const karst = film.scenes.find((s) => s.id === "karst")!;
+    const phoenix = karst.cast.findIndex((c) => c.figure === "phoenix");
+    const egrets = karst.cast.findIndex((c) => c.figure === "egrets");
+    const e = karst.cast[egrets]!;
+    expect(karst.cast[phoenix]!.chance, "the king of birds comes every viewing").toBe(1);
+    let visits = 0;
+    let trains = 0;
+    for (const seed of SEEDS) {
+      const plan = planScene(karst, seed, temperamentOf, sightOf(karst));
+      const theirs = plan.cues[phoenix]!.visits;
+      const own = plan.cues[egrets]!.visits;
+      for (const v of own.filter((w) => w.motion === "train")) {
+        expect(v.leader, `seed ${seed}`).toBe(phoenix);
+        expect(v.lagS).toBeGreaterThanOrEqual(1.2);
+        expect(v.lagS).toBeLessThanOrEqual(2.2);
+        expect(theirs.some((lv) => Math.abs(lv.fromS + v.lagS - v.fromS) < 1e-9 && Math.abs(lv.untilS + v.lagS - v.untilS) < 1e-9), `seed ${seed}`).toBe(true);
+      }
+      // Their own way is gone: only their line, the train, and a herald's hover.
+      for (const v of own) expect(v.motion === "train" || v.named || v.reaction !== null, `seed ${seed} ${v.motion} at ${v.fromS}`).toBe(true);
+      for (const lv of theirs) {
+        const fits = lv.fromS + 2.2 >= e.fromS && lv.untilS + 2.2 <= e.untilS && !own.some((w) => w.motion !== "train" && w.fromS < lv.untilS + 3.2 && lv.fromS < w.untilS + 1);
+        if (!fits) continue;
+        visits += 1;
+        const behind = own.find((w) => w.motion === "train" && Math.abs(w.fromS - w.lagS - lv.fromS) < 1e-9);
+        if (behind) trains += 1;
+        if (lv.named) expect(behind, `seed ${seed}: the phoenix named without its train`).toBeDefined();
+      }
+    }
+    expect(visits).toBeGreaterThan(SEEDS.length * 1.5);
+    expect(trains / visits).toBeGreaterThan(0.95);
   });
 
   it("sends Wukong with the pilgrims wherever both are cast, for each of their visits and no other (F128)", () => {

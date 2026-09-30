@@ -36,13 +36,16 @@
  * - a figure whose temperament escorts another, when both are cast at once,
  *   comes with every visit of the other's and no other (F128): Wukong with
  *   the pilgrims;
+ * - a figure whose temperament attends another goes in its train, a moment
+ *   behind every visit of the other's, and has no way of its own but for
+ *   its line (F136): the egrets after the phoenix;
  * - an omen comes only when there is a witness on stage for it, or one the
  *   omen may bring on, and never cuts a figure's line short or turns its
  *   head from the lens while its line is on;
  * - the same seed draws the same plan.
  */
 import { CAST_LINE_SHOW_S, type CastCue, type Scene } from "../film/scene.js";
-import { CUE_MOTIONS, MOTIONS, TRANSIT_MOTIONS, WORLD_MOTIONS, WORLD_TRANSIT_MOTIONS, type MotionKind } from "./moves.js";
+import { CUE_MOTIONS, FOLLOW_MOTIONS, MOTIONS, TRANSIT_MOTIONS, WORLD_MOTIONS, WORLD_TRANSIT_MOTIONS, type MotionKind } from "./moves.js";
 import { OMENS, witnesses } from "./omens.js";
 import { hashSeed, Rng } from "./random.js";
 import type { Sight } from "./sight.js";
@@ -69,6 +72,8 @@ const MIN_ENTRY_S = 0.8;
 const APART_S = 3;
 /** How often a chaser goes after each of its leader's visits. */
 const CHASE_CHANCE = 0.8;
+/** Seconds a train keeps behind its leader on the leader's path, least and most (F136). */
+const TRAIN_LAG_S = [1.2, 2.2] as const;
 /** Seconds a surfaced monument stands, before its pace. */
 const STAND_S = [6, 16] as const;
 /**
@@ -167,10 +172,11 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
     return list;
   };
 
-  // Whom a cue follows, and how (F128–F130): the one its temperament
-  // escorts, else the first it blocks, else the first it chases, cast for
-  // some of the same seconds; one it blocks or chases must go its own way.
-  const followOf = (i: number, depth = 0): { motion: "escort" | "block" | "chase"; leader: number } | null => {
+  // Whom a cue follows, and how (F128–F130, F136): the one its temperament
+  // escorts, else the first it attends, else the first it blocks, else the
+  // first it chases, cast for some of the same seconds; one it attends,
+  // blocks or chases must go its own way.
+  const followOf = (i: number, depth = 0): { motion: "escort" | "train" | "block" | "chase"; leader: number } | null => {
     const c = cues[i]!;
     if (c.motions || c.role !== "companion" || depth > 2) return null;
     const t = temperament(c.figure);
@@ -178,7 +184,7 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
       cues.findIndex((d, k) => k !== i && cast[k] && d.figure === kind && d.role === "companion" && d.fromS < c.untilS && c.fromS < d.untilS && (!free || followOf(k, depth + 1) === null));
     const escorted = t.escorts ? find(t.escorts.figure, false) : -1;
     if (escorted >= 0) return { motion: "escort", leader: escorted };
-    for (const [motion, kinds] of [["block", t.blocks], ["chase", t.chases]] as const) {
+    for (const [motion, kinds] of [["train", t.attends], ["block", t.blocks], ["chase", t.chases]] as const) {
       for (const kind of kinds) {
         const j = find(kind, true);
         if (j >= 0) return { motion, leader: j };
@@ -384,17 +390,17 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
       }
       continue;
     }
-    if (follow?.motion === "chase") {
-      const lead = follow.leader;
-      // After the leader: each of its visits, a second or so behind, where the chaser's cue allows.
+    if (follow?.motion === "chase" || follow?.motion === "train") {
+      const { motion, leader: lead } = follow;
+      // After the leader: each of its visits a chaser goes after, and every one a train does, a moment behind, where its cue allows.
       for (const lv of drafts[lead]!) {
-        if (!rng.chance(CHASE_CHANCE)) continue;
-        const lagS = rng.range(0.9, 1.6);
+        if (motion === "chase" && !rng.chance(CHASE_CHANCE)) continue;
+        const lagS = motion === "chase" ? rng.range(0.9, 1.6) : rng.range(...TRAIN_LAG_S);
         const from = lv.fromS + lagS;
         const until = lv.untilS + lagS;
         if (from < c.fromS || until > c.untilS) continue;
         if (own.some((v) => v.fromS < until + 1 && from < v.untilS + 1)) continue;
-        own.push({ ...base(i, "chase", from, until), leader: lead, lagS });
+        own.push({ ...base(i, motion, from, until), leader: lead, lagS });
       }
       continue;
     }
@@ -431,7 +437,7 @@ export function planScene(scene: Pick<Scene, "id" | "cast">, seed: number, tempe
   const sided: Draft[] = [];
   for (const { v, i } of all) {
     const authored = Math.sign(cues[i]!.offset?.rightM ?? 0);
-    const other = sided.find((w) => w.fromS < v.untilS && v.fromS < w.untilS && w.motion !== "chase" && w.motion !== "escort" && w.motion !== "block");
+    const other = sided.find((w) => w.fromS < v.untilS && v.fromS < w.untilS && !FOLLOW_MOTIONS.includes(w.motion));
     v.side = v.named && authored !== 0 ? (authored as -1 | 1) : other ? (-other.side as -1 | 1) : rngs[i]!.sign();
     sided.push(v);
   }

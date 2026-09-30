@@ -15,4 +15,5 @@ import "./blink.js";
 import "./chase.js";
 import "./escort.js";
 import "./block.js";
+import "./train.js";
 import "./surface.js";

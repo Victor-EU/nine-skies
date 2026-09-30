@@ -217,7 +217,7 @@ describe("a glance", () => {
     for (const kind of FIGURE_KINDS) {
       const f = figureBuilder(kind)!({ skin: SKINS.lantern!(), variant: null, scale: DEFAULT_SCALE });
       const heads = f.heads ?? [];
-      if (["carp", "guanyin", "lungta"].includes(kind)) expect(heads, kind).toHaveLength(0);
+      if (["carp", "lungta"].includes(kind)) expect(heads, kind).toHaveLength(0);
       else expect(heads.length, kind).toBeGreaterThan(0);
       for (const h of heads) {
         let inside = false;

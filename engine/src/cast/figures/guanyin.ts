@@ -1,19 +1,21 @@
 /**
- * Guanyin (D91), the Bodhisattva of Compassion, who in the novel sets the
- * pilgrimage going, takes each disciple's vow and comes when they cannot
- * win, and whose seat is Putuo in the South Sea. She is worshipped, so
- * the film does not draw her; it draws what her own iconography sets
- * beside her, the way early Buddhist art showed the Buddha by an empty
- * seat. A lotus throne on cloud, empty; on it the vase of pure water with
- * the willow sprig; and the white parrot of the novel circling it. In
- * place as `still`, or turning slowly. No part of her is skin
- * (`LIVING_FAITHS`).
+ * Guanyin (D91, D97), the Bodhisattva of Compassion, who in the novel sets
+ * the pilgrimage going, takes each disciple's vow and comes when they
+ * cannot win, and whose seat is Putuo in the South Sea. Guanyin of the
+ * South Sea as the novel (ch. 8) and the temples show her: standing on a
+ * lotus throne on cloud, in a white robe and hood, the vase of pure water
+ * in her left hand and the willow sprig in her right; and the white parrot
+ * of the novel circling her. In place as `still`, or turning slowly. Until
+ * 29 September 2026 the film drew her seat empty (D97).
+ *
+ * The painted card (`paintings/guanyin.ts`) is what the film draws; this is
+ * the figure made in code, for `?paint=off`.
  *
  * Native size 3.8 units, the parrot's circle.
  */
 import { BoxGeometry, ConeGeometry, CylinderGeometry, Group, SphereGeometry, TorusGeometry, Vector3 } from "three";
-import { registerFigure, type BuildContext, type CastFrame, type Figure } from "../figure.js";
-import { Wardrobe, breathe, cloudBank, flapWing, wing, type Wing } from "../parts.js";
+import { registerFigure, type BuildContext, type CastFrame, type Figure, type Head } from "../figure.js";
+import { Wardrobe, breathe, cloudBank, flapWing, humanHead, humanoid, wing, type Wing } from "../parts.js";
 import type { Skin } from "../skin.js";
 
 const PETAL = 0xf2b8c6;
@@ -25,13 +27,17 @@ const WHITE = 0xf8f8f4;
 const CREST = 0xf1c24c;
 const BEAK = 0x4a4a52;
 const CLOUD = 0xffffff;
+const FACE = 0xf4e2d4;
+const HAIR = 0x1e1a1c;
+const ROBE = 0xf6f4ee;
+const CORD = 0xd9b45a;
 
 class Guanyin implements Figure {
   readonly group = new Group();
   readonly nativeSize = 3.8;
   readonly triangles: number;
-  /** Open, so the cast tests can hold her to the rule: nothing here is skin. */
   readonly wardrobe: Wardrobe;
+  readonly heads: readonly Head[];
   private readonly seat = new Group();
   private readonly willow = new Group();
   private readonly parrot = new Group();
@@ -58,18 +64,42 @@ class Guanyin implements Figure {
         petal.scale.set(1, 1, 0.35);
         petal.rotation.z = -lean;
       }
-    w.part(new CylinderGeometry(0.35, 0.3, 0.2, 12), "gold", POD, S, 0, 0.4, 0);
-    // the vase of pure water, and the willow sprig in it
-    w.part(new SphereGeometry(0.32, 16, 12), "horn", JADE, S, 0, 0.78, 0);
-    w.part(new CylinderGeometry(0.08, 0.1, 0.45, 10), "horn", JADE, S, 0, 1.12, 0);
-    w.part(new TorusGeometry(0.1, 0.03, 8, 16), "horn", JADE, S, 0, 1.34, 0).rotation.x = Math.PI / 2;
-    this.willow.position.set(0.02, 1.3, 0);
-    S.add(this.willow);
+    w.part(new CylinderGeometry(0.35, 0.3, 0.12, 12), "gold", POD, S, 0, 0.36, 0);
+    // she stands on the lotus, in a white robe and hood with a gold cord
+    const her = new Group();
+    her.position.set(0, 0.42, 0);
+    her.scale.setScalar(0.62);
+    S.add(her);
+    const h = humanoid(w, { face: FACE, torso: ROBE, legs: ROBE, shoe: FACE, skirt: ROBE, headR: 0.42 }, her);
+    w.part(new SphereGeometry(0.44, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.55), "hair", HAIR, her, 0, 1.84, -0.03);
+    w.part(new SphereGeometry(0.18, 10, 8), "hair", HAIR, her, 0, 2.3, -0.05);
+    w.part(new SphereGeometry(0.12, 10, 8), "gold", CREST, her, 0, 2.28, 0.16);
+    const hood = w.part(new ConeGeometry(0.62, 1.9, 16, 1, true), "silk", ROBE, her, 0, 1.45, -0.12);
+    hood.scale.set(1, 1, 0.8);
+    w.part(new ConeGeometry(0.8, 1.7, 16, 1, true), "silk", ROBE, her, 0, 0.3, 0);
+    w.part(new TorusGeometry(0.36, 0.035, 6, 20), "gold", CORD, her, 0, 0.95, 0).rotation.x = Math.PI / 2;
+    for (const s of [-1, 1]) w.part(new SphereGeometry(0.04, 8, 6), "eye", 0x111111, her, s * 0.14, 1.84, 0.38);
+    const [left, right] = h.arms;
+    left!.shoulder.rotation.set(-0.35, 0, -0.1);
+    left!.elbow.rotation.set(-1.2, 0, 0);
+    right!.shoulder.rotation.set(-0.5, 0, 0.1);
+    right!.elbow.rotation.set(-1.5, 0, 0);
+    // the vase of pure water in her left hand, and the willow sprig in her right
+    const vase = new Group();
+    vase.position.set(-0.4, 1.0, 0.55);
+    her.add(vase);
+    w.part(new SphereGeometry(0.2, 16, 12), "horn", JADE, vase, 0, 0, 0);
+    w.part(new CylinderGeometry(0.05, 0.06, 0.28, 10), "horn", JADE, vase, 0, 0.22, 0);
+    w.part(new TorusGeometry(0.06, 0.02, 8, 16), "horn", JADE, vase, 0, 0.36, 0).rotation.x = Math.PI / 2;
+    this.willow.position.set(0.42, 1.05, 0.6);
+    this.willow.scale.setScalar(0.8);
+    her.add(this.willow);
     w.part(new CylinderGeometry(0.015, 0.015, 1.0, 6), "silk", WILLOW, this.willow, 0, 0.5, 0);
     for (let i = 0; i < 6; i++) {
       const s = i % 2 ? 1 : -1;
       w.part(new ConeGeometry(0.035, 0.16, 4), "silk", WILLOW, this.willow, s * 0.06, 0.15 + i * 0.13, 0).rotation.z = s * 1.2;
     }
+    this.heads = [humanHead(h, her, 0.6, 0.3)];
     // the white parrot: a cockatoo's crest, a hooked bill, feathered wings
     const P = this.parrot;
     this.group.add(P);

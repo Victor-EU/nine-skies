@@ -99,7 +99,11 @@ look:
 # km past the flight's end at one speed; and Jingwei, the Shan Hai
 # Jing's bird from Fajiu Mountain across the river, carries her twig to
 # the sea, a small bird on a long errand, glimpsed in three viewings of
-# five (D93).
+# five (D93). At the end Laozi, Taishang Laojun, rides his green ox west
+# as the monk does (D97): out through the Hangu Pass, past the flight's
+# end downstream where the river turns east, when the pass keeper saw a
+# purple cloud come from the east and knew a sage was coming. He left the
+# Daodejing at the pass and was not seen again.
 cast:
   - figure: pilgrims
     variant: monk
@@ -146,6 +150,17 @@ cast:
     line: "Jingwei, drowned in the Eastern Sea, filling it with pebbles ever since."
     line_at: 78
     chance: 0.6
+  - figure: laozi
+    variant: still
+    role: companion
+    offset: { ahead_m: 1400, right_m: -250, up_m: -170 }
+    size_m: 560
+    facing_deg: 95
+    from: 70
+    until: 114
+    name_zh: 太上老君
+    line: "Laozi on his green ox, going west, a purple cloud before him."
+    line_at: 102
 
 captions:
   - { at: 15, text: "The Yellow River, south through the loess plateau." }

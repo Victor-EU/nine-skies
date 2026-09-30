@@ -3,8 +3,12 @@
  * legs and yellow feet, the two long plumes of the breeding season on the
  * nape, which fish the shallows under the karst towers and fly the river
  * in loose lines with the neck drawn in, as herons do. Nine of them, each
- * beating at its own rate, banked so a wing always shows. The line flies
- * a wide loop round its place, or holds beside the camera as `still`.
+ * beating at its own rate, banked so a wing always shows. They fly in
+ * echelon, each a little behind, to one side of and below the one before,
+ * so the line strings out across the picture whether it is seen from the
+ * side or from behind: abreast, a line crossing the picture side-on was
+ * nine birds one behind the other, a white clump (F136). The line flies a
+ * wide loop round its place, or holds beside the camera as `still`.
  *
  * Native size is the loop's reach, 26 units; the birds are 2.2 across.
  */
@@ -102,8 +106,8 @@ class Egrets implements Figure {
     this.last = t;
     for (const b of this.birds) {
       const g = b.group;
-      // a loose line, each a little behind and below the one before, drifting
-      g.position.set(b.slot * 1.5 + Math.sin(t * 0.6 + b.phase) * 0.3, -Math.abs(b.slot) * 0.15 + Math.sin(t * 0.8 + b.phase) * 0.3, -Math.abs(b.slot) * 0.9 + Math.cos(t * 0.5 + b.phase) * 0.3);
+      // a loose echelon, each a little behind, aside and below the one before, drifting
+      g.position.set(b.slot * 1.5 + Math.sin(t * 0.6 + b.phase) * 0.3, -(b.slot + 4) * 0.12 + Math.sin(t * 0.8 + b.phase) * 0.3, -b.slot * 1.4 + Math.cos(t * 0.5 + b.phase) * 0.3);
       g.position.addScaledVector(b.scatter, 2 * alarm);
       g.rotation.set(-0.08, 0, Math.sign(b.slot || 1) * (0.3 + 0.3 * alarm) + Math.sin(t * 0.5 + b.phase) * 0.12);
       b.beat += dt * b.rate * (1 + 1.4 * alarm);

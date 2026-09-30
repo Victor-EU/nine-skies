@@ -12,11 +12,14 @@
  * - playfulness is Wukong's and Nezha's alone: the somersault and the chase,
  *   Nezha after the monkey in Heaven; at the Flaming Mountains Wukong after
  *   the Bull Demon King, and Nezha in his way (F130);
+ * - the egrets of the Li go in the phoenix's train whenever it comes
+ *   (F136): the hundred birds pay court to the king of birds (百鸟朝凤);
  * - Wukong goes ahead of his master wherever the pilgrims are cast with
  *   him (F128): the painting of the pilgrims is the monk, Bajie and Sha,
  *   and he is his own figure;
- * - figures of living faiths and the Queen Mother move slowly and are never
- *   drawn close (`stately`): they approach, cross and descend;
+ * - figures of living faiths, Guanyin, Laozi and the Queen Mother move
+ *   slowly and are never drawn close (`stately`): they approach, cross and
+ *   descend;
  * - birds and dragons may pitch with their path; walkers stay nearly level;
  * - a dragon surfaces where its cue stands it (D93): up out of the cloud
  *   sea, a while, and under again;
@@ -46,6 +49,8 @@ export interface Temperament {
   readonly chases: readonly FigureKind[];
   /** Figures it gets in the way of, before any it chases: ahead of one as it comes, facing it while it stops (F130). */
   readonly blocks: readonly FigureKind[];
+  /** Figures it goes in the train of, before any it blocks or chases: behind one, every time it comes (F136). */
+  readonly attends: readonly FigureKind[];
   /**
    * A figure it goes with when both are cast at once (F128): whenever the
    * other comes, it comes too, `ahead` of the other's size in front of the
@@ -80,6 +85,7 @@ const base: Temperament = {
   stately: false,
   chases: [],
   blocks: [],
+  attends: [],
   escorts: null,
   facesPath: true,
   curiosity: 0.35,
@@ -123,7 +129,7 @@ export const TEMPERAMENTS: Readonly<Partial<Record<FigureKind, Temperament>>> = 
   cranes: t({ moves: { cross: 3, overtake: 2, oncoming: 1 }, band: [-0.5, 0.4], maxPitchDeg: 20, curiosity: 0.3, skittish: true }),
   // Seen once in an age, and everything stops to see it.
   qilin: t({ moves: { cross: 2, oncoming: 2 }, band: [-0.5, 0.1], pace: 1.1, maxPitchDeg: 10, curiosity: 0.4, omens: { look: 2 } }),
-  // A hundred birds turn to the phoenix (百鸟朝凤).
+  // A hundred birds turn to the phoenix (百鸟朝凤), and the egrets follow it (F136).
   phoenix: t({ moves: { stoop: 2, cross: 2, overtake: 1 }, band: [-0.2, 0.6], maxPitchDeg: 30, curiosity: 0.3, omens: { look: 2 } }),
   // Tiger Leaping Gorge is on the rail: it leaps.
   tiger: t({ moves: { cross: 3, rise: 1 }, band: [-0.6, 0], pace: 0.7, maxPitchDeg: 20, curiosity: 0.5, omens: { scatter: 2, look: 1 } }),
@@ -139,11 +145,14 @@ export const TEMPERAMENTS: Readonly<Partial<Record<FigureKind, Temperament>>> = 
   // Crossing the sea, each by his own power.
   baxian: t({ moves: { cross: 3, oncoming: 1 }, band: [-0.5, 0.2], pace: 1.5, maxPitchDeg: 5 }),
   elephant: t({ moves: { cross: 2, oncoming: 1 }, band: [-0.7, -0.1], pace: 1.6, maxPitchDeg: 5 }),
-  egrets: t({ moves: { cross: 3, overtake: 1, rise: 1 }, band: [-0.6, 0.2], maxPitchDeg: 20, curiosity: 0.25, skittish: true }),
+  // The Li's own birds; when the phoenix comes they fly in its train.
+  egrets: t({ moves: { cross: 3, overtake: 1, rise: 1 }, band: [-0.6, 0.2], maxPitchDeg: 20, curiosity: 0.25, skittish: true, attends: ["phoenix"] }),
   sanduo: t({ moves: { cross: 2, oncoming: 2 }, band: [-0.4, 0.2], pace: 1.2, maxPitchDeg: 8, stately: true, curiosity: 0.2, omens: { look: 1 } }),
   guanyin: t({ moves: { oncoming: 2, stoop: 1, cross: 1 }, band: [-0.1, 0.5], pace: 1.6, maxPitchDeg: 5, stately: true, curiosity: 0, omens: { look: 2 } }),
   // The flags go where the wind takes them.
   lungta: t({ moves: { cross: 3, overtake: 1 }, band: [-0.1, 0.6], maxPitchDeg: 10, stately: true, facesPath: false, curiosity: 0 }),
+  // The old sage on his green ox, going west at an ox's pace, the purple air before him: everything turns to look.
+  laozi: t({ moves: { cross: 3, oncoming: 1 }, band: [-0.5, 0.2], pace: 1.6, maxPitchDeg: 5, stately: true, curiosity: 0.2, omens: { look: 1 } }),
   miyolangsangma: t({ moves: { cross: 2, oncoming: 1 }, band: [-0.5, 0.1], pace: 1.3, maxPitchDeg: 8, stately: true, curiosity: 0.2, omens: { look: 1 } }),
 };
 

@@ -46,12 +46,12 @@ look:
 # and is Elephant Trunk Hill, walks the air beside the camera from the
 # start (the hill itself is behind the camera from the first second); the
 # party walks the sky beside the camera, Bajie among them and Wukong
-# ahead of them (F128); a line of the
-# Li's egrets crosses ahead; the phoenix, the Shan Hai Jing's bird of the
-# far south, holds over the towers; and at the end Guanyin of the South
-# Sea, by her empty lotus, her willow vase and her white parrot, the way a
-# living faith is drawn here (F107). The phoenix shows itself only when
-# the world is at peace, so one viewing in two (D93).
+# ahead of them (F128); the phoenix, the Shan Hai Jing's bird of the far
+# south and the king of birds, holds over the towers, and the Li's egrets
+# fly in its train whenever it comes, the hundred birds paying it court
+# (百鸟朝凤, F136), and on their own for their line near the end; and
+# Guanyin of the South Sea on her lotus, with her willow, vase and white
+# parrot, drawn herself (D97).
 cast:
   - figure: elephant
     variant: still
@@ -88,13 +88,13 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1200, right_m: -420, up_m: -360 }
-    size_m: 440
+    size_m: 700
     facing_deg: 60
     from: 20
-    until: 100
+    until: 106
     name_zh: 白鹭
     line: "Egrets of the Li, which fish the shallows under the towers."
-    line_at: 50
+    line_at: 84
   - figure: phoenix
     variant: still
     role: companion
@@ -104,19 +104,18 @@ cast:
     from: 30
     until: 100
     name_zh: 凤凰
-    line: "The phoenix of the south, seen when the world is at peace."
+    line: "The phoenix, king of birds, seen when the world is at peace."
     line_at: 40
-    chance: 0.5
   - figure: guanyin
     variant: still
     role: companion
-    offset: { ahead_m: 1300, right_m: 450, up_m: 180 }
-    size_m: 270
+    offset: { ahead_m: 1300, right_m: 450, up_m: 80 }
+    size_m: 350
     facing_deg: 200
     from: 66
     until: 112
     name_zh: 南海观音
-    line: "Guanyin of the South Sea, by her lotus, vase and white parrot."
+    line: "Guanyin of the South Sea, who comes when the pilgrims cannot win."
     line_at: 72
 
 captions:

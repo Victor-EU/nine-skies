@@ -201,6 +201,16 @@ Everything else in the repository served the version-1 game and goes.
   the painting hides may be borrowed from its twin, in shadow (F123). A video model is not the way: OpenAI's closed on
   24 September 2026, this machine cannot run an open one, and a loop keeps
   its own tempo whatever the figure's path does.
+- **D97** Guanyin and Laozi are drawn in their bodies (decided by the user
+  29 September 2026, F135), which narrows D91's rule for living faiths.
+  Guanyin is painted as the novel (ch. 8) and the temples show Guanyin of
+  the South Sea, standing on her lotus with the vase, the willow and the
+  white parrot, where the film had drawn her seat empty. Laozi, Taishang
+  Laojun, joins the cast as the painters show him leaving the Hangu Pass
+  on his green ox, not as the enthroned Daode Tianzun of the altar, at the
+  end of the Loess, going west as the monk does. The Naxi god of the snow
+  mountain, the wind horse and the goddess of Chomolungma stay without a
+  body.
 
 
 ## What each part of the repository becomes

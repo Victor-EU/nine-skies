@@ -1,21 +1,27 @@
 /**
- * Guanyin's seat, painted (D94): the empty lotus throne on cloud, the vase
- * and willow, the white parrot; no part of her (`LIVING_FAITHS`,
- * `content/paintings/guanyin.yaml`). Sized across the cloud it rests on.
+ * Guanyin of the South Sea, painted (D94, D97): standing on her lotus on
+ * cloud in a white robe and hood, the vase in her left hand and the willow
+ * in her right, the white parrot by her shoulder
+ * (`content/paintings/guanyin.yaml`). Sized feet to hood. Until 29
+ * September 2026 the card was her empty seat.
  */
 import { circlesAlong } from "../life.js";
 import { churn } from "../life/churn.js";
 import { flap } from "../life/flap.js";
 import { flutter } from "../life/flutter.js";
+import { sway } from "../life/sway.js";
 import { registerPainting } from "../painting.js";
 
+const PARROT = { name: "parrot", within: [{ at: [180, 170], r: 140 }] } as const;
+
 /**
- * Its life (D96): the seat is empty and keeps still (`LIVING_FAITHS`); the
- * white parrot hovers over it, beating both wings (the far one, hidden
- * behind its body in the painting, borrowed from the near one), its tail
- * fanning and crest lifting; the willow
- * in the vase sways, and the cloud under the throne boils. The throne and the
- * vase are pale, so only the cloud churns.
+ * Her life (D96): she stands still, leaning only a little over her feet
+ * on the lotus; the willow's leaves stir in her hand and the long ends of
+ * her sleeves in the air. The white parrot hovers by her shoulder, its
+ * raised wing beating behind its body and the lowered one in front,
+ * reaching a little further on each downstroke and never less than it is
+ * painted, so the hood beside it is never uncovered; its tail fans. The
+ * cloud under the lotus boils; the lotus is pale and keeps still.
  */
 registerPainting("guanyin", {
   views: [
@@ -23,23 +29,27 @@ registerPainting("guanyin", {
       name: "default",
       url: "cast/guanyin-default.webp",
       faces: "right",
-      aspect: 923 / 1426,
-      feet: 0.3,
-      size: { across: 1 },
-      pixels: [923, 1426],
+      aspect: 744 / 1522,
+      feet: 0.15,
+      size: { crown: 0.99 },
+      pixels: [744, 1522],
       life: [
+        sway({ feet: [400, 1290], crown: 12, lean: 8 }),
         flap({
           beatHz: 3.2,
-          bob: 10,
-          near: { hinge: [[235, 228], [312, 158]], outline: [[312, 158], [312, 122], [276, 76], [224, 29], [167, -4], [123, -6], [103, 22], [104, 76], [124, 134], [160, 191], [200, 215], [235, 228]], top: 1, bottom: -0.35, feather: 14 },
-          // Its far wing is hidden behind the body: the near one again, a little forward and up, in shadow.
-          far: { borrow: [30, -10], shade: 0.7 },
-          who: { name: "parrot", within: [{ at: [290, 220], r: 170 }] },
+          bob: 8,
+          near: { hinge: [[205, 200], [240, 215]], outline: [[205, 200], [240, 215], [262, 202], [287, 206], [299, 222], [275, 244], [245, 256], [210, 252], [195, 235]], top: 1, bottom: 1.2, feather: 10 },
+          far: { hinge: [[165, 208], [228, 158]], outline: [[228, 158], [215, 132], [190, 105], [160, 80], [125, 56], [90, 40], [62, 42], [56, 75], [66, 110], [84, 142], [104, 170], [124, 196], [145, 212], [165, 208]], top: 1, bottom: -0.3, feather: 14 },
+          who: PARROT,
         }),
-        flutter({ root: [300, 250], stir: 8, regions: [{ at: [240, 310], r: 70 }, { at: [290, 320], r: 50 }] }),
-        flutter({ root: [370, 175], stir: 5, regions: [{ at: [395, 145], r: 30 }, { at: [375, 150], r: 25 }] }),
-        flutter({ root: [460, 430], stir: 10, regions: [{ at: [520, 330], r: 90 }, { at: [620, 330], r: 90 }, { at: [680, 450], r: 80 }, { at: [700, 560], r: 70 }, { at: [480, 370], r: 60 }], stiff: [{ at: [455, 470], r: 45 }] }),
-        churn({ swirl: 8, within: [{ at: [110, 1180], r: 130 }, { at: [810, 1120], r: 130 }, { at: [570, 1170], r: 100 }, ...circlesAlong([[140, 1330], [800, 1330]], 120)], spare: [{ at: [340, 1090], r: 100 }] }),
+        flutter({ root: [175, 240], stir: 6, regions: [{ at: [160, 262], r: 38 }, { at: [135, 290], r: 36 }, { at: [115, 312], r: 32 }] }),
+        flutter({ root: [330, 470], stir: 5, regions: circlesAlong([[290, 340], [250, 352], [215, 380], [190, 420], [175, 470], [165, 520], [160, 575]], 40), stiff: [{ at: [330, 470], r: 30 }] }),
+        flutter({ root: [400, 700], stir: 5, regions: [{ at: [610, 1000], r: 70 }, { at: [175, 1020], r: 50 }] }),
+        churn({
+          swirl: 8,
+          within: [{ at: [40, 1340], r: 60 }, { at: [720, 1330], r: 50 }, ...circlesAlong([[70, 1430], [680, 1430]], 85)],
+          spare: circlesAlong([[130, 1330], [650, 1330]], 60),
+        }),
       ],
     },
   ],

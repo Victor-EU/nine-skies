@@ -29,6 +29,7 @@ export const FIGURE_KINDS = [
   "guanyin",
   "lungta",
   "miyolangsangma",
+  "laozi",
 ] as const;
 
 export type FigureKind = (typeof FIGURE_KINDS)[number];
@@ -38,12 +39,14 @@ export function isFigureKind(name: string): name is FigureKind {
 }
 
 /**
- * The figures of living faiths (decided 27 September 2026): the Naxi god
- * of the snow mountain, the Bodhisattva, the Tibetan wind horse, the
+ * The figures of living faiths drawn without a body (decided 27 September
+ * 2026): the Naxi god of the snow mountain, the Tibetan wind horse, the
  * goddess of Chomolungma. The film draws none of them as a body: each is
- * its mount, its seat, its standard or the thing its faith itself makes,
- * the way early Buddhist art showed the Buddha by an empty seat, a wheel
- * or a pair of footprints. The cast tests hold each to it: no part of
- * theirs is skin.
+ * its mount, its standard or the thing its faith itself makes, the way
+ * early Buddhist art showed the Buddha by an empty seat, a wheel or a pair
+ * of footprints. The cast tests hold each to it: no part of theirs is
+ * skin. Guanyin was drawn by her empty seat too, until the user asked for
+ * her in her body, as the novel and the temples show her, and Laozi in
+ * his, as the painters show him leaving the pass (D97, 29 September 2026).
  */
-export const LIVING_FAITHS: readonly FigureKind[] = ["sanduo", "guanyin", "lungta", "miyolangsangma"];
+export const LIVING_FAITHS: readonly FigureKind[] = ["sanduo", "lungta", "miyolangsangma"];

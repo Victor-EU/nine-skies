@@ -58,6 +58,14 @@ export const MOTIONS = {
    */
   block: { space: "frame", transit: false, cueable: false, naturalS: 0, arriveS: 0 },
   /**
+   * In another figure's train, for each of its visits (F136): on its path a
+   * moment behind, and behind it across the picture, a little below its
+   * line; the egrets of the Li after the phoenix, the hundred birds come to
+   * pay it court (百鸟朝凤). The director casts it from a figure's
+   * temperament; a cue cannot name it.
+   */
+  train: { space: "frame", transit: false, cueable: false, naturalS: 0, arriveS: 0 },
+  /**
    * A monument's that comes and goes (D93): up out of what lies under its
    * place - the cloud sea, the water - to stand there a while, and down
    * again, on its own timing. The rise and the dive are its natural length;
@@ -75,8 +83,11 @@ const kinds = (test: (t: MotionTraits) => boolean): readonly MotionKind[] => MOT
 /** The motions that place a figure in the world rather than in the camera's frame. */
 export const WORLD_MOTIONS: readonly MotionKind[] = kinds((t) => t.space === "world");
 
-/** The motions a cue may name: `chase`, `escort` and `block` need a leader, which only the director knows. */
+/** The motions a cue may name: `chase`, `escort`, `block` and `train` need a leader, which only the director knows. */
 export const CUE_MOTIONS: readonly MotionKind[] = kinds((t) => t.cueable);
+
+/** The motions that go with another figure, in the picture while it is and never on their own way: the director's alone, and none of them a hold. */
+export const FOLLOW_MOTIONS: readonly MotionKind[] = kinds((t) => t.space === "frame" && !t.transit && !t.cueable);
 
 /** The motions that pass through the picture and leave: what the director draws a companion's visit from. */
 export const TRANSIT_MOTIONS: readonly MotionKind[] = kinds((t) => t.transit && t.space === "frame");

@@ -27,3 +27,4 @@ import "./sanduo.js";
 import "./guanyin.js";
 import "./lungta.js";
 import "./miyolangsangma.js";
+import "./laozi.js";
