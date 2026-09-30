@@ -110,8 +110,11 @@ const rails: BuiltRail[] = (film?.scenes ?? []).map((s) => buildRail(s.rail));
 const worldName = chooseWorld(location.search);
 // The scene packs (stage 4): where the terrain's tiles and the hero areas
 // come from, a scene at a time. Without them every tile is its own fetch.
+// The packs come from the site itself, or from the store a build names in
+// VITE_PACKS_URL when the host will not take them (Telbase: `make telbase`).
 const packIndex = await loadPackIndex("/packs/index.json");
-const packs = packIndex && packIndex.world === worldName ? new ScenePacks(packIndex, "", `/world/${worldName}`) : null;
+const packsUrl = import.meta.env.VITE_PACKS_URL ?? "";
+const packs = packIndex && packIndex.world === worldName ? new ScenePacks(packIndex, packsUrl, `/world/${worldName}`) : null;
 let world: LoadedWorld | null = null;
 try {
   world = await loadWorld(`/world/${worldName}`, null, packs?.fetchTile);

@@ -5424,3 +5424,48 @@ picture untouched. 653 tests pass.
 **Left.** Only named pauses and drifts are held; a figure passing through
 unnamed in a tall window crosses it faster and nearer its edges, as it
 enters and leaves by that window's own edges already.
+
+## F145 — The film on Telbase, its packs in the project's private bucket, 30 September 2026
+
+**Asked.** "Deploy to telbase.ai. We have an R2 storage, check how it
+works." Then, of the two ways offered, the packs in Telbase's own storage
+with a function that signs for them (D100).
+
+**How Telbase's storage works.** `telbase storage` (or `deploy --storage`)
+gives a project one Cloudflare R2 bucket, private: no public address, S3
+keys with full access (`storage credentials`), and CORS origins
+(`storage cors`). The deployed project is given the same keys as
+R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME.
+Telbase counts a static site as a website (without limit on the paid
+plans) and a server as an app (limited), so the film stays a static site
+with one function beside it, and no project needed deleting.
+
+**Built.** `tools/telbase/api/pack.mjs`, the site's one function: a
+pack's key (`<index folder>/packs/<scene>.bin`, nothing else) is sent on
+with a 302 to R2, signed (Signature Version 4, S3's query form, with
+Node's own crypto, so the site has no package.json and deploys as static)
+as of the day's start for two days, so the link is the same all day and
+caches. The site is built with its packs' base at `/api/pack?key=<folder>`
+(`VITE_PACKS_URL`), so the app is unchanged. `tools/hostPacks.ts` sends
+the packs with the keys the Telbase CLI gives each time it runs, never
+written or printed, and checks what is there with a signed HEAD.
+`make telbase` builds, stages `dist-site/` with the function, deploys it
+as the project's one service with its storage, lets the site's origin
+read the bucket, and sends the packs (before the deploy, once the
+repository is linked, `.telbase/`, which git ignores). The first deploy
+linked the repository as a project whose one service is `./dist-site`.
+
+**Checked.** The signer reproduces AWS's worked example of a signed link.
+Live: the site answers without a login; `/api/pack` answers 302 to a link
+in `nine-skies-files`, and 404 to any key but a pack's; each of the nine
+packs answers at its size in the index, with `Access-Control-Allow-Origin`
+for the site and `immutable` caching. In a headless browser at
+https://nine-skies.telbase.ai the opening's pack comes through the
+function from R2, the massif rises under the chapter card, and the next
+pack follows. Here R2 gives 1.56 MB/s, the line's own speed (Cloudflare's
+speed test 1.50 MB/s; the site's own files from Vercel 0.30 MB/s).
+1,074 MB sent once; sent again, nothing.
+
+**Left.** Telbase's storage status still read 0 objects after the upload
+(its usage lags). Not played on a phone yet (stage 6's "done when"). The
+link is the telbase.ai one; no domain of its own.

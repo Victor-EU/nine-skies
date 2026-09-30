@@ -233,6 +233,14 @@ Everything else in the repository served the version-1 game and goes.
   fillet, plain tunic and tiger-skin kilt, as the novel dresses the monk's
   disciple, go with the party, where the first painting (F116) had him
   crowned everywhere.
+- **D100** The film is hosted on Telbase (decided by the user 30 September
+  2026, F145): https://nine-skies.telbase.ai. The site is a static site
+  there (Vercel), 38 MB; the packs, a gigabyte, are in the project's own
+  storage bucket (Cloudflare R2), which Telbase keeps private, and the site
+  reaches them through its one function, `/api/pack`, which sends each
+  request on to R2 with a link signed for that pack. The bytes go from R2
+  to the viewer, who pays no egress; nothing but the packs can be signed
+  for. `make telbase` publishes.
 
 
 ## What each part of the repository becomes

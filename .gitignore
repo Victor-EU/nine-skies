@@ -2,6 +2,8 @@ node_modules/
 dist/
 dist-world/
 dist-film/
+dist-site/
+.telbase/
 .cache/
 *.tsbuildinfo
 .DS_Store

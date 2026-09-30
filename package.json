@@ -23,7 +23,8 @@
     "content:scenes": "vite-node tools/scenes.ts",
     "stills": "vite-node tools/stills.ts",
     "cover": "vite-node tools/cover.ts",
-    "paint": "vite-node tools/paint.ts"
+    "paint": "vite-node tools/paint.ts",
+    "host-packs": "vite-node tools/hostPacks.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

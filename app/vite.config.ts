@@ -175,6 +175,12 @@ function publishedPacks(): Plugin {
         }
         throw new Error("no scene packs in dist-film/: `make scenes` cuts them from the built world");
       }
+      // Packs served from elsewhere (VITE_PACKS_URL) stay out of the site: only the world files read before them go in.
+      if (process.env.VITE_PACKS_URL) {
+        console.log(`scene packs from ${process.env.VITE_PACKS_URL}, not in the build`);
+        cpSync(join(root, "world"), join(outDir, "world"), { recursive: true });
+        return;
+      }
       cpSync(root, outDir, { recursive: true });
     },
   };

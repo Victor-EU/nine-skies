@@ -44,7 +44,7 @@ PY := $(VENV)/bin/python
 PIPELINE := PYTHONPATH=pipeline $(PY)
 WORLD_OUT := dist-world/$(CORRIDOR)
 
-.PHONY: world acquire grid carve tiles water package hero colour rock relief siting probes hydro rivers sources vectors reference film rails stations scenes release-packs test test-ts test-py typecheck dev clean-work help
+.PHONY: world acquire grid carve tiles water package hero colour rock relief siting probes hydro rivers sources vectors reference film rails stations scenes release-packs telbase test test-ts test-py typecheck dev clean-work help
 
 # Prints the whole leading comment block, however long it grows. It used to
 # print the first ten lines, which stopped being all of them some targets ago
@@ -289,6 +289,29 @@ release-packs:
 	gh release view packs >/dev/null 2>&1 || gh release create packs --title "Scene packs" --notes "Cut by make scenes; the Deploy workflow builds from them."
 	gh release upload packs dist-film.tar.gz --clobber
 	rm dist-film.tar.gz
+
+## The film to Telbase (telbase.ai, https://nine-skies.telbase.ai), which
+## takes 100 MB a deploy. The packs (a gigabyte) go to the project's storage
+## bucket (Cloudflare R2, private; `npm run host-packs`, keyed by the Telbase
+## CLI), and the site is built to fetch each through its one function,
+## /api/pack (tools/telbase/api/), which sends it on to the bucket signed.
+## The site and the function are staged in dist-site/ and deployed as the
+## project's one service, with its storage; the bucket lets the site read
+## it. The first deploy links the repository to the project (.telbase/,
+## which git ignores), so the packs go up after it the first time and
+## before it after that. Publishes: run it when the film on Telbase should
+## change. TELBASE names the CLI where npx is not to hand
+## (`TELBASE=/path/to/telbase make telbase`); host-packs reads it too.
+TELBASE ?= npx --yes telbase
+telbase:
+	if [ -d .telbase ]; then npm run --silent host-packs; fi
+	VITE_PACKS_URL="$$(npm run --silent host-packs -- --url)" npm run build
+	mkdir -p dist-site
+	rsync -a --delete app/dist/ dist-site/
+	cp -R tools/telbase/api dist-site/
+	cd dist-site && $(TELBASE) deploy --local --name nine-skies --storage --auto
+	$(TELBASE) storage cors list | grep -q https://nine-skies.telbase.ai || $(TELBASE) storage cors add https://nine-skies.telbase.ai
+	npm run --silent host-packs
 
 typecheck:
 	npm run typecheck
