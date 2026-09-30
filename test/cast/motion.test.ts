@@ -10,7 +10,7 @@ import { Color, Scene as ThreeScene, Vector3 } from "three";
 import { cueFromRaw } from "../../content/cast.ts";
 import { FIGURE_KINDS, LIVING_FAITHS } from "../../engine/src/cast/kinds.js";
 import { CUE_MOTIONS, FOLLOW_MOTIONS, MOTION_KINDS, TRANSIT_MOTIONS, WORLD_TRANSIT_MOTIONS, motionSuits, type MotionKind } from "../../engine/src/cast/moves.js";
-import { DEFAULT_VIEW, SIDE_AT, facingAlong, frameToPicture, inPicture, motionBuilder, newPose, pictureToFrame, registeredMotions, type MotionContext, type PoseOf, type View, type Visit } from "../../engine/src/cast/motion.js";
+import { DEFAULT_VIEW, SIDE_AT, facingAlong, frameToPicture, heldInNarrower, inPicture, motionBuilder, newPose, pictureToFrame, registeredMotions, type MotionContext, type PoseOf, type View, type Visit } from "../../engine/src/cast/motion.js";
 import { ESCORT_CROWDED_X, ESCORT_KEEP_X, ESCORT_KEEP_Y, ESCORT_NEARER, risen } from "../../engine/src/cast/motions/escort.js";
 import { CHASE_APART, CHASE_CLEAR, CHASE_KEEP } from "../../engine/src/cast/motions/chase.js";
 import { TRAIN_APART, TRAIN_BELOW } from "../../engine/src/cast/motions/train.js";
@@ -446,6 +446,43 @@ describe("the motions", () => {
       if (off(yaw, author) > 0.05) expect(Math.sin(yaw) * drift, motion).toBeGreaterThan(0);
       expect(inPicture(pose.at, DEFAULT_VIEW), motion).toBe(true);
     }
+  });
+
+  it("keep a named figure whole through its pause in a narrower picture than the film's, and the film's own as it was (F144)", () => {
+    // Nüwa's cue on the Roof: a quarter of the way to the left edge of the film's picture, 520 m across.
+    const c = cue({ figure: "nuwa", size_m: 520, offset: { ahead_m: 1000, right_m: -250, up_m: 120 }, facing_deg: 70, line: "Nüwa.", line_at: 24, from: 10, until: 60 });
+    const half = 0.6 * 520;
+    // The browser pane's window, a little taller than wide, and a phone's.
+    const PANE: View = { ...DEFAULT_VIEW, tanHalfX: DEFAULT_VIEW.tanHalfY * (716 / 774) };
+    for (const view of [PANE, TALL]) {
+      for (const motion of TRANSIT_MOTIONS) {
+        for (const seed of [3, 5, 8]) {
+          const m = motionBuilder(motion)!(contextOf(c, visitOf(motion, seed, { fromS: 20, untilS: 40, dwell: [23.6, 32.4], named: true })));
+          const pose = newPose();
+          for (let t = 24.5; t <= 31.5; t += 0.5) {
+            m.pose(t, view, pose);
+            const p = frameToPicture(pose.at, view);
+            const within = Math.max(0, 1 - half / (p.d * view.tanHalfX));
+            expect(Math.abs(p.x), `${motion} seed ${seed} ${view === TALL ? "phone" : "pane"} at ${t}`).toBeLessThanOrEqual(within + 0.04);
+          }
+        }
+      }
+    }
+    // The film's picture and wider ones keep their keys; so does a key meant to be off the picture.
+    const spot = { ahead: 1000, right: -800, up: 120 };
+    heldInNarrower(spot, DEFAULT_VIEW, half);
+    expect(spot.right).toBe(-800);
+    const off = { ahead: 1000, right: -1400, up: 120 };
+    heldInNarrower(off, TALL, half);
+    expect(off.right).toBe(-1400);
+    // Whole in the film's picture, and brought in until it is whole in the pane.
+    const whole = { ahead: 1000, right: -600, up: 120 };
+    const film = frameToPicture(whole, DEFAULT_VIEW);
+    expect(Math.abs(film.x) + half / (film.d * DEFAULT_VIEW.tanHalfX)).toBeLessThan(1);
+    heldInNarrower(whole, PANE, half);
+    expect(whole.right).toBeGreaterThan(-600);
+    const pane = frameToPicture(whole, PANE);
+    expect(Math.abs(pane.x) + half / (pane.d * PANE.tanHalfX)).toBeCloseTo(1, 6);
   });
 
   it("never turn a named figure back across the picture against the way it goes (F120)", () => {

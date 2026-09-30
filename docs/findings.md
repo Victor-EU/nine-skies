@@ -5389,3 +5389,38 @@ foot and the picture is mostly the cloud sea: the rail flies over the peaks
 there, and the clearance now keeps it high enough to. A rail that threads
 between them would give the picture back. The other scenes are not
 surveyed for near passes; only Huangshan names a clearance.
+
+## F144 — A named figure whole in a window narrower than the film's, 30 September 2026
+
+**Asked.** "Fix Nüwa being cut off in the tall window": in the browser pane
+(716 × 774) she stood half off the left edge as her line came on, and was
+gone off it by 33 s, her pause (29.6–38.6 s) not over.
+
+**Found.** The view's height is the film's (62°) whatever the window, so a
+narrower window loses the sides: 58° across in the pane against 94° at
+16:9. A path's keys set in the picture's terms (where a figure comes in
+and goes out) are laid for the window it is drawn in, but two are set in
+metres for the film's own picture: the author's spot for a named figure,
+and the end of its pause's drift, kept within 0.8 of the wide picture
+(F113). Nüwa's spot, a quarter of the way to the left edge at 16:9, is
+near the edge of the pane, and the drift took her past it.
+
+**Changed.** A key set in metres that the film's picture holds is brought
+in across a narrower one until the figure, `halfWidthM` either side (the
+cue's size × 0.6, the pad a figure clears an edge by), is no more out of
+it than it was out of the film's: whole if it was whole, centred if it is
+wider than the picture (`heldInNarrower` in `motion.ts`, applied as a
+path is laid for the view). Only across, and only inward; a key meant to
+be off the picture or behind the lens stays, and at 16:9 or wider nothing
+moves, so the film's frames, covers and stills are as they were. Every
+named figure on a path has it, not only Nüwa.
+
+**Checked.** Held at seed 1 in the pane's shape, 28–38 s: whole in every
+frame. In a phone's (390 × 844) she is wider than the picture's half and
+fills it, tail tip to stone. A test holds every transit motion's named
+pause inside the pane and a phone, three seeds each, and the film's own
+picture untouched. 653 tests pass.
+
+**Left.** Only named pauses and drifts are held; a figure passing through
+unnamed in a tall window crosses it faster and nearer its edges, as it
+enters and leaves by that window's own edges already.

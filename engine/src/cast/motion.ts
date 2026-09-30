@@ -417,6 +417,8 @@ export interface PathOptions {
   readonly namedS: readonly [number, number] | null;
   /** Seconds it takes to turn to the lens and back at a named dwell's ends. */
   readonly turnS?: number;
+  /** Half the figure across, metres: what a narrower picture than the film's keeps inside it (`heldInNarrower`). */
+  readonly halfWidthM?: number;
   readonly maxPitchRad: number;
   /** The most it rolls into a turn, radians. */
   readonly maxBankRad: number;
@@ -466,9 +468,13 @@ export class KeyPath implements Motion {
   /** The keys in metres for this view, and their tangents. */
   private lay(v: View): void {
     const { keys, pts, tan } = this;
+    const half = this.options.halfWidthM;
     keys.forEach((k, i) => {
       if (isPicture(k.at)) pictureToFrame(k.at, v, pts[i]);
-      else Object.assign(pts[i]!, k.at);
+      else {
+        Object.assign(pts[i]!, k.at);
+        if (half !== undefined) heldInNarrower(pts[i]!, v, half);
+      }
     });
     const n = keys.length;
     for (let i = 0; i < n; i++) {
@@ -550,6 +556,33 @@ export class KeyPath implements Motion {
     }
     return true;
   }
+}
+
+/**
+ * A key set in metres (the author's spot for a named figure, the end of
+ * its drift) held in a picture narrower than the film's own (F144). The
+ * height of the view is the film's whatever the window, so a narrower
+ * window loses the sides: the author's spot a quarter of the way to the
+ * left edge of a wide picture is near the edge of a tall one, and a pause's
+ * drift, kept within the wide picture (F113), carried Nüwa off the left of
+ * the pane with her line still on. A key the film's own picture holds is
+ * brought in across the narrower one until the figure, `halfWidthM` either
+ * side, is no more out of it than it was out of the film's: whole if it
+ * was whole, centred if it is wider than the picture. Only across, and
+ * only inward; a key meant to be off the picture, or behind the lens, is
+ * left where it is, and so is every key in the film's own picture or a
+ * wider one.
+ */
+export function heldInNarrower(f: FramePoint, v: View, halfWidthM: number): void {
+  if (v.tanHalfX >= DEFAULT_VIEW.tanHalfX) return;
+  const film = frameToPicture(f, DEFAULT_VIEW);
+  if (film.d <= 0 || Math.abs(film.x) > 1) return;
+  const here = frameToPicture(f, v);
+  if (here.d <= 0) return;
+  const out = Math.max(1, Math.abs(film.x) + halfWidthM / (film.d * DEFAULT_VIEW.tanHalfX));
+  const most = Math.max(0, out - halfWidthM / (here.d * v.tanHalfX));
+  if (Math.abs(here.x) <= most) return;
+  f.right = Math.sign(here.x) * most * here.d * v.tanHalfX;
 }
 
 /** 0 below 0, 1 above 1, and a smooth step between. */
