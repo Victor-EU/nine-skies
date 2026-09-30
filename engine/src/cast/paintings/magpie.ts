@@ -5,6 +5,7 @@
 import { flap } from "../life/flap.js";
 import { flutter } from "../life/flutter.js";
 import { pitch } from "../life/pitch.js";
+import { circlesAlong } from "../life.js";
 import { registerPainting } from "../painting.js";
 
 /**
@@ -36,6 +37,22 @@ registerPainting("magpie", {
         }),
         flutter({ root: [650, 650], stir: 10, regions: [{ at: [220, 850], r: 230 }] }),
         pitch({ most: 0.35 }),
+      ],
+    },
+    // Gliding, the red fruit in its beak (F142): its long tail and wingtips stir.
+    {
+      name: "glide",
+      url: "cast/magpie-glide.webp",
+      faces: "right",
+      aspect: 1535 / 1014,
+      feet: 0.5,
+      size: { across: 0.987 },
+      pixels: [1535, 1014],
+      life: [
+        flutter({ root: [800, 650], stir: 10, regions: circlesAlong([[650, 700], [400, 800], [150, 900]], 100) }),
+        flutter({ root: [700, 500], stir: 7, regions: circlesAlong([[300, 80], [450, 200], [550, 300]], 90) }),
+        flutter({ root: [1150, 650], stir: 6, regions: circlesAlong([[1300, 750], [1450, 800]], 70), stiff: [{ at: [1370, 370], r: 90 }] }),
+        pitch({ most: 0.3 }),
       ],
     },
   ],

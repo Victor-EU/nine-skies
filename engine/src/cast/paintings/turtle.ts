@@ -5,6 +5,9 @@
 import { flutter } from "../life/flutter.js";
 import { BEAT, gait } from "../life/gait.js";
 import { pitch } from "../life/pitch.js";
+import { sway } from "../life/sway.js";
+import { serpent } from "../life/serpent.js";
+import { circlesAlong } from "../life.js";
 import { registerPainting } from "../painting.js";
 
 /**
@@ -48,6 +51,22 @@ registerPainting("turtle", {
           head: { regions: [{ at: [1280, 60], r: 120 }, { at: [1150, 150], r: 100 }], nod: 6 },
         }),
         flutter({ root: [700, 150], stir: 4, regions: [{ at: [600, 280], r: 70 }, { at: [1100, 370], r: 50 }, { at: [380, 380], r: 60 }] }),
+        pitch({ most: 0.1 }),
+      ],
+    },
+    // Resting, its neck raised to ask its question (F142): it rocks as it floats, its neck sways, the weed on its shell stirs.
+    {
+      name: "look",
+      url: "cast/turtle-look.webp",
+      faces: "right",
+      aspect: 1526 / 1024,
+      feet: 0.5,
+      size: { across: 1.03 },
+      pixels: [1526, 1024],
+      life: [
+        sway({ feet: [760, 650], crown: 30, lean: 5 }),
+        serpent({ spine: [[1370, 40], [1290, 110], [1200, 200], [1140, 320], [1080, 420]], radius: 60, reach: 110, waves: 0.5, swing: 0.03, bob: 0 }),
+        flutter({ root: [700, 200], stir: 4, regions: circlesAlong([[350, 350], [550, 250], [750, 250], [1150, 250]], 60) }),
         pitch({ most: 0.1 }),
       ],
     },

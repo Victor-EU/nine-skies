@@ -46,5 +46,24 @@ registerPainting("nezha", {
         pitch({ most: 0.08 }),
       ],
     },
+    // Charging on his wheels, the spear thrust ahead (F142): he keeps his balance on them, the sash streams, the wheels and the spear's point burn.
+    {
+      name: "charge",
+      url: "cast/nezha-charge.webp",
+      faces: "right",
+      aspect: 1024 / 1484,
+      feet: 0.067,
+      size: { crown: 1.108 },
+      pixels: [1024, 1484],
+      life: [
+        sway({ feet: [680, 1260], crown: 190, lean: 10 }),
+        flutter({ root: [800, 300], stir: 16, regions: circlesAlong([[700, 240], [500, 210], [260, 110], [80, 60], [40, 270], [110, 450], [250, 580]], 80), stiff: [{ at: [700, 300], r: 110 }] }),
+        flutter({ root: [600, 700], stir: 5, regions: [{ at: [300, 720], r: 90 }, { at: [750, 850], r: 80 }] }),
+        flutter({ root: [213, 1073], stir: 7, pace: 4, ripple: 70, regions: [{ at: [213, 1073], r: 130 }], stiff: [{ at: [240, 982], r: 60 }] }),
+        flutter({ root: [704, 1273], stir: 7, pace: 4, ripple: 70, regions: [{ at: [704, 1273], r: 170 }], stiff: [{ at: [676, 1164], r: 60 }] }),
+        flutter({ root: [895, 709], stir: 6, pace: 4, ripple: 60, regions: [{ at: [895, 709], r: 110 }] }),
+        pitch({ most: 0.12 }),
+      ],
+    },
   ],
 });

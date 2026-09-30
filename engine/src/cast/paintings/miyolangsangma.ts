@@ -7,6 +7,9 @@ import { churn } from "../life/churn.js";
 import { gait } from "../life/gait.js";
 import { pitch } from "../life/pitch.js";
 import { serpent } from "../life/serpent.js";
+import { sway } from "../life/sway.js";
+import { flutter } from "../life/flutter.js";
+import { circlesAlong } from "../life.js";
 import { registerPainting } from "../painting.js";
 
 const NEAR_HIND = [{ at: [230, 840], r: 80 }, { at: [330, 845], r: 85 }, { at: [400, 835], r: 70 }] as const;
@@ -47,6 +50,22 @@ registerPainting("miyolangsangma", {
         serpent({ spine: [[330, 400], [280, 520], [220, 630], [140, 690], [60, 660], [40, 600], [70, 540]], radius: 40, reach: 85, waves: 0.8, swing: 0.05, bob: 0 }),
         churn({ swirl: 6, within: [...NEAR_HIND, ...FAR_HIND, ...FAR_FORE, ...NEAR_FORE] }),
         pitch({ most: 0.15 }),
+      ],
+    },
+    // Lying at rest on the cloud (F142): she breathes, her tail stirs, the tassels swing, the cloud boils under her.
+    {
+      name: "rest",
+      url: "cast/miyolangsangma-rest.webp",
+      faces: "right",
+      aspect: 1509 / 950,
+      feet: 0.142,
+      size: { across: 1.088 },
+      pixels: [1509, 950],
+      life: [
+        sway({ feet: [800, 760], crown: 30, lean: 4 }),
+        serpent({ spine: [[380, 650], [250, 700], [120, 720], [40, 680]], radius: 45, reach: 90, waves: 1, swing: 0.03, bob: 0 }),
+        flutter({ root: [1000, 420], stir: 4, regions: [{ at: [1030, 540], r: 50 }, { at: [650, 680], r: 80 }] }),
+        churn({ swirl: 6, within: circlesAlong([[60, 830], [1480, 830]], 110), spare: [{ at: [1380, 770], r: 80 }, { at: [1180, 770], r: 60 }] }),
       ],
     },
   ],

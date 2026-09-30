@@ -17,3 +17,14 @@ views:
     Three-quarter view, leaning into a turn toward the right of the
     picture, the spear held low and forward, the sash streaming out behind
     to the left. Full length, buns to wheels.
+  # Another picture of it (F142).
+  charge:
+    size: 1024x1536
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Crouched low on his Wind-Fire Wheels, charging toward the right
+      of the picture, the Fire-Tipped Spear thrust straight ahead in
+      both hands, its point blazing, the red sash streaming out behind
+      him in a great loop, his face set. Three-quarter side view. Full
+      length, buns to wheels.

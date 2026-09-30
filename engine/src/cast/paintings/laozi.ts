@@ -10,6 +10,7 @@ import { flutter } from "../life/flutter.js";
 import { gait } from "../life/gait.js";
 import { pitch } from "../life/pitch.js";
 import { serpent } from "../life/serpent.js";
+import { sway } from "../life/sway.js";
 import { registerPainting } from "../painting.js";
 
 /** Where each hoof is sunk in the bank, spared its boiling so the hoof keeps its shape. */
@@ -58,6 +59,23 @@ registerPainting("laozi", {
         flutter({ root: [640, 470], stir: 4, regions: [{ at: [575, 515], r: 45 }] }),
         churn({ swirl: 7, within: circlesAlong([[60, 760], [250, 840], [500, 900], [800, 940], [1060, 950], [1240, 965]], 90), spare: HOOVES }),
         pitch({ most: 0.1 }),
+      ],
+    },
+    // The ox halted, the old man reading (F142): he keeps his balance, his beard and the whisk stir, the ox's tail swings, the violet cloud boils.
+    {
+      name: "read",
+      url: "cast/laozi-read.webp",
+      faces: "right",
+      aspect: 1235 / 1024,
+      feet: 0.09,
+      size: { across: 1.108 },
+      pixels: [1235, 1024],
+      life: [
+        sway({ feet: [600, 560], crown: 20, lean: 4, who: { name: "laozi", within: [{ at: [620, 300], r: 220 }] } }),
+        flutter({ root: [520, 120], stir: 6, regions: circlesAlong([[480, 150], [440, 280], [420, 370]], 45) }),
+        flutter({ root: [640, 110], stir: 4, regions: [{ at: [640, 200], r: 45 }] }),
+        serpent({ spine: [[290, 470], [230, 560], [190, 660], [170, 760]], radius: 40, reach: 80, waves: 1, swing: 0.05, bob: 0 }),
+        churn({ swirl: 7, within: circlesAlong([[60, 880], [1100, 900]], 110) }),
       ],
     },
   ],

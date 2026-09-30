@@ -15,3 +15,13 @@ views:
     pose: >-
       Walking toward the right of the picture, three-quarter side view, head
       raised. The whole animal.
+  # Another picture of it (F142).
+  look:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Halted toward the right of the picture, three-quarter side view,
+      one forehoof raised, its head turned back over its shoulder to
+      look at the viewer, flames licking from its shoulders and hocks.
+      The whole animal.

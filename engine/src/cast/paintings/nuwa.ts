@@ -54,5 +54,21 @@ registerPainting("nuwa", {
         pitch({ most: 0.15 }),
       ],
     },
+    // Swimming level, the stone at her breast (F142): the serpent swims its wave, her ribbons and hair stream.
+    {
+      name: "swim",
+      url: "cast/nuwa-swim.webp",
+      faces: "right",
+      aspect: 1508 / 898,
+      feet: 0.5,
+      size: { across: 1.041 },
+      pixels: [1508, 898],
+      life: [
+        serpent({ spine: [[948, 667], [898, 783], [782, 817], [615, 733], [448, 717], [282, 767], [115, 733], [48, 633], [98, 500], [173, 392]], radius: 55, reach: 110, waves: 1, swing: 0.025, bob: 0.003 }),
+        flutter({ root: [1000, 300], stir: 12, regions: [...circlesAlong([[900, 250], [700, 200], [500, 230], [330, 270]], 45), ...circlesAlong([[900, 380], [700, 420], [550, 450]], 40)] }),
+        flutter({ root: [1150, 120], stir: 6, regions: [{ at: [1050, 230], r: 60 }] }),
+        pitch({ most: 0.15 }),
+      ],
+    },
   ],
 });

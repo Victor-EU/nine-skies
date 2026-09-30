@@ -102,6 +102,10 @@ const SLAIN: LifeRig[] = [
   churn({ swirl: 6, grey: 0.25, pale: 0.5, within: [disc(185, 185, 45), disc(390, 145, 70), disc(545, 200, 50), disc(790, 110, 90), disc(925, 170, 70)] }),
 ];
 
+/** The White Dragon diving and the Jing River King rearing (F142), head to tail. */
+const DIVE: readonly Px[] = [[1440, 740], [1300, 690], [1150, 620], [1000, 560], [850, 470], [700, 380], [560, 300], [420, 220], [280, 160], [140, 120]];
+const REAR: readonly Px[] = [[1150, 130], [1060, 250], [1000, 400], [1050, 560], [950, 680], [780, 700], [600, 690], [420, 660], [260, 650], [120, 640]];
+
 registerPainting("dragon", {
   views: [
     { name: "east-king", url: "cast/dragon-east-king.webp", faces: "right", aspect: 1505 / 999, feet: 0.5, size: { across: 0.97 }, pixels: [1505, 999], life: lifeAt(0, 0, {}) },
@@ -112,5 +116,38 @@ registerPainting("dragon", {
     { name: "dust", url: "cast/dragon-dust.webp", faces: "right", aspect: 1508 / 1004, feet: 0.5, size: { across: 0.97 }, pixels: [1508, 1004], life: lifeAt(0, 0, { grey: 0.55, pale: 0.72 }) },
     { name: "four-kings", url: "cast/dragon-four-kings.webp", faces: "right", aspect: 1523 / 1024, feet: 0.5, size: { across: 0.97 }, pixels: [1523, 1024], life: FOUR_KINGS },
     { name: "slain", url: "cast/dragon-slain.webp", faces: "right", aspect: 1536 / 568, feet: 0.25, size: { across: 0.98 }, pixels: [1536, 568], life: SLAIN },
+    // The White Dragon diving (F142): its body swims its wave, mane and tail stream, its cloud boils.
+    {
+      name: "white-dive",
+      url: "cast/dragon-white-dive.webp",
+      faces: "right",
+      aspect: 1531 / 1006,
+      feet: 0.5,
+      size: { across: 1.205 },
+      pixels: [1531, 1006],
+      life: [
+        serpent({ radius: 70, reach: 280, spine: DIVE }),
+        flutter({ root: [1400, 650], stir: 12, regions: [{ at: [1250, 600], r: 130 }, { at: [1350, 560], r: 90 }], stiff: [{ at: [1450, 750], r: 80 }] }),
+        flutter({ root: [250, 180], stir: 14, regions: [{ at: [120, 130], r: 130 }] }),
+        churn({ swirl: 7, grey: 0.12, pale: 0.8, spare: [...circlesAlong(DIVE, 95), { at: [1440, 740], r: 130 }] }),
+        pitch({ most: 0.3 }),
+      ],
+    },
+    // The Jing River King rearing, roaring (F142): his coils swim, his mane streams, the dust boils off him.
+    {
+      name: "dust-rear",
+      url: "cast/dragon-dust-rear.webp",
+      faces: "right",
+      aspect: 1432 / 1024,
+      feet: 0.5,
+      size: { across: 1.021 },
+      pixels: [1432, 1024],
+      life: [
+        serpent({ radius: 70, reach: 260, spine: REAR }),
+        flutter({ root: [1150, 150], stir: 12, regions: [{ at: [1050, 250], r: 120 }, { at: [900, 160], r: 90 }], stiff: [{ at: [1180, 110], r: 80 }] }),
+        churn({ swirl: 7, grey: 0.55, pale: 0.72, spare: [...circlesAlong(REAR, 95), { at: [1150, 130], r: 130 }] }),
+        pitch({ most: 0.2 }),
+      ],
+    },
   ],
 });

@@ -18,3 +18,13 @@ views:
     Three-quarter view, turned slightly toward the right of the picture,
     looking out past the viewer's right. Full length, headdress to cloud,
     the birds close about her.
+  # Another picture of it (F142).
+  peach:
+    size: 1024x1536
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Three-quarter view, turned toward the right of the picture,
+      holding out in both hands a plate of white jade with a ripe
+      peach of immortality on it, offering it; her blue birds close
+      about her. Full length, headdress to cloud.

@@ -8,6 +8,8 @@ import { flutter } from "../life/flutter.js";
 import { gait } from "../life/gait.js";
 import { pitch } from "../life/pitch.js";
 import { serpent } from "../life/serpent.js";
+import { sway } from "../life/sway.js";
+import { circlesAlong } from "../life.js";
 import { registerPainting } from "../painting.js";
 
 const NEAR_HIND = [{ at: [260, 935], r: 70 }, { at: [345, 940], r: 70 }] as const;
@@ -51,6 +53,23 @@ registerPainting("sanduo", {
         flutter({ root: [930, 230], stir: 8, regions: [{ at: [830, 330], r: 110 }, { at: [780, 440], r: 80 }] }),
         churn({ swirl: 6, within: [...NEAR_HIND, ...FAR_HIND, ...FAR_FORE, ...NEAR_FORE] }),
         pitch({ most: 0.15 }),
+      ],
+    },
+    // Rearing, the pennant streaming at the empty saddle (F142): it rocks on its hind legs, the pennant, mane and tail stream, the cloud under its hooves boils.
+    {
+      name: "rear",
+      url: "cast/sanduo-rear.webp",
+      faces: "right",
+      aspect: 1405 / 1024,
+      feet: 0.098,
+      size: { crown: 0.989 },
+      pixels: [1405, 1024],
+      life: [
+        sway({ feet: [720, 950], crown: 60, lean: 6 }),
+        flutter({ root: [730, 170], stir: 14, regions: circlesAlong([[700, 170], [500, 230], [300, 290], [80, 310]], 60), stiff: circlesAlong([[745, 100], [790, 560]], 20) }),
+        flutter({ root: [1100, 150], stir: 6, regions: [{ at: [1050, 200], r: 90 }] }),
+        serpent({ spine: [[720, 480], [560, 520], [400, 580], [250, 650], [100, 760]], radius: 60, reach: 120, waves: 1, swing: 0.04, bob: 0 }),
+        churn({ swirl: 6, within: [{ at: [582, 960], r: 90 }, { at: [865, 960], r: 90 }, { at: [1115, 640], r: 80 }, { at: [1298, 560], r: 80 }], spare: [{ at: [582, 900], r: 40 }, { at: [865, 900], r: 40 }, { at: [1115, 590], r: 40 }, { at: [1298, 510], r: 40 }] }),
       ],
     },
   ],

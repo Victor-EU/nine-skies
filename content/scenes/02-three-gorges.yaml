@@ -117,6 +117,7 @@ cast:
     variant: white
     role: companion
     offset: { ahead_m: 2000, right_m: 0, up_m: -700 }
+    poses: [white, white-dive]
     size_m: 1000
     facing_deg: 210
     from: 10
@@ -127,6 +128,8 @@ cast:
   - figure: yaoji
     role: companion
     offset: { ahead_m: 1400, right_m: 520, up_m: 120 }
+    poses: [default]
+    paused: [rain]
     size_m: 360
     facing_deg: 205
     from: 62

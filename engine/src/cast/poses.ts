@@ -14,13 +14,15 @@
  * plays the same way twice:
  * - its first visit comes in the first picture it goes in, the author's;
  *   every other in a picture it goes in, not the one it last left in;
- * - where it stops, it takes a picture it stops in, and where it goes on,
+ * - where it stops, it takes a picture it stops in, turning to it as it
+ *   comes in to stop so it is stopped in it when its line comes, and where
+ *   it goes on,
  *   one it goes in again, or keeps the one it stopped in if that is one;
  * - a named visit stops for its line in the first picture it stops in, the
  *   author's;
- * - a long stop, with more than one picture to stop in, takes another
- *   halfway (F141): the monk waves farewell to Chang'an, then prays for
- *   the road;
+ * - a long stop, with more than one picture its cue names to stop in,
+ *   takes another halfway (F141): the monk waves farewell to Chang'an,
+ *   then prays for the road;
  * - at a moment its motion hides a change in (Wukong's somersault from spot
  *   to spot), it may change, if it has held the one it has a while.
  *
@@ -98,8 +100,10 @@ export function planPoses(
   const dwell = visit.dwell;
   const free = (s: number) => !dwell || s < dwell[0] - HOLD_S || s > dwell[1] + HOLD_S;
   const events: Array<{ atS: number; stop: 0 | 0.5 | 1 | null }> = swaps.filter(free).map((atS) => ({ atS, stop: null }));
-  if (dwell) events.push({ atS: dwell[0], stop: 0 }, { atS: dwell[1], stop: 1 });
-  if (dwell && stopping.length > 1 && dwell[1] - dwell[0] >= LONG_STOP_S) events.push({ atS: (dwell[0] + dwell[1]) / 2, stop: 0.5 });
+  // Into the picture it stops in as it comes in to stop, done when it stops: a line never opens on a card half turned.
+  if (dwell) events.push({ atS: Math.max(visit.fromS + POSE_S, dwell[0] - POSE_S), stop: 0 }, { atS: dwell[1], stop: 1 });
+  // Only where the cue names what it stops in: a figure that goes in several pictures holds its line in the author's.
+  if (dwell && cue.paused?.length && stopping.length > 1 && dwell[1] - dwell[0] >= LONG_STOP_S) events.push({ atS: (dwell[0] + dwell[1]) / 2, stop: 0.5 });
   events.sort((a, b) => a.atS - b.atS);
   for (const e of events) {
     if (e.stop === 0) change(e.atS, visit.named ? stopping[0]! : stopping.includes(pose) && stopping.length === 1 ? pose : other(stopping, pose), POSE_S);
@@ -116,7 +120,7 @@ export function poseAt(keys: readonly PoseKey[], flightS: number): PoseMix | nul
   let i = 0;
   while (i + 1 < keys.length && keys[i + 1]!.atS <= flightS) i++;
   const mix = i === 0 ? 1 : (flightS - keys[i]!.atS) / POSE_S;
-  return mix >= 1 ? { from: keys[i]!.pose, to: keys[i]!.pose, mix: 1 } : { from: keys[i - 1]!.pose, to: keys[i]!.pose, mix: Math.max(0, mix) };
+  return mix >= 1 - 1e-9 ? { from: keys[i]!.pose, to: keys[i]!.pose, mix: 1 } : { from: keys[i - 1]!.pose, to: keys[i]!.pose, mix: Math.max(0, mix) };
 }
 
 /**

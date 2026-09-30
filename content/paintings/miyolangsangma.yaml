@@ -18,3 +18,14 @@ views:
     pose: >-
       Walking toward the right of the picture, three-quarter side view, head
       raised. The whole animal.
+  # Another picture of it (F142).
+  rest:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new. The
+      tigress lying down at rest on the cloud, facing the right of the
+      picture, three-quarter side view, forepaws stretched out before
+      her, head raised and calm, the empty saddle cloth and the heaped
+      bowl still on her back. No person, no rider: the saddle is
+      empty. The whole animal.

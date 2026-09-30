@@ -19,3 +19,13 @@ views:
       Soaring toward the right of the picture, three-quarter view from
       slightly below, wings fully spread and a little banked. The whole bird,
       wingtip to wingtip.
+  # Another picture of it (F142).
+  stoop:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Stooping in a dive toward the lower right of the picture, three-
+      quarter view, its immense wings half folded back, golden plumes
+      flattened by the rush of air, talons thrust forward, beak open.
+      The whole bird, wingtip to talons.

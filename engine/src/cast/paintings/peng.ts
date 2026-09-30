@@ -5,6 +5,7 @@
 import { flap } from "../life/flap.js";
 import { flutter } from "../life/flutter.js";
 import { pitch } from "../life/pitch.js";
+import { circlesAlong } from "../life.js";
 import { registerPainting } from "../painting.js";
 
 /**
@@ -33,6 +34,23 @@ registerPainting("peng", {
           far: { hinge: [[1170, 430], [1300, 358]], outline: [[1170, 430], [1260, 410], [1536, 460], [1536, 770], [1300, 770], [1070, 710], [1120, 600]], top: 0.3, bottom: 1.05, glide: 0.9 },
         }),
         flutter({ root: [1150, 310], stir: 10, regions: [{ at: [1030, 230], r: 120 }], stiff: [{ at: [1200, 300], r: 70 }] }),
+        pitch({ most: 0.3 }),
+      ],
+    },
+    // Stooping, wings half folded (F142): its wingtips, lower feathers and crest stir in the rush of air.
+    {
+      name: "stoop",
+      url: "cast/peng-stoop.webp",
+      faces: "right",
+      aspect: 1509 / 985,
+      feet: 0.5,
+      size: { across: 1.174 },
+      pixels: [1509, 985],
+      life: [
+        flutter({ root: [900, 400], stir: 10, regions: circlesAlong([[80, 150], [300, 120], [550, 80]], 110), stiff: [{ at: [1270, 580], r: 90 }] }),
+        flutter({ root: [1200, 350], stir: 6, regions: circlesAlong([[1400, 250], [1470, 430]], 60) }),
+        flutter({ root: [900, 600], stir: 8, regions: circlesAlong([[350, 700], [600, 800], [850, 880]], 90) }),
+        flutter({ root: [1270, 560], stir: 8, regions: [{ at: [1150, 470], r: 90 }], stiff: [{ at: [1290, 590], r: 70 }] }),
         pitch({ most: 0.3 }),
       ],
     },

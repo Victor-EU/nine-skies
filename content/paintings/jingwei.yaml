@@ -15,3 +15,13 @@ views:
     pose: >-
       In flight toward the right of the picture, three-quarter side view,
       wings spread in a strong downbeat. The whole bird.
+  # Another picture of it (F142).
+  glide:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Gliding low toward the right of the picture over the sea, three-
+      quarter side view, wings spread wide and held still, head bent
+      down, a small white pebble held in the bill, about to let it
+      fall. The whole bird.

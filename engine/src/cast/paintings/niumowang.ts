@@ -9,6 +9,7 @@ import { flutter } from "../life/flutter.js";
 import { gait } from "../life/gait.js";
 import { pitch } from "../life/pitch.js";
 import { serpent } from "../life/serpent.js";
+import { sway } from "../life/sway.js";
 import { registerPainting } from "../painting.js";
 
 /**
@@ -46,6 +47,23 @@ registerPainting("niumowang", {
         flutter({ root: [1395, 250], stir: 12, regions: [{ at: [1380, 400], r: 170 }], stiff: [{ at: [1400, 190], r: 110 }] }),
         churn({ swirl: 8, within: circlesAlong([[170, 860], [450, 880], [750, 900], [1050, 930]], 150) }),
         pitch({ most: 0.12 }),
+      ],
+    },
+    // Stopped with his horns lowered at Nezha (F142): he breathes, his tail lashes, the saddle cloth stirs, Nezha's wheel burns on his horn, the cloud boils.
+    {
+      name: "horns",
+      url: "cast/niumowang-horns.webp",
+      faces: "right",
+      aspect: 1529 / 985,
+      feet: 0.103,
+      size: { across: 0.934 },
+      pixels: [1529, 985],
+      life: [
+        sway({ feet: [700, 850], crown: 30, lean: 6 }),
+        serpent({ spine: [[383, 383], [217, 433], [100, 483], [50, 500]], radius: 50, reach: 100, waves: 1, swing: 0.05, bob: 0 }),
+        flutter({ root: [600, 300], stir: 5, regions: [{ at: [420, 560], r: 100 }] }),
+        flutter({ root: [1425, 600], stir: 6, pace: 4, ripple: 70, regions: [{ at: [1425, 600], r: 130 }] }),
+        churn({ swirl: 8, within: circlesAlong([[80, 800], [1250, 800]], 110), spare: [{ at: [1100, 830], r: 60 }, { at: [290, 870], r: 50 }] }),
       ],
     },
   ],

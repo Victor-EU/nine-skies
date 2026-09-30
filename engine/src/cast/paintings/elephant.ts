@@ -7,6 +7,8 @@ import { flutter } from "../life/flutter.js";
 import { gait } from "../life/gait.js";
 import { pitch } from "../life/pitch.js";
 import { serpent } from "../life/serpent.js";
+import { sway } from "../life/sway.js";
+import { circlesAlong } from "../life.js";
 import { registerPainting } from "../painting.js";
 
 const NEAR_HIND = [{ at: [130, 855], r: 85 }, { at: [240, 850], r: 90 }] as const;
@@ -49,6 +51,24 @@ registerPainting("elephant", {
         flutter({ root: [880, 150], stir: 6, regions: [{ at: [790, 280], r: 100 }] }),
         churn({ swirl: 6, within: [...NEAR_HIND, ...FAR_HIND, ...FAR_FORE, ...NEAR_FORE] }),
         pitch({ most: 0.1 }),
+      ],
+    },
+    // Stopped to drink, its trunk lowered to the river (F142): the trunk sways, the ears and tassels stir, the tail swings, the cloud under its feet boils.
+    {
+      name: "drink",
+      url: "cast/elephant-drink.webp",
+      faces: "right",
+      aspect: 1499 / 1024,
+      feet: 0.111,
+      size: { across: 0.927 },
+      pixels: [1499, 1024],
+      life: [
+        sway({ feet: [700, 880], crown: 20, lean: 5 }),
+        serpent({ spine: [[1250, 600], [1310, 720], [1390, 790], [1460, 830], [1450, 890], [1370, 830]], radius: 50, reach: 90, waves: 0.8, swing: 0.05, bob: 0 }),
+        serpent({ spine: [[180, 560], [140, 650], [100, 740], [70, 820]], radius: 40, reach: 80, waves: 1, swing: 0.05, bob: 0 }),
+        flutter({ root: [1000, 350], stir: 6, regions: [{ at: [930, 450], r: 110 }] }),
+        flutter({ root: [700, 450], stir: 4, regions: [{ at: [360, 650], r: 60 }, { at: [730, 570], r: 60 }, { at: [1070, 650], r: 60 }] }),
+        churn({ swirl: 6, within: circlesAlong([[100, 920], [1250, 920]], 100), spare: [{ at: [280, 830], r: 60 }, { at: [620, 820], r: 60 }, { at: [980, 850], r: 60 }, { at: [1120, 840], r: 60 }] }),
       ],
     },
   ],

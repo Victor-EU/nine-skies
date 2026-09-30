@@ -17,3 +17,14 @@ views:
     pose: >-
       Walking toward the right of the picture, three-quarter side view, head
       high. The whole horse, the spear and the pennant in the picture.
+  # Another picture of it (F142).
+  rear:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new. The
+      white horse rearing on its hind legs toward the right of the
+      picture, forelegs pawing the air, mane flying, the white pennant
+      streaming from the upright spear at the empty saddle. Three-
+      quarter side view. No person, no rider: the saddle is empty. The
+      whole horse, the spear and the pennant in the picture.

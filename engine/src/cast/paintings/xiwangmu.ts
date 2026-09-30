@@ -62,5 +62,22 @@ registerPainting("xiwangmu", {
         churn({ swirl: 8, within: [{ at: [120, 1320], r: 140 }, { at: [800, 1300], r: 110 }, ...circlesAlong([[60, 1470], [900, 1470]], 100)] }),
       ],
     },
+    // Offering the peach of immortality (F142): she keeps her balance, her three blue birds' tails and wings stir, the cloud boils under her.
+    {
+      name: "peach",
+      url: "cast/xiwangmu-peach.webp",
+      faces: "right",
+      aspect: 1016 / 1531,
+      feet: 0.101,
+      size: { crown: 0.954 },
+      pixels: [1016, 1531],
+      life: [
+        sway({ feet: [520, 1370], crown: 20, lean: 6, who: { name: "queen", within: circlesAlong([[520, 150], [520, 1250]], 230) } }),
+        flutter({ root: [248, 300], stir: 10, regions: circlesAlong([[200, 380], [120, 480], [82, 550]], 50) }),
+        flutter({ root: [848, 333], stir: 10, regions: circlesAlong([[900, 450], [950, 600], [982, 700]], 50) }),
+        flutter({ root: [298, 667], stir: 10, regions: circlesAlong([[240, 780], [160, 920], [115, 1017]], 50) }),
+        churn({ swirl: 8, within: circlesAlong([[40, 1400], [1000, 1400]], 140) }),
+      ],
+    },
   ],
 });

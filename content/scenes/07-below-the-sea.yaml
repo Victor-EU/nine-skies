@@ -57,6 +57,8 @@ cast:
   - figure: xiwangmu
     role: companion
     offset: { ahead_m: 1600, right_m: 500, up_m: 20 }
+    poses: [default]
+    paused: [peach]
     size_m: 420
     facing_deg: 200
     from: 6
@@ -89,6 +91,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1100, right_m: -420, up_m: 30 }
+    poses: [default, charge]
     size_m: 310
     facing_deg: 150
     from: 24
@@ -100,6 +103,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1500, right_m: -480, up_m: -480 }
+    poses: [default]
+    paused: [horns]
     size_m: 850
     facing_deg: 210
     from: 26
@@ -111,6 +116,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1800, right_m: 620, up_m: -150 }
+    poses: [arts, default]
     size_m: 1300
     facing_deg: 200
     from: 46

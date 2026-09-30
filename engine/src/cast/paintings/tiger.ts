@@ -6,6 +6,8 @@ import { churn } from "../life/churn.js";
 import { gait } from "../life/gait.js";
 import { pitch } from "../life/pitch.js";
 import { serpent } from "../life/serpent.js";
+import { sway } from "../life/sway.js";
+import { circlesAlong } from "../life.js";
 import { registerPainting } from "../painting.js";
 
 const HIND = [{ at: [200, 700], r: 110 }, { at: [320, 690], r: 110 }, { at: [430, 700], r: 110 }] as const;
@@ -46,6 +48,21 @@ registerPainting("tiger", {
         serpent({ spine: [[420, 270], [370, 320], [310, 380], [240, 430], [160, 460], [90, 450], [45, 420]], radius: 35, reach: 80, waves: 0.8, swing: 0.05, bob: 0 }),
         churn({ swirl: 6, within: [...HIND, ...FAR_HIND, ...FORE] }),
         pitch({ most: 0.15 }),
+      ],
+    },
+    // Stopped, roaring (F142): it keeps its stance, breathing, its tail swinging, the cloud under its paws boiling.
+    {
+      name: "roar",
+      url: "cast/tiger-roar.webp",
+      faces: "right",
+      aspect: 1469 / 1006,
+      feet: 0.136,
+      size: { across: 0.934 },
+      pixels: [1469, 1006],
+      life: [
+        sway({ feet: [800, 830], crown: 20, lean: 6 }),
+        serpent({ spine: [[400, 425], [250, 450], [100, 383], [42, 267], [67, 133], [167, 83], [233, 133]], radius: 45, reach: 90, waves: 1, swing: 0.04, bob: 0 }),
+        churn({ swirl: 6, within: circlesAlong([[150, 830], [1400, 830]], 110), spare: [{ at: [300, 780], r: 45 }, { at: [717, 800], r: 45 }, { at: [933, 833], r: 45 }, { at: [1267, 800], r: 45 }] }),
       ],
     },
   ],

@@ -41,5 +41,21 @@ registerPainting("yaoji", {
         churn({ swirl: 8, within: [{ at: [170, 1320], r: 130 }, { at: [800, 1340], r: 110 }, ...circlesAlong([[250, 1420], [750, 1420]], 110)] }),
       ],
     },
+    // Stilling the gorge with the rain (F142): she keeps her balance, her ribbons stream, the rain falls from her sleeves and the cloud boils under her.
+    {
+      name: "rain",
+      url: "cast/yaoji-rain.webp",
+      faces: "right",
+      aspect: 999 / 1534,
+      feet: 0.114,
+      size: { crown: 0.921 },
+      pixels: [999, 1534],
+      life: [
+        sway({ feet: [560, 1360], crown: 20, lean: 10 }),
+        flutter({ root: [520, 200], stir: 14, regions: [...circlesAlong([[450, 180], [300, 120], [150, 120], [100, 250], [200, 330]], 55), ...circlesAlong([[200, 700], [100, 760], [120, 860]], 55)] }),
+        flutter({ root: [560, 500], stir: 5, pace: 2, regions: [{ at: [250, 700], r: 80 }, { at: [930, 720], r: 90 }] }),
+        churn({ swirl: 8, within: circlesAlong([[80, 1420], [940, 1420]], 130) }),
+      ],
+    },
   ],
 });

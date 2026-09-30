@@ -18,3 +18,13 @@ views:
     pose: >-
       Three-quarter side view, walking toward the right of the picture. The
       whole animal, trunk to tail.
+  # Another picture of it (F142).
+  drink:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Halted, three-quarter side view, facing the right of the
+      picture, its head lowered and the trunk curled down and forward
+      as if drinking from the river far below, ears spread. The whole
+      animal, trunk to tail.

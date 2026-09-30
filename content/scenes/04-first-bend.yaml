@@ -124,6 +124,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1400, right_m: 380, up_m: -800 }
+    poses: [default]
+    paused: [roar]
     size_m: 680
     facing_deg: 250
     from: 52
@@ -135,6 +137,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1600, right_m: 600, up_m: -240 }
+    poses: [default]
+    paused: [rear]
     size_m: 630
     facing_deg: 215
     from: 82

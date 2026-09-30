@@ -15,3 +15,13 @@ views:
     pose: >-
       Swimming through the air toward the right of the picture, three-quarter
       view from slightly below, flippers mid-stroke. The whole turtle.
+  # Another picture of it (F142).
+  look:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Resting in the air, its flippers held still and spread, its long
+      neck raised and turned toward the viewer, as if asking a
+      question, three-quarter view from slightly below, facing the
+      right of the picture. The whole turtle.

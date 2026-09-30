@@ -67,6 +67,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1000, right_m: -250, up_m: 120 }
+    poses: [default, swim]
     size_m: 520
     facing_deg: 70
     from: 22
@@ -101,6 +102,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1100, right_m: -380, up_m: -180 }
+    poses: [default]
+    paused: [look]
     size_m: 560
     facing_deg: 225
     from: 58
@@ -113,6 +116,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1000, right_m: 560, up_m: -200 }
+    poses: [default]
+    paused: [look]
     size_m: 560
     facing_deg: 235
     from: 62

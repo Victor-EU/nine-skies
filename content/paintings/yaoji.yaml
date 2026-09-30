@@ -16,3 +16,15 @@ views:
     Three-quarter view, turned toward the right of the picture, looking
     down and to the right. Full length, hair to cloud, the ribbons curling
     out behind her to the left.
+  # Another picture of it (F142).
+  rain:
+    size: 1024x1536
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Standing on her drift of cloud, both arms spread wide and
+      lowered over the river below, palms down, her long sleeves
+      loosening at their ends into falling veils of fine rain and
+      mist; eyes lowered, calm. Three-quarter view, turned toward the
+      right of the picture. Full length, hair to cloud, the ribbons
+      curling out behind her.

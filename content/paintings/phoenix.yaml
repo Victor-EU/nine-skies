@@ -17,3 +17,13 @@ views:
       In flight toward the right of the picture, three-quarter side view,
       wings raised mid-beat, the tail plumes flowing out behind to the left.
       The whole bird, beak to plume tips.
+  # Another picture of it (F142).
+  glide:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Gliding toward the right of the picture, three-quarter side
+      view, its broad wings spread wide and held level, still, the
+      five tail plumes streaming out behind to the left in long waving
+      curves. The whole bird, beak to plume tips.

@@ -52,5 +52,22 @@ registerPainting("guanyin", {
         }),
       ],
     },
+    // Pouring from the vase and sprinkling the dew (F142): she keeps her balance, the willow and the water stir, the parrot's wings flutter, the cloud boils about the lotus.
+    {
+      name: "dew",
+      url: "cast/guanyin-dew.webp",
+      faces: "right",
+      aspect: 850 / 1536,
+      feet: 0.155,
+      size: { crown: 0.992 },
+      pixels: [850, 1536],
+      life: [
+        sway({ feet: [430, 1300], crown: 20, lean: 5 }),
+        flutter({ root: [290, 480], stir: 6, regions: circlesAlong([[250, 520], [170, 650], [110, 780]], 50) }),
+        flutter({ root: [760, 620], stir: 4, pace: 3, regions: circlesAlong([[780, 700], [800, 850], [830, 1000]], 40) }),
+        flutter({ root: [230, 170], stir: 8, regions: [{ at: [180, 110], r: 60 }] }),
+        churn({ swirl: 8, within: circlesAlong([[60, 1450], [800, 1450]], 90), spare: circlesAlong([[120, 1300], [720, 1300]], 70) }),
+      ],
+    },
   ],
 });

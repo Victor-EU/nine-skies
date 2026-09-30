@@ -27,6 +27,18 @@ const EIGHT: readonly { readonly name: string; readonly feet: Px; readonly crown
  * donkey is white, so the churn keeps to the clouds' lower halves and
  * spares its hooves.
  */
+/** The eight on their arts (F142): who, where across, crown and feet. */
+const ARTS: readonly (readonly [string, number, number, number])[] = [
+  ["li", 170, 200, 560],
+  ["zhongli", 380, 180, 570],
+  ["lu", 560, 158, 567],
+  ["zhang", 760, 100, 583],
+  ["he", 950, 192, 600],
+  ["lan", 1120, 233, 617],
+  ["han", 1280, 275, 700],
+  ["cao", 1430, 300, 767],
+];
+
 registerPainting("baxian", {
   views: [
     {
@@ -43,6 +55,19 @@ registerPainting("baxian", {
         ),
         flutter({ root: [930, 300], stir: 5, regions: [{ at: [830, 420], r: 50 }, { at: [870, 450], r: 40 }] }),
         churn({ swirl: 5, within: circlesAlong([[0, 545], [1536, 545]], 80), spare: [{ at: [760, 470], r: 50 }] }),
+      ],
+    },
+    // Each on their own art over the sea (F142): each keeps their own balance on it.
+    {
+      name: "arts",
+      url: "cast/baxian-arts.webp",
+      faces: "right",
+      aspect: 1536 / 888,
+      feet: 0.083,
+      size: { across: 0.98 },
+      pixels: [1536, 888],
+      life: [
+        ...ARTS.map(([name, x, crown, feet]) => sway({ feet: [x, feet], crown, lean: 5, who: { name, within: circlesAlong([[x, crown + 60], [x, feet]], 110) } })),
       ],
     },
   ],

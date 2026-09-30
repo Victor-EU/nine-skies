@@ -61,6 +61,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1400, right_m: -520, up_m: -460 }
+    poses: [default]
+    paused: [rest]
     size_m: 760
     facing_deg: 250
     from: 20

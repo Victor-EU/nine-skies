@@ -16,3 +16,14 @@ views:
     pose: >-
       Prowling toward the right of the picture, three-quarter side view, head
       low, shoulder blades rolling. The whole animal, nose to tail tip.
+  # Another picture of it (F142).
+  roar:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Halted, standing four-square on its drifts of cloud, facing the
+      right of the picture, three-quarter side view, its head raised
+      and turned a little toward the viewer, jaws wide open in a roar,
+      whiskers back, tail lashing up in a curve. The whole animal,
+      nose to tail tip.

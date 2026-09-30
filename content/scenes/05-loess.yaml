@@ -123,6 +123,8 @@ cast:
     variant: dust
     role: companion
     offset: { ahead_m: 2200, right_m: -700, up_m: -850 }
+    poses: [dust]
+    paused: [dust-rear]
     size_m: 1200
     facing_deg: 160
     from: 30
@@ -134,6 +136,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1300, right_m: 650, up_m: -520 }
+    poses: [default, arch]
     size_m: 640
     facing_deg: 200
     from: 46
@@ -145,6 +148,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 900, right_m: -350, up_m: 200 }
+    poses: [default, glide]
     size_m: 270
     facing_deg: 240
     from: 70
@@ -157,6 +161,8 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 1400, right_m: -250, up_m: -170 }
+    poses: [default]
+    paused: [read]
     size_m: 560
     facing_deg: 95
     from: 70

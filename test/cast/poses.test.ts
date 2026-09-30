@@ -35,8 +35,9 @@ describe("a figure's poses", () => {
       expect(poseOf(keys, 21)).toBe("default");
       expect(["rest", "tiger"]).toContain(poseOf(keys, 27));
       expect(poseOf(keys, 32)).toBe("default");
-      // Changed as it stops and as it goes on, not between.
-      expect(keys.map((k) => k.atS)).toEqual([20, 25, 29]);
+      // Changed as it comes in to stop, stopped in it by the time it stops, and as it goes on; not between.
+      expect(keys.map((k) => k.atS)).toEqual([20, 25 - POSE_S, 29]);
+      expect(poseAt(keys, 25)!.mix).toBe(1);
     }
   });
 
@@ -53,6 +54,10 @@ describe("a figure's poses", () => {
       expect(his[poseAt(long, 29)!.to]).toBe("monk-pray");
       const short = planPoses(monk, his, visit({ dwell: [23, 27], named: true }), [], new Rng(seed), null);
       expect(his[poseAt(short, 26.5)!.to]).toBe("monk-farewell");
+      // One that only goes in several holds its line in the author's.
+      const phoenix = { poses: ["default", "glide"] };
+      const line = planPoses(phoenix, poseNames(phoenix)!, visit({ dwell: [23, 31], named: true }), [], new Rng(seed), null);
+      expect(poseAt(line, 29)!.to).toBe(0);
     }
   });
 

@@ -34,5 +34,21 @@ registerPainting("carp", {
         pitch({ most: 0.2 }),
       ],
     },
+    // At the top of its leap, arched (F142): its body swims, its fins and barbels stir.
+    {
+      name: "arch",
+      url: "cast/carp-arch.webp",
+      faces: "right",
+      aspect: 1456 / 1023,
+      feet: 0.5,
+      size: { across: 0.929 },
+      pixels: [1456, 1023],
+      life: [
+        serpent({ spine: [[1330, 470], [1200, 330], [1000, 230], [800, 200], [620, 240], [480, 330], [390, 470], [330, 620], [280, 780], [250, 900]], radius: 110, reach: 230, waves: 0.8, swing: 0.03, bob: 0.004 }),
+        flutter({ root: [900, 300], stir: 6, regions: [{ at: [900, 120], r: 110 }, { at: [1150, 500], r: 90 }] }),
+        flutter({ root: [1330, 500], stir: 8, regions: [{ at: [1350, 700], r: 90 }, { at: [1300, 800], r: 60 }] }),
+        pitch({ most: 0.2 }),
+      ],
+    },
   ],
 });

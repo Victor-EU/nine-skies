@@ -15,3 +15,12 @@ views:
     pose: >-
       In flight toward the right of the picture, three-quarter side view,
       wings spread. The whole bird.
+  # Another picture of it (F142).
+  glide:
+    size: 1536x1024
+    pose: >-
+      The same figure as in the reference picture, its design,
+      colours, dress and light kept exactly; only the pose is new.
+      Gliding toward the right of the picture, three-quarter side
+      view, wings spread wide and held still, the long tail fanned out
+      behind, the red fruit in its beak. The whole bird.

@@ -149,6 +149,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 525, right_m: -222, up_m: 23 }
+    poses: [default, charge]
     size_m: 140
     facing_deg: 120
     from: 40

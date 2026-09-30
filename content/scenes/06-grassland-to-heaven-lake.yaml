@@ -100,6 +100,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 2600, right_m: -900, up_m: 820 }
+    poses: [default, stoop]
     size_m: 1400
     facing_deg: 150
     from: 20
@@ -112,6 +113,7 @@ cast:
     variant: still
     role: companion
     offset: { ahead_m: 700, right_m: 220, up_m: -260 }
+    poses: [default, glide]
     size_m: 340
     facing_deg: 200
     from: 96

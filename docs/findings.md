@@ -5286,6 +5286,70 @@ and `content:validate` pass.
 **Left.** The Loess monk's second visit, where a viewing has one, may
 stop in either picture; not looked at.
 
+## F142 — Every painted companion in a second picture, 30 September 2026
+
+**Asked.** After the pilgrims (F139, F141): "Give the other cast figures
+more poses too."
+
+**Painted.** A second picture for each of the 20 painted companions, 21 in
+all, four drafts each at high from the kept picture as reference, with the
+figure, dress and light kept and only the pose new ($4.52; $14.68 of the $30
+spent). Nezha charging on his wheels, the spear thrust ahead; the White
+Dragon diving; the Jing River King rearing, roaring; Yao Ji spreading the
+rain over the gorge from her sleeves; the phoenix, the magpie and Jingwei
+gliding, Jingwei's pebble about to fall; the Peng stooping; Guanyin pouring
+from the vase and scattering the dew; the tiger stopped, roaring; Sanduo's
+horse rearing at its empty saddle; the carp arched at the top of its leap,
+its barbels lengthening; Laozi reading his book on the halted ox; the Queen
+Mother offering the peach; the Bull Demon King, horns lowered, bellowing;
+the Eight Immortals each afloat on their own art (the gourd, the fan, the
+sword, the donkey, the lotus, the basket, the flute, the castanets); Nüwa
+swimming level, the stone at her breast; the qilin stopped, looking back;
+the old turtle, neck raised to ask his question; the tigress of
+Miyolangsangma lying at rest; the elephant drinking from the Li.
+
+Each measured to its figure's first picture by what did not change shape:
+SIFT matches between the two pictures (OpenCV in a scratch environment),
+clustered by RANSAC, the head's or the saddle's cluster giving the scale;
+the carp and the qilin, with too few matches, by eye on a grid (body
+length, withers). Each alive: every one keeps its balance or rocks where it
+floats, tails, sashes, ribbons, manes, pennants and wingtips stir, flames
+lick, the dragons and Nüwa swim their waves, clouds boil. Every one labbed
+24 frames: no tear.
+
+**Cast.** A beast or a god stops in its new picture, for its line and
+whenever it pauses: Yao Ji rains, the elephant drinks, Guanyin pours the
+dew, the tiger roars, Sanduo's horse rears, the Jing River King rears,
+Laozi reads, the Queen Mother offers the peach, the Bull lowers his horns,
+the qilin looks back, the turtle asks, the tigress rests. A flyer goes in
+both, a visit in one and the next in the other: Nezha, the White Dragon,
+the phoenix, the carp, Jingwei, the Peng, the magpie, Nüwa, and the Eight
+Immortals, who come first on their arts, as their line says.
+
+**A change as it stops.** The change into the picture it stops in began as
+it stopped, 0.4 s before its line, and lasted 0.7 s: the Turpan cover card,
+at the Bull's line, caught him and Nezha half turned. It now begins 0.7 s
+before the stop, so a figure has come round into its stopped picture by the
+time it stops and its line comes (`poses.ts`); the pilgrims' changes
+(F139, F141) move with it. A figure that only goes in several pictures holds
+its line in the author's first; only a cue that names what it stops in
+takes a second halfway through a long stop (F141).
+
+**Checked.** Seed 1, held in the film at each line: every figure in its
+stopped picture, settled. The cover's frames retaken: the Karst (the
+elephant drinking), the First Bend (the tiger roaring), Grassland (the
+magpie gliding), Turpan (the Bull's horns lowered at a charging Nezha) and
+the Roof (the turtle's question) changed and are kept, the sheet and
+postcards redrawn; the Three Gorges and the Loess showed the same and
+stand. Tests and `content:validate` pass. The five cards signed off by the
+user, 30 September 2026.
+
+**Left.** Every picture of a figure is loaded with its scene: the cast's
+pictures now take about 30 to 100 MB of the GPU a scene (Turpan's 14 the
+most), from 16 to 55 before F139, not measured on a phone. The egrets
+follow the phoenix's path, which poses do not change. The monuments (the
+Dragon Kings, the slain dragon) stay in one picture.
+
 ## F143 — Huangshan's camera kept off the granite, 30 September 2026
 
 **Asked.** A frame of Huangshan under its first caption: "we are colliding
